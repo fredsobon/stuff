@@ -1,0 +1,152 @@
+# introduction #
+parallele fait avec le bash et invocation des commandes systeme via python grace au module subprocess.
+Analyse des fonctions : import de module et import de fonction unitaire d'un module.
+
+Exemples :
+1/
+
+#!/usr/bin/env python
+
+# python wrapper for ls command #
+
+import subprocess
+
+pyls=subprocess.call(["ls","-lh" ])
+
+pyls
+
+
+2/
+
+#!/usr/bin/env python
+
+# A system information gathering script
+import subprocess
+
+# command 1 
+
+uname="uname"
+uname_arg="-a"
+
+print("Gathering information with %s command: \n")  % uname
+subprocess.call([uname,uname_arg])
+
+ 
+# command 2 
+
+diskusage="df"
+disk_arg="-h"
+
+print("Get diskspace in human style with %s command: \n") %diskusage
+subprocess.call([diskusage,disk_arg])
+
+
+# exactly possible to write calls like this :
+
+#subprocess.call("df -h", shell=True)
+
+
+3/
+
+boogie@x61:~/lab/python/misc/python_for_sysadmin/chapter1$ cat pysysinfo_fun.py
+#!/usr/bin/env python
+
+# A system information gathering script
+import subprocess
+
+# command 1 
+
+def kern():
+    uname="uname"
+    uname_arg="-a"
+    print("Gathering information with %s command: \n")  % uname
+    subprocess.call([uname,uname_arg])
+
+ 
+# command 2 
+def space():
+    diskusage="df"
+    disk_arg="-h"
+    print("Get diskspace in human style with %s command: \n") %diskusage
+    subprocess.call([diskusage,disk_arg])
+
+# exactly possible to write calls like this :
+#subprocess.call("df -h", shell=True)
+
+
+def main():
+    space()
+    kern()
+
+
+4/ 
+boogie@x61:~/lab/python/misc/python_for_sysadmin/chapter1$ cat pysysinfo_fun2.py
+#!/usr/bin/env python
+
+# A system information gathering script
+import subprocess
+
+# command 1 
+
+def kern():
+    uname="uname"
+    uname_arg="-a"
+    print("Gathering information with %s command: \n")  % uname
+    subprocess.call([uname,uname_arg])
+
+ 
+# command 2 
+def space():
+    diskusage="df"
+    disk_arg="-h"
+    print("Get diskspace in human style with %s command: \n") %diskusage
+    subprocess.call([diskusage,disk_arg])
+
+# exactly possible to write calls like this :
+#subprocess.call("df -h", shell=True)
+
+# Main fonction that call other funct:
+
+def main():
+    space()
+    kern()
+
+# Technic to be able to execute the code under the "if __ ..." form  from command line and only for the part of code you call
+
+if __name__=="__main__":
+    main()
+
+
+5/
+boogie@x61:~/lab/python/misc/python_for_sysadmin/chapter1$ cat new_pysisinfo.py 
+#!/usr/bin/env python
+
+# very short script that reuses pysisinfo_fun2 code : see code in "/home/boogie/lab/python/misc/chapter1" folder.
+# here we import ONLY the space fonction from pysisinfo_fun2 : with "from ... import ..." notation.
+from pysysinfo_fun2 import space
+
+# classic import method 
+import subprocess
+
+
+# def new func for "/tmp"  space dir folder.
+def tmp_space():
+    tmp_usage = "du"
+    tmp_arg = "-h"
+    path = "/tmp"
+    print "Space used in /tmp directory"
+    subprocess.call([tmp_usage, tmp_arg, path])
+
+
+# def main fonction that reusses "space" fonction imported  from our pysisinfo_fun2 module and the new created one : "tmp_space" 
+def main():
+    space()
+    tmp_space()
+
+# We then use the 'tips' to be able to run all of our main fonction in script.
+
+if __name__ == "__main__":
+    main()
+ 
+
+
