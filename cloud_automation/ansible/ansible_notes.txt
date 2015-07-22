@@ -1,5 +1,7 @@
 ### Ansible notes ###
-# 
+
+# Intro :
+
 ansible 
 > cms ( config managment system)
 > orchestration
@@ -70,6 +72,91 @@ testserver | success | rc=0 >>
  18:37:36 up 24 min,  1 user,  load average: 0.01, 0.02, 0.09
 USER     TTY      FROM             LOGIN@   IDLE   JCPU   PCPU WHAT
 vagrant  pts/0    10.0.2.2         18:37    1.00s  0.32s  0.03s w
+
+Si notre commande comporte des espaces il faut l'entourer de " : ex : "tail /var/log/dmesg".
+Si on a besoin d'un acces root on doit utiliser l'option -s : sudo.Ex :
+boogie@x61:~/lab/ansible/playbooks$ ansible testserver -s -a "tail /var/log/kern.log"
+testserver | success | rc=0 >>
+Jul 22 07:40:55 vagrant-ubuntu-trusty-64 kernel: [   57.004208] type=1400 audit(1437550855.336:14): apparmor="STATUS" operation="profile_load" profile="unconfined" name="/usr/sbin/tcpdump" pid=900 comm="apparmor_parser"
+Jul 22 07:40:55 vagrant-ubuntu-trusty-64 kernel: [   57.598706] vboxvideo: Unknown symbol drm_open (err 0)
+Jul 22 07:40:55 vagrant-ubuntu-trusty-64 kernel: [   57.598754] vboxvideo: Unknown symbol drm_poll (err 0)
+Jul 22 07:40:55 vagrant-ubuntu-trusty-64 kernel: [   57.598783] vboxvideo: Unknown symbol drm_pci_init (err 0)
+Jul 22 07:40:55 vagrant-ubuntu-trusty-64 kernel: [   57.598815] vboxvideo: Unknown symbol drm_ioctl (err 0)
+Jul 22 07:40:55 vagrant-ubuntu-trusty-64 kernel: [   57.598841] vboxvideo: Unknown symbol drm_mmap (err 0)
+Jul 22 07:40:55 vagrant-ubuntu-trusty-64 kernel: [   57.598866] vboxvideo: Unknown symbol drm_pci_exit (err 0)
+Jul 22 07:40:55 vagrant-ubuntu-trusty-64 kernel: [   57.598890] vboxvideo: Unknown symbol drm_release (err 0)
+Jul 22 07:41:02 vagrant-ubuntu-trusty-64 kernel: [   64.093219] vboxsf: Successfully loaded version 4.3.10_Ubuntu (interface 0x00010004)
+Jul 22 07:41:17 vagrant-ubuntu-trusty-64 kernel: [   79.440331] hrtimer: interrupt took 4017824 ns
+
+Nous ne sommes pas limité au ping et à l'utilisation du module commandes : on peut par exemple installer des applis avec la ligne de comande ansible .Ex :
+ansible testserver -s -m apt -a name=nginx
+Si la commande echoue : on peut lancer un equivalent "apt-get update" via ansible :
+ ansible testserver -s -m apt -a name=nginx update_cache=yes
+Idem pour la gestion du service. Ex : redemarrer nginx sur notre vm :
+ansible testserver -s -m service -a "name=nginx state=restarted"
+
+# Playbooks : intro
+Le terme playbooks correspond au script de config systeme utilisé par ansible :
+On va installer et configurer nginx et securiser ses communications.
+
+Nb : dans un premier temps on va rediriger les ports 8080 et 8443 de notre machinne vers les ports 80 et 443 de la vagrant vm.Pour pouvoir correctement tester depuis notre machine le serveur web de la vagrant vm : http://localhost:8080 and https://localhost:8443.
+On va modifier le fichier Vagrantfile présent dans notre repertoire principal de manière à confgurer la redirection de port :
+
+VAGRANTFILE_API_VERSION = "2"
+Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
+  config.vm.box = "ubuntu/trusty64"
+  config.vm.network "forwarded_port", guest: 80, host: 8080
+  config.vm.network "forwarded_port", guest: 443, host: 8443
+end
+
+Apres la modif de conf on reload notre vagrant et on voit la redirection de port se charger :
+
+boogie@x61:~/lab/ansible/playbooks$ vagrant reload
+
+==> default: Preparing network interfaces based on configuration...
+    default: Adapter 1: nat
+==> default: Forwarding ports...
+    default: 80 => 8080 (adapter 1)
+    default: 443 => 8443 (adapter 1)
+    default: 22 => 2222 (adapter 1)
+==> default: Booting VM...
+==> default: Waiting for machine to boot. This may take a few minutes...
+    default: SSH address: 127.0.0.1:2222
+
+Pour arrêter notre vm vagrant :
+
+boogie@x61:~/lab/ansible/playbooks$ vagrant halt
+==> default: Attempting graceful shutdown of VM...
+
+première conf : simple. Sans support tls
+
+boogie@x61:~/lab/ansible/playbooks$ cat web-notls.yml 
+- name: Configure webserver with nginx
+hosts: webservers
+sudo: True
+tasks:
+
+  - name: install nginx
+    apt: name=nginx update_cache=yes
+
+  - name: copy nginx config file
+    copy: src=files/nginx.conf dest=/etc/nginx/sites-available/default
+
+  - name: enable configuration
+    file: >
+      dest=/etc/nginx/sites-enabled/default
+      src=/etc/nginx/sites-available/default
+      state=link
+
+  - name: copy index.html
+    template: src=templates/index.html.j2 dest=/usr/share/nginx/html/index.html
+      mode=0644
+
+  - name: restart nginx
+    service: name=nginx state=restarted
+
+
+
 
 
 
