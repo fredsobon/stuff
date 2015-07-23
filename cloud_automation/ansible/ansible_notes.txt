@@ -158,8 +158,163 @@ tasks:
 
 
 
+Convention Ansible sur conditions  vrai ou fausse :
+"""
+Ansible is pretty flexible on how you represent truthy and falsey values in playbooks.
+Strictly speaking, module arguments (like update_cache=yes ) are treated differently
+from values elsewhere in playbooks (like sudo: True ). Values elsewhere are handled
+by the YAML parser and so use the YAML conventions of truthiness, which are:
+YAML truthy
+true , True , TRUE , yes , Yes , YES , on , On , ON , y , Y
+YAML falsey
+false , False , FALSE , no , No , NO , off , Off , OFF , n , N
+Module arguments are passed as strings and use Ansible’s internal conventions, which
+are:
+A Very Simple Playbook
+www.it-ebooks.info
+|
+23module arg truthy
+yes , on , 1 , true
+module arg falsey
+no , off , 0 , false
+I tend to follow the examples in the official Ansible documentation. These typically
+use yes and no when passing arguments to modules 
+"""
 
 
+-Creation du fichier de conf nginx que l'on place dans un repertoire files crée au prealable :
+
+playbooks/files/nginx.conf. 
+
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server ipv6only=on;
+  
+    root /usr/share/nginx/html;
+    index index.html index.htm;
+  
+    server_name localhost;
+    location / {
+  
+    try_files $uri $uri/ =404;
+    }
+}
+Convention ansible :
+
+les fichiers doivent être dans un repertoire files.
+les templates jinja2 dans un repertoire templates.
+
+-Creation d'une home personalisée :
+
+playbooks/templates/index.html.j2
+<html>
+    <head>
+        <title>Welcome to ansible</title>
+    </head>
+    <body>
+        <h1>nginx, configured by Ansible</h1>
+            <p>If you can see this, Ansible successfully installed nginx.</p>
+            <p>{{ ansible_managed }}</p>
+    </body>
+</html>
+
+
+Recap arbo :
+
+boogie@x61:~/lab/ansible$ tree
+.
+└── playbooks
+    ├── ansible.cfg
+    ├── files
+    │   └── nginx.conf
+    ├── hosts
+    ├── templates
+    │   └── index.html.j2
+    ├── Vagrantfile
+    └── web-notls.yml
+
+-Creation d'un groupe webserver :
+On cree un group dans notre fichier d'inventaire qu'on pourra referencer dans notre playbook. Pour l'instant ce group contiendra notre "testserver" .
+La convention est d'utiliser le format "ini"
+boogie@x61:~/lab/ansible/playbooks$ cat hosts 
+[webservers]
+testserver ansible_ssh_host=127.0.0.1 ansible_ssh_port=2222
+
+On peut donc naturellement pinger le groupserver :
+
+boogie@x61:~/lab/ansible/playbooks$ ansible webservers -m ping
+testserver | success >> {
+    "changed": false, 
+    "ping": "pong"
+}
+
+-Execution du playbook :
+
+boogie@x61:~/lab/ansible/playbooks$ ansible-playbook web-notls.yml
+
+PLAY [Configure webserver with nginx] ***************************************** 
+
+GATHERING FACTS *************************************************************** 
+ok: [testserver]
+
+TASK: [install nginx] ********************************************************* 
+changed: [testserver]
+
+TASK: [copy nginx config file] ************************************************ 
+changed: [testserver]
+
+TASK: [enable configuration] ************************************************** 
+ok: [testserver]
+
+TASK: [copy index.html] ******************************************************* 
+changed: [testserver]
+
+TASK: [restart nginx] ********************************************************* 
+changed: [testserver]
+
+PLAY RECAP ******************************************************************** 
+testserver                 : ok=6    changed=4    unreachable=0    failed=0   
+
+Dans notre navigateur : http://localhost:8080/
+nous permet de voir notre "home" personalisée :
+nginx, configured by Ansible
+
+If you can see this, Ansible successfully installed nginx.
+
+Ansible managed: /home/boogie/lab/ansible/playbooks/templates/index.html.j2 modified on 2015-07-23 06:23:39 by boogie on x61
+
+Notes : en rendant notre fichier playbook executable et en renseignant dans l'entête  #!/usr/bin/env ansible-playbook , on peut executer directement le fichier :
+$ ./web-notls.yml
+
+
+-YAML : syntax 
+Tous les doc yaml commence par :
+---
+Commentaires :
+#
+Strings 
+On est pas obliger de quoter "" les mots , cependant c'est obligatoire dans l'utilisation de certains caractères  {{ }} ..
+Booleen 
+Yaml est nativement booleen . On peut par convention utiliser True et False 
+Lists 
+Elle sont typiquement en yaml appellées sequence mais dans ansible c'est la mot liste qui est utilisé.Elle commence toujours par un - 
+  - lapin
+  - coucou
+le format inline est aussi supporté : [lapin,coucou]
+Dictionnaires 
+ils sont appellés mapping en yaml mais dict en ansible . 
+  lapin: 44
+  coucou: 55
+La syntaxe inline est acceptée : {lapin: 44, coucou: 55}
+Retour à la ligne:
+quand on ecrit des playbooks on peut pour des raisons esthetiques vouloir faire une retour chariot tout en laissant ansible ne traiter qu'une seule ligne. On peut utiliser le caractère ">" pour gérer ce cas :
+address:>
+    4 rue
+    du terrier
+    app B
+city: youp
+
+# Anatomie d'un playbook
 
 
 
