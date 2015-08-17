@@ -54,6 +54,37 @@ Warning: Permanently added '[127.0.0.1]:2222' (ECDSA) to the list of known hosts
 Welcome to Ubuntu 14.04.2 LTS (GNU/Linux 3.13.0-55-generic x86_64)
 ....
 
+# Redirection de ports :
+
+On va rediriger les ports 8080 et 8443 de notre machine vers les ports 80 et 443 de la vagrant vm.Pour pouvoir correctement tester depuis notre machine le serveur web de la vagrant vm : http://localhost:8080 and https://localhost:8443.
+On va modifier le fichier Vagrantfile présent dans notre repertoire principal de manière à configurer la redirection de port :
+
+VAGRANTFILE_API_VERSION = "2"
+Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
+  config.vm.box = "ubuntu/trusty64"
+  config.vm.network "forwarded_port", guest: 80, host: 8080
+  config.vm.network "forwarded_port", guest: 443, host: 8443
+end
+
+Apres la modif de conf on reload notre vagrant et on voit la redirection de port se charger :
+
+boogie@x61:~/lab/ansible/playbooks$ vagrant reload
+
+==> default: Preparing network interfaces based on configuration...
+    default: Adapter 1: nat
+==> default: Forwarding ports...
+    default: 80 => 8080 (adapter 1)
+    default: 443 => 8443 (adapter 1)
+    default: 22 => 2222 (adapter 1)
+==> default: Booting VM...
+==> default: Waiting for machine to boot. This may take a few minutes...
+    default: SSH address: 127.0.0.1:2222
+# Arrêt de la vm :
+
+Pour arrêter notre vm vagrant :
+
+boogie@x61:~/lab/ansible/playbooks$ vagrant halt
+==> default: Attempting graceful shutdown of VM...
 
 
 
