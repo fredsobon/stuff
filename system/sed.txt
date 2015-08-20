@@ -1,0 +1,61 @@
+####### sed #####
+
+Fichier de reference : geekstuff :
+ex employee :
+101,John Doe,CEO
+102,Jason Smith,IT Manager
+103,Raj Reddy,Sysadmin
+104,Anand Ram,Developer
+105,Jane Miller,Sales Manager
+
+Basic sed syntax:
+sed [options] {sed-commands} {input-file}
+Sed lit chaque ligne une a une depuis son entree standard (pipe ou file) et execute les commandes sur une ligne particuliere.
+
+-commande basiques/ options :
+
+*Lecture du fichier :
+ sed -n 'p' /etc/passwd
+*  script : -f (file)
+
+Enregistrement des commandes via un fichier : modele servant a saisir plus facilement de nombreuse commandes via un appel aà un script externe :
+
+cat sed-script.test 
+/^root/ p
+/^boogie/ p
+
+
+sed -n -f sed-script.test /etc/passwd
+root:x:0:0:root:/root:/bin/bash
+boogie:x:1000:1000:boogie,,,:/home/boogie:/bin/bash
+boogie@x61:~/lab/awk_sed/sed$ 
+
+* Multiples commandes : -e (execute)
+
+sed -n -e '/^root/ p' -e '/^boogie/ p' /etc/passwd
+
+
+* Multi lignes commandes : {} 
+
+sed -n '{
+/^root/ p
+/^boogie/ p
+}' /etc/passwd
+root:x:0:0:root:/root:/bin/bash
+boogie:x:1000:1000:boogie,,,:/home/boogie:/bin/bash
+
+/!\ Sed ne modifie jamais le fichier original : il redirige juste son execution vers la sortie standart. Pour enregistrer les modifs dans un fichier il faut saisir directement la redirection vers " > fichier.dest " 
+
+Sed utilise la sequence : REPR : Read Execute Print Repeat
+-> Read : lecture de la ligne dans un "pattern space"
+-> Execution des commandes dans le pattern space
+-> Print : affichage du resultat ET vidage du pattern space 
+-> Repeat : recommence a la ligne suivante et jusqu'a la fin du fichier.
+
+- Commande p print pattern space.
+par defaut sed affiche sur la sortie standart .le p permet de controller precisement se que l'on veut sur la sortie sandart . Il est utiliser conjointement avec "-n" qui va neutraliser la sortie standart de sed : sans quoi de base on aurait l'affichage en double sur notre sortie : "sed" de base + "p".
+
+On peut donc preciser les lignes que l'on veut afficher .Ex :
+
+ 
+ 
