@@ -18,7 +18,7 @@ Sed lit chaque ligne une a une depuis son entree standard (pipe ou file) et exec
  sed -n 'p' /etc/passwd
 *  script : -f (file)
 
-Enregistrement des commandes via un fichier : modele servant a saisir plus facilement de nombreuse commandes via un appel aà un script externe :
+Enregistrement des commandes via un fichier : modele servant a saisir plus facilement de nombreuses commandes via un appelà un script externe :
 
 cat sed-script.test 
 /^root/ p
@@ -85,7 +85,7 @@ cat employee  |sed -n '3,$ p'
 104,Anand Ram,Developer
 105,Jane Miller,Sales Manager
  
-Les intervals de ligne peuvent donc être spécifiés avec : "," (n,m) mais aussi avec les charactères "+" et "~" :
+Les intervalles de ligne peuvent donc être spécifiés avec : "," (n,m) mais aussi avec les charactères "+" et "~" :
 
 - "+" : permet de definir le nombre de ligne que l'on veut imprimer à partir de notre premier interval :
 Ici on imprime la première ligne suivi de 2 autres lignes : 
@@ -112,8 +112,58 @@ cat employee  |sed -n '1~4 p'
 101,John Doe,CEO
 105,Jane Miller,Sales Manager
 
+Comme on peut sélectionner le numéro de ligne que l'on veut afficher , on peut selectionner une pattern à afficher.
+Ex :
+cat employee |sed -n '/Sysadmin/ 'p
+103,Raj Reddy,Sysadmin
 
+On peut combiner les deux : selectionner un pattern et une ligne particulière : 
+Ex : ici on affiche la ligne contenant le pattern 'sysadmin' et la premiere ligne du fichier : 
+cat employee |sed -n -e '/Sysadmin/ p' -e '1 p'
+101,John Doe,CEO
+103,Raj Reddy,Sysadmin
 
+On remarque que sed evalue les instructions avant de les afficher : il affiche ici la premiere ligne avant la ligne contenant le pattern "sysadmin" .
 
+On peut afficher la ligne contenant un pattern jusqu'à la fin du fichier :
+cat employee |sed -n -e '/Dev/,$ p'
+104,Anand Ram,Developer
+105,Jane Miller,Sales Manager
+
+Un intervalle de pattern : 
+
+cat employee |sed -n -e '/Sysadmin/, /Dev/ p'
+103,Raj Reddy,Sysadmin
+104,Anand Ram,Developer
+
+-Commande "delete" :
+
+On peut supprimer des lignes avec sed. Comme avec les differentes commandes : cette suppression ne ce fait que sur l'affichage standart ( le fichier original n'est pas modifié.)
+
+Ex : ici on supprime la troisième ligne du fichier : 
+
+cat employee  |sed '3 d'
+101,John Doe,CEO
+102,Jason Smith,IT Manager
+104,Anand Ram,Developer
+105,Jane Miller,Sales Manager
+
+Idem qu'avec print : on peut supprimer un intervalle de ligne : 
+cat employee  |sed '3,$ d'
+101,John Doe,CEO
+102,Jason Smith,IT Manager
+
+On peut supprimer une ligne contenant un certain pattern 
+cat employee  |sed '/Developer/ d'
+101,John Doe,CEO
+102,Jason Smith,IT Manager
+103,Raj Reddy,Sysadmin
+105,Jane Miller,Sales Manager
+
+On peut egalement supprimer un intervalle compri entree deux pattern détectés :
+
+cat employee  |sed '/Sysadmin/,/Sales/ d'
+101,John Doe,CEO
+102,Jason Smith,IT Manager
 
 
