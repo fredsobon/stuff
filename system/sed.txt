@@ -12,7 +12,7 @@ sed [options] {sed-commands} {input-file}
 
 Sed lit chaque ligne une a une depuis son entree standard (pipe ou file) et execute les commandes sur une ligne particuliere.
 
--commande basiques/ options :
+# commande basiques/ options :
 
 *Lecture du fichier :
  sed -n 'p' /etc/passwd
@@ -170,3 +170,35 @@ cat employee  |sed '/Sysadmin/,/Sales/ d'
 On peut supprimer grace aux regexp les lignes vides et les lignes commencent par un commentaire.Ex :
 
 cat cgi.cfg |sed -e '/^$/d' -e '/^#/d'
+
+
+-Commande 'Write' :
+on peut rediriger nos champs filtrés dans un fichier txt avec la commande w :
+On doit comme d'habitude utiliser l'option "-n" pour bypasser l'affichage standart de sed.Ex :
+Ici on  va écrire dans un fichier les lignes contenant le pattern 'Sys' 
+
+cat employee |sed -n '/Sys/w file.txt'
+boogie@x61:~/lab/awk_sed/sed$ cat file.txt 
+103,Raj Reddy,Sysadmin
+
+Il est biensur possible d'ecrire un interval de ligne.Ex :
+boogie@x61:~/lab/awk_sed/sed$ cat employee |sed -n '3,5 w number.txt'
+boogie@x61:~/lab/awk_sed/sed$ cat number.txt 
+103,Raj Reddy,Sysadmin
+104,Anand Ram,Developer
+105,Jane Miller,Sales Manager
+Idem pour un interval de texte selectionné.Ex :
+boogie@x61:~/lab/awk_sed/sed$ cat employee |sed -n '/Sys/,/Dev/  w filter.txt'
+boogie@x61:~/lab/awk_sed/sed$ cat filter.txt 
+103,Raj Reddy,Sysadmin
+104,Anand Ram,Developer
+Idem il est tout a fait possible de filtrer un pattern puis d'ecrire le nombre de ligne déterminé suivant ce pattern. Ex : on cherche 'Sys' puis on imprime deux lignes à partir de Sys dans un fichier. Parfait pour des blocks de texte à modifier :
+
+boogie@x61:~/lab/awk_sed/sed$ cat employee |sed -n '/Sys/,+2 w match.txt'
+boogie@x61:~/lab/awk_sed/sed$ cat match.txt 
+103,Raj Reddy,Sysadmin
+104,Anand Ram,Developer
+105,Jane Miller,Sales Manager
+
+# Substitute :
+
