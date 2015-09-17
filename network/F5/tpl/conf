@@ -1,0 +1,103 @@
+ltm virtual-address /Common/10.4.90.11 {
+
+    address 10.4.90.11
+
+    arp enabled
+
+    icmp-echo enabled
+
+    mask 255.255.255.255
+
+    traffic-group /Common/traffic-group-1
+
+}
+
+ltm virtual-address /Common/10.4.90.12 {
+
+    address 10.4.90.12
+
+    arp enabled
+
+    icmp-echo enabled
+
+    mask 255.255.255.255
+
+    traffic-group /Common/traffic-group-1
+
+}
+
+ 
+
+ltm virtual /Common/VS_SQLR_SVC_CORE_DEV12_8427 {
+
+    destination /Common/10.4.90.11:8427
+
+    ip-protocol tcp
+
+    mask 255.255.255.255
+
+    pool /Common/POOL_SQLR_SVC_CORE_DEV12_8427
+
+    profiles {
+
+        /Common/tcp-lan-optimized { }
+
+    }
+
+    source 0.0.0.0/0
+
+    source-address-translation {
+
+        pool /Common/SN_POOL_SVC_CORE_DEV
+
+        type snat
+
+    }
+
+    translate-address enabled
+
+    translate-port enabled
+
+    vlans {
+
+        /Common/VLAN_VIP_CORE_DEV
+
+    }
+
+    vlans-enabled
+
+}
+
+ 
+
+ 
+
+ltm pool /Common/POOL_SQLR_SVC_CORE_DEV12_8427 {
+
+    members {
+
+        /Common/10.4.92.2:8427 {
+
+            address 10.4.92.2
+
+        }
+
+    }
+
+    monitor /Common/MON_SQLR_TCP
+
+}
+
+ 
+
+ 
+
+ltm node /Common/10.4.92.13 {
+
+    address 10.4.92.13
+
+    description sqlr401.svc.core.dev.dc3.e-merchant.net
+
+    monitor /Common/icmp
+
+}

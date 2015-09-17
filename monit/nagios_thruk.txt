@@ -1,0 +1,714 @@
+## Nagios + thruk ##
+
+# pre-requis :
+### 
+dpkg -l |grep apache2
+ii  apache2                                    2.4.7-1ubuntu4.5                 amd64        Apache HTTP Server
+ii  apache2-bin                                2.4.7-1ubuntu4.5                 amd64        Apache HTTP Server (binary files and modules)
+ii  apache2-data                               2.4.7-1ubuntu4.5                 all          Apache HTTP Server (common files)
+ii  apache2-mpm-event                          2.4.7-1ubuntu4.5                 amd64        transitional event MPM package for apache2
+ii  apache2-utils                              2.4.7-1ubuntu4.5                 amd64        Apache HTTP Server (utility programs for web servers)
+ii  libapache2-mod-fastcgi                     2.4.7~0910052141-1.1             amd64        Apache 2 FastCGI module for long-running CGI scripts
+ii  libapache2-mod-fcgid                       1:2.3.9-1                        amd64        FastCGI interface module for Apache 2
+ii  libapache2-mod-php5                        5.5.9+dfsg-1ubuntu4.11           amd64        server-side, HTML-embedded scripting language (Apache 2 module)
+
+dpkg -l |grep nagios
+ii  check-mk-livestatus                        1.2.2p3-1                        amd64        general purpose nagios-plugin for retrieving data
+ii  libnagios-plugin-perl                      0.36-1                           all          family of perl modules to streamline writing Nagios
+ii  nagios-plugins                             1.5-3ubuntu1                     all          Plugins for nagios compatible monitoring systems (metapackage)
+ii  nagios-plugins-basic                       1.5-3ubuntu1                     amd64        Plugins for nagios compatible monitoring systems
+ii  nagios-plugins-common                      1.5-3ubuntu1                     amd64        Common files for plugins for nagios compatible monitoring
+ii  nagios-plugins-standard                    1.5-3ubuntu1                     amd64        Plugins for nagios compatible monitoring systems
+ii  nagios-snmp-plugins                        1.1.1-8                          all          SNMP Plugins for nagios
+ii  nagios3                                    3.5.1-1ubuntu1                   amd64        host/service/network monitoring and management system
+ii  nagios3-cgi                                3.5.1-1ubuntu1                   amd64        cgi files for nagios3
+ii  nagios3-common                             3.5.1-1ubuntu1                   all          support files for nagios3
+ii  nagios3-core                               3.5.1-1ubuntu1                   amd64        host/service/network monitoring and management system core files
+
+
+Thruk va nous servir de front-end et permet d'aggréger une vue de plusieurs datacenters ( grace à livestatus ):
+
+dpkg -l |grep thruk
+ii  libthruk                                   2.00-1                           amd64        Thruk perl libraries
+ii  thruk                                      2.00                             amd64        Monitoring Webinterface for Nagios/Icinga and Shinken
+ii  thruk-base                                 2.00                             amd64        Monitoring Webinterface for Nagios/Icinga and Shinken
+
+
+# Optionnels :
+Pour pouvoir répartir les jobs : il est possible de fournir à nagios un /des  workers pour l'epauler eet avoir un traitement plus véloce de notre sup :
+
+dpkg -l |grep gearm
+ii  gearman-job-server                         1.0.6-3                          amd64        Job server for the Gearman distributed job queue
+ii  gearman-tools                              1.0.6-3                          amd64        Tools for the Gearman distributed job queue
+ii  libgearman7:amd64                          1.0.6-3                          amd64        Library providing Gearman client and worker functions
+ii  mod-gearman-module                         1.4.14-1                         amd64        Nagios/Icinga event broker module for Mod-Gearman
+ii  mod-gearman-tools                          1.4.14-1                         amd64        Tools for mod-gearman
+
+Il va être possible d'interroger notre front end et de filtrer les alertes grace aux api de nagios et thruk : il est possible grace à une appli ou un script autonome de gérer les alertes warning et critical par exemple : dans notre exemple il se nommera infra_viewer
+
+Il est possbile pour le coup d'installer un mini serveur web python permettant de lancer notre application : 
+dpkg -l |grep gunicorn
+ii  gunicorn                                   17.5-2build1                     all          Event-based HTTP/WSGI server
+ apt-cache depends infra_viewer
+
+  Depends: gunicorn
+  Depends: python-cx-oracle
+  Depends: python-flask
+  Depends: python-suds
+  Depends: python
+  Depends: python-support
+
+
+
+##########################################
+
+Quelques conf utiles :
+
+XXXX /etc/infra_viewer# cat infra_viewer.conf
+[main]
+secret_key = XXXXXX 
+
+[nagios]
+dc1 = [bla1, sup1.bla.com]
+dc2 = [bla2, sup2.bla.com]
+
+[jira]
+username = system-infra_viewer
+password = XXXXX
+
+filter_incident = 11111
+filter_task = 18745
+
+..
+....
+
+Sur notre serveur de sup on va définir dans notre conf thruk notre serveur et son ou ses peers joignable via une entrée dns : 
+
+# cat thruk_local.conf 
+<Component Thruk::Backend>
+    <peer>
+        name   = bla1
+        type   = livestatus
+        <options>
+            peer          = /var/run/nagios3/livestatus.sock
+            resource_file = /etc/nagios3/resource.cfg
+       </options>
+       <configtool>
+            core_conf      = /etc/nagios3/nagios.cfg
+            obj_check_cmd  = /usr/sbin/nagios -v /etc/nagios3/nagios.cfg
+            obj_reload_cmd = /etc/init.d/nagios3 reload
+       </configtool>
+    </peer>
+    <peer>
+        name   = bla2
+        type   = livestatus
+        <options>
+            peer   = sup.bla.com:6557
+        </options>
+    </peer>
+</Component>
+
+
+
+on va definir un "home dir pour le gunicorn" dans notre vhost apache : 
+
+<Virtualhost *:80>
+    ServerName sup.bla.com
+    ServerAlias infraviewer.bla.com
+    DocumentRoot /usr/share/infra_viewer/
+
+    CustomLog    /var/log/apache2/infra_viewer-access.log combined
+    ErrorLog     /var/log/apache2/infra_viewer-error.log
+
+    <Directory "/usr/share/infra_viewer/">
+        AllowOverride None
+        Require all granted
+    </Directory>
+
+    ProxyRequests Off
+    ProxyPreserveHost On
+
+    <Proxy *>
+        Require all granted
+    </Proxy>
+
+    ProxyPass / http://localhost:5000/
+    ProxyPassReverse / http://localhost:5000/
+</Virtualhost>
+
+
+Puis une conf pour gunicorn 
+
+
+/etc/gunicorn.d# cat overview
+CONFIG = {
+    'working_dir': '/usr/share/infra_viewer',
+    'args': (
+        '--bind=127.0.0.1:5000',
+        '--workers=8',
+        '--timeout=60',
+        'infra_viewer.app:app',
+    ),
+
+
+
+La conf en elle même va comporter les static et les html utilisés par le frame work python flask 
+
+
+
+
+/usr/share/emerchant-overview# tree
+.
+├── doc
+│   ├── examples
+│   │   ├── infra_viewer.conf
+│   │   └── sqlrelay.conf
+│   └── gunicorn.d
+│       └── overview
+├── static
+│   ├── all-fine.gif
+│   ├── favicon.png
+│   ├── fonts
+│   │   ├── LigatureSymbols.eot
+│   │   ├── LigatureSymbols.otf
+│   │   ├── LigatureSymbols.svg
+│   │   ├── LigatureSymbols.ttf
+│   │   ├── LigatureSymbols.woff
+│   │   └── OpenSans.woff
+│   ├── highcharts.js
+│   ├── jquery.js
+│   ├── loader-bar.gif
+│   ├── moment.js
+│   ├── nagios.js
+│   ├── infra_viewer.js
+│   └── styles.css
+└── templates
+    ├── layout.html
+    ├── nagios.html
+
+
+
+
+Le coeur de l'appli est dans un module python fait maison :
+
+app.py  __init__.py  livestatus.py  module  response.py
+
+
+cat app.py 
+# -*- coding: utf-8 -*-
+
+import ConfigParser
+import os
+import stat
+
+from flask import Flask, g, redirect, url_for
+from overview import CONF_DIR, DATA_DIR, ROOT_PATH, STATIC_DIR, TEMPLATE_DIR
+from overview.module.jira.blueprint import jira
+from overview.module.nagios.blueprint import nagios
+from werkzeug.contrib.cache import FileSystemCache
+
+
+# Create application
+app = Flask(__name__, static_folder=STATIC_DIR, template_folder=TEMPLATE_DIR)
+app.root_path = ROOT_PATH
+app.debug = True
+
+# Load configuration
+file_path = os.path.join(CONF_DIR, 'infra_view.conf')
+
+if os.path.exists(file_path):
+    # Check secret key file permissions
+    mode = os.stat(file_path).st_mode
+
+    if mode & stat.S_IRWXU != 384 or mode & stat.S_IRWXG != 0 or mode & stat.S_IRWXO != 0:
+        raise Exception("%s file permissions should be 600\n" % file_path)
+
+    parser = ConfigParser.ConfigParser()
+    parser.read([file_path])
+
+    # Set application secret key
+    app.secret_key = parser.get('main', 'secret_key')
+    parser.remove_option('main', 'secret_key')
+
+    # Set application settings parser
+    app.settings = parser
+
+# Register modules
+app.register_blueprint(jira)
+app.register_blueprint(nagios)
+
+@app.before_request
+def before_request():
+    g.cache = FileSystemCache(os.path.join(DATA_DIR, 'cache'))
+
+
+@app.teardown_request
+def teardown_request(e):
+    if hasattr(g, 'cache'):
+        del g.cache
+
+
+@app.route('/')
+def index():
+    return redirect(url_for('nagios.index'))
+
+
+
+
+
+cat __init__.py 
+# -*- coding: utf-8 -*-
+
+import os
+
+
+__version__ = '2.0.5'
+
+
+# Application root path
+ROOT_PATH = ''
+
+# Base application directories
+CONF_DIR = '/etc/infra_viewer'
+DATA_DIR = '/var/lib/infra_viewer'
+SHARE_DIR = '/usr/share/infra_viewer'
+STATIC_DIR = os.path.join(SHARE_DIR, 'static')
+TEMPLATE_DIR = os.path.join(SHARE_DIR, 'templates')
+
+
+cat livestatus.py 
+livestatus.py voir le travail sur check mk@mathias-kettner.de 
+
+# cat response.py 
+# -*- coding: utf-8 -*-
+
+from flask import Response, json
+
+
+def make_json_response(data, status=200):
+    try:
+        json.encoder.FLOAT_REPR = lambda a: format(a, '.2f')
+    except:
+        pass
+
+    response = Response(status=status)
+    response.headers['Content-Type'] = 'application/json; charset=utf-8'
+    response.data = json.dumps(data)
+
+    return response
+
+
+
+
+Arbo du module : 
+
+
+:/usr/share/pyshared/infra_viewer/module# tree
+.
+├── __init__.py
+├── jira
+│   ├── blueprint.py
+│   └── __init__.py
+├── nagios
+│   ├── blueprint.py
+│   └── __init__.py
+
+
+
+cat __init__.py 
+# -*- coding: utf-8 -*-
+
+
+# cat jira/__init__.py 
+# -*- coding: utf-8 -*-
+
+
+# cat jira/blueprint.py 
+# -*- coding: utf-8 -*-
+
+from flask import Blueprint, current_app as app, g
+from overview.response import make_json_response
+from suds.client import Client
+
+
+# Create module
+jira = Blueprint('jira', '__main__', url_prefix='/jira')
+
+    return make_json_response({})
+
+
+cat nagios/__init__.py 
+# -*- coding: utf-8 -*-
+
+from flask import current_app as app
+from overview import livestatus
+
+
+NAGIOS_STATE_OK = 0
+NAGIOS_STATE_WARNING = 1
+NAGIOS_STATE_CRITICAL = 2
+NAGIOS_STATE_UNKNOWN = 3
+NAGIOS_STATE_DOWNTIME = 4
+NAGIOS_STATE_DOWN = 5
+
+NAGIOS_TYPE_STATE_SOFT = 0
+NAGIOS_TYPE_STATE_HARD = 1
+
+NAGIOS_HOST_STATE_UP = 0
+NAGIOS_HOST_STATE_DOWN = 1
+NAGIOS_HOST_STATE_UNREACHABLE = 2
+
+NAGIOS_HOST_SERVICE_OK = 0
+NAGIOS_HOST_SERVICE_WARNING = 1
+NAGIOS_HOST_SERVICE_CRITICAL = 2
+NAGIOS_HOST_SERVICE_UNKNOWN = 3
+
+NAGIOS_MASK_OK = 1
+NAGIOS_MASK_WARNING = 2
+NAGIOS_MASK_CRITICAL = 4
+NAGIOS_MASK_UNKNOWN = 8
+NAGIOS_MASK_DOWNTIME = 16
+NAGIOS_MASK_DOWN = 32
+
+
+def get_groups():
+    hostgroups = livestatus.MultiSiteConnection(get_backends_config()).query_column_unique('GET hostgroups\nColumns: name')
+    servicegroups = livestatus.MultiSiteConnection(get_backends_config()).query_column_unique('GET servicegroups\nColumns: name')
+    return list(set(hostgroups + servicegroups))
+
+
+def get_backends():
+    backends = {}
+
+    for key, value in app.settings.items('nagios'):
+        if value.startswith('[') and value.endswith(']'):
+            backends[key] = [x.strip() for x in value[1:-1].split(',')]
+        else:
+            raise Exception('Malformed site definition (%s: %s)' % (key, value))
+
+    return backends
+
+
+def get_backends_config():
+    return dict((x, {'alias': y[0], 'socket': 'tcp:%s:6557' % y[1]}) for x, y in get_backends().iteritems())
+
+
+def get_downtimes(data):
+    return [[y.decode('unicode-escape') for y in x[1:]] for x in data]
+
+
+def get_states_list():
+    return dict((y, x[13:]) for x, y in globals().iteritems() if x.startswith('NAGIOS_STATE_'))
+
+
+def hoststate_to_state(state):
+    value = int(state)
+
+    if value == NAGIOS_HOST_STATE_DOWN:
+        return NAGIOS_STATE_DOWN
+    elif value == NAGIOS_HOST_STATE_UNREACHABLE:
+        return NAGIOS_STATE_WARNING
+
+    return value
+
+
+def make_request(query):
+    req_hosts = [
+        'GET hosts',
+        'Columns: host_name state last_state_change downtimes_with_info groups',
+        'Filter: state_type > %d' % NAGIOS_TYPE_STATE_SOFT,
+        'Filter: hard_state = 1 ',
+    ]
+
+    req_services = [
+        'GET services',
+        'Columns: host_name host_state host_downtimes_with_info state description downtimes_with_info '
+            + 'last_state_change plugin_output host_groups groups',
+        'Filter: state_type > %d' % NAGIOS_TYPE_STATE_SOFT,
+        'Filter: host_hard_state = %d' % NAGIOS_HOST_STATE_UP,
+    ]
+
+    if 'state' in query:
+        states = query['state']
+        states_mask = 0
+
+        for state in states:
+            try:
+                states_mask |= 1 << int(state)
+            except:
+                pass
+
+        req_hosts_count = 0
+        req_services_count = 0
+
+        if not states_mask & NAGIOS_MASK_DOWNTIME:
+            req_hosts.append('Filter: scheduled_downtime_depth = 0')
+
+            req_services.append('Filter: scheduled_downtime_depth = 0')
+            req_services.append('Filter: host_scheduled_downtime_depth = 0')
+
+        if states_mask & NAGIOS_MASK_OK:
+            req_hosts.append('Filter: state = %s' % NAGIOS_HOST_STATE_UP)
+            req_hosts_count += 1
+
+            req_services.append('Filter: state = %s' % NAGIOS_HOST_SERVICE_OK)
+            req_services_count += 1
+
+        if states_mask & NAGIOS_MASK_WARNING:
+            req_services.append('Filter: state = %s' % NAGIOS_HOST_SERVICE_WARNING)
+            req_services_count += 1
+
+        if states_mask & NAGIOS_MASK_CRITICAL:
+            req_services.append('Filter: state = %s' % NAGIOS_HOST_SERVICE_CRITICAL)
+            req_services_count += 1
+
+        if states_mask & NAGIOS_MASK_UNKNOWN:
+            req_services.append('Filter: state = %s' % NAGIOS_HOST_SERVICE_UNKNOWN)
+            req_services_count += 1
+
+        if states_mask & NAGIOS_MASK_DOWN:
+            req_hosts.append('Filter: state > 0')
+            req_hosts_count += 1
+
+        if states_mask & NAGIOS_MASK_DOWNTIME:
+            req_hosts.append('Filter: scheduled_downtime_depth > 0')
+            req_hosts_count += 1
+
+            req_services.append('Filter: scheduled_downtime_depth > 0')
+            req_services_count += 1
+
+        if req_hosts_count == 0:
+            req_hosts.append('Filter: state > 0')
+        elif req_hosts_count > 1:
+            req_hosts.append('Or: %d' % req_hosts_count)
+
+        if req_services_count == 0:
+            if states_mask & NAGIOS_MASK_DOWN:
+                req_services.append('Filter: state < 0')
+            else:
+                req_services.append('Filter: state > 0')
+        elif req_services_count > 1:
+            req_services.append('Or: %d' % req_services_count)
+
+    else:
+        req_hosts.append('Filter: state > %d' % NAGIOS_HOST_STATE_UP)
+        req_hosts.append('Filter: scheduled_downtime_depth = 0')
+
+        req_services.append('Filter: state > %d' % NAGIOS_HOST_SERVICE_OK)
+        req_services.append('Filter: scheduled_downtime_depth = 0')
+        req_services.append('Filter: host_scheduled_downtime_depth = 0')
+
+    exclude_groups = []
+
+    if 'group' in query:
+        value = query['group']
+
+        if isinstance(value, str):
+            req_hosts.append('Filter: groups >= %s' % value)
+            req_services.append('Filter: host_groups >= %s' % value)
+            req_services.append('Filter: service_groups >= %s' % value)
+        elif isinstance(value, dict):
+            if 'include' in value:
+                groups = value['include']
+
+                for group in groups:
+                    req_hosts.append('Filter: groups >= %s' % group)
+                    req_services.append('Filter: host_groups >= %s' % group)
+                    req_services.append('Filter: service_groups >= %s' % group)
+
+                if len(groups) > 1:
+                    req_hosts.append('Or: %d' % len(groups))
+                    req_services.append('Or: %d' % (len(groups) * 2))
+                elif len(groups) == 1:
+                    req_services.append('Or: 2')
+
+            if 'exclude' in value:
+                exclude_groups = value['exclude']
+
+    return req_hosts, req_services, exclude_groups
+
+
+def make_result(response, exclude_groups):
+    hosts = {}
+    services = []
+
+    groups = set(exclude_groups)
+
+    for backend, res_hosts, res_services in response:
+        # Loop over services problems
+        for res in res_services:
+            if groups.intersection(res['groups']):
+                continue
+
+            if res['host_name'] not in hosts:
+                if groups.intersection(res['host_groups']):
+                    continue
+
+                hosts[res['host_name']] = {
+                    'timestamp': 0,
+                    'state': hoststate_to_state(res['host_state']),
+                    'services': {},
+                    'groups': res['host_groups'],
+                    'backend': backend.split(':')[1],
+                    'downtimes': [],
+                }
+
+                if len(res['host_downtimes_with_info']) > 0:
+                    hosts[res['host_name']].update({
+                        'state': NAGIOS_STATE_DOWNTIME,
+                        'downtimes': get_downtimes(res['host_downtimes_with_info']),
+                    })
+
+            # Assign most recent timestamp
+            if res['last_state_change'] > hosts[res['host_name']]['timestamp']:
+                hosts[res['host_name']]['timestamp'] = res['last_state_change']
+
+            # Set `acknowledged' if host has downtimes
+            description = res['description'].decode('unicode-escape')
+
+            hosts[res['host_name']]['services'][description] = {
+                'timestamp': res['last_state_change'],
+                'state': res['state'],
+                'output': res['plugin_output'].partition('!')[0].decode('unicode-escape'),
+                'downtimes': [],
+                'groups': res['groups']
+            }
+
+            if len(res['downtimes_with_info']) > 0:
+                hosts[res['host_name']]['services'][description].update({
+                    'state': 4,
+                    'downtimes': get_downtimes(res['downtimes_with_info']),
+                })
+
+            # Append service to list if needed
+            if res['description'] not in services and res['host_state'] == NAGIOS_HOST_STATE_UP:
+                services.append(description)
+
+        # Loop over hosts problems
+        for res in res_hosts:
+            if not res['name'] in hosts:
+                if groups.intersection(res['groups']):
+                    continue
+
+                hosts[res['name']] = {
+                    'state': hoststate_to_state(res['state']),
+                    'backend': backend.split(':')[1],
+                    'groups': res['groups'],
+                    'downtimes': [],
+                }
+
+            hosts[res['name']]['timestamp'] = res['last_state_change']
+
+            # Set `acknowledged' if host has downtimes
+            if len(res['downtimes_with_info']) > 0:
+                hosts[res['name']].update({
+                    'state': NAGIOS_STATE_DOWNTIME,
+                    'downtimes': get_downtimes(res['downtimes_with_info']),
+                })
+
+    # Sort hosts by timestamp
+    hosts_sorted = []
+
+    for i in sorted(hosts, key=lambda x: hosts[x]['timestamp'], reverse=True):
+        host = hosts[i]
+        host['hostname'] = i
+        hosts_sorted.append(host)
+
+    return {'services': sorted(services), 'hosts': hosts_sorted}
+
+
+def search(query):
+    # Handle search types
+    show_hosts = 'hosts' in query
+    show_services = 'services' in query
+
+    if not show_hosts and not show_services:
+        show_hosts = True
+        show_services = True
+
+    # Prepare request
+    req_hosts, req_services, exclude_groups = make_request(query)
+
+    # Get backends
+    req_backends = get_backends().keys()
+
+    if 'backend' in query:
+        if 'include' in query['backend']:
+            req_backends = query['backend']['include']
+
+        if 'exclude' in query['backend']:
+            req_backends = list(set(req_backends) - set(query['backend']['exclude']))
+
+    # Get backends configuration
+    result = []
+
+    for backend_name, backend_config in get_backends_config().iteritems():
+        if not backend_name in req_backends:
+            continue
+
+        ls = livestatus.SingleSiteConnection(backend_config['socket'])
+
+        res_hosts = []
+        res_services = []
+
+        if show_hosts:
+            try:
+                res_hosts = ls.query_table_assoc('\n'.join(req_hosts))
+            except:
+                pass
+
+        if show_services:
+            try:
+                res_services = ls.query_table_assoc('\n'.join(req_services))
+            except:
+                pass
+
+        result.append((backend_config['socket'], res_hosts, res_services))
+
+    return make_result(result, exclude_groups)
+
+
+
+
+
+cat nagios/blueprint.py 
+# -*- coding: utf-8 -*-
+
+from flask import Blueprint, render_template, request
+from overview.response import make_json_response
+from overview.module.nagios import get_groups, get_backends, get_states_list, search
+
+
+# Create module
+nagios = Blueprint('nagios', '__main__', url_prefix='/nagios')
+
+
+@nagios.route('/')
+def index():
+    return render_template('nagios.html')
+
+
+@nagios.route('/search', methods=['POST'])
+def perform_search():
+    return make_json_response(search(request.json if request.json else {}))
+
+
+@nagios.route('/lists')
+def get_lists():
+    return make_json_response({
+        'backends': dict(sorted(get_backends().items(), key=lambda (x, y): x)),
+        'states': dict(sorted(get_states_list().items(), key=lambda (x, y): x)),
+        'groups': sorted(get_groups()),
+    })
+
+
+
+
+La conf de notre gearman doit permettre de contacter le serveur de sup :
+
+Il faudra donc bien s'assurer  qu'il est bien présent : 
+# cat /etc/gearman/worker.conf
+...
+.....
+# Gearman jobserver
+server=sup.bla.com
