@@ -6,15 +6,394 @@ Ajout du user dans groupe docker
 
 boogie@x61:~$ sudo addgroup boogie docker
 Ajout de l'utilisateur « boogie » au groupe « docker »...
-Ajout de l'utilisateur boogie au groupe docker 
+Ajout de l'utilisateur boogie au groupe docker
 Fait.
-
 boogie@x61:~$ docker run -i -t debian /bin/bash
-On va lister nos images présentes sur le système avec un 
-boogie@boogieland:~$ docker images
+
+
+# tuto suivi à partir de maintenant via le lm_174 sur docker
+Tout est deja configuré pour ne pas avoir a saisir sudo devant chaque commande docker ( ajout du user dans groupe docker) : on travaille sur docker DEPUIS une vm VAGRANT :
+
+# Pour connaitre la version docker : docker version 
+
+docker@boot2docker:~$ docker version
+Client:
+ Version:      1.8.2
+ API version:  1.20
+ Go version:   go1.4.2
+ Git commit:   0a8c2e3
+ Built:        Thu Sep 10 19:10:10 UTC 2015
+ OS/Arch:      linux/amd64
+
+Server:
+ Version:      1.8.2
+ API version:  1.20
+ Go version:   go1.4.2
+ Git commit:   0a8c2e3
+ Built:        Thu Sep 10 19:10:10 UTC 2015
+ OS/Arch:      linux/amd64
+
+
+
+
+
+# on peut essayer de recupérer ou chercher des infos sur un container en tapant la commande : 
+docker search pattern
+
+docker@boot2docker:~$ docker search ubuntu |head
+NAME                           DESCRIPTION                                     STARS     OFFICIAL   AUTOMATED
+ubuntu                         Ubuntu is a Debian-based Linux operating s...   2313      [OK]       
+ubuntu-upstart                 Upstart is an event-based replacement for ...   33        [OK]       
+torusware/speedus-ubuntu       Always updated official Ubuntu docker imag...   25                   [OK]
+tleyden5iwx/ubuntu-cuda        Ubuntu 14.04 with CUDA drivers pre-installed    18                   [OK]
+ubuntu-debootstrap             debootstrap --variant=minbase --components...   14        [OK]       
+...
+.....
+# Pour recupérer une image désirée :
+docker@boot2docker:~$ docker pull ubuntu:trusty
+trusty: Pulling from library/ubuntu
+d3a1f33e8a5a: Downloading [==============================>                    ] 40.01 MB/65.79 MB
+c22013c84729: Download complete 
+d74508fb6632: Download complete 
+91e54dfb1179: Download complete 
+library/ubuntu:trusty: The image you are pulling has been verified. Important: image verification is a tech preview feature and should not be relied on to provide security.
+Digest: sha256:2153d9d8a46ba76931b910b3dcc716bc5451c9f8e5c736bd72db49af523b5e82
+Status: Downloaded newer image for ubuntu:trusty
+# docker images nous permet de voir nos containers : 
+docker@boot2docker:~$ docker images
 REPOSITORY          TAG                 IMAGE ID            CREATED             VIRTUAL SIZE
-ubuntu              latest              91e54dfb1179        4 weeks ago         188.4 MB
+ubuntu              trusty              91e54dfb1179        5 weeks ago         188.4 MB
+
+# La commande docker image --all nous permet de voir les différentes images intermédiaires a notre vm si il y en a ( par defaut ces couches ne sont pas affichées. )
 
 
+docker@boot2docker:~$ docker images --all
+REPOSITORY          TAG                 IMAGE ID            CREATED             VIRTUAL SIZE
+ubuntu              trusty              91e54dfb1179        5 weeks ago         188.4 MB
+<none>              <none>              d74508fb6632        5 weeks ago         188.4 MB
+<none>              <none>              c22013c84729        5 weeks ago         188.4 MB
+<none>              <none>              d3a1f33e8a5a        5 weeks ago         188.2 MB
+
+# docker history nous permet de tracer les modifications faites sur notre images : 
+
+docker@boot2docker:~$ docker history ubuntu:trusty
+IMAGE               CREATED             CREATED BY                                      SIZE                COMMENT
+91e54dfb1179        5 weeks ago         /bin/sh -c #(nop) CMD ["/bin/bash"]             0 B                 
+d74508fb6632        5 weeks ago         /bin/sh -c sed -i 's/^#\s*\(deb.*universe\)$/   1.895 kB            
+c22013c84729        5 weeks ago         /bin/sh -c echo '#!/bin/sh' > /usr/sbin/polic   194.5 kB            
+d3a1f33e8a5a        5 weeks ago         /bin/sh -c #(nop) ADD file:5a3f9e9ab88e725d60   188.2 MB
+
+# Pour avoir differentes infos : docker info ( nous permet entre autre de voir ou sont stockees nos images : )
 
 
+docker@boot2docker:~$ docker info
+Containers: 0
+Images: 0
+Storage Driver: aufs
+ Root Dir: /mnt/sda2/var/lib/docker/aufs
+ Backing Filesystem: extfs
+ Dirs: 0
+ Dirperm1 Supported: true
+Execution Driver: native-0.2
+Logging Driver: json-file
+Kernel Version: 4.0.9-boot2docker
+Operating System: Boot2Docker 1.8.2 (TCL 6.4); master : aba6192 - Thu Sep 10 20:58:17 UTC 2015
+CPUs: 1
+Total Memory: 1.464 GiB
+Name: boot2docker
+ID: YSO5:B543:JZU2:ZLYJ:EJWS:42RU:L5LS:GQIR:7Z7B:IWNA:2TFQ:M6GK
+Debug mode (server): true
+File Descriptors: 13
+Goroutines: 16
+System Time: 2015-09-27T18:18:54.293400244Z
+EventsListeners: 0
+Init SHA1: 
+Init Path: /usr/local/bin/docker
+Docker Root Dir: /mnt/sda2/var/lib/docker
+
+On voit dans le dossier aufs que les images sont stockées sous forme de fichiers à la maniere de git :
+
+docker@boot2docker:~$ ls /mnt/sda2/var/lib/docker/aufs/*
+/mnt/sda2/var/lib/docker/aufs/diff:
+91e54dfb11794fad694460162bf0cb0a4fa710cfa3f60979c177d920813e267c/
+c22013c8472965aa5b62559f2b540cd440716ef149756e7b958a1b2aba421e87/
+d3a1f33e8a5a513092f01bb7eb1c2abf4d711e5105390a3fe1ae2248cfde1391/
+d74508fb6632491cea586a1fd7d748dfc5274cd6fdfedee309ecdcbc2bf5cb82/
+
+/mnt/sda2/var/lib/docker/aufs/layers:
+91e54dfb11794fad694460162bf0cb0a4fa710cfa3f60979c177d920813e267c
+c22013c8472965aa5b62559f2b540cd440716ef149756e7b958a1b2aba421e87
+d3a1f33e8a5a513092f01bb7eb1c2abf4d711e5105390a3fe1ae2248cfde1391
+d74508fb6632491cea586a1fd7d748dfc5274cd6fdfedee309ecdcbc2bf5cb82
+
+/mnt/sda2/var/lib/docker/aufs/mnt:
+91e54dfb11794fad694460162bf0cb0a4fa710cfa3f60979c177d920813e267c/
+c22013c8472965aa5b62559f2b540cd440716ef149756e7b958a1b2aba421e87/
+d3a1f33e8a5a513092f01bb7eb1c2abf4d711e5105390a3fe1ae2248cfde1391/
+d74508fb6632491cea586a1fd7d748dfc5274cd6fdfedee309ecdcbc2bf5cb82/
+
+# la commande docker inspect pattern nous permet de disposer d'info precises egalement sur notre conteneur : 
+
+
+docker@boot2docker:~$ docker inspect ubuntu:trusty
+[
+{
+    "Id": "91e54dfb11794fad694460162bf0cb0a4fa710cfa3f60979c177d920813e267c",
+    "Parent": "d74508fb6632491cea586a1fd7d748dfc5274cd6fdfedee309ecdcbc2bf5cb82",
+    "Comment": "",
+    "Created": "2015-08-20T20:21:15.767240511Z",
+    "Container": "74bb7db8d212f77ab6d467b710451e54d2c60533f641de8c91e7ef343b88a146",
+    "ContainerConfig": {
+        "Hostname": "e611e15f9c9d",
+        "Domainname": "",
+        "User": "",
+        "AttachStdin": false,
+        "AttachStdout": false,
+        "AttachStderr": false,
+        "ExposedPorts": null,
+        "PublishService": "",
+        "Tty": false,
+        "OpenStdin": false,
+        "StdinOnce": false,
+        "Env": null,
+        "Cmd": [
+            "/bin/sh",
+            "-c",
+            "#(nop) CMD [\"/bin/bash\"]"
+        ],
+        "Image": "d74508fb6632491cea586a1fd7d748dfc5274cd6fdfedee309ecdcbc2bf5cb82",
+        "Volumes": null,
+        "VolumeDriver": "",
+        "WorkingDir": "",
+        "Entrypoint": null,
+        "NetworkDisabled": false,
+        "MacAddress": "",
+        "OnBuild": null,
+        "Labels": {}
+    },
+    "DockerVersion": "1.7.1",
+    "Author": "",
+    "Config": {
+        "Hostname": "e611e15f9c9d",
+        "Domainname": "",
+        "User": "",
+        "AttachStdin": false,
+        "AttachStdout": false,
+        "AttachStderr": false,
+        "ExposedPorts": null,
+        "PublishService": "",
+        "Tty": false,
+        "OpenStdin": false,
+        "StdinOnce": false,
+        "Env": null,
+        "Cmd": [
+            "/bin/bash"
+        ],
+        "Image": "d74508fb6632491cea586a1fd7d748dfc5274cd6fdfedee309ecdcbc2bf5cb82",
+        "Volumes": null,
+        "VolumeDriver": "",
+        "WorkingDir": "",
+        "Entrypoint": null,
+        "NetworkDisabled": false,
+        "MacAddress": "",
+        "OnBuild": null,
+        "Labels": {}
+    },
+    "Architecture": "amd64",
+    "Os": "linux",
+    "Size": 0,
+    "VirtualSize": 188359297,
+    "GraphDriver": {
+        "Name": "aufs",
+        "Data": null
+    }
+}
+]
+do
+
+
+### First steps :
+
+# On lance un conteneur avec docker run : 
+Ici on lance le conteneur trusty et e la commande cat /etc/debian_version dans la foulée.
+
+On peut voir les commandes lancées avec un :
+docker@boot2docker:~$ docker ps -a
+CONTAINER ID        IMAGE               COMMAND                  CREATED              STATUS                          PORTS               NAMES
+78e598f88100        ubuntu:trusty       "cat /etc/debian_vers"   About a minute ago   Exited (0) About a minute ago                       drunk_chandrasekhar
+
+Le flow des comandes en continu est possible depuis une autre console avec un : docker events :
+docker@boot2docker:~$ docker events
+2015-09-27T18:49:47.000000000Z 78e598f88100f5a0bf1e6b9b1a9b08cc6452caf1166cde960904e1c0f282cd87: (from ubuntu:trusty) create
+2015-09-27T18:49:47.000000000Z 78e598f88100f5a0bf1e6b9b1a9b08cc6452caf1166cde960904e1c0f282cd87: (from ubuntu:trusty) attach
+2015-09-27T18:49:47.000000000Z 78e598f88100f5a0bf1e6b9b1a9b08cc6452caf1166cde960904e1c0f282cd87: (from ubuntu:trusty) start
+2015-09-27T18:49:47.000000000Z 78e598f88100f5a0bf1e6b9b1a9b08cc6452caf1166cde960904e1c0f282cd87: (from ubuntu:trusty) die
+
+
+On voit que le conteneur s'est arreté sans erreur ( code retour 0 ) et que chaque container a un id :
+
+Les conteneurs ont un id et un namespace distint en relancant la même commande on a de nouveau un autre conteneur de lancer :
+
+docker@boot2docker:~$ docker ps -a
+CONTAINER ID        IMAGE               COMMAND                  CREATED             STATUS                      PORTS               NAMES
+4046a2fd12a9        ubuntu:trusty       "cat /etc/debian_vers"   5 seconds ago       Exited (0) 4 seconds ago                        clever_bhaskara
+78e598f88100        ubuntu:trusty       "cat /etc/debian_vers"   6 minutes ago       Exited (0) 6 minutes ago                        drunk_chandrasekhar
+
+Par simplicite on peut nommer un conteneur avec l'option "--name"
+docker@boot2docker:~$ docker run --name cat_commande ubuntu:trusty  cat /etc/debian_version
+jessie/sid
+docker@boot2docker:~$ docker ps -a
+CONTAINER ID        IMAGE               COMMAND                  CREATED             STATUS                      PORTS               NAMES
+d18fe8b8201e        ubuntu:trusty       "cat /etc/debian_vers"   6 seconds ago       Exited (0) 6 seconds ago                        cat_commande
+
+# sortie standarts - logs
+
+Par defaut la sortie standart récupère les infos des conteneurs . On peut recupérer les logs d'un conteneur :
+
+docker@boot2docker:~$ docker logs cat_commande
+jessie/sid
+
+# on recupere les id des conteneurs avec un ps -q ( quiet ) a
+
+docker@boot2docker:~$ docker ps -qa
+d18fe8b8201e
+4b27f153ba1f
+4046a2fd12a9
+78e598f88100
+3b02cd233526
+6d9c51484127
+
+
+- pour recup les "n" dernieres commandes de conteneurs :
+ici 2 dernieres : 
+docker@boot2docker:~$ docker ps -an 2
+CONTAINER ID        IMAGE               COMMAND                  CREATED             STATUS                     PORTS               NAMES
+d18fe8b8201e        ubuntu:trusty       "cat /etc/debian_vers"   4 minutes ago       Exited (0) 4 minutes ago                       cat_commande
+4b27f153ba1f        ubuntu:trusty       "--name cat_command c"   5 minutes ago       Created                                        jolly_mayer
+
+- dernière commande lancée : -l 
+
+docker@boot2docker:~$ docker ps -l
+CONTAINER ID        IMAGE               COMMAND                  CREATED             STATUS                     PORTS               NAMES
+d18fe8b8201e        ubuntu:trusty       "cat /etc/debian_vers"   7 minutes ago       Exited (0) 7 minutes ago                       cat_commande
+
+- id du dernier conteneur lancé : lq ( pratique) 
+docker@boot2docker:~$ docker ps -lq
+d18fe8b8201e
+
+# On peut brancher la sortie standart sur le conteneur pour pouvoir lui passer des commandes avec l'option '-i' ( interractif) . pour executer un shell depuis le conteneur on ajoutera l'option "-t" pour brancher un pseudo terminal afin d'avoir une sortie "propre" :
+
+docker@boot2docker:~$ docker run --name shell_interractif -it ubuntu:trusty /bin/bash
+root@5d5d49620216:/# 
+
+Une autre console nous montre qu'on est toujours dans le shell interractif de notre conteneur :
+
+docker@boot2docker:~$ docker ps -l
+CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS               NAMES
+5d5d49620216        ubuntu:trusty       "/bin/bash"         57 seconds ago      Up 55 seconds                           shell_interractif
+ 
+On peut voir les process en cours sur un conteneur avec un docker top nom_conteneur 
+
+docker@boot2docker:~$ docker top shell_interractif
+UID                 PID                 PPID                C                   STIME               TTY                 TIME                CMD
+root                1956                883                 0                   19:10               pts/2               00:00:00            /bin/bash
+
+On peut utiliser la commande inspect egelement avec les conteneurs et filtrer et formater la sortie (commande -f) grace a des templates en go pour afficher sont processus :
+
+docker@boot2docker:~$ docker inspect --format {{.State.Pid}} shell_interractif 
+1956
+
+Il y a un un seul processus : selon le principe de virtualisation : isolation des processus.
+
+On retrouve ce processus sur notre host :
+
+docker@boot2docker:~$ ps fauxwww |grep 1956 |grep -v grep
+root      1956  0.0  0.2  18168  3236 pts/2    Ss+  19:10   0:00  \_ /bin/bash
+ 
+Sur notre conteneur on retrouve bien bash lancer avec le pid 1 
+
+root@5d5d49620216:/# ps
+  PID TTY          TIME CMD
+    1 ?        00:00:00 bash
+   14 ?        00:00:00 ps
+
+root@5d5d49620216:/# cat /proc/1/comm 
+bash
+
+
+C'est le principe des pid namespace et netspace que l'on retrouve .
+En effet les conteneurs ont tous une interface virtuelle dans son namespace :
+
+root@5d5d49620216:/# ip addr show
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default 
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+    inet6 ::1/128 scope host 
+       valid_lft forever preferred_lft forever
+18: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default 
+    link/ether 02:42:ac:11:00:07 brd ff:ff:ff:ff:ff:ff
+    inet 172.17.0.7/16 scope global eth0
+       valid_lft forever preferred_lft forever
+    inet6 fe80::42:acff:fe11:7/64 scope link 
+       valid_lft forever preferred_lft forever
+root@5d5d49620216:/# ip -4 -o addr show
+1: lo    inet 127.0.0.1/8 scope host lo\       valid_lft forever preferred_lft forever
+18: eth0    inet 172.17.0.7/16 scope global eth0\       valid_lft forever preferred_lft forever
+root@5d5d49620216:/# ip -4 -o addr show eth0
+18: eth0    inet 172.17.0.7/16 scope global eth0\       valid_lft forever preferred_lft forever
+
+
+Et c'est une interface dediée "docker0" qui sur notre host va forwarder les packet au conteneur en masquerade :
+
+docker@boot2docker:~$ ip -4 -o addr show
+1: lo    inet 127.0.0.1/8 scope host lo\       valid_lft forever preferred_lft forever
+3: eth0    inet 10.0.2.15/24 brd 10.0.2.255 scope global eth0\       valid_lft forever preferred_lft forever
+4: eth1    inet 192.168.56.101/24 brd 192.168.56.255 scope global eth1\       valid_lft forever preferred_lft forever
+5: docker0    inet 172.17.42.1/16 scope global docker0\       valid_lft forever preferred_lft forever
+
+
+# On peut piloter un conteneur :
+-pause / unpause :
+On peut "freeze" un conteneur : ( le conteneur ne repond plus )
+docker@boot2docker:~$ docker pause shell_interractif
+shell_interractif
+Le defreezer pour rependre la main : 
+docker@boot2docker:~$ docker unpause shell_interractif
+shell_interractif
+
+-stop :
+docker@boot2docker:~$ docker stop shell_interractif
+shell_interractif
+
+> notre conteneur nous deconnecte et on a un exit :
+root@5d5d49620216:/# exit
+docker@boot2docker:~$ 
+
+On a bien notre conteneur arrêté :
+docker@boot2docker:~$ docker ps -l
+CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS                          PORTS               NAMES
+5d5d49620216        ubuntu:trusty       "/bin/bash"         25 minutes ago      Exited (0) About a minute ago                       shell_interractif
+
+
+-start 
+on redemmare notre conteneur 
+
+docker@boot2docker:~$ docker start shell_interractif
+shell_interractif
+il est up :
+
+docker@boot2docker:~$ docker ps -l
+CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS               NAMES
+5d5d49620216        ubuntu:trusty       "/bin/bash"         27 minutes ago      Up 18 seconds                           shell_interractif
+
+On doit se rattacher au conteneur avec un attach (multiplexeur possible à la screen ) : puisque notre commande lancée est un shell .
+
+docker@boot2docker:~$ docker attach shell_interractif
+root@5d5d49620216:/# 
+root@5d5d49620216:/# ps 
+  PID TTY          TIME CMD
+    1 ?        00:00:00 bash
+   14 ?        00:00:00 ps
+
+Un exit sur une console nous fait sortir de  toutes les consoles .
