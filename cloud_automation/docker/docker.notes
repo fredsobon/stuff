@@ -403,3 +403,158 @@ root@5d5d49620216:/# ps
    14 ?        00:00:00 ps
 
 Un exit sur une console nous fait sortir de  toutes les consoles .
+
+
+# Travail sur le container : on va installer un service sur le container (ex nginx)
+
+root@263e8e5f6f5c:/# apt-get install -y nginx
+
+depuis le serveur host on voit bienqu'il se passe des choses :
+docker@boot2docker:~$ docker top trusty
+UID                 PID                 PPID                C                   STIME               TTY                 TIME                CMD
+root                1141                857                 0                   18:20               pts/1               00:00:00            /bin/bash
+root                1311                1141                10                  18:27               pts/1               00:00:05            apt-get install -y nginx
+root                1332                1311                6                   18:28               pts/1               00:00:00            /bin/sh -c /usr/sbin/dpkg-preconfigure --apt || true
+root                1333                1332                7                   18:28               pts/1               00:00:00            /usr/bin/perl -w /usr/sbin/dpkg-preconfigure --apt
+root                1339                1333                0                   18:28               pts/1               00:00:00            /usr/bin/perl -w /usr/sbin/dpkg-preconfigure --apt
+root                1340                1339                42                  18:28               pts/1               00:00:03            apt-extracttemplates /var/cache/apt/archives/libgeoip1_1.6.0-1_amd64.deb /var/cache/apt/archives/libxau6_1%3a1.0.8-1_amd64.deb /var/cache/apt/archives/libxdmcp6_1%3a1.1.1-1_amd64.deb /var/cache/apt/archives/libxcb1_1.10-2ubuntu1_amd64.deb /var/cache/apt/archives/libx11-data_2%3a1.6.2-1ubuntu2_all.deb /var/cache/apt/archives/libx11-6_2%3a1.6.2-1ubuntu2_amd64.deb /var/cache/apt/archives/libxml2_2.9.1+dfsg1-3ubuntu4.4_amd64.deb /var/cache/apt/archives/sgml-base_1.26+nmu4ubuntu1_all.deb /var/cache/apt/archives/fonts-dejavu-core_2.34-1ubuntu1_all.deb /var/cache/apt/archives/fontconfig-config_2.11.0-0ubuntu4.1_all.deb /var/cache/apt/archives/libfreetype6_2.5.2-1ubuntu2.5_amd64.deb /var/cache/apt/archives/libfontconfig1_2.11.0-0ubuntu4.1_amd64.deb /var/cache/apt/archives/libjpeg-turbo8_1.3.0-0ubuntu2_amd64.deb /var/cache/apt/archives/libjpeg8_8c-2ubuntu8_amd64.deb /var/cache/apt/archives/libjbig0_2.0-2ubuntu4.1_amd64.deb /var/cache/apt/archives/libtiff5_4.0.3-7ubuntu0.3_amd64.deb /var/cache/apt/archives/libvpx1_1.3.0-2_amd64.deb /var/cache/apt/archives/libxpm4_1%3a3.5.10-1_amd64.deb /var/cache/apt/archives/libgd3_2.1.0-3_amd64.deb /var/cache/apt/archives/libxslt1.1_1.1.28-2build1_amd64.deb /var/cache/apt/archives/geoip-database_20140313-1_all.deb /var/cache/apt/archives/xml-core_0.13+nmu2_all.deb /var/cache/apt/archives/nginx-common_1.4.6-1ubuntu3.3_all.deb /var/cache/apt/archives/nginx-core_1.4.6-1ubuntu3.3_amd64.deb /var/cache/apt/archives/nginx_1.4.6-1ubuntu3.3_all.deb
+root                1354                1340                0                   18:28               pts/1               00:00:00            apt-extracttemplates /var/cache/apt/archives/libgeoip1_1.6.0-1_amd64.deb /var/cache/apt/archives/libxau6_1%3a1.0.8-1_amd64.deb /var/cache/apt/archives/libxdmcp6_1%3a1.1.1-1_amd64.deb /var/cache/apt/archives/libxcb1_1.10-2ubuntu1_amd64.deb /var/cache/apt/archives/libx11-data_2%3a1.6.2-1ubuntu2_all.deb /var/cache/apt/archives/libx11-6_2%3a1.6.2-1ubuntu2_amd64.deb /var/cache/apt/archives/libxml2_2.9.1+dfsg1-3ubuntu4.4_amd64.deb /var/cache/apt/archives/sgml-base_1.26+nmu4ubuntu1_all.deb /var/cache/apt/archives/fonts-dejavu-core_2.34-1ubuntu1_all.deb /var/cache/apt/archives/fontconfig-config_2.11.0-0ubuntu4.1_all.deb /var/cache/apt/archives/libfreetype6_2.5.2-1ubuntu2.5_amd64.deb /var/cache/apt/archives/libfontconfig1_2.11.0-0ubuntu4.1_amd64.deb /var/cache/apt/archives/libjpeg-turbo8_1.3.0-0ubuntu2_amd64.deb /var/cache/apt/archives/libjpeg8_8c-2ubuntu8_amd64.deb /var/cache/apt/archives/libjbig0_2.0-2ubuntu4.1_amd64.deb /var/cache/apt/archives/libtiff5_4.0.3-7ubuntu0.3_amd64.deb /var/cache/apt/archives/libvpx1_1.3.0-2_amd64.deb /var/cache/apt/archives/libxpm4_1%3a3.5.10-1_amd64.deb /var/cache/apt/archives/libgd3_2.1.0-3_amd64.deb /var/cache/apt/archives/libxslt1.1_1.1.28-2build1_amd64.deb /var/cache/apt/archives/geoip-database_20140313-1_all.deb /var/cache/apt/archives/xml-core_0.13+nmu2_all.deb /var/cache/apt/archives/nginx-common_1.4.6-1ubuntu3.3_all.deb /var/cache/apt/archives/nginx-core_1.4.6-1ubuntu3.3_amd64.deb /var/cache/apt/archives/nginx_1.4.6-1ubuntu3.3_all.deb
+
+
+On demarre notre serveur web :
+
+root@263e8e5f6f5c:/# service nginx start
+
+On recupere bien un index de notre docker en apellant sur notre host :
+docker@boot2docker:~$ wget http://172.17.0.1 -q -O index.dock
+er.html |head -4 
+<!DOCTYPE html>
+<html>
+<head>
+<title>Welcome to nginx!</title>
+
+Nous allons pour rendre les choses plus faciles rediriger le port du serveur web au lancement de notre docker; puisque nous ne l'avons pas fait comme on le voit la colonne port est vide dans le docker ps :
+
+docker@boot2docker:~$ docker ps
+CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS               NAMES
+263e8e5f6f5c        ubuntu:trusty       "/bin/bash"         18 minutes ago      Up 18 minutes                           trusty
+
+Mais avant celà on va sauvegarder nos modifs :
+1/ on stoppe notre docker :
+docker@boot2docker:~$ docker stop trusty
+trusty
+2/ on commit notre conf : ici on utilise le nom trusty de notre container qu'on commit en images nginx_trusty :
+docker@boot2docker:~$ docker commit trusty nginx_docker
+8f5174c767ec1222b1dde86e2f9abeb223590cbffaea1f7cf8647a206bfbc86e
+On vient de transformer notre container en image :
+
+docker@boot2docker:~$ docker images
+REPOSITORY          TAG                 IMAGE ID            CREATED             VIRTUAL SIZE
+nginx_docker        latest              8f5174c767ec        27 seconds ago      227.8 MB
+
+par defaut le tag est en latest on peut donner un numero de tag a notre image :
+docker@boot2docker:~$ docker tag nginx_docker nginx:v1
+docker@boot2docker:~$ docker images
+REPOSITORY          TAG                 IMAGE ID            CREATED             VIRTUAL SIZE
+nginx_docker        latest              8f5174c767ec        4 minutes ago       227.8 MB
+nginx_v1            latest              8f5174c767ec        4 minutes ago       227.8 MB
+nginx               v1                  8f5174c767ec        4 minutes ago       227.8 MB
+ubuntu              latest              91e54dfb1179        6 weeks ago         188.4 MB
+ubuntu              trusty              91e54dfb1179        6 weeks ago         188.4 MB
+
+Celà ne rajoute pas d'images supplementaires mais permet d'identifie rl'image sous un autre nom. On peut voir les couches avec docker history :
+
+docker@boot2docker:~$ docker history nginx_v1
+IMAGE               CREATED             CREATED BY                                      SIZE                COMMENT
+8f5174c767ec        7 minutes ago       /bin/bash                                       39.42 MB            
+91e54dfb1179        6 weeks ago         /bin/sh -c #(nop) CMD ["/bin/bash"]             0 B                 
+d74508fb6632        6 weeks ago         /bin/sh -c sed -i 's/^#\s*\(deb.*universe\)$/   1.895 kB            
+c22013c84729        6 weeks ago         /bin/sh -c echo '#!/bin/sh' > /usr/sbin/polic   194.5 kB            
+d3a1f33e8a5a        6 weeks ago         /bin/sh -c #(nop) ADD file:5a3f9e9ab88e725d60   188.2 MB            
+
+
+# Redirection de port : on va relancer un container en specifiant que l'host du docker va rediriger le port 80 vers le container nginx :
+On donne le nom de notre docker et le chemin absolu du binaire nginx : 
+docker@boot2docker:~$ docker run -p 80 nginx_v1 /usr/sbin/ngi
+nx
+on redemmare notre docker et nginx :
+
+docker@boot2docker:~$ docker run -it nginx_docker  /bin/bash
+root@d8721152f206:/# service nginx start
+root@d8721152f206:/# ps fauxw
+USER       PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+root         1  1.8  0.2  18172  3340 ?        Ss   18:57   0:00 /bin/bash
+root        26  0.6  0.1  85884  2876 ?        Ss   18:58   0:00 nginx: master process /usr/sbin/nginx
+www-data    27  0.0  0.2  86224  3596 ?        S    18:58   0:00  \_ nginx: worker process
+www-data    28  0.3  0.2  86224  3596 ?        S    18:58   0:00  \_ nginx: worker process
+www-data    29  0.3  0.2  86224  3596 ?        S    18:58   0:00  \_ nginx: worker process
+www-data    30  0.3  0.2  86224  3596 ?        S    18:58   0:00  \_ nginx: worker process
+root        31  0.0  0.1  15568  2224 ?        R+   18:58   0
+
+Cela na marche pas .... c'est normal car nginx nous a rendu la main et s'est arreter : il faut donc le lancer avec une option daemon off :
+docker@boot2docker:~$ docker run -p 80 nginx_v1 /usr/sbin/ngi
+nx -g "daemon off;"
+le serveur ne nous rend pas la main et ...on voit le port cette fois qui est redirige de notre hote vers le 80 du docker :
+
+
+docker@boot2docker:~$ docker ps -a
+CONTAINER ID        IMAGE               COMMAND                  CREATED             STATUS                          PORTS                   NAMES
+cf6344e63987        nginx_v1            "/usr/sbin/nginx -g '"   29 seconds ago      Up 27 seconds                   0.0.0.0:32772->80/tcp   gloomy_torvalds
+
+docker@boot2docker:~$ curl -I http://localhost:32772
+HTTP/1.1 200 OK
+Server: nginx/1.4.6 (Ubuntu)
+Date: Sun, 04 Oct 2015 19:08:05 GMT
+Content-Type: text/html
+Content-Length: 612
+Last-Modified: Tue, 04 Mar 2014 11:46:45 GMT
+Connection: keep-alive
+ETag: "5315bd25-264"
+Accept-Ranges: bytes
+
+Notre conteneur est reste au premier plan il faut donc le lancer en mode background :
+docker@boot2docker:~$ docker run -d -p 80 nginx_v1 /usr/sbin/
+nginx -g "daemon off;"
+170e3c1b18041775d49947db8dfba6a8d8c741cf0468eb04ca2b02c192620eee
+il nous rend la main .
+Pour connaitre le port du docker :
+docker@boot2docker:~$ docker port $(docker ps -lq) 80
+0.0.0.0:32773
+
+
+# On va faire du clean sur les containers :
+1/ on stoppe :
+
+docker@boot2docker:~$ docker stop `docker ps -q`
+170e3c1b1804
+
+On va recuperer la liste des containers et les supprimer :
+
+docker@boot2docker:~$ docker ps -aq
+170e3c1b1804
+cf6344e63987
+346cd590dfb3
+4ce3d0c0f4ee
+d8721152f206
+afeb696e5695
+4b33e085556c
+f9a4fc36d1ae
+3aa887eb285b
+30072e08cafd
+c785297214f3
+263e8e5f6f5c
+5d5d49620216
+d18fe8b8201e
+4b27f153ba1f
+4046a2fd12a9
+78e598f88100
+3b02cd233526
+6d9c51484127
+
+donc on les passe en argument de la commande rm :
+docker@boot2docker:~$ docker rm $(docker ps -aq)
+
+C'est ok le menage est fait :
+docker@boot2docker:~$ docker ps 
+CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS               NAMES
+
