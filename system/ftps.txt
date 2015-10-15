@@ -1,0 +1,141 @@
+########### mise en place de ftps #########
+
+1 / on recupere les certificats ssl ( cert + key ) pour notre domaine :
+
+on cree un repertoire pour les acceuillir 
+/etc/proftpd/
+
+└── ssl
+    ├── SSL_2016_wildcard.blabla.com.crt
+    └── SSL_2016_wildcard.blabla.com.key
+
+
+
+2/ on cree un fichier pour notre module tls :
+
+ENV SERVER:/etc/proftpd# cat includes/mod_tls.conf 
+<IfModule mod_tls.c>
+TLSEngine on
+TLSLog /var/log/proftpd/tls.log
+TLSProtocol SSLv23
+
+TLSRSACertificateFile                   /etc/proftpd/ssl/SSL_2016_wildcard.blabla.com.crt
+TLSRSACertificateKeyFile                /etc/proftpd/ssl/SSL_2016_wildcard.blabla.com.key
+
+#Require TLS / SSL, force encrypted logins and transfers only.
+TLSRequired off
+
+#Fix that some clients disconnects with SSL / TLS errors
+TLSOptions NoSessionReuseRequired
+</IfModule>
+
+
+3 / on cree notre vhost dedié ftps :
+
+ENV SERVER:/etc/proftpd# cat sites-available/ftps.dev.dc3.blabla.com.conf 
+# vim: syn=apache
+<VirtualHost ftps.dev.dc3.blabla.com>
+    Port 2121
+    ServerName "ftps.dev.dc3.blabla.com"
+    ServerIdent off
+
+    DefaultRoot ~
+    RequireValidShell off
+
+    Umask 0002 0002
+    AllowOverwrite on
+
+    TimeoutNoTransfer 1200
+    TimeoutStalled 1200
+    TimeoutIdle 1200
+
+    AllowOverride off
+
+    Include /etc/proftpd/includes/mod_log.conf
+
+    Include /etc/proftpd/includes/mod_exec.conf
+
+
+    Include /etc/proftpd/includes/mod_tls.conf
+
+    Include /etc/proftpd/includes/mod_sql.conf
+    SQLUserWhereClause "allow_ftp = 1 AND uid >= 1100 AND (expires > NOW() OR expires = 0)"
+
+    Include /etc/proftpd/includes/mod_vroot.conf
+
+    <Limit SITE_CHMOD SITE_CHOWN SITE_CHGRP>
+        DenyAll
+    </Limit>
+</VirtualHost>
+
+
+
+
+4/ creation du lien symbolique pour activer notre vhost :
+
+ENV SERVER:/etc/proftpd/sites-enabled# ln -s ../sites-available/ftps.dev.dc3.blabla.com.conf 25-ftps.dev.dc3.blabla.com.conf
+
+
+On a donc l'arbo suivante :
+
+ENV SERVER:/etc/proftpd# tree
+.
+├── blacklist.dat
+├── conf.d
+├── dhparams.pem
+├── includes
+│   ├── mod_exec.conf
+│   ├── mod_log.conf
+│   ├── mod_sftp.conf
+│   ├── mod_sql.conf
+│   ├── mod_tls.conf
+│   └── mod_vroot.conf
+├── init.d
+│   └── proftpd
+├── modules.conf
+├── proftpd.conf
+├── sites-available
+│   ├── ftp.dev.dc3.blabla.com.conf
+│   ├── ftps.dev.dc3.blabla.com.conf
+│   └── sftp.dev.dc3.blabla.com.conf
+├── sites-enabled
+│   ├── 25-ftp.dev.dc3.blabla.com.conf -> ../sites-available/ftp.dev.dc3.blabla.com.conf
+│   ├── 25-ftps.dev.dc3.blabla.com.conf -> ../sites-available/ftps.dev.dc3.blabla.com.conf
+│   └── 25-sftp.dev.dc3.blabla.com.conf -> ../sites-available/sftp.dev.dc3.blabla.com.conf
+└── ssl
+    ├── SSL_2016_wildcard.blabla.com.crt
+    └── SSL_2016_wildcard.blabla.com.key
+
+On cree notre  entrée dns pour le ftps : 
+
+ENV SERVER:/etc/proftpd# dig A ftps.dev.dc3.blabla.com  +short
+10.4.151.12
+
+
+n redemmare notre service et on check que le service ecoute bien sur le port déclarée ( ex ici 2121 )
+
+
+ENV SERVER:/etc/proftpd# ss -rna |grep 2121
+tcp    LISTEN     0      32           10.4.151.12:2121                  *:*   
+
+
+5 / test de connection :
+
+
+
+boogie@boogieland:~$ lftp
+lftp :~> open -p 2121 -u ACCOUNT,passwd ftps://ftps.dev.dc3.blabla.com
+lftp ACCOUNT@ftps.dev.dc3.blabla.com:~> ls
+ls: Erreur fatale: gnutls_handshake: An unexpected TLS packet was received.
+
+
+boogie@boogieland:~$ lftp
+lftp :~> set ssl:verify-certificate false
+lftp :~> set ftp:ssl-force true
+lftp :~> connect ftps.dev.dc3.blabla.com
+lftp ftps.dev.dc3.blabla.com:~> login ACCOUNT
+Mot de passe : 
+lftp ACCOUNT@ftps.dev.dc3.blabla.com:~> ls
+ls: L'authentification a échoué.: ftp:ssl-force est défini et le serveur ne supporte pas SSL
+drwxr-xr-x   2 0        0              18 Oct  8 12:01 ACCOUNT
+
