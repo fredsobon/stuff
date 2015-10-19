@@ -1,0 +1,118 @@
+
+#### xenserver cli ###
+
+
+## 
+A/ creation d'une vm :
+- on selectionne un template que l'on veut appliquer a notre serveur :  ici une trusty + sur un serveur vm nommé blabla.net
+
+[root@virt]# xe template-list |grep -i trusty
+          name-label ( RW): Ubuntu Trusty Tahr 14.04
+
+
+[root@virt]# xe vm-install template="Ubuntu Trusty Tahr 14.04" new-name-label="blabla.net"
+dd060378-34f6-85cc-7767-460e8702abee
+
+- on decide de booter en pxe :
+
+root@virt]# xe vm-param-get param-name=HVM-boot-params  uuid=$(xe vm-list name-label=blabla.net --minimal) order: ncd
+
+- on recupere notre vlan ( s'il est déja configuré sur notre pool ) 
+
+[root@virt]# xe network-list |grep -B2 -A2  197
+
+uuid ( RO)                : 0a0f1106-9cc7-9c0e-ea1c-3076ad420819
+          name-label ( RW): LAN_0197
+    name-description ( RW): Vlan 197
+              bridge ( RO): xapi48
+
+
+- on associe maintenant notre vm uid avec notre network_uid et la mac_adress : qui vont nous permettre d'obtenir notre iface reseau id :
+
+[root@virt]# xe vif-create vm-uuid=dd060378-34f6-85cc-7767-460e8702abee network-uuid=0a0f1106-9cc7-9c0e-ea1c-3076ad420819 mac=00:16:3e:3a:0b:8c device=0
+f91c96e6-730e-fbbf-977a-e49d5a340169
+
+
+
+- Ressources :
+on va maintenant setter les ressources ( hdd, ram , cpu ...)
+
+4gb de ram :
+
+[root@virt]# xe vm-memory-limits-set dynamic-max=4GiB dynamic-min=4GiB static-max=4GiB static-min=4GiB name-label="blabla.net"
+
+
+de base xenserver cree un hdd de 8gb : on va pouvoir modifier la taille en récupérant les id de base du hdd :
+
+[root@virt]# xe vm-disk-list vm="blabla.net"
+Disk 0 VBD:
+uuid ( RO)             : 63f46767-e48f-3f96-3315-a5bb7cb223a7
+    vm-name-label ( RO): blabla.net
+       userdevice ( RW): 0
+Disk 0 VDI:
+uuid ( RO)             : 247aaff6-3da3-48b0-903c-6032da37f2d3
+       name-label ( RW): 0
+    sr-name-label ( RO): NFS_DC3-P1
+     virtual-size ( RO): 42949672960
+
+On recupere les uid disks : on selectionne le volume que l'on veut modifier 
+On set à 40gb le volume nfs :
+
+[root@virt]# xe vdi-resize uuid=247aaff6-3da3-48b0-903c-6032da37f2d3 disk-size=40GiB
+
+On démarre notre serveur : 
+[root@virt]# xe vm-start name-label=blabla.net
+
+Pour arreter notre machine :
+
+xe vm-shutdown name-label=blabla.net force=true
+
+
+### cmds diverses :
+
+Déterminer le Master du POOL xenCenter
+
+ 
+[root@virt03 ~]# HM_UUID=$(/usr/bin/xe pool-list params=master --minimal)
+[root@virt03 ~]# /usr/bin/xe host-list params=name-label uuid=${HM_UUID} --minimal
+virt1
+
+ 
+Paramètres d'une VM
+  xe vm-param-get param-name=HVM-boot-params  uuid=$(xe vm-list name-label=blabla.net --minimal)
+order: ncd
+
+On voit ici l'odre de boot "order : ncd : on boot dans l'ordre en reseau ( n ) , sur le disk ( c ) puis sur le cd /dvd ( d)
+Creation de VLAN en CLI ( faire valider par Julien ? )
+
+ 
+
+Depuis n'importe quel membre du pool
+
+VLAN_ID : à renseigner en décimal sans "0" devant
+Les identifiants du VLAN sont ensuite convertis sur 4 digits
+
+ 
+1/ On créé le Network
+Exemple: VLAN 253
+ 
+VLAN_ID=253
+VLAN_NAME=LAN_$(printf '%4d' $VLAN_ID|sed "s/ /0/g")
+VLAN_DESC="Vlan $VLAN_ID"
+echo $VLAN_NAME
+echo $VLAN_DESC
+ 
+# On créé le Network (génére un uuid)
+network_uuid=$(xe network-create name-label="${VLAN_NAME}" name-description="${VLAN_DESC}")
+echo $? && echo $network_uuid
+ 
+# Vérifications
+xe network-list uuid=$network_uuid
+ 
+2/ On créé les VLAN associés au Network sur tous les membres du pool
+Exécuter les commandes en sortie:
+ 
+for pif in $(xe pif-list device=eth3 VLAN=-1|grep ^uuid|awk '{print $NF}'); do
+    echo xe vlan-create network-uuid=${network_uuid} pif-uuid=${pif} vlan=${VLAN_ID}
+done
+
