@@ -219,3 +219,783 @@ assert total_caddy == 22.5
 ---
 -day2
 
+# -*- coding: utf-8 -*-
+"""\
+Exercice sur les fonctions
+==========================
+
+Ceci est une variante de l'exercice précédent. Rappel :
+
+L'objet"superette" représente le catalogue d'articles dans un supermarché. Nous
+supposons pour simplifier que celui-ci a un stock infini.  Cet objet est
+représenté sous la forme d'un dictionnaire structuré de la façon suivante :
+
+- la clé est l'intitulé unique d'un article. Par exemple, "savonette"
+- la valeur est le cout client de l'article. Par exemple, 1.5
+
+Un objet"caddy" est un dictionnaire représentant un caddy de supermarché. Il est
+structuré de la façon suivante :
+
+- la clé est le nom d'un des articles se trouvant également dans "superette"
+- la valeur est le nombre d'unités de cet article se trouvant dans le caddy.
+
+Notez que tout article dans un caddy ne figurant pas dans l'inventaire de la
+superette est supposé gratuit.
+
+Attention, cette fois ci il peut y avoir autant de caddy que nécessaire. Le
+caddy à traiter est donc envoyé en paramètre à toutes les fonctions.
+
+Suivez les instructions en commentaires et insérez les ajouts nécessaires à la
+suite des lignes "# VOTRE CODE ICI". Et il est bien entendu interdit de
+supprimer les lignes commençant par "assert"
+
+Lancer les tests
+================
+
+Cet exercice utilise le module ``unittest`` (voir le fichier ``tests.py``). En
+exécutant la commande ``python tests.py`` vous exécutez les tests du module
+``fonctions.py`` et en affichez les erreurs restantes.
+
+.. admonition:: Autres façons de lancer les tests
+
+   Vous pouvez également exécuter les tests par la commande :
+
+   .. code:: console
+
+      $ python -m unittests tests
+
+   Ou encore à travers **PyCharm** en sélectionnant dans le panneau
+   **Project** le fichier **tests.py** avec le clic droit puis en
+   sélectionnant la commande **Run (...)** ou **Debug (...)**.
+"""
+
+superette = {
+    'savonette': 1.0,
+    'beurre': 2.5,
+    'saucisson': 3.6,
+    'lessive': 4.2,
+    'baguette': 0.8,
+    'essuie-tout': 2.1
+    }
+
+
+def ajouteAuCaddy(caddy, label, qte=1):
+    """Ajoute un ou plusieurs articles à un caddy. Si le nombre d'articles pour
+    un label donné tombe à 0 ou moins, on supprime l'article du panier (il n'y a
+    pas d'article ayant une quantité nulle).
+    Paramètres :
+    - caddy : le caddy à alimenter
+    - label : label de l'article à ajouter ou retirer
+    - qte : quantité d'articles à ajouter ou retirer si négatif. Defaut = 1
+    """
+    total = caddy.get(label, 0) + qte
+    if total <= 0:
+        caddy.pop(label, None)
+        # ou: del caddy[label]
+    else:
+        caddy[label] = total
+    return
+
+def retireArticlesDuCaddy(caddy, label):
+    """On retire tous les articles d'un label donné du caddy.
+    Paramètres :
+    - caddy : le caddy à alimenter
+    - label : label de l'article à supprimer
+    """
+    caddy.pop(label, None)
+    # ou del caddy[label]
+    return
+
+def leCaddyContient(caddy, label):
+    """Nombre d'articles au label donné dans le caddy.
+    Paramètres
+    - caddy : le caddy à alimenter
+    - label : label de l'article à compter
+    """
+    return caddy.get(label, 0)
+
+def prixDuCaddy(caddy):
+    """Prix total du caddy. Utiliser le builtin ``sum`` et une liste dynamique.
+    http://docs.python.org/library/functions.html#sum
+    Paramètres
+    - caddy : le caddy à alimenter
+    """
+    return sum([superette[l] * q for l, q in caddy.items() if l in superette])
+
+
+# Les tests
+# =========
+
+
+def tests():
+    caddy = {}
+
+    # On commence à remplir le caddy
+    ajouteAuCaddy(caddy, 'savonette')
+    ajouteAuCaddy(caddy, 'savonette', 4)
+
+    # On ne doit avoir 5 savonettes
+    assert caddy == {'savonette': 5}
+
+    # Donc...
+    assert leCaddyContient(caddy, 'savonette') == 5
+
+    # Mais ne contient pas d'article 'nexistepas'
+    assert leCaddyContient(caddy, 'nexistepas') == 0
+
+    # On ajoute 2 'essuie-tout' mais on retire les 'savonette's
+    ajouteAuCaddy(caddy, 'essuie-tout', 2)
+    retireArticlesDuCaddy(caddy, 'savonette')
+
+    # On peut également retirer des articles qui n'existent nulle part, ceci
+    # n'affecte pas la composition du caddy.
+    memo_caddy = caddy.copy()
+    retireArticlesDuCaddy(caddy, 'nexistepas')
+    assert caddy == memo_caddy
+
+    # On peut retirer du caddy plus d'articles d'un certain type qu'on
+en a, ce qui
+    # revient au même que d'utiliser ``retireArticlesDuCaddy``.
+    autre_caddy = {}
+    ajouteAuCaddy(autre_caddy, 'savonette', 2)
+    ajouteAuCaddy(autre_caddy, 'savonette', -5)
+    assert leCaddyContient(autre_caddy, 'savonette') == 0
+
+    # On poursuit les courses
+    ajouteAuCaddy(caddy, 'savonette')
+    ajouteAuCaddy(caddy, 'beurre', 2)
+    ajouteAuCaddy(caddy, 'saucisson', 3)
+    ajouteAuCaddy(caddy, 'lessive', 2)
+    ajouteAuCaddy(caddy, 'baguette', 2)
+
+    # Et même le chocolat qui n'est pas dans l'inventaire de la superette.
+    ajouteAuCaddy(caddy, 'chocolat', 2)
+
+    # Et on passe à la caisse
+    douloureuse = prixDuCaddy(caddy)
+    assert douloureuse == 31.0
+    return
+
+if __name__ == '__main__':
+    tests()
+
+-classes 1
+
+# -*- coding: utf-8 -*-
+"""\
+Exercice sur les classes
+========================
+
+Ceci est une variante de l'exercice précédent. La superette et le caddy sont par
+contre conçus sous formes de classes. Pour rendre les choses plus rationnelles
+et modulaire, les tests sont placés dans une fonction.
+
+Les classes et les signatures des méthodes sont fournies pour cette fois. A vous
+de les remplir correctement.
+
+Suivez les instructions en commentaires et insérez les ajouts nécessaires à la
+suite des lignes "# VOTRE CODE ICI". Et il est bien entendu interdit de
+supprimer les lignes commençant par "assert"
+
+Lancer les tests
+================
+
+Cet exercice utilise le module ``unittest`` (voir le fichier ``tests.py``). En
+exécutant la commande ``python tests.py`` vous exécutez les tests du module
+``caddy_classes.py`` et en affichez les erreurs restantes.
+
+.. admonition:: Autres façons de lancer les tests
+
+   Vous pouvez également exécuter les tests par la commande :
+
+   .. code:: console
+
+      $ python -m unittests tests
+
+   Ou encore à travers **PyCharm** en sélectionnant dans le panneau
+   **Project** le fichier **tests.py** avec le clic droit puis en
+   sélectionnant la commande **Run (...)** ou **Debug (...)**.
+"""
+
+class Superette(dict):
+    """Un supermarket
+    """
+    def __init__(self, stock):
+        """Construction
+        :param stock: un mapping {'label', prix unitaire, ...}
+        """
+        self.update(stock)
+        # for name, price in stock.iteritems():  # En plus long...
+        #     self[name] = price
+        return
+
+    def ajoute(self, label, prix_unitaire):
+        """Ajoute ou met à jour un article
+        """
+        self[label] = prix_unitaire
+        return
+
+
+class Caddy(dict):
+    """Un caddy de supermarché
+    """
+    def __init__(self, superette):
+        """Construction
+        :param superette: superette d'appartenance du caddy
+        """
+        self.superette = superette
+
+    def ajoute(self, label, qte=1):
+        """Ajoute un ou plusieurs articles à un caddy. Si le nombre d'articles
+        pour un label donné tombe à 0 ou moins, on supprime l'article du panier
+        (il n'y a pas d'article ayant une quantité nulle).
+        Paramètres :
+        - label : label de l'article à ajouter ou retirer
+        - qte : quantité d'articles à ajouter ou retirer si négatif. Defaut = 1
+        """
+        total = self.get(label, 0) + qte
+        if total < 0:
+            self.pop(label, None)
+        else:
+            self[label] = total
+        return
+
+    def retireTousLes(self, label):
+        """On retire tous les articles d'un label donné du caddy.
+        Paramètres :
+        - label : label de l'article à supprimer
+        """
+        self.pop(label, None)
+        # ou del self[label]
+        return
+
+    def contient(self, label):
+        """Nombre d'articles au label donné dans le caddy.
+        Paramètres
+        - label : label de l'article à compter
+        """
+        return self.get(label, 0)
+
+    def prix(self):
+        """Prix total du caddy. Utiiser le builtin ``sum`` et une liste
+        dynamique.
+        :return: Le prix total du caddy
+        """
+        return sum([self.superette[l] * q for l, q in self.items()
+                    if l in self.superette])
+
+
+class CaddyAvecRistourne(Caddy):
+    """La même chose qu'un Caddy, sauf qu'en tant que pistonné, vous avez le
+    droit à une ristourne (par défaut 15%) sur le prix du caddy
+    """
+    def __init__(self, superette, ristourne=15.0):
+        """Vous devez utiliser le builtin "super" sachant que vous réutiliserez
+        le constructeur de la classe parente. (copier/coller interdit)
+        """
+        super(CaddyAvecRistourne, self).__init__(superette)
+        # Caddy.__init__(self, superette)  # Equivalent ligne précédente
+        self.ristourne = ristourne
+
+    def prix(self):
+        """On surcharge et réutilise - toujours avec le builtin "super" - la
+        méthode de même nom de la classe parente. Le copier/coller est interdit
+        """
+        total = super(CaddyAvecRistourne, self).prix()
+        # La ligne ci-dessous revient au même à la différence qu'on s'adresse
+        # explicitement à la classe parente.
+        # total = Caddy.prix(self)
+        return total * (100.0 - self.ristourne) / 100.0
+
+
+def tests():
+    """Exécution des tests
+    """
+    catalogue = {
+        'savonette': 1.0,
+        'beurre': 2.5,
+        'saucisson': 3.6,
+        'lessive': 4.2,
+        'baguette': 0.8,
+        'essuie-tout': 2.1
+        }
+
+    # On créé une superette
+    franprix = Superette(catalogue)
+
+    # On prend un caddy de cette superette
+    caddy = Caddy(franprix)
+
+    # On commence à remplir le caddy
+    caddy.ajoute('savonette')
+    caddy.ajoute('savonette', 4)
+
+    # On ne doit avoir 5 savonettes
+    assert caddy == {'savonette': 5}
+
+    # Donc...
+    assert caddy.contient('savonette') == 5
+
+    # Mais ne contient pas d'article 'nexistepas'
+    assert caddy.contient('nexistepas') == 0
+
+    # On ajoute 2 'essuie-tout' mais on retire les 'savonette's
+    caddy.ajoute('essuie-tout', 2)
+    caddy.retireTousLes('savonette')
+
+    # On peut également retirer des articles qui n'existent nulle part, ceci
+    # n'affecte pas la composition du caddy.
+    memo_caddy = caddy.copy()
+    caddy.retireTousLes('nexistepas')
+    assert caddy == memo_caddy
+
+    # On peut retirer du caddy plus d'articles d'un certain type qu'on en a, ce
+    # qui revient au même que d'utiliser ``retireArticlesDuCaddy``.
+    autre_caddy = Caddy(franprix)
+    autre_caddy.ajoute('savonette', 2)
+    autre_caddy.ajoute('savonette', -5)
+    assert autre_caddy.contient('savonette') == 0
+
+    # On poursuit les courses
+    caddy.ajoute('savonette')
+    caddy.ajoute('beurre', 2)
+    caddy.ajoute('saucisson', 3)
+    caddy.ajoute('lessive', 2)
+    caddy.ajoute('baguette', 2)
+
+    # Et même le chocolat qui n'est pas dans l'inventaire de la superette.
+    caddy.ajoute('chocolat', 2)
+
+    # Et on passe à la caisse
+    douloureuse = caddy.prix()
+    assert douloureuse == 31.0
+
+    # On essaie avec un caddy ayant une ristourne et le même contenu
+    caddy_ristourne = CaddyAvecRistourne(franprix)
+
+    # On reprend les articles du caddy
+    caddy_ristourne.update(caddy)
+
+    # Et on vérifie qu'on bénéficie d'une réduction 31.0 * 15.0 / 100.0 = 4.65
+    assert caddy_ristourne.prix() == 26.35
+    return
+
+- classe 2
+
+# -*- coding: utf-8 -*-
+"""\
+Exercice sur les classes
+========================
+
+Ceci est une variante de l'exercice précédent. La superette et le caddy sont par
+contre conçus sous formes de classes. Pour rendre les choses plus rationnelles
+et modulaire, les tests sont placés dans une fonction.
+
+Les classes et les signatures des méthodes sont fournies pour cette fois. A vous
+de les remplir correctement.
+
+Suivez les instructions en commentaires et insérez les ajouts nécessaires à la
+suite des lignes "# VOTRE CODE ICI". Et il est bien entendu interdit de
+supprimer les lignes commençant par "assert"
+
+Lancer les tests
+================
+
+Cet exercice utilise le module ``unittest`` (voir le fichier ``tests.py``). En
+exécutant la commande ``python tests.py`` vous exécutez les tests du module
+``caddy_classes.py`` et en affichez les erreurs restantes.
+
+.. admonition:: Autres façons de lancer les tests
+
+   Vous pouvez également exécuter les tests par la commande :
+
+   .. code:: console
+
+      $ python -m unittests tests
+
+   Ou encore à travers **PyCharm** en sélectionnant dans le panneau
+   **Project** le fichier **tests.py** avec le clic droit puis en
+   sélectionnant la commande **Run (...)** ou **Debug (...)**.
+"""
+
+class Superette(dict):
+    """Un supermarket
+    """
+    def __init__(self, stock):
+        """Construction
+        :param stock: un mapping {'label', prix unitaire, ...}
+        """
+        self.update(stock)
+        # for name, price in stock.iteritems():  # En plus long...
+        #     self[name] = price
+        return
+
+    def ajoute(self, label, prix_unitaire):
+        """Ajoute ou met à jour un article
+        """
+        self[label] = prix_unitaire
+        return
+
+
+class Caddy(dict):
+    """Un caddy de supermarché
+    """
+    def __init__(self, superette):
+        """Construction
+        :param superette: superette d'appartenance du caddy
+        """
+        self.superette = superette
+
+    def ajoute(self, label, qte=1):
+        """Ajoute un ou plusieurs articles à un caddy. Si le nombre d'articles
+        pour un label donné tombe à 0 ou moins, on supprime l'article du panier
+        (il n'y a pas d'article ayant une quantité nulle).
+        Paramètres :
+        - label : label de l'article à ajouter ou retirer
+        - qte : quantité d'articles à ajouter ou retirer si négatif. Defaut = 1
+        """
+        total = self.get(label, 0) + qte
+        if total < 0:
+            self.pop(label, None)
+        else:
+            self[label] = total
+        return
+
+    def retireTousLes(self, label):
+        """On retire tous les articles d'un label donné du caddy.
+        Paramètres :
+        - label : label de l'article à supprimer
+        """
+        self.pop(label, None)
+        # ou del self[label]
+        return
+
+    def contient(self, label):
+        """Nombre d'articles au label donné dans le caddy.
+        Paramètres
+        - label : label de l'article à compter
+        """
+        return self.get(label, 0)
+
+    def prix(self):
+        """Prix total du caddy. Utiiser le builtin ``sum`` et une liste
+        dynamique.
+        :return: Le prix total du caddy
+        """
+        return sum([self.superette[l] * q for l, q in self.items()
+                    if l in self.superette])
+
+
+class CaddyAvecRistourne(Caddy):
+    """La même chose qu'un Caddy, sauf qu'en tant que pistonné, vous avez le
+    droit à une ristourne (par défaut 15%) sur le prix du caddy
+    """
+    def __init__(self, superette, ristourne=15.0):
+        """Vous devez utiliser le builtin "super" sachant que vous réutiliserez
+        le constructeur de la classe parente. (copier/coller interdit)
+        """
+        super(CaddyAvecRistourne, self).__init__(superette)
+        # Caddy.__init__(self, superette)  # Equivalent ligne précédente
+        self.ristourne = ristourne
+
+    def prix(self):
+        """On surcharge et réutilise - toujours avec le builtin "super" - la
+        méthode de même nom de la classe parente. Le copier/coller est interdit
+        """
+        total = super(CaddyAvecRistourne, self).prix()
+        # La ligne ci-dessous revient au même à la différence qu'on s'adresse
+        # explicitement à la classe parente.
+        # total = Caddy.prix(self)
+        return total * (100.0 - self.ristourne) / 100.0
+
+
+def tests():
+    """Exécution des tests
+    """
+    catalogue = {
+        'savonette': 1.0,
+        'beurre': 2.5,
+        'saucisson': 3.6,
+        'lessive': 4.2,
+        'baguette': 0.8,
+        'essuie-tout': 2.1
+        }
+
+    # On créé une superette
+    franprix = Superette(catalogue)
+
+    # On prend un caddy de cette superette
+    caddy = Caddy(franprix)
+
+    # On commence à remplir le caddy
+    caddy.ajoute('savonette')
+    caddy.ajoute('savonette', 4)
+
+    # On ne doit avoir 5 savonettes
+    assert caddy == {'savonette': 5}
+
+    # Donc...
+    assert caddy.contient('savonette') == 5
+
+    # Mais ne contient pas d'article 'nexistepas'
+    assert caddy.contient('nexistepas') == 0
+
+    # On ajoute 2 'essuie-tout' mais on retire les 'savonette's
+    caddy.ajoute('essuie-tout', 2)
+    caddy.retireTousLes('savonette')
+
+    # On peut également retirer des articles qui n'existent nulle part, ceci
+    # n'affecte pas la composition du caddy.
+    memo_caddy = caddy.copy()
+    caddy.retireTousLes('nexistepas')
+    assert caddy == memo_caddy
+
+    # On peut retirer du caddy plus d'articles d'un certain type qu'on en a, ce
+    # qui revient au même que d'utiliser ``retireArticlesDuCaddy``.
+    autre_caddy = Caddy(franprix)
+    autre_caddy.ajoute('savonette', 2)
+    autre_caddy.ajoute('savonette', -5)
+    assert autre_caddy.contient('savonette') == 0
+
+    # On poursuit les courses
+    caddy.ajoute('savonette')
+    caddy.ajoute('beurre', 2)
+    caddy.ajoute('saucisson', 3)
+    caddy.ajoute('lessive', 2)
+    caddy.ajoute('baguette', 2)
+
+    # Et même le chocolat qui n'est pas dans l'inventaire de la superette.
+    caddy.ajoute('chocolat', 2)
+
+    # Et on passe à la caisse
+    douloureuse = caddy.prix()
+    assert douloureuse == 31.0
+
+    # On essaie avec un caddy ayant une ristourne et le même contenu
+    caddy_ristourne = CaddyAvecRistourne(franprix)
+
+    # On reprend les articles du caddy
+    caddy_ristourne.update(caddy)
+
+    # Et on vérifie qu'on bénéficie d'une réduction 31.0 * 15.0 / 100.0 = 4.65
+    assert caddy_ristourne.prix() == 26.35
+    return
+
+- Objets 1
+
+# -*- coding: utf-8 -*-
+"""Une banque entretient des comptes bancaire
+Lisez le fichier README.txt AVANT de corriger ce module.
+Complétez ou corrigez ensuite le code ci-dessous sous les marqueurs "# VOTRE
+CODE ICI"
+"""
+
+class Banque(object):
+    """Une banque qui gère les comptes
+    """
+    def __init__(self):
+        # NE PAS MODIFIER
+        # Les comptes sont stockés sous forme de dictionnaire
+        self.comptes = {
+            # identification: objet Compte ou CompteRemunere
+        }
+
+    def solde(self):
+        """Calcule et retourne le solde total des comptes
+        :return: le cumul des soldes des comptes
+        """
+        # VOTRE CODE ICI
+        return sum([cpte.valeur for cpte in self.comptes.values()])
+
+    def getCompte(self, ident):
+        """Retourne un compte correspondant à l'identifiant
+        :param ident: l'identifiant unique d'un compte
+        :return: l'objet Compte ou CompteRemunere associé
+        """
+        # VOTRE CODE ICI
+        return un_compte
+
+    def addCompte(self, ident, valeur):
+        """Ajoute un compte avec identifiant et valeur.
+        :param ident: identifiant unique du compte à créer
+        :param valeur: la valeur en euros de ce compte
+        """
+        # VOTRE CODE ICI
+        cpte = Compte(ident, valeur)
+        self.comptes[ident] = cpte
+        return
+
+    def transformeRemunere(self, ident):
+        """Transforme le compte normal en compte rémunéré
+        :param ident: identifiant d'un objet 'Compte' puis 'CompteRemunere'
+        """
+        # VOTRE CODE ICI
+        return
+
+
+class Compte(object):
+    """Un compte ordinaire
+    """
+    def __init__(self, ident, valeur):
+        """Création du compte avec identifiant et valeur
+        :param ident: identifiant unique du compte
+        :param valeur: valeur en euros du compte
+        """
+        # VOTRE CODE ICI
+        self.ident= ident
+        self.valeur = valeur
+        return
+
+    def debite(self, valeur):
+        """Débite le compte
+        Interdire de débiter plus que le solde
+        :param valeur: valeur en euros du compte
+        """
+        # VOTRE CODE ICI
+        return
+
+    def credite(self, valeur):
+        """Crédite le solde
+        """
+        # VOTRE CODE ICI
+        return
+
+    def __cmp__(self, other):
+        """Comparaison de 2 comptes basée sur leurs soldes. Voir la doc de la
+        méthode réservée ``__cmp__`` :
+        - http://docs.python.org/reference/datamodel.html#object.__cmp__
+        Voir également le docs des fonctions builtin ``isinstance`` et ``cmp``
+        qui vous aideront à réaliser cette méthode :
+        - http://docs.python.org/library/functions.html#isinstance
+        - http://docs.python.org/library/functions.html#cmp
+
+        :param other: autre objet Compte, CompteRemunere, entier ou flottant
+        """
+        # VOTRE CODE ICI
+        return resultat
+
+
+class CompteRemunere(Compte):
+    """Même chose qu'un compte
+    """
+    def remunere(self):
+        """Mais mermet d'être rémunéré à 5% augmentant d'autant son solde
+        """
+        # VOTRE CODE ICI
+        return
+- objets 2 : bank
+# -*- coding: utf-8 -*-
+"""Une banque entretient des comptes bancaire
+Lisez le fichier README.txt AVANT de corriger ce module.
+Complétez ou corrigez ensuite le code ci-dessous sous les marqueurs "# VOTRE
+CODE ICI"
+"""
+
+class Banque(object):
+    """Une banque qui gère les comptes
+    """
+    def __init__(self):
+        # NE PAS MODIFIER
+        # Les comptes sont stockés sous forme de dictionnaire
+        self.comptes = {
+            # identification: objet Compte ou CompteRemunere
+        }
+
+    def solde(self):
+        """Calcule et retourne le solde total des comptes
+        :return: le cumul des soldes des comptes
+        """
+        # return sum([c.solde for c in self.comptes.values()])
+        result = 0.0
+        for c in self.comptes.itervalues():
+            result += c.solde
+        return result
+
+    def getCompte(self, ident):
+        """Retourne un compte correspondant à l'identifiant
+        :param ident: l'identifiant unique d'un compte
+        :return: l'objet Compte ou CompteRemunere associé
+        """
+        return self.comptes[ident]
+
+    def addCompte(self, ident, valeur):
+        """Ajoute un compte avec identifiant et valeur.
+        :param ident: identifiant unique du compte à créer
+        :param valeur: la valeur en euros de ce compte
+        """
+        compte = Compte(ident, valeur)
+        self.comptes[ident] = compte
+        return
+
+    def transformeRemunere(self, ident):
+        """Transforme le compte normal en compte rémunéré
+        :param ident: identifiant d'un objet 'Compte' puis 'CompteRemunere'
+        """
+        compte = self.getCompte(ident)
+        nv_compte = CompteRemunere(ident, compte.solde)
+        self.comptes[ident] = nv_compte
+        return
+
+
+class Compte(object):
+    """Un compte ordinaire
+    """
+    def __init__(self, ident, valeur):
+        """Création du compte avec identifiant et valeur
+        :param ident: identifiant unique du compte
+        :param valeur: valeur en euros du compte
+        """
+        self.ident = ident
+        assert valeur > 0.0
+        self.solde = valeur
+        return
+
+    def debite(self, valeur):
+        """Débite le compte
+        Interdire de débiter plus que le solde
+        :param valeur: valeur en euros du compte
+        """
+        if valeur <= self.solde:
+            self.solde -= valeur
+        else:
+            self.solde = 0.0
+        return
+
+    def credite(self, valeur):
+        """Crédite le solde
+        """
+        self.solde += valeur
+        return
+
+    def __cmp__(self, other):
+        """Comparaison de 2 comptes basée sur leurs soldes. Voir la doc de la
+        méthode réservée ``__cmp__`` :
+        - http://docs.python.org/reference/datamodel.html#object.__cmp__
+        Voir également le docs des fonctions builtin ``isinstance`` et ``cmp``
+        qui vous aideront à réaliser cette méthode :
+        - http://docs.python.org/library/functions.html#isinstance
+        - http://docs.python.org/library/functions.html#cmp
+
+        :param other: autre objet Compte, CompteRemunere, entier ou flottant
+        """
+        if type(other) in (int, float):
+            return cmp(self.solde, other)
+        elif isinstance(other, Compte):
+            return cmp(self.solde, other.solde)
+        else:
+            raise TypeError("Cannot compare with anything else than
+Compte type")
+
+
+class CompteRemunere(Compte):
+    """Même chose qu'un compte
+    """
+    def remunere(self):
+        """Mais mermet d'être rémunéré à 5% augmentant d'autant son solde
+        """
+        self.solde += self.solde * 5 / 100
+        return
+
+
+
+-- day3  
