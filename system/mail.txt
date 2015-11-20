@@ -1,0 +1,189 @@
+How the mail command works
+
+
+The mail command invokes the standard sendmail binary (/usr/sbin/sendmail) which in turns connects to the local MTA to send the mail to its destination. The local MTA is a locally running smtp server that accepts mails on port 25.
+
+mail command -> /usr/sbin/sendmail -> local MTA (smtp server) -> recipient MTA (and Inbox)
+
+This means that an smtp server like Postfix should be running on the machine where you intend to use the mail command. If none is running you get the error message "send-mail: Cannot open mail:25".
+Install the mail command
+
+Each flavor has a different set of options and supported features. For example the mail/mailx command from the heirloom-mailx package is capable of using an external smtp server to send messages, while the other two can use only a local smtp server.
+
+In this tutorial we shall be using the mail command from the mailutils package, which is available on most Debian and Ubuntu based systems.
+
+Use the apt-get command to install it
+    $ apt-get install mailutils
+
+Now you should have the mail command ready to work.
+1. Use the mail command
+
+Run the command below, to send an email to someone@example.com. The s option specifies the subject of the mail followed by the recipient email address.
+
+    $ mail -s "Hello World" someone@example.com
+
+The above command is not finished upon hitting Enter. Next you have to type in the message. When you're done, hit 'Ctrl-D' at the beginning of a line
+
+    $ mail -s "Hello World" someone@example.com
+    Cc: 
+    Hi Peter
+    How are you
+    I am fine
+    Good Bye
+    <Ctrl+D>
+
+The shell asks for the 'Cc' (Carbon copy) field. Enter the CC address and press enter or press enter without anything to skip.
+
+From the next line type in your message. Pressing enter would create a new line in the message. Once you are done entering the message, press . Once you do that, the mail command would dispatch the message for delivery and done.
+2. Subject and Message in a single line
+
+To specify the message body in just one line of command use the following style
+
+    $ mail -s "This is the subject" somebody@example.com <<< 'This is the message'
+
+Or like this
+
+    $ echo "This is the body" | mail -s "Subject" -aFrom:Harry\<harry@gmail.com\> someone@example.com
+
+3. Take message from a file
+
+If the email message is in a file then we can use it directly to send the mail. This is useful when calling the mail command from shell scripts or other programs written in perl or php for example.
+
+    $ mail -s "Hello World" user@yourmaildomain.com < /home/user/mailcontent.txt
+
+Or a quick one liner
+
+    $ echo "This is the message body" | mail -s "This is the subject" mail@example.com
+
+4. Specify CC and BCC recipients
+
+Other useful parameters in the mail command are:
+
+-c email-address (CC - send a carbon copy to email-address)
+-b email-address (BCC - send a blind carbon copy to email-address)
+
+Here's and example of how you might use these options
+
+    $ mail -s "Hello World" user1@example.com -c usertocc@example.com -b usertobcc@example.com
+
+5. Sending to multiple recipients
+
+It is also possible to specify multiple recipients by joining them with a comma.
+
+    $ mail -s "Hello World" user1@example.com,user2@example.com
+
+6. Specify the FROM name and address
+
+The "-a" option allows to specify additional header information to attach with the message. It can be used to provide the "FROM" name and address. Here is a quick example
+
+# echo "This is the message body" | mail -s "This is the subject" mail@example.com -aFrom:sender@example.com
+
+The a option basically adds additional headers. To specify the from name, use the following syntax.
+
+    $ echo "This is the body" | mail -s "Subject" -aFrom:Harry\<harry@gmail.com\> someone@example.com
+
+Note that we have to escape the less/great arrows since they have special meaning for the shell prompt. When you are issuing the command from within some script, you would omit that.
+7. Send mail to a local system user
+
+To send mail to a local system user just use the username in place of the recipient address
+
+    $ mail -s "Hello World" username
+
+You could also append "@hostname" to the username, where the hostname should be the hostname of the current system.
+8. Verbose output
+
+Sometimes when testing mail servers, you would want to check the SMTP commands being used by the mail command. Use the "-v" option for that
+
+$ mail -v -s "This is the subject" somebody@example.com <<< 'This is the message'
+
+If the mail fails to deliver due to an improperly configured mail server for example, the smtp command log will show what has gone wrong.
+Send mail with attachments using Mutt
+
+The mail command could do some basic things till now, but moving forward, it lacks important features like sending attachments.
+
+So we have to use another command line tool called mutt. Mutt is like an enhanced version of the mail command with a very similar syntax.
+
+Debian / Ubuntu users can install mutt with the apt command.
+
+    $ apt-get install mutt
+
+Fedora / CentOS or Red Hat Enterprise Linux (RHEL) users:
+
+    $ yum install mutt
+
+Now you are ready to send mail with attachments with command line interface.
+
+Send a simple mail
+
+    $ echo "This is mutt from universe" | mutt -s "This is mutts subject" someone@example.com
+
+Send mail with attachment
+
+Use the "a" option to specify the path of the file to attach
+
+    $ mutt -s "Subject" -a /path/to/file -- user@example.com < home/user/mailcontent.txt
+
+According to the syntax of mutt options, it is necessary to separate the files and the recipients with a double dash "--". Also the "-a" option should be last one.
+Send mail with bash/shell scripts
+
+This example demonstrates how the output of a command can be used as the message in the email.
+Here is an easy shell script that reports disc usage over mail.
+
+    #!/bin/bash
+    du -sh | mail -s "disk usage report" user@yourmaildomain.com
+
+Open a new file and add the lines above to that file, save it and run on your box. You will receive an email that contains "du -sh" output.
+Read mails
+
+This is not something interesting and you would not be doing this in a real life scenario. It is just being shown for the sake of it.
+
+The mail command can be used to read mails. Just run it without an options and it would list all the mails in your inbox
+
+    $ mail
+
+Here's a sample output
+
+    $ mail
+    Heirloom mailx version 12.5 6/20/10.  Type ? for help.
+    "/var/mail/enlightened": 7 messages 3 unread
+     O  1 Enlightened        Sat Dec  6 11:33   21/658   This is the subject
+    O  2 Enlightened        Sat Dec  6 11:34  773/25549 This is the subject
+    O  3 Enlightened        Sat Dec  6 16:43   20/633   This is the subject
+    O  4 Enlightened        Sat Dec  6 16:44   20/633   This is the subject
+    U  5 Mail Delivery Syst Sat Dec  6 16:50   74/2425  Undelivered Mail Returned to Sender
+    U  6 Enlightened        Sat Dec  6 16:51   19/632   This is mutts subject
+    U  7 Enlightened        Sat Dec  6 16:52   19/647   This is mutts subject
+    ?
+
+At the end is q question mark which is an interactive prompt waiting for your command. Simply enter the number of the email you want to read and hit enter. It would open up the mail then.
+
+After you are done reading the email, enter 'q' and hit enter to come back. Enter z and hit enter to bring back the list of emails.
+
+The mail command by default reads the emails from the directory "/var/mail/". So every user has a separate mail directory. This way of storing and fetching mails is not very useful or practical in real life, where mail address consist of domain name along with username and a single server could be hosting emails for multiple domains.
+Maildir-utils command
+
+'mu' is a set of command-line tools for Linux/Unix that enable you to quickly find the e-mails you are looking for.
+
+Debian/Ubuntu users can use the apt-get command to install it
+
+    # apt-get install maildir-utils
+
+To search mails from william with subject report use the following command -
+
+    $ mu find from:william subject:report
+
+To check the current mail configurations use the info option.
+
+    # mu-tool info
+    VERSION=2.99.97
+    SYSCONFDIR=/etc
+    MAILSPOOLDIR=/var/mail/
+    SCHEME=mbox
+    LOG_FACILITY=mail
+    .....
+
+Notes
+
+The mail command is a very basic command to send mails. It should be present and properly configured on any linux server, so that mails are generated and delivered properly.
+
+If you are looking for a more powerful mailing program use commands like mailx, swaks etc. They have the necessary options to specify external smtp servers as well. 
