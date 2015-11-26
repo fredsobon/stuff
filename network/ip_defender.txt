@@ -1,0 +1,452 @@
+# formation arbor  / ip defender zayo 
+
+ddos : 3 categorie
+dos : 1 pc attak 1 cible : facile à identifier 
+
+depuis 10 ans
+ddos : serie de pc attak une unique cible
+
+difficile de se proteger
+
+### Types de DDoS 
+
+1 / volumetric : 99% en udp 
+
+tres peu de cpu 
+on vise les tuyau pour saturer l'infra 
+on attaque l'infra qui conduit au client
+
+On peut forger des paquets en udp 
+
+on peut s'attaquer aussi aux petits services Fw 
+
+-> le but est de rendre inaccessible
+
+TCP flood / UDP 
+
+on forge des packets dans le monde entier  
+
+mais aussi par reflexion.
+
+on utilise la faiblesse du protocole
+
+exemple ntp ou dns reflexion : 30% des attaque de ce type
+
+2 / Attaque des ressources des routeurs ou FW : attaquer les equipements :
+ Protocol attaque : tcp sync 
+
+on blinde le nombre de sessions tcp des lb , ips , fw  : tables tcp a max.
+
+on peut augmeenter le nombre de 
+
+
+RST flood : attaque qui essaye de reset les numero de sequence : n'existe presque plus.
+
+SYN flood  : attak max de ce type
+
+3 / Application attack
+
+on attak l'application donc sur les serveurs :
+
+tcp syn 
+
+Tres dur à localiser : travail d'un ids mais pas arbor
+pas de traffic massif 
+
+
+
+###  stats :
+
+france est une bonne type d'attaque : beaucoup d'herbergeur ; boites dans le web .
+
+une des causes est le vandalisme.
+"jeu en ligne" regulierement en ligne.
+politique : anonymous ; wikileaks ....
+
+-services payant pour attaquer un site : sites demo attaque gratuite 15mnts
+-social networking 
+-mauvaise config 
+-attaque de diversion : ddos massif pour monopolyser les equipes pendant qu'on exploite une faille.
+-flash crowd : attaque massive en peu de temps. 
+
+tester les ddos en chroot pour maitriser les impacts.
+netflow : exam de traffic reseau.
+
+
+2005 10GB de traffic attaque
+2013 300Gbps spamhoax : attaque sur le transit et peering
+2014 400G
+
+L'arrivee des mobiles en 4G ....permet d'augmenter les attaque : botnet ....le volume de phone augmente largement l'impact.
+
+cf stats 
+
+Dans l'ordre :
+
+65% volumetric
+20% state exaustion ( saturation ressource bp / equipement )
+17% application layer
+
+les applications htt / dns sont très largement le plus attaqués
+75% http
+75% dns
+47% https
+22% smtp
+
+
+> flood http :
+
+21% slowloris : attaque par saturation des sockets du serveur web ( faille des serveurs web secu)
+
+
+Attaque multivecteur 
+
+
+mitigation : filtrage des packets d'attaques.
+
+
+Attaque multivecteur  à attendre 
+
+
+#### IP defender solution :
+
+ pls boitier
+
+pi : portail web : centralise les infos 
+en dmz bordure de reseau
+authentif sur fw
+
+collecteur cp + Fs
+reunit les netflow enregistre jusqu'a la couche 4 . Il ya un petit delai
+vrai attaque 180seconde detectée.
+
+
+TMS : boitier qui permet de conf les protections : gros boitier principal
+
+boitier TMS :
+en bordure reseau
+
+activation protection
+> annonce bgp
+> envoie de traffic
+> retour du traffic nettoyer via un tunnel gre.
+le tms est le nettoyeur
+
+activation de la protection des grosses regles qui match 80% des attaques.
+
+les seuils sont calculés pour chaque ip de destination 
+
+2 seuils : 1 seuil vigilance + 1 seuil d'alerte auto
+
+Même en cas de fausse attaque les 180 secondes de latences sont quand même là .....
+
+ 
+
+arbor surveille le traffic grace a un object nous definissant ( à partir de l'AS )
+
+on peut degrossir les grosses attaques en settant des seuils "defini" via le traffic externe et interne avec les sondes clients.
+
+on peut degrossir les grosses attaques en settant des seuils "defini" via le traffic externe et interne avec les sondes clients.
+
+
+on peut degrossir les grosses attaques en settant des seuils "defini" via le traffic externe et interne avec les sondes clients.
+
+Mitigation : gros tpl de protec avec reglage de contremesures 
+
+1/ on se connecte au FW ( juniper ) 
+2/ on se connecte ensuite sur l'arbor
+
+ 
+iface : 
+
+vu du traffic qui passe par zayo
+
+differents objects sont crées 
+
+l'object principal est selectionne ex : pix
+
+on a l'historiques des attaques / au seuil defini.
+
+
+
+Status : pages acceuil
+alert : histos des alertes
+
+On peut avoir des lignes qui ont des protocoles ou info qui ont deja ete filtrer en amont sur les equipement des transits.
+
+
+Attention au filtrage sur le tcp : effet de bord sur les tcp.
+Il est conseillé de faire du filtrage sur udp ( en filtrant les ports uniquement nécéssaire , icmp ..) 
+
+
+On peut classifer les alertes : faux positifs ....
+hitorique :
+attaque : medium : 1 semaine retention
+attaque high : 1 mois 
+
+On peut exporter en pdf les alertes .
+
+Pour parametrer les seuils il faut passer par Arbor / zayo
+on ne peut pas voir ni modifier les seuils nous mêmes.
+
+Ouvrir un ticket :
+mail : fr-support@zayo.com
+
+interface transac : zayo 
+
+
+whitelister le traffic  du bureaux 
+ 
+possible de filtrer par source pour exclure une ip de la surveillance d'une cible.
+
+Alertes :
+possibilité d'avoir une redirection :
+mail
+mail -> redirecteur sms
+trap snmp + syslog
+
+fenetre mitigation pour une cible :
+ 
+gauche global
+droite mitigation
+
+
+Toujours mettre les ip en bloc
+toujours travailler en ip restreinte : /32
+
+
+AS : 8018 > zayo france : annonce au monde entier notre prefixe 
+
+on peut permettre ainsi d'être sur d'avoir le traffic retour par zayo
+
+On peut par contre annoncer notre BGP nous même en faisons de l'as prepend pour "faker" les annonces pour que le retour passe par zayo.
+onglet traffic 
+on voit le type d'attaque
+on peut voir l'ip qui recoit le plus de traffic : "top talker"
+on peut voir trafic entrant et sortant.
+
+conf d'un netflow a mettre en place :
+"the tech teapot" > blog 
+
+Conf ids a mettre en place :
+
+anti ddos + ids => obligatoires.
+
+
+
+Ex :
+ajout mitigation sur pixdeal 
+
+on peut selectionne notre objet TMS 
+on passe de routage naturel a mitigation donc passage tms
+on clic sur sample packet
+on peut mettre en place les filtres.
+
+filter type : ex PCAP filter
+pcap filter 
+
+on peut faire des test de troubleshooting en injectant une ip de test pour confirmer les regles settees.
+
+On peut faire un fcap : echantillon de 60 secondes ou 5000 packets
+
+
+#### detection ddos :
+
+definition de seuil :
+calcul de fait sur le trafic routeur + equipement : si seuil atteind alert et / ou 
+
+type de packets :
+
+dns / icmp / tcp ...
+
+On peut creer autant de mitigation qu'on veut mais en lancer 2 en //
+
+Politique de mitigation 
+tpl general pour ajuster les seuils sur des sites cibles.
+
+on peut configurer les mitigations par type de service.
+
+3 niveaux d'alertes 
+
+seuil medium calcul auto entre bas et haut
+
+pour definir les alertings passer par le support zayo
+
+### Mitigating ddos attack
+
+quand on recoit une alert pour se proteger :
+
+mitigate alerte 
+> generate filter
+va aider a generer des filtres 
+
+> blackhole ip  
+
+tag blackhole 9999 : dernier secours pour sauvegarder l'infra
+c'est pour proteger  notre ip
+on va dropper tous ce qui va arriver sur notre ip : ex on drop ce qui arrive sur notre fw : quand on arrive pas a encaisser 
+
+
+on choisi notre objet on defini l'ip a blacklister et on met en offram
+ensuite on va definir les routeurs qui vont recevoir l'annonce bgp : tres important.
+on va definir la conf bgp qui sera en blacklist .
+
+on met les sessions primaires des routeurs ! ne pas mettre les sessions tms des routeurs
+
+donc une fois creee notre rule on lance la mitigation
+
+
+on peut definir de l'automitigation : mise en place avec zayo en collaboration
+
+
+le tpl ne doit pas être trop aggressif
+
+la protection se lance et s'arrete en auto.
+Il faut la faire le plus generique possible.
+
+=== Contremesures : 
+
+
+le peer-packet va pouvoir blacklister l'ip 
+
+si on a deux ip dans une mitigation : l'ip est partagée.
+en cas de deux mitigation differentes pour une ip : le filtrage est séparé.
+
+
+
+on peut mettre des filtres /listes 
+
+whitelist ou blacklist
+
+on defini une liste d'ip qu'on authorise : on envoi au support
+
+on peut en urgence authoriser une ip ( pass ...)
+
+l'ordre de passage de la regle est important : comme pour acl cisco /juniper
+
+
+
+Geolocalisation :
+
+on peut definir une zone geographique a black/white list   ..attention
+
+
+Zombie detection :
+ compteur niveau global :
+on defini des seuils :
+
+c'est pour filtrer le traffic latent parasite : on fixe des seuils .
+
+traffic rentrant a dest de notre reseau :
+
+on a la mesure allhosts 
+on ajuste ensuite sur les flexibles 
+ex :  proto udp and src port 0
+
+blacklist au moins 1 min puis 5min (~ fail2ban reseau ) 
+
+
+
+peer connection flood protection 
+
+on peut definir une sorte de traffic shapping sur une ip source et une ip destination sur un port 
+
+exemple on peut proteger un de nos serveurs dns ...
+
+on peut donc definir un rate max ou blocker  blacklister .
+
+
+TCP SYN Auth
+
+tous les packets tcp syn 
+Client         TMS 
+Send SYN -> SYN Received
+SYN received <- send syn anck
+send ack > ack received
+rst-ack < send rst ack
+
+a partir du moment ou la connection tcp est consideree valide : le tms demande un reset tcp au client , il le whitelist puis le client recommence le 3 hands
+
+
+Mettre la connection minimum au keepalived du serveur web ou max keepalived des varnish
+
+On peut permettre au cleint de fermer proprement la connex via une com avec un serveur web integrer : qui envoie une 301 sur la même adresse .
+
+cela rajoute un temps de latence trs leger 
+on a des options pour definir des des options d'auth : via l'envoi d'un hash que le cleint devra refournir a la nouvelle conn : du coup il est directement valide.
+
+On peut aussi filtrer via dns 
+
+On peut aussi filter sur le nombre de coonection tcp desirer sur un delai precis
+On peut aussi filter sur le nombre de packet envoye sur un delai precis pour s'assurer que la connection tcp etabli sert bien a quelque chose ( contrer attaque slowloris )
+tcp connection reset c'est aussi limiter au 25 / 80 / 443
+
+
+payload  : si on voit une chaine de caractère en hexa dans les packets on peut filtrer ......
+
+dns rate limiting : on peut proteger les dns lors de requettes exessives.
+
+dns regular expression : on peut drop et / blaclklist
+pour se proteger d'une attaque dns reflexion et amplification en question et reponses .
+
+http malformation 
+on peut filtrer en examinant les headers
+
+attention 
+
+http scoping 
+et 
+http rate limiting 
+
+examiner et voir 
+
+
+AIF 
+base de signature arbor :
+examine les requette http : drop ou whit list
+
+SSL NEGOCIATION :
+
+test pour voir si les demande de connexions ssl sont trop nombreuses pour une ip 
+
+
+
+Filtrage sip
+
+
+Filtrage shaping : 
+preserver les interco avec le provider :
+ex on drop l'udp a 50Mbps 
+
+shapping sur geolocalisation 
+
+on limite en nbre de paket et le volume
+
+
+
+
+ 
+
+
+
+
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 
+
+
