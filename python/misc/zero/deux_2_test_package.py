@@ -2,5 +2,5 @@
 #-*- coding: utf8 -*-
 
 from package.un_1_fonctions import table
-table(5)
+table(4, 7)
 
