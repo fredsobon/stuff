@@ -22,7 +22,7 @@ Eth1/8        eth    10G     server.blabla:eth4
 Eth1/9        eth    10G     server.blabla:eth4
 Eth1/10       eth    10G     --
 Eth1/11       eth    10G     --
-Eth1/12       eth    10G     interco vitry DC2-DC3
+Eth1/12       eth    10G     interco datacenter1ry DC2-DC3
 Eth1/13       eth    10G     filer12.stserver.blabla:ixgbe1
 Eth1/14       eth    10G     filer12.stserver.blabla:ixgbe2
 Eth1/15       eth    10G     filer13.stserver.blabla:ixgbe1
@@ -194,9 +194,9 @@ SWITCHF9-N5K-DC3(config)# interface
 
 SWITCHC201-VIT# configure t
 SWITCHC201-VIT(config)# interface Eth1/5
-SWITCHC201-VIT(config-if)# description ora321.db.core.prod
+SWITCHC201-VIT(config-if)# description lapin1.db.core.prod
 SWITCHC201-VIT(config)# interface Eth100/1/15
-SWITCHC201-VIT(config-if)# description ora321-if4.db.core
+SWITCHC201-VIT(config-if)# description lapin1-if4.db.core
 
 
 # check des status de liens :
@@ -217,7 +217,7 @@ Eth1/39       134     eth  trunk  down    Administratively down      auto(D)
 
 ###  Conf vlan : 
 Mode trunk
-switch port trunk native vlan 135
+switchport trunk native vlan 135
 switchport trunk allowed vlan 135,240
 ou witchport trunk allowed vlan add 135
 
@@ -225,4 +225,85 @@ Mode access :
 switchport access vlan 118
 
 
+## Tag de port A-Z :
+
+1/ reperrage de ports :
+
+SWITCHC101-VIT# sh int status |i lapin
+Eth1/6        lapin.db.core.prod connected 115       full    10G     10Gbase-
+SR 
+Eth100/1/16   lapin-if3.db.core. connected 114       full    1000    --      
+
+
+2 / reperrage de vlan 
+
+SWITCHC101-VIT# sh vlan |i Eth1/5
+115  STORAGE_DB                       active    Po1, Eth1/4, Eth1/5, Eth1/6
+
+3 / conf de vlan en mode native 
+
+SWITCHC101-VIT# configure t 
+Enter configuration commands, one per line.  End with CNTL/Z.
+SWITCHC101-VIT(config)# interface Eth1/6
+SWITCHC101-VIT(config-if)# switchport access vlan 119
+SWITCHC101-VIT(config-if)# description lapin2.db.core.prod.datacenter1.e-merchant.net
+
+SWITCHC101-VIT(config)# interface Eth100/1/16
+SWITCHC101-VIT(config-if)# switchport access vlan 118
+SWITCHC101-VIT(config-if)# description lapin2-if3.db.core.prod.datacenter1.e-merchant.net
+
+SWITCHC101-VIT(config-if)# exit
+SWITCHC101-VIT(config)# exit
+SWITCHC101-VIT# co
+configure   copy        
+SWITCHC101-VIT# copy running-config s
+scp:            sftp:           startup-config  
+SWITCHC101-VIT# copy running-config startup-config 
+
+[########################################] 100%
+Copy complete, now saving to disk (please wait)...
+SWITCHC101-VIT# 
+
+> verification :
+
+
+SWITCHC101-VIT# sh int status |i lapin2
+Eth1/6        lapin2.db.core.pro connected 119       full    10G     10Gbase-
+SR 
+Eth100/1/16   lapin2-if3.db.core connected 118       full    1000    --  
+
+
+4/ conf mode trunk :
+
+SWITCHC202-VIT# sh int status |i ora31-
+Eth1/14       ora31-if2.db.core. connected trunk     full    a-1000  10/100/1
+000Base
+
+SWITCHC202-VIT# sh vlan |i Eth1/14
+134  DB_CORE_PROD                     active    Po1, Eth1/13, Eth1/14, Eth1/1
+5
+                                                Eth1/12, Eth1/13, Eth1/14
+
+SWITCHC202-VIT# conf t
+Enter configuration commands, one per line.  End with CNTL/Z.
+SWITCHC202-VIT(config)# interface Eth1/15
+SWITCHC202-VIT(config-if)# switchport trunk native vlan 135
+SWITCHC202-VIT(config-if)# switchport trunk allowed vlan 135,240
+SWITCHC202-VIT(config-if)# description lapin2-if2.db.core.prod.datacenter1.e-merchant.net
+SWITCHC202-VIT(config-if)# 
+
+
+> verif :
+SWITCHC202-VIT# sh int description |i lapin
+Eth1/14       eth    1000    lapin1-if2.db.core.prod.datacenter1.e-merchant.net
+Eth1/15       eth    1000    lapin2-if2.db.core.prod.datacenter1.e-merchant.net
+
+
+SWITCHC202-VIT# sh int brief 
+Eth1/14       135     eth  trunk  up      none                       1000(D) --
+Eth1/15       135     eth  trunk  up      none                       1000(D) --
+
+SWITCHC202-VIT# copy running-config startup-config 
+[########################################] 100%
+Copy complete, now saving to disk (please wait)...
 
