@@ -2,3 +2,326 @@
 # notes urls :
 
 http://xmodulo.com/disable-network-manager-linux.html
+
+
+####### Quick Memo : #######
+
+SYSTEMD :
+
+Nowadays, most of the Linux distribution systems such as Fedora, Ubuntu, Arch
+Linux, Debian, openSUSE, and so on, have switched from init to systemd. systemd
+is the first process that gets started after system boot-up with PID 1. It controls and
+manages other processes that should be started after the system boot-up. It is also
+known as basic building block for an operating system. To learn about an init-based
+system, refer to the Wikipedia link at https://en.wikipedia.org/wiki/Init.
+
+# systemd units
+systemd has several units, each containing a configuration file with information
+about a service, socket, device, mount point, swap file or partition, start-up target,
+and so on.
+The following table explains some of unit files:
+             Unit type      File extension      Description
+             Service unit   .service            A system service
+             Device unit    .device             A device file recognized by kernel
+             Mount unit     .mount              A file system mount point
+             Timer unit     .timer              A systemd timer
+             Swap unit      .swap               A swap file
+
+To list all the installed unit files in a system, run the systemctl command with the
+list-unit-files option:
+
+$ systemctl list-unit-files | head -n 12
+
+UNIT FILE                                  STATE   
+proc-sys-fs-binfmt_misc.automount          static  
+org.freedesktop.hostname1.busname          static  
+org.freedesktop.locale1.busname            static  
+org.freedesktop.login1.busname             static  
+org.freedesktop.network1.busname           static  
+org.freedesktop.resolve1.busname           static  
+org.freedesktop.systemd1.busname           static  
+org.freedesktop.timedate1.busname          static  
+dev-hugepages.mount                        static  
+dev-mqueue.mount                           static  
+proc-sys-fs-binfmt_misc.mount              static  
+
+To list unit files of a unit type, use the list-unit-files and --type options. Running
+the following command will show only a service unit available in the system:
+
+$ systemctl list-unit-files --type=service | head -n 10
+
+UNIT FILE                                  STATE   
+acpid.service                              disabled
+alsa-restore.service                       static  
+alsa-state.service                         static  
+alsa-store.service                         static  
+alsa-utils.service                         masked  
+anacron-resume.service                     enabled 
+anacron.service                            enabled 
+atd.service                                enabled 
+autovt@.service                            enabled 
+
+
+# Managing services
+systemd manages all the available services in a system, from the time of Linux kernel
+boot up till the shutdown of the system. A service in a Linux system is an application
+that runs in the background or is waiting to be used. Service management files have
+the suffix .service in its file name.
+In systemd-based Linux system, a user or an administrator can manage services using 
+the systemctl command.
+
+-Status of a service
+To list the current status of services and check whether it is running or not, use
+
+systemctl status:
+
+ x61
+    State: degraded
+     Jobs: 0 queued
+   Failed: 1 units
+    Since: ven. 2016-02-05 06:19:37 CET; 1h 2min ago
+   CGroup: /
+           ├─init.scope
+           │ └─1 /sbin/init
+           ├─system.slice
+           │ ├─avahi-daemon.service
+           │ │ ├─593 avahi-daemon: running [x61.local
+           │ │ └─622 avahi-daemon: chroot helpe
+           │ ├─dbus.service
+           │ │ └─564 /usr/bin/dbus-daemon --system --address=systemd: --nofork --nopidfile --systemd-activation
+           │ ├─uuidd.service
+           │ │ └─12508 /usr/sbin/uuidd --socket-activation
+           │ ├─ModemManager.service
+           │ │ └─559 /usr/sbin/ModemManager
+           │ ├─cron.service
+           │ │ └─573 /usr/sbin/cron -f
+           │ ├─lvm2-lvmetad.service
+           │ │ └─13127 /sbin/lvmetad -f
+
+For example, to see the status of my NetworkManager service, run the
+following command:
+
+$ systemctl status -l NetworkManager.service
+● NetworkManager.service - Network Manager
+   Loaded: loaded (/lib/systemd/system/NetworkManager.service; enabled; vendor preset: enabled)
+   Active: active (running) since ven. 2016-02-05 06:19:43 CET; 1h 2min ago
+ Main PID: 558 (NetworkManager)
+   CGroup: /system.slice/NetworkManager.service
+           ├─ 558 /usr/sbin/NetworkManager --no-daemon
+           └─1302 /sbin/dhclient -d -q -sf /usr/lib/NetworkManager/nm-dhcp-helper -pf /var/run/dhclient-wlan0.pid -lf /var/lib/NetworkManager/dhclient-6ea3f6bd-57dd-4111-b9e6-5c9f3475215d-wlan0.lease -cf /var/lib/NetworkManager/dhclient-wlan0.conf wlan0
+
+We can see that the NetworkManager service is running and is in active state. It also
+provides detailed information associated with the current NetworkManager service.
+
+Let's see status of another service called the sshd. The sshd service controls whether
+ssh connection is possible to a system or not:
+
+$ systemctl status sshd.service
+This shows that service sshd is inactive currently.
+
+boogie@x61:~/repositories/stuff/system$ systemctl status sshd.service 
+● ssh.service - OpenBSD Secure Shell server
+   Loaded: loaded (/lib/systemd/system/ssh.service; enabled; vendor preset: enabled)
+   Active: active (running) since ven. 2016-02-05 06:41:04 CET; 42min ago
+ Main PID: 12627 (sshd)
+   CGroup: /system.slice/ssh.service
+           └─12627 /usr/sbin/sshd -D
+
+If no verbose output is required, then we can just use the is-active option to
+see a service status:
+
+$ systemctl is-active sshd.service
+unknown
+$ systemctl is-active NetworkManager.service
+active
+Here, active means a service is running and unknown means a service is
+not running.
+
+-Enabling and disabling services
+When a system is booted, systemd automatically starts some of the services.
+A few of the services may not be running as well. To enable a service to run after a
+system is booted, use systemctl enable and to stop a service running by a system
+during boot time, use systemctl disable.
+Executing the following command will allow systemd to run the sshd service after a
+system is booted up:
+
+# systemctl enable sshd.service
+Executing the following command will allow systemd to not run sshd.service
+when a system is booted up:
+# systemctl disable sshd.service
+
+To check whether a service is enabled or not, run the systemctl is-enabled
+command:
+$ systemctl is-enabled sshd.service
+disabled
+$ systemctl is-enabled NetworkManager.service
+enabled
+It means that the sshd service is disabled currently during the system start-up,
+while the NetworkManager service is enabled during the start-up by systemd.
+Start and stop a service
+When a system is running, sometimes we may need some services running.
+For example, to do ssh in my current system from another system, the sshd
+service must be running.
+For example, let's see what the current status of the sshd service is:
+
+$ systemctl is-active sshd.service
+unknown
+The sshd service is not running currently. Let's try to do ssh in a system:
+$ ssh foo@localhost       # Doing ssh to same machine         # Doing ssh to same
+machine
+  ssh: connect to host localhost port 22: Connection refused
+We can see that the ssh connection has been refused.
+Now, let's start running the sshd service. We can start a service by using the
+
+systemctl start command as follows:
+# systemctl start sshd.service
+$ systemctl is-active sshd.service
+active
+
+Now, the sshd service is running. Try doing ssh into the machine again:
+$ ssh foo@localhost
+Last login: Fri Sep 25 23:10:21 2015 from 192.168.1.101
+Now, the login has been done successfully.
+
+We can even restart a running service using the systemctl restart command.
+This is required when a service has been modified. Then, to enable the modified
+setting, we can just restart it.
+#   systemctl restart sshd.service
+The preceding command will restart the sshd service.
+
+When ssh is no longer required, it's safe to stop running it. This avoids an anonymous
+access to a machine. To stop running a service, run the systemctl stop command:
+
+# systemctl stop sshd.service
+$ systemctl is-active sshd.service
+unknown
+
+# Viewing system logs
+
+To check whether a user is working on an individual or enterprise machine,
+viewing system logs is very important in order to trace a problem and get detailed
+information of activities happening in a system. Viewing system logs plays an
+important role in monitoring and ensuring network traffics are not vulnerable.
+On a systemd-based system, system logs are collected and managed by one of its
+component called journald. Its task is to collect a log of applications and kernel.
+Log files are available in the /var/log/journal/ directory.
+To view a log collected by journald, the journalctl command is used:
+
+# journalctl
+Running the preceding command displays all system logs collected, starting from
+old and grows down to newer logs.
+Viewing the latest log entries
+To see the latest log entries and continuously printing new entries as appended to
+the journal, use the -f option:
+
+boogie@x61:~/repositories/stuff/system$ sudo journalctl -f
+-- Logs begin at ven. 2016-02-05 06:19:37 CET. --
+févr. 05 07:15:43 x61 sudo[20939]:   boogie : TTY=pts/1 ; PWD=/home/boogie/repositories/stuff/system ; USER=root ; COMMAND=/usr/bin/apt-get install xpdf
+févr. 05 07:15:43 x61 sudo[20939]: pam_unix(sudo:session): session opened for user root by boogie(uid=0)
+févr. 05 07:15:44 x61 wpa_supplicant[761]: wlan0: WPA: Group rekeying completed with 00:24:d4:cb:7f:3c [GTK=CCMP]
+févr. 05 07:16:00 x61 sudo[20939]: pam_unix(sudo:session): session closed for user root
+févr. 05 07:17:01 x61 CRON[21449]: pam_unix(cron:session): session opened for user root by (uid=0)
+févr. 05 07:17:01 x61 CRON[21450]: (root) CMD (   cd / && run-parts --report /etc/cron.hourly)
+févr. 05 07:17:01 x61 CRON[21449]: pam_unix(cron:session): session closed for user root
+févr. 05 07:25:44 x61 wpa_supplicant[761]: wlan0: WPA: Group rekeying completed with 00:24:d4:cb:7f:3c [GTK=CCMP]
+févr. 05 07:25:48 x61 sudo[21493]:   boogie : TTY=pts/1 ; PWD=/home/boogie/repositories/stuff/system ; USER=root ; COMMAND=/bin/journalctl -f
+févr. 05 07:25:48 x61 sudo[21493]: pam_unix(sudo:session): session opened for user root by boogie(uid=0)
+
+To see the log entries captured since the last boot of a system, use the -b option:
+
+$ sudo journalctl -b
+-- Logs begin at ven. 2016-02-05 06:19:37 CET, end at ven. 2016-02-05 07:33:31 CET. --
+févr. 05 06:19:37 x61 systemd-journald[160]: Runtime journal (/run/log/journal/) is currently using 8.0M.
+                                              Maximum allowed usage is set to 77.6M.
+                                              Leaving at least 116.5M free (of currently available 768.5M of space).
+                                              Enforced usage limit is thus 77.6M, of which 69.6M are still available.
+févr. 05 06:19:37 x61 kernel: Initializing cgroup subsys cpuset
+févr. 05 06:19:37 x61 kernel: Initializing cgroup subsys cpu
+févr. 05 06:19:37 x61 kernel: Initializing cgroup subsys cpuacct
+févr. 05 06:19:37 x61 kernel: Linux version 4.0.0-2-amd64 (debian-kernel@lists.debian.org) (gcc version 4.9.3 (Debian 4.9.3-2
+févr. 05 06:19:37 x61 kernel: Command line: BOOT_IMAGE=/boot/vmlinuz-4.0.0-2-amd64 root=UUID=fb7563de-ce23-4336-b5a3-e1e4c061
+févr. 05 06:19:37 x61 kernel: e820: BIOS-provided physical RAM map:
+févr. 05 06:19:37 x61 kernel: BIOS-e820: [mem 0x0000000000000000-0x000000000009d7ff] usable
+févr. 05 06:19:37 x61 kernel: BIOS-e820: [mem 0x000000000009d800-0x000000000009ffff] reserved
+févr. 05 06:19:37 x61 kernel: BIOS-e820: [mem 0x00000000000d2000-0x00000000000d3fff] reserved
+févr. 05 06:19:37 x61 kernel: BIOS-e820: [mem 0x00000000000e0000-0x00000000000fffff] reserved
+févr. 05 06:19:37 x61 kernel: BIOS-e820: [mem 0x0000000000100000-0x00000000bf6affff] usable
+févr. 05 06:19:37 x61 kernel: BIOS-e820: [mem 0x00000000bf6b0000-0x00000000bf6cbfff] ACPI data
+févr. 05 06:19:37 x61 kernel: BIOS-e820: [mem 0x00000000bf6cc000-0x00000000bf6fffff] ACPI NVS
+
+
+#Viewing logs of a particular time interval
+We can also view logs of a particular time interval. For example, to view logs of the
+
+last 1 hour, we can run the following command:
+$   journalctl --since "1 hour ago" --until now
+boogie@x61:~/repositories/stuff/system$ journalctl --since "1 hour ago" --until now
+Hint: You are currently not seeing messages from other users and the system.
+      Users in the 'systemd-journal' group can see all messages. Pass -q to
+      turn off this notice.
+No journal files were opened due to insufficient permissions.
+boogie@x61:~/repositories/stuff/system$ sudo journalctl --since "1 hour ago" --until now
+-- Logs begin at ven. 2016-02-05 06:19:37 CET, end at ven. 2016-02-05 07:34:36 CET. --
+févr. 05 06:35:13 x61 kernel: ieee80211 phy0: wlan0: No probe response from AP 00:24:d4:cb:7f:3c after 500ms, disconnecting.
+févr. 05 06:35:13 x61 systemd[1]: Starting Cleanup of Temporary Directories...
+févr. 05 06:35:13 x61 systemd[1]: Started Cleanup of Temporary Directories.
+févr. 05 06:35:13 x61 wpa_supplicant[761]: wlan0: CTRL-EVENT-DISCONNECTED bssid=00:24:d4:cb:7f:3c reason=4 locally_generated=
+févr. 05 06:35:13 x61 NetworkManager[558]: <warn> Connection disconnected (reason -4)
+févr. 05 06:35:13 x61 kernel: cfg80211: Calling CRDA to update world regulatory domain
+févr. 05 06:35:13 x61 NetworkManager[558]: <info> (wlan0): supplicant interface state: completed -> disconnected
+févr. 05 06:35:13 x61 wpa_supplicant[761]: wlan0: CTRL-EVENT-REGDOM-CHANGE init=CORE type=WORLD
+févr. 05 06:35:13 x61 kernel: cfg80211: World regulatory domain updated:
+févr. 05 06:35:13 x61 kernel: cfg80211:  DFS Master region: unset
+févr. 05 06:35:13 x61 kernel: cfg80211:   (start_freq - end_freq @ bandwidth), (max_antenna_gain, max_eirp), (dfs_cac_time)
+févr. 05 06:35:13 x61 kernel: cfg80211:   (2402000 KHz - 2472000 KHz @ 40000 KHz), (N/A, 2000 mBm), (N/A)
+févr. 05 06:35:13 x61 kernel: cfg80211:   (2457000 KHz - 2482000 KHz @ 40000 KHz), (N/A, 2000 mBm), (N/A)
+févr. 05 06:35:13 x61 kernel: cfg80211:   (2474000 KHz - 2494000 KHz @ 20000 KHz), (N/A, 2000 mBm), (N/A)
+févr. 05 06:35:13 x61 kernel: cfg80211:   (5170000 KHz - 5250000 KHz @ 80000 KHz, 160000 KHz AUTO), (N/A, 2000 mBm), (N/A)
+févr. 05 06:35:13 x61 kernel: cfg80211:   (5250000 KHz - 5330000 KHz @ 80000 KHz, 160000 KHz AUTO), (N/A, 2000 mBm), (0 s)
+févr. 05 06:35:13 x61 kernel: cfg80211:   (5490000 KHz - 5730000 KHz @ 160000 KHz), (N/A, 2000 mBm), (0 s)
+févr. 05 06:35:13 x61 kernel: cfg80211:   (5735000 KHz - 5835000 KHz @ 80000 KHz), (N/A, 2000 mBm), (N/A)
+févr. 05 06:35:13 x61 kernel: cfg80211:   (57240000 KHz - 63720000 KHz @ 2160000 KHz), (N/A, 0 mBm), (N/A)
+févr. 05 06:35:13 x61 NetworkManager[558]: <info> (wlan0): supplicant interface state: disconnected -> scanning
+févr. 05 06:35:16 x61 wpa_supplicant[761]: wlan0: SME: Trying to authenticate with 00:24:d4:cb:7f:3c (SSID='boogiewifi' freq=
+févr. 05 06:35:16 x61 kernel: wlan0: authenticate with 00:24:d4:cb:7f:3c
+
+
+To view log entries since July 1, 2015 until now, we can run the following command:
+$ journalctl --since 2016-07-01
+
+To view logs from Feb 05 2016 06:30  to Feb 05 2016 07:07:07  we can run the
+following command:
+
+$ sudo journalctl --since "2016-02-05 06:30:00" --until "2016-02-05 07:07:07" 
+
+-- Logs begin at ven. 2016-02-05 06:19:37 CET, end at ven. 2016-02-05 07:37:57 CET. --
+févr. 05 06:30:37 x61 kernel: CE: hpet increased min_delta_ns to 20115 nsec
+févr. 05 06:31:15 x61 kernel: perf interrupt took too long (2520 > 2500), lowering kernel.perf_event_max_sample_rate to 50000
+févr. 05 06:32:16 x61 su[2175]: Successful su for root by boogie
+févr. 05 06:32:16 x61 su[2175]: + /dev/pts/0 boogie:root
+févr. 05 06:32:16 x61 su[2175]: pam_unix(su:session): session opened for user root by boogie(uid=1000)
+févr. 05 06:32:16 x61 su[2175]: pam_systemd(su:session): Cannot create session: Already running in a session
+févr. 05 06:32:40 x61 dbus[564]: [system] Activating via systemd: service name='org.freedesktop.PackageKit' unit='packagekit.
+févr. 05 06:32:40 x61 systemd[1]: Starting PackageKit Daemon...
+févr. 05 06:32:40 x61 PackageKit[2220]: daemon start
+févr. 05 06:32:40 x61 dbus[564]: [system] Successfully activated service 'org.freedesktop.PackageKit'
+févr. 05 06:32:40 x61 systemd[1]: Started PackageKit Daemon.
+févr. 05 06:35:13 x61 kernel: ieee80211 phy0: wlan0: No probe response from AP 00:24:d4:cb:7f:3c after 500ms, disconnecting.
+févr. 05 06:35:13 x61 systemd[1]: Starting Cleanup of Temporary Directories...
+févr. 05 06:35:13 x61 systemd[1]: Started Cleanup of Temporary Directories.
+févr. 05 06:35:13 x61 wpa_supplicant[761]: wlan0: CTRL-EVENT-DISCONNECTED bssid=00:24:d4:cb:7f:3c reason=4 locally_generated=
+févr. 05 06:35:13 x61 NetworkManager[558]: <warn> Connection disconnected (reason -4)
+févr. 05 06:35:13 x61 kernel: cfg80211: Calling CRDA to update world regulatory domain
+févr. 05 06:35:13 x61 NetworkManager[558]: <info> (wlan0): supplicant interface state: completed -> disconnected
+févr. 05 06:35:13 x61 wpa_supplicant[761]: wlan0: CTRL-EVENT-REGDOM-CHANGE init=CORE type=WORLD
+févr. 05 06:35:13 x61 kernel: cfg80211: World regulatory domain updated:
+févr. 05 06:35:13 x61 kernel: cfg80211:  DFS Master region: unset
+.....
+févr. 05 07:03:47 x61 NetworkManager[558]: <info> (wlan0): supplicant interface state: 4-way handshake -> group handshake
+févr. 05 07:03:47 x61 wpa_supplicant[761]: wlan0: WPA: Key negotiation completed with 00:24:d4:cb:7f:3c [PTK=CCMP GTK=CCMP]
+févr. 05 07:03:47 x61 wpa_supplicant[761]: wlan0: CTRL-EVENT-CONNECTED - Connection to 00:24:d4:cb:7f:3c completed [id=0 id_s
+févr. 05 07:03:47 x61 NetworkManager[558]: <info> (wlan0): supplicant interface state: group handshake -> completed
+févr. 05 07:05:44 x61 wpa_supplicant[761]: wlan0: WPA: Group rekeying completed with 00:24:d4:cb:7f:3c [GTK=CCMP]
+
+
+
