@@ -1,0 +1,67 @@
+### great bash ###
+
+bash --version
+GNU bash, version 4.3.42(1)-release (x86_64-pc-linux-gnu)
+Copyright (C) 2013 Free Software Foundation, Inc.
+Licence GPLv3+ : GNU GPL version 3 ou ultérieure <http://gnu.org/licenses/gpl.html>
+
+- io : redirections :
+standart input 
+program
+standart output
+standart error
+
+boogie@x61:/tmp$ ls -ld orbit-boogie
+drwx------ 2 boogie boogie 1024 janv.  1  1970 orbit-boogie
+boogie@x61:/tmp$ ls -ld orbit-boogie > out.txt
+boogie@x61:/tmp$ cat out.txt 
+drwx------ 2 boogie boogie 1024 janv.  1  1970 orbit-boogie
+
+boogie@x61:/tmp$ ls not_here > out.txt
+ls: impossible d'accéder à not_here: Aucun fichier ou dossier de ce type
+boogie@x61:/tmp$ cat out.txt
+
+boogie@x61:/tmp$ ls not_here 2> err.txt
+boogie@x61:/tmp$ cat err.txt 
+ls: impossible d'accéder à not_here: Aucun fichier ou dossier de ce type
+
+-Redirection séparrée : 
+boogie@x61:/tmp$ ls -ld orbit-boogie not_here > out.txt 2>err.txt 
+boogie@x61:/tmp$ cat out.txt 
+drwx------ 2 boogie boogie 1024 janv.  1  1970 orbit-boogie
+boogie@x61:/tmp$ cat err.txt 
+ls: impossible d'accéder à not_here: Aucun fichier ou dossier de ce type
+-Redirection globale : on peut vouloir regrouper les sorties et les erreurs au sein du même fichier 
+
+boogie@x61:/tmp$ ls -ld orbit-boogie not_here &> all.txt
+boogie@x61:/tmp$ cat all.txt 
+ls: impossible d'accéder à not_here: Aucun fichier ou dossier de ce type
+drwx------ 2 boogie boogie 1024 janv.  1  1970 orbit-boogie
+
+- Attention l'ordre des redirections est important :
+
+- ici on redirige notre entrée vers un fichier puis on redirige les erreurs vers le fichier de sortie standard : tout est donc correctement regroupé : sortie + erreur au sein de notre fichier : 
+boogie@x61:/tmp$ ls -ld orbit-boogie not_here > out.txt 2>&1 
+boogie@x61:/tmp$ cat out.txt 
+ls: impossible d'accéder à not_here: Aucun fichier ou dossier de ce type
+drwx------ 2 boogie boogie 1024 janv.  1  1970 orbit-boogie
+
+- ici on redirige notre entrée vers la sortie d'erreur que l'on redirige vers le file descripteur de la sortie standart : c'est donc différent notre erreur est dirigée dans un premier temps vers la sortie standart : ici l'écran puis la sortie standart est redirigée vers un fichier . On a donc notre erreur sur l'ecran et la sortie dans un fichier : ce qui n'est pas l'effet attendu : L'ordre est donc capital : 
+
+boogie@x61:/tmp$ ls -ld orbit-boogie not_here 2>&1 > out.txt
+ls: impossible d'accéder à not_here: Aucun fichier ou dossier de ce type
+boogie@x61:/tmp$ cat out.txt 
+drwx------ 2 boogie boogie 1024 janv.  1  1970 orbit-boogie
+
+- Redirection vers programme :
+
+boogie@x61:/tmp$ cat out.txt 
+drwx------ 2 boogie boogie 1024 janv.  1  1970 orbit-boogie
+boogie@x61:/tmp$ wc < out.txt 
+ 1  9 60
+
+- pipe :
+boogie@x61:/tmp$ ls |wc 
+     10      10     251
+ 
+
