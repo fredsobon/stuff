@@ -1,0 +1,211 @@
+### Les expressions rationnelles Posix basiques
+
+
+Le premier usage des expressions rationnelles pour les utilisateurs de systèmes basés sur Linux ou Unix est en général la commande grep, qui permet de trouver toutes les lignes correspondant à une expression rationnelle. La syntaxe de la commande grep est simplement :
+
+
+ grep <options> <expression rationnelle> <liste de fichiers>
+
+Pour les exemples ci-dessous, nous ferons des recherches dans le fichier french d'une Debian stable (informations de licence), ce fichier contenant la liste des mots de la langue française à raison d'un mot par ligne
+
+## caractères :
+
+Dans une expression rationnelle, la première règle est que chaque caractère représente lui-même, par exemple l'expression rationnelle « rationnelles » correspond à « toute ligne contenant un r, suivi d'un a, suivi d'un t, suivi d'un i, suivi d'un o, suivi d'un n, suivi d'un autre n, suivi d'un e, suivi d'un l, suivi d'un autre l, suivi d'un e, suivi d'un s » :
+
+$ grep 'rationnelles' french
+irrationnelles
+opérationnelles
+rationnelles
+
+## le "." :
+
+Chaque caractère ne représente pas vraiment lui-même, il existe des exceptions avec des méta-caractères qui décrivent autre chose qu'eux-mêmes. Un des plus utilisés de ces méta-caractères est le point, qui signifie « un caractère quelconque », par exemple l'expression rationnelle « rationnelle. » correspond à « toute ligne contenant un r, suivi d'un a, suivi d'un t, suivi d'un i, suivi d'un o, suivi d'un n, suivi d'un autre n, suivi d'un e, suivi d'un l, suivi d'un autre l, suivi d'un e, suivi d'un caractère quelconque » :
+$ grep 'rationnelle.' french
+irrationnelles
+opérationnelles
+irrationnellement
+rationnelles
+
+# protection de point avec "\" :
+
+Le problème des métacaractères est qu'on peut vouloir chercher du texte les contenant, par exemple dans notre dictionnaire il y a des abréviations terminant par un point. Pour qu'un métacaractère ne soit pas interprété, il faut le précéder d'un « \ », par exemple « \. » représente le caractère point. On peut alors s'amuser à chercher les abréviations d'au moins six caractères, en les décrivant comme « un caractère quelconque, suivi d'un autre caractère quelconque, suivi d'un troisième caractère quelconque, suivi d'un quatrième caractère quelconque, suivi d'un cinquième caractère quelconque, suivi d'un sixième caractère quelconque, suivi d'un point » :
+$ grep '......\.' french
+arrond.
+c.-à-d.
+On remarquera que le point lui-même est un caractère quelconque.
+
+## le crochet "[]" :
+Un autre métacaractère utile est le crochet, qui permet de décrire un caractère pouvant correspondre à plusieurs valeurs, par exemple une voyelle non accentuée peut être représentée par « [aeiouy] » (qu'on peut lire comme « n'importe quel caractère étant soit un a, soit un e, soit un i, soit un u, soit un y »). Par exemple si vous voulez briller en société en citant des mots comportant 6 voyelles non accentuées à la suite :
+$ grep '[aeiouy][aeiouy][aeiouy][aeiouy][aeiouy][aeiouy]' french
+rougeoyaient
+youyou
+youyous
+
+# le "-" et le "^" dans les crochets :
+Deux métacaractères particuliers sont utiles entre crochets :
+
+le tiret situé entre deux caractères permet de définir une liste de caractères qui se suivent, par exemple « [a-f] » définit « soit un a, soit un b, soit un c, soit un d, soit un e, soit un f »
+    l'accent circonflexe situé au début permet de définir une exclusion de caractères, par exemple « [^aeiouy] définit « un quelconque caractère qui ne soit ni un a, ni un e, ni un i, ni o, ni un u, ni un y ») Ces deux métacaractères sont cumulables, par exemple « [^a-z] » définit « un quelconque caractère qui ne soit pas une lettre », ce qui peut nous permettre de trouver tous les mots qui ont à la suite deux caractères qui ne sont pas des lettres : $ grep '[^a-z][^a-z]' french c.-à-d. ch.-l.
+
+## intervalle de recherche "{}" : 
+
+On peut économiser les copier/coller lorsque l'on veut chercher plusieurs fois la même information, en utilisant le symbole « \{min,max\} » qui permet d'indiquer que l'on cherche la présence d'un caractère successivement entre min et max fois, par exemple si vous cherchez les mots contenant deux « q » séparés par 5 à 7 lettres [1] :
+$ grep 'q[a-z]\{5,7\}q' french 
+quantique
+quantiques
+quelconque
+quelconques
+quiconque
+quiproquo
+quiproquos
+squelettique
+squelettiques
+
+Il est possible avec certaines versions de grep de spécifier un seul chiffre entre accolades :
+
+    si on cherche exactement X occurrences on indique : « \{x\} »
+    si on cherche de 0 à X occurrences on indique : « \{,x\} »
+    si on cherche au moins X occurrences on indique : « \{x,\} » Ainsi, on pourrait donc abréger la recherche des mots contenant 6 voyelles non accentuées ainsi : 
+$ grep '[aeiouy]\{6\}' french 
+rougeoyaient 
+youyou 
+youyous
+
+## repetition / definition de pattern "\( \)" :
+Si on veut répéter plusieurs caractères au lieu d'un seul, il faut encadrer la recherche avec des « \( \) », Par exemple si vous bloquez dans une grille de mots croisés sur la définition « mot contenant 7 fois à la suite une consonne suivie d'une voyelle » :
+$ grep '\([^aeiouy][aeiouy]\)\{7\}' french 
+remilitarisation
+
+Le contenu trouvé à partir d'une expression entre parenthèses est dit « capturé », cela signifie qu'il est gardé en mémoire et peut être réutilisé dans l'expression rationnelle. La contenu capturé est accessible en utilisant « \1 », « \2 », « \3 », etc. (en général on ne peut pas dépasser \9). Le numéro de capture est défini en comptant le nombre de parenthèses ouvrantes précédant l'expression capturée. Cela permet par exemple de lister les mots contenant un palindrome de 4 lettres :
+$ grep '\(.\)\(.\)\(.\)\(.\)\4\3\2\1' french 
+caressera
+caresserai
+caresseraient
+caresserais
+caresserait
+caresseras
+paressera
+paresserai
+paresseraient
+paresserais
+paresserait
+paresseras
+querellerez
+
+## ancres "$" "^" :
+On peut encore affiner les recherches en utilisant les ancres, qui permettent de situer où se situe une expression rationnelle dans la ligne :
+
+    le dollar, lorsqu'il est situé à la fin de l'expression rationnelle, représente la fin de la ligne
+    l'accent circonflexe, lorsqu'il est situé au début de l'expression rationnelle, représente le début de la ligne
+
+On peut cumuler les deux ancres dans la même expression, par exemple si on veut chercher les vrais palindromes de 4 lettres :
+ 
+grep '^\(.\)\(.\)\2\1`' french 
+alla
+elle
+erre
+esse
+
+## "*" :
+Pour en terminer avec les expressions rationnelles Posix basiques, il ne reste plus qu'un métacaractère à présenter, qui est l’astérisque. Ce caractère est équivalent à « {0,} ».
+ 
+grep '^d.*ouilles`' french 
+débrouilles
+dépouilles
+douilles
+Utiliser dans vi
+
+VimRegex détaille largement le sujet.
+
+## Extension des expressions rationnelles
+
+Les extensions rationnelles basiques étant peu lisibles, la norme Posix a évolué pour intégrer les expressions rationnelles étendues, aussi appelées « ERE ».
+grep est mieux avec -E
+
+# propriete des Extented regexp "E" :
+
+Les versions récentes de grep permettent d'utiliser les expressions rationnelles étendues avec l'option -E. Si vous ajoutez l'option -E à grep, vous devez modifier votre expression rationnelle ainsi :
+
+    \{ et \} deviennent { et }
+    \( et \) deviennent ( et )
+    tous les autres métacaractères (« . », « [ », «  ] », « - », « ^ », « $ », « * », « \1 », etc.) sont inchangés
+
+# le "?" :
+Outre cette suppression des « \ » superflus, les ERE apportent trois nouveaux métacaractères. Le premier est « ? » qui est un synonyme de « {0,1} », qui permet par exemple de chercher les palindromes de 4 ou 6 lettres avec une seule expression :
+
+grep -E '^(.)(.)((.)\4)?\2\1`' french 
+alla
+elle
+erre
+esse
+selles
+serres
+
+# le "+" : 
+
+On dispose aussi de « + » qui est un synonyme de {1,}
+
+grep -E '^cré+e`' french 
+crée
+créée
+
+# le "|" : 
+
+Enfin le dernier métacaractère spécifique aux ERE est le « | » qui permet de séparer plusieurs options :
+
+grep -E '^(gr|f|citr)ouille`' french 
+citrouille
+fouille
+grouille
+
+# les classes de caractères :
+
+Posix prévoit des classes de caractère, qui sont des notations spécifiques entre crochets. À noter que les classes de caractères sont aussi bien gérées par les expressions rationnelles basiques que étendues (il n'y a donc pas besoin d'utiliser l'option -E pour en bénéficier), mais il existe des implémentations d'expressions rationnelles basiques non compatibles Posix qui ne les acceptent pas.
+
+Les classes de caractères sont des mots ou abréviations en anglais désignant ce à quoi ils correspondent et encadrés par « [: :] ».
+
+    [:digit:] : désigne un chiffre décimal (équivalent à [0-9])
+    [:lower:] : désigne une lettre minuscule (équivalent à [a-z])
+    [:upper:] : désigne une lettre majuscule (équivalent à [A-Z])
+    [:alpha:] : désigne une lettre minuscule ou majuscule (équivalent à [A-Za-z])
+    [:alnum:] : désigne une lettre minuscule ou majuscule ou un chiffre (équivalent à [A-Za-z0-9])
+    [:xdigit:] : désigne un chiffre hexadécimal (équivalent à [a-fA-F0-9])
+    [:space:] : désigne un caractère d'espacement (espace, tabulation, retour chariot, etc.)
+    [:blank:] : désigne un espace ou une tabulation horizontale (à ne pas confondre avec [:space:])
+    [:punct:] : désigne à un crochet ou un caractère de la classe suivante : ['!"#$%&()*+,./:;<=>?@^_`{|}~-]
+    [:cntrl:] : désigne un Caractère de contrôle
+    [:print:] : désigne un caractère affichable (ainsi qu'une espace), cette classe est à peu près le contraire de [:cntrl:]
+    [:graph:]: désigne l'ensemble des caractères visibles sauf les espaces, les caractères de contrôle, etc. Équivalent à [\x21-\x7E].
+
+## Pour aller plus loin
+
+# Attention au GLOB
+
+Dans les exemples précédents, il était important d'utiliser de simples apostrophes pour éviter l'interprétation de caractères spéciaux par le shell.
+Outils pour tester vos expressions rationnelles
+
+Plusieurs outils s'offrent à vous pour tester et triturer dans tous les sens vos expressions rationnelles comme par exemple le site Regexpal qui propose notamment de la coloration syntaxique et se veut "temps réel" dans les modifications, ou regex101 permet de tester des expressions rationnelles Python, javascript ou pcre.
+Ne pas toujours utiliser les expressions rationnelles
+
+Les expressions rationnelles ne sont par exemple pas l'outil idéal pour analyser du XML ou de l'HTML.
+Jouer avec les expressions rationnelles
+
+Voir la dépêche Regexcrossword : un subtil mélange de sudoku et de mots croisés, à la sauce Regex, ainsi que la chasse au trésor du MIT en 2014, etc.
+Un peu de théorie
+Les automates finis
+
+La base théorique des expressions rationnelles se trouve dans la théorie des langages. Notamment elles permettent de décrire les langages rationnels. Elles sont fortement liées aux automates finis.
+
+Pour illustrer le parallèle nous allons utiliser les caractères et les quantificateurs de base :
+
+    a qui permet de reconnaitre la lettre a ;
+    ? qui permet de définir un groupe optionnel ;
+    * qui permet de définir un groupe se répétant zéro fois ou plus ;
+    + qui permet de définir un groupe se répétant une fois ou plus.
+
+Littérature
+
+    Une des ressources en ligne indispensables sur les moteurs d'expressions rationnelles se trouve sur le site de Russ Cox : https://swtch.com/~rsc/regexp/ ;
+    un vieil article de Mark-Jason Dominus explique le fonctionnement des expressions rationnelles et leur application dans Perl ;
+    une implémentation expliquée d'un moteur d'expressions rationnelles est disponible dans un cours de l'université de Vancouver.
+
