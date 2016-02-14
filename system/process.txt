@@ -1,0 +1,66 @@
+
+#### Process Linux : ####
+
+## How to count the number of threads in a process on Linux
+Question: I have an application running, which forks a number of threads at run-time. I want to know how many threads are actively running in the program. What is the easiest way to check the thread count of a process on Linux?
+
+If you want to see the number of threads per process in Linux environments, there are several ways to do it.
+
+# Method One: /proc
+
+The proc pseudo filesystem, which resides in /proc directory, is the easiest way to see the thread count of any active process. The /proc directory exports in the form of readable text files a wealth of information related to existing processes and system hardware such as CPU, interrupts, memory, disk, etc.
+$ cat /proc/<pid>/status
+
+The above command will show detailed information about the process with <pid>, which includes process state (e.g., sleeping, running), parent PID, UID, GID, the number of file descriptors used, and the number of context switches. The output also indicates the total number of threads created in a process as follows.
+
+Threads: <N>
+
+For example, to check the thread count of a process with PID 20571:
+$ cat /proc/20571/status
+
+The output indicates that the process has 28 threads in it.
+
+Alternatively, you could simply count the number of directories found in /proc/<pid>/task, as shown below.
+$ ls /proc/<pid>/task | wc
+
+This is because, for every thread created within a process, there is a corresponding directory created in /proc/<pid>/task, named with its thread ID. Thus the total number of directories in /proc/<pid>/task represents the number of threads in the process.
+
+# Method Two: ps
+
+If you are an avid user of the versatile ps command, this command can also show you individual threads of a process (with "H" option). The following command will print the thread count of a process. The "h" option is needed to hide the header in the top output.
+$ ps hH p <pid> | wc -l 
+
+
+## How to view threads of a process on Linux
+Question: My program creates and executes multiple threads in it. How can I monitor individual threads of the program once they are created? I would like to see the details (e.g., CPU/memory usage) of individual threads with their names.
+
+Threads are a popular programming abstraction for parallel execution on modern operating systems. When threads are forked inside a program for multiple flows of execution, these threads share certain resources (e.g., memory address space, open files) among themselves to minimize forking overhead and avoid expensive IPC (inter-process communication) channel. These properties make threads an efficient mechanism for concurrent execution.
+
+In Linux, threads (also called Lightweight Processes (LWP)) created within a program will have the same "thread group ID" as the program's PID. Each thread will then have its own thread ID (TID). To the Linux kernel's scheduler, threads are nothing more than standard processes which happen to share certain resources. Classic command-line tools such as ps or top, which display process-level information by default, can be instructed to display thread-level information.
+
+Here are several ways to show threads for a process on Linux.
+
+# Method One: PS
+
+In ps command, "-T" option enables thread views. The following command list all threads created by a process with <pid>.
+$ ps -T -p <pid>
+
+The "SID" column represents thread IDs, and "CMD" column shows thread names.
+
+# Method Two: Top
+
+The top command can show a real-time view of individual threads. To enable thread views in the top output, invoke top with "-H" option. This will list all Linux threads. You can also toggle on or off thread view mode while top is running, by pressing 'H' key.
+$ top -H
+
+To restrict the top output to a particular process <pid> and check all threads running inside the process:
+$ top -H -p <pid>
+
+# Method Three: Htop
+
+A more user-friendly way to view threads per process is via htop, an ncurses-based interactive process viewer. This program allows you to monitor individual threads in tree views.
+
+To enable thread views in htop, launch htop, and press <F2> to enter htop setup menu. Choose "Display option" under "Setup" column, and toggle on "Three view" and "Show custom thread names" options. Presss <F10> to exit the setup.
+
+Now you will see the follow threaded view of individual processes.
+
+
