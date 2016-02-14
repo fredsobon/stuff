@@ -1,0 +1,220 @@
+### working faster with bash : 
+
+# Using !!
+This command is used to bring back and automatically execute the last command in history. It is the same as pressing C^P followed by Enter). Here’s an example:
+
+debian$ cat /etc/debian_version
+5.0.7
+debian$ !!
+cat /etc/debian_version
+5.0.7
+
+
+# Using !text
+Replacing ‘text’ with any command will call the last command in the history which starts with ‘text’. Example:
+
+debian$ ls /etc/apt/
+apt-file.conf  sources.list.d  trustdb.gpg  trusted.gpg~  sources.list~
+apt.conf.d     secring.gpg     trusted.gpg  sources.list
+debian$ pwd
+/home/embryo
+debian$ !ls
+ls /etc/apt/
+apt-file.conf  sources.list.d  trustdb.gpg  trusted.gpg~  sources.list~
+apt.conf.d     secring.gpg     trusted.gpg  sources.list
+
+As you can see after issuing the first ls command we printed the working directory, then we called back the last ls command with !ls.
+
+# Using !n
+This will bring up the nth command in history. This will vary depending on your history. Here’s an example:
+
+debian$ history | grep 399
+  399  cd
+  562  history | grep 399
+debian$ !399
+cd
+debian$ pwd
+/home/embryo
+
+#Using !?text?
+This will execute the most recent command that contains the word ‘text’. Example:
+
+debian$ !?xjf?
+tar -xjf hedgewars-src-0.9.14.1.tar.bz2
+tar: hedgewars-src-0.9.14.1.tar.bz2: Cannot open: No such file or directory
+
+The most recent command containing the text ‘xjf’ was executed. This trick should be applied carefully though, especially for sensitive commands like rm.
+
+# Using !! in combination with another command
+!! can also be used in combination with some other command, because the shell expands it first and then it executes the current command. For example, this can be very useful in combination with sudo, since sometimes we forget to use administrative privileges for commands that need it. For example:
+
+debian$ apt-get update
+E: Could not open lock file /var/lib/apt/lists/lock - open (13 Permission denied)
+E: Unable to lock the list directory
+debian$ sudo !!
+sudo apt-get update
+
+# Changing the color of the Bash prompt
+There are many ways of customizing your Bash prompt, and I will list here only a few pre-defined sets.
+To make the user’s prompt green, put this inside your ~/.bashrc file, where ~ is your home directory:
+
+PS1='\[\e[1;32m\][\u@\h \W]\$\[\e[0m\] '
+
+Now run source ~/.bashrc or . ~/.bashrc to read the settings again. Here’s how your prompt should look like:
+
+Here’s another example, which will make your prompt look really fancy:
+
+PS1='\[\e[0;32m\]\u\[\e[m\] \[\e[1;34m\]\w\[\e[m\] \[\e[1;32m\]\$\[\e[m\] \[\e[1;37m\]'
+
+And this is how it will look like:
+
+A pretty good tutorial on this can be found here (Bash Prompts How-To) and several prompt schemes on the Arch Wiki, here. The Bash Reference manual section on this includes some useful information too.
+
+# Catch the exit status of a command with $?
+If a command is successful, its exit status will be 0, otherwise it will be different from 0. This can be useful in scripts.
+
+sudo: pam_authenticate: Conversation error
+debian$ echo $?
+1
+
+# Using reversed search: Ctrl-R
+Ctrl-R will prompt you to enter a pattern for a command, and will search the history in reversed order for any the first command that contains the pattern and execute it. Example
+
+$ ls -lh
+total 16K
+drwxr-xr-x 2 embryo embryo 4.0K 2010-12-19 15:12 Downloads
+drwxr-xr-x 2 embryo embryo 4.0K 2010-12-19 15:12 Music
+drwxr-xr-x 3 embryo embryo 4.0K 2010-12-19 19:16 myfolder
+drwxr-xr-x 2 embryo embryo 4.0K 2010-12-19 15:21 my_stuff
+-rw-r--r-- 1 embryo embryo    0 2010-12-19 15:21 textfile
+(reverse-i-search)`-': ls -lh 
+
+In the above example we issued the ls -lh command, the pressed Ctrl-R and typed in the letter L. The command was brought up and then executed with Enter.
+
+# Using cd – to go to the previous working directory
+This command will have the same effect as cd $OLDPWD, where $OLDPWD is a variable that holds the previous working directory.
+
+debian$ pwd
+/home/embryo/myhome
+debian$ cd
+debian$ pwd
+/home/embryo
+debian$ cd -
+/home/embryo/myhome
+
+# Using grep -e -pattern to show the lines that start with a – sign
+This will be useful if piped to commands like man, for example:
+
+$ man gcc | grep -e -ansi
+
+This will query the manual page for gcc and will only print lines that contain the text -ansi.
+
+# Create aliases for quick access to commands or one-liners
+
+Aliases are handy custom commands which can be used to make shortcuts to various commands, scripts or one-liners. Aliases can be added in the ~/.bashrc file like this:
+
+alias name='command'
+
+
+Alternately, you can specify an external file and load it in .bashrc, like for example the default one, called .bash_aliases. Edit .bashrc and uncomment or add (if it doesn’t already exist) the following code:
+
+if [ -f ~/.bash_aliases ]; then
+    . ~/.bash_aliases
+fi
+
+This code checks to see if the file ~/.bash_aliases exists, and if it does, it reads the contents from it. Here are examples of aliases and what they do:
+
+alias killfx='kill -9 $(pidof firefox-bin) # kills Firefox by sending SIGKILL using its process ID
+alias upgrade='sudo apt-get update && sudo apt-get upgrade' # upgrade a Ubuntu-based system
+alias xterm='xterm -geometry 1280x1024' # start xterm with a custom geometry
+alias src='. ~/.bash_profile' # source the ~/.bash_profile (read its contents and execute them)
+alias lsh='ls -lhXG' # alias for ls to use long listing format, human readable sizes, sort and don't show groups
+
+You can virtually define any aliases you want here. The # sign used after each alias means what follows is comment, it will be ignored by Bash when reading the file.
+Use Page Up and Page Down to Search Through History
+
+Here’s another tip. Adding the following two lines to ~/.inputrc will make PageUp and PageDown keys to search through history (if ~/.inputrc doesn’t already exist create it):
+
+"\e[5~": history-search-backward
+"\e[6~": history-search-forward
+
+Now if you type a command followed by PageUp it will search for the last command that started with the pattern you specified.
+
+# Working with files starting with “-“
+
+For this we will precede the files (or arguments) that start with “-” with “–“. For example:
+
+man gcc | grep -- -ansi
+
+Will show only the lines which contain the pattern -ansi in the gcc manual page. Or:
+
+touch -- -file
+rm -- -file
+
+Will create a file called -file and then it will remove it. Also, ls -l — -file will use long listing format to show details about -file.
+
+# Use Emacs-like shortcuts
+
+The big advantage of these is that they use Ctrl and Alt (Meta) combination, which for a person who knows blind-typing is very useful, since he will not need to move his hand to reach keys like arrows, PgUp, PgDown, Home or End. Most of these shortcuts are used in the shell for fetching commands from history, edit text in a fast manner, or even navigate quickly in less pagers or in a manual page. Here are the shortcuts (^A means “press Ctrl and A at the same time”):
+
+    ^A – go to the start of line
+    ^E – go to the end of line
+    ^H – erase one character to the left
+    ^D – erase one character to the right, it also exits the shell by default if there is no character to delete
+    ^U – erase everything from the cursor to start
+    ^K – erase everything from the cursor to end
+    ^P – bring the previous command in history
+    ^N – bring the next command in history
+    ^C – interrupt character, sends SIGTERM to the current application 
+
+# Colored manual pages
+
+Colored manual pages can really make text clearer and easier to read. Here’s a snippet I took from the web a while ago (I really don’t remember the address where I found this particular customization scheme – could it be from here?). Put the following inside ~/.bashrc:
+
+export LESS_TERMCAP_mb=$'\E[01;31m' # begin blinking
+export LESS_TERMCAP_md=$'\E[01;38;5;74m' # begin bold
+export LESS_TERMCAP_me=$'\E[0m' # end mode
+export LESS_TERMCAP_se=$'\E[0m' # end standout-mode
+export LESS_TERMCAP_so=$'\E[38;5;246m' # begin standout-mode - info box
+export LESS_TERMCAP_ue=$'\E[0m' # end underline
+export LESS_TERMCAP_us=$'\E[04;38;5;146m' # begin underline
+
+And then source your .bashrc file:
+
+. ~/.bashrc
+
+Here’s how the manual pages will look now:
+
+Copy/paste with Shift+Insert
+
+This is yet another tip for working faster using either Shift+Insert or the middle mouse button. They both do the same thing: enter text from the clipboard in either the command-line or a shell text editor, like Nano (also works in Emacs, together with ^Y).
+
+
+# Using your custom-made scripts
+
+With only basic Bash knowledge you can create your own time-savers scripts, or just fun ones. I have my own scripts inside the ~/bin directory, which is included in my $PATH. For example, here is a greeting script:
+
+echo "Welcome to the dark side of the moon, $USER!"
+echo 'System uptime:'
+uptime
+cal
+
+Save it with a suggestive name, say greeting.sh and put it inside ~/bin. Now edit your ~/.bashrc file and add the following line:
+
+. ~/bin/greeting.sh # or "source ~/bin/greeting.sh"
+
+Now open a new shell to see the new greeting, or just source your ~/.bashrc file:
+
+. ~/.bashrc
+
+Here’s how this looks like on my system:
+
+# Create backup files faster
+
+This tip can be used with virtually any command, since Bash will expand it, but it’s very useful for creating backup files. Say you have a filename called very_long_filename. To rename it you would normally do something like mv very_long_filename very_long_filename.backup. But here’s how to do it faster:
+
+mv very_long_filename{,.backup}
+
+Bash will expand this command into the one showed above, and then execute it.
+
+
