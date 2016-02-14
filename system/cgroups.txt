@@ -1,0 +1,24 @@
+
+### cgroups :
+
+
+# intro :
+Les cgroups, un outil trop méconnu
+
+Dans les temps anciens, où Linux était facile, on apprenait à gérer la priorité des processus avec la commande "nice". C'était facile, simple, mais limité : même avec "nice -19 stress -c 1", les autres programmes n'obtenaient pas plus de 90% du temps processeur.
+
+Depuis quelques années, nice ne répond plus. Si si, essayez dans votre distribution favorite : lancez la commande ci-dessus, puis simultanément la même sans nice : "stress -c 1". Vous verrez avec "top" qu'elles ont chacune 50% de processeur sur une machine mono-cœur. Bizarre, on m'a répondu que les cgroups sont l'avenir.
+
+Sur le moment, on n'a jamais le temps, on repousse, mais là j'ai craqué : mon film en 720p saccade par moments, il demande parfois 80% du temps processeur, et ktorrent en prend jusqu'à 30%.
+
+## créer un groupe nommé plustard pour l'utilisateur live
+sudo cgcreate -a live:live -t live:live -g cpu:/plustard
+
+# Lui affecter la priorité processeur la plus basse (c'est 1024 par défaut)
+cgset -r cpu.shares=2 plustard
+
+# Affecter ktorrent à ce groupe
+cgclassify -g cpu:plustard $(pgrep ktorrent)
+
+Voilà, après une heure de recherches c'est aussi simple que de mettre ça en démarrage automatique de KDE. Remplacez live par votre utilisateur et groupe. C'est beaucoup plus puissant puisque j'obtiens 99,4% de temps processeur dans le même test qu'au début. Il faut remplacer nice par "cgexec -g cpu:plustard stress -c 1"
+
