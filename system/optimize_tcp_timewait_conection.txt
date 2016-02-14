@@ -1,0 +1,64 @@
+
+## Reduce your TIME_WAIT connections
+
+If you manage an Apache server, you may be noticing a large amount of TIME_WAIT connections all of the time. Don’t get me wrong, TIME_WAIT is a good thing.. it basically means that your server has closed the connection, but it’s being kept around so any delayed packets matched to the connection can be handled properly. We can reduce them, however.
+
+# How many do you have?
+First, let’s see how many TIME_WAITs are hanging out. Type in this command as root:
+    
+netstat -nat | awk '{print $6}' | sort | uniq -c | sort -n
+
+You’ll see something like:
+      1 CLOSE_WAIT
+      1 established)
+      1 Foreign
+      1 SYN_RECV
+      6 ESTABLISHED
+     29 LISTEN
+    317 TIME_WAIT
+
+# Reduce them.
+Now, let’s reduce that number a little bit and free up some resources for other things..
+
+Type this in to get some default values:
+cat /proc/sys/net/ipv4/tcp_fin_timeout
+cat /proc/sys/net/ipv4/tcp_tw_recycle
+cat /proc/sys/net/ipv4/tcp_tw_reuse
+
+If you have the stock/default settings, you’ll likely see 60, 0, 0.
+
+Let’s change it up.. changing:
+tcp_fin_timeout to 30
+tcp_tw_recycle to 1
+tcp_tw_reuse to 1
+
+Run this:
+echo 30 >/proc/sys/net/ipv4/tcp_fin_timeout
+echo 1 >/proc/sys/net/ipv4/tcp_tw_recycle
+echo 1 >/proc/sys/net/ipv4/tcp_tw_reuse
+
+Let’s make it persistent – meaning it’ll survive a reboot. Search for any settings first:
+cat /etc/sysctl.conf | grep 'net.ipv4.tcp_fin_timeout\|net.ipv4.tcp_tw_recycle\|net.ipv4.tcp_tw_reuse'
+
+If that comes up with values, manually edit the /etc/sysctl.conf and change them to 30, 0, 0 (stated above).
+
+If it comes up empty, then edit the /etc/sysctl.conf and add our new values to the very bottom:
+# Decrease TIME_WAIT seconds
+net.ipv4.tcp_fin_timeout = 30
+ 
+# Recycle and Reuse TIME_WAIT sockets
+net.ipv4.tcp_tw_recycle = 1
+net.ipv4.tcp_tw_reuse = 1
+
+The Results:
+
+Give it some time and re-run that netstat command again to see your lower TIME_WAIT number.
+netstat -nat | awk '{print $6}' | sort | uniq -c | sort -n
+
+You’ll probably see something like:
+      1 established)
+      1 Foreign
+      2 SYN_RECV
+     10 ESTABLISHED
+     29 LISTEN
+    108 TIME_WAIT
