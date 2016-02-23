@@ -165,3 +165,80 @@ boogie@x61:~/lab/ansible/playbooks$ vagrant halt
 
 
 
+
+### Troubleshooting :
+
+# problème de reload de conf vagrant :
+
+- Pb :
+"Failed to mount folders in Linux guest. This is usually because
+the "vboxsf" file system is not available. Please verify that
+the guest additions are properly installed in the guest and
+can work properly. The command attempted was:
+
+mount -t vboxsf -o uid=`id -u vagrant`,gid=`getent group vagrant | cut -d: -f3` vagrant /vagrant
+mount -t vboxsf -o uid=`id -u vagrant`,gid=`id -g vagrant` vagrant /vagrant
+
+The error output from the last command was:
+
+/sbin/mount.vboxsf: mounting failed with the error: No such device"
+
+
+- Reponse :
+
+Install du plugin : vagrant-vbguest 
+
+La version du plugin entre le "host" et le "guest" ne correspond pas.
+notre guest est une centos6.7 et le host une Debian "sid" :
+
+boogie@boogieland:~$ vagrant plugin install vagrant-vbguest
+puis reload :
+boogie@boogieland:~$ vagrant reload
+
+GuestAdditions versions on your host (4.3.26) and guest (4.3.30) do not match.
+Loaded plugins: fastestmirror
+Setting up Install Process
+Loading mirror speeds from cached hostfile
+ * base: distrib-coffee.ipsl.jussieu.fr
+ * epel: mirrors.ircam.fr
+ * extras: miroir.univ-paris13.fr
+ * updates: centos.quelquesmots.fr
+Package kernel-devel-2.6.32-573.18.1.el6.x86_64 already installed and latest version
+Package gcc-4.4.7-16.el6.x86_64 already installed and latest version
+Package 1:make-3.81-20.el6.x86_64 already installed and latest version
+Package 4:perl-5.10.1-141.el6_7.1.x86_64 already installed and latest version
+Package bzip2-1.0.5-7.el6_0.x86_64 already installed and latest version
+Nothing to do
+Copy iso file /usr/share/virtualbox/VBoxGuestAdditions.iso into the box /tmp/VBoxGuestAdditions.iso
+Installing Virtualbox Guest Additions 4.3.26 - guest version is 4.3.30
+Verifying archive integrity... All good.
+Uncompressing VirtualBox 4.3.26 Guest Additions for Linux............
+VirtualBox Guest Additions installer
+Removing installed version 4.3.30 of VirtualBox Guest Additions...
+Verifying archive integrity... All good.
+Uncompressing VirtualBox 4.3.26 Guest Additions for Linux............
+VirtualBox Guest Additions installer
+Removing installed version 4.3.30 of VirtualBox Guest Additions...
+Copying additional installer modules ...
+Installing additional modules ...
+Removing existing VirtualBox non-DKMS kernel modules[  OK  ]
+Building the VirtualBox Guest Additions kernel modules
+Building the main Guest Additions module[  OK  ]
+Building the shared folder support module[  OK  ]
+Building the OpenGL support module[FAILED]
+(Look at /var/log/vboxadd-install.log to find out what went wrong)
+Doing non-kernel setup of the Guest Additions[  OK  ]
+Installing the Window System drivers
+Could not find the X.Org or XFree86 Window System, skipping.
+An error occurred during installation of VirtualBox Guest Additions 4.3.26. Some functionality may not work as intended.
+In most cases it is OK that the "Window System drivers" installation failed.
+==> default: Checking for guest additions in VM...
+==> default: Mounting shared folders...
+    default: /vagrant => /home/boogie
+==> default: Machine already provisioned. Run `vagrant provision` or use the `--provision`
+==> default: flag to force provisioning. Provisioners marked to run always will still run.
+
+boogie@boogieland:~$ vagrant plugin install vagrant-vbguest
+Installing the 'vagrant-vbguest' plugin. This can take a few minutes...
+
+
