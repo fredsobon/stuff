@@ -2,6 +2,7 @@
 # notes urls :
 
 http://xmodulo.com/disable-network-manager-linux.html
+https://wiki.archlinux.fr/Systemd
 
 
 ####### Quick Memo : #######
@@ -324,4 +325,374 @@ févr. 05 07:03:47 x61 NetworkManager[558]: <info> (wlan0): supplicant interface
 févr. 05 07:05:44 x61 wpa_supplicant[761]: wlan0: WPA: Group rekeying completed with 00:24:d4:cb:7f:3c [GTK=CCMP]
 
 
+
+##### Systemd french version : 
+
+
+systemd est un gestionnaire de système / service. Il permet entre autre un démarrage en parallèle, à la demande, par activation D-Bus ou socket, un suivi des services etc.
+Sommaire
+
+    1 Configuration
+    2 Commandes
+    3 Système
+    4 Unité
+    5 Services
+    6 Target
+    7 Diagnostic
+        7.1 Erreur au chargement
+            7.1.1 Exemple: service installé mais non fonctionnel
+            7.1.2 Exemple: service non installé
+        7.2 Erreur au lancement
+        7.3 Démarrage
+        7.4 Montage
+    8 Journalisation
+        8.1 Visualiser
+        8.2 Taille
+        8.3 syslog
+    9 Autres
+
+systemd est installé et activé par défaut sur les nouvelles installations depuis octobre 2012.
+Configuration
+
+Reportez-vous à la catégorie configuration pour la configuration de votre système.
+
+Le comportement du programme systemd quant à lui, se configure à l'aide du fichier /etc/systemd/system.conf. Mais hormis pour des raisons de debug, vous n'aurez certainement pas à y toucher.
+Commandes
+
+systemd fournit un large panel de commande qui vous permettent d'avoir des informations ou de modifier l'état de votre système. Sans être exhaustif, voici les plus importantes :
+
+    systemctl : contrôle systemd et gère les unités.
+    journalctl : consultation du journal de systemd.
+    loginctl : contrôle des sessions utilisateurs (systemd-logind).
+
+Astuce: Les pages de manuel de systemd sont assez bien fournies et donnent un aperçu des commandes (pages en section 1) disponibles.
+Système
+
+Les actions sont envoyées en utilisant la commande systemctl :
+
+Redémarrer ou arrêter :
+
+systemctl reboot
+systemctl poweroff
+
+Astuce: Vous pouvez directement utiliser les commandes reboot, poweroff, … qui sont des liens vers systemctl
+
+Mettre en veille ou en hibernation :
+
+systemctl suspend
+systemctl hibernate
+
+Note: Pour configurer l'hibernation, consultez également les parties hooks et réveil. N'oubliez pas de refaire l'image.
+Unité
+
+Une unité représente un fichier de configuration. Entre autres, une unité peut être un service (*.service), un target (*.target), un montage (*.mount), un socket (*.socket)…
+
+    Liste les unités:
+
+systemctl
+systemctl list-units
+
+    Démarrer, arrêter, redémarrer ou recharger une unité:
+
+systemctl start <unit>
+systemctl stop <unit>
+systemctl restart <unit>
+systemctl reload <unit>
+
+    Voir son statut:
+
+systemctl status <unit>
+
+    Activer, désactiver une unité au démarrage:
+
+systemctl enable <unit>
+systemctl disable <unit>
+
+    Lister les dépendances d'une unité:
+
+systemctl list-dependencies [<unit>]
+
+Note: Il faut utiliser le nom du fichier d'une unité en entier, exemple:
+
+systemctl restart avahi-daemon.service
+
+Néanmoins, certains raccourcis d'écriture sont disponibles:
+
+    sans suffixe, systemctl présume qu'il s'agit d'un .service. Ainsi, dbus et dbus.service sont équivalents:
+
+systemctl status dbus
+
+    un point de montage est automatiquement retranscrit en l'unité .mount appropriée. Par exemple /home est équivalent à home.mount:
+
+systemctl status /home
+
+    de la même manière, un périphérique est retranscrit en l'unité .device appropriée. Ainsi, /dev/sda2 est équivalent à dev-sda2.device:
+
+systemctl status /dev/sda2
+
+    Recharger la configuration des services (après modification d'une unité):
+
+systemctl daemon-reload
+
+Les unités peuvent correspondre à des instances d'un fichier template, ceci permet d'avoir un fichier de configuration pour plusieurs unités. Ces unités sont reconnaissables par le @ inclus dans leur nom. Un exemple concret est le service dhcpcd@.service. Ce dernier permet d'activer le DHCP sur une interface :
+
+systemctl start dhcpcd@eth0.service
+
+Pour activer le service au démarrage :
+
+systemctl enable dhcpcd@eth0.service
+
+Services
+
+Un service est une unité ayant comme suffixe .service. La page Services fournit une liste non exhaustive des principaux services que vous pouvez lancer (cf. colonne systemd).
+Target
+
+Un target est une unité particulière, elle permet de regrouper d'autres unités. Son nom de fichier prend le suffixe .target.
+
+Les targets permettent de fournir l'équivalent des niveaux d'exécution (runlevel) de sysvinit :
+SystemVinit Runlevel    Systemd Target  Notes
+0   runlevel0.target, poweroff.target   arrête le système
+1, s, single    runlevel1.target, rescue.target     mode single user.
+2, 4    runlevel2.target, runlevel4.target, multi-user.target   Mode défini par l'utilisateur, identique au 3 par défaut.
+3   runlevel3.target, multi-user.target     Multi-utilisateur, non graphique.
+5   runlevel5.target, graphical.target  Multi-utilisateur, en mode graphique.
+6   runlevel6.target, reboot.target     Redémarre
+emergency   emergency.target    Shell d'urgence
+
+Vous pouvez voir ce que regroupe un target en lançant :
+
+systemctl show -p Wants -p Requires <target>
+
+Par exemple, on peut voir que graphical ne fait que rajouter un gestionnaire de connexions en plus de multi-user (systemd-update-utmp-runlevel.service n'étant là que pour mettre à jour le runlevel) :
+$ systemctl --no-pager show -p Wants -p Requires graphical.target
+
+Requires=multi-user.target
+Wants=display-manager.service systemd-update-utmp-runlevel.service
+
+Pour changer de target, par exemple pour passer au multi-user, lancez l'une de ces commandes:
+
+systemctl isolate multi-user.target
+systemctl isolate runlevel3.target
+telinit 3
+
+Le target par défaut à l'installation est graphical :
+$ readlink /usr/lib/systemd/system/default.target
+
+graphical.target
+
+Pour spécifier un autre niveau par défaut, par exemple le multi-user :
+
+systemctl set-default -f multi-user.target
+
+Diagnostic
+
+Vous pouvez à tout moment avoir des informations sur l'état des unités avec la commande :
+
+systemctl status <unit>
+
+Erreur au chargement
+Exemple: service installé mais non fonctionnel
+
+Par défaut, le target graphical est sélectionné, ceci dit, même si un gestionnaire de connexion est installé, il ne démarre pas :
+$ systemctl -t service -a --full | grep error
+
+display-manager.service   error  inactive dead        display-manager.service
+
+$ systemctl status display-manager.service
+
+display-manager.service
+      Loaded: error (Reason: No such file or directory)
+      Active: inactive (dead)
+
+systemd ne trouve pas de display-manager.service parce qu'on ne lui en a indiqué aucun. Si vous avez installé slim par exemple :
+# systemctl enable slim.service
+
+ln -s '/usr/lib/systemd/system/slim.service' '/etc/systemd/system/display-manager.service'
+
+Et là :
+$ systemctl status display-manager.service
+
+slim.service - SLiM Simple Login Manager
+      Loaded: loaded (/usr/lib/systemd/system/slim.service; enabled)
+      Active: inactive (dead)
+      CGroup: name=systemd:/system/slim.service
+
+Vous n'aurez plus qu'à le lancer :
+
+systemctl start display-manager.service
+
+Exemple: service non installé
+
+Si systemd liste des services qui se rapportent à des logiciels non-installés sur la machine, par exemple :
+$ systemctl -t service -a --full | grep error
+
+auditd.service                 error  inactive dead        auditd.service
+plymouth-quit-wait.service     error  inactive dead        plymouth-quit-wait.service
+plymouth-start.service         error  inactive dead        plymouth-start.service
+syslog.service                 error  inactive dead        syslog.service
+
+Vous pouvez les masquer avec la commande suivante:
+
+ systemctl mask auditd.service plymouth-quit-wait.service plymouth-start.service syslog.service
+
+Important: Faites bien attention quand vous masquez ces services, car cela empêche leur activation, même manuellement. Avant de les réutiliser, vous devrez les «démasquer»:
+
+systemctl unmask auditd.service
+
+Erreur au lancement
+$ systemctl --failed
+
+UNIT                LOAD   ACTIVE SUB    JOB DESCRIPTION
+dhcpcd@eth0.service loaded failed failed     dhcpcd on eth0
+
+LOAD   = Reflects whether the unit definition was properly loaded.
+ACTIVE = The high-level unit activation state, i.e. generalization of SUB.
+SUB    = The low-level unit activation state, values depend on unit type.
+JOB    = Pending job for the unit.
+
+1 units listed. Pass --all to see inactive units, too.
+
+# systemctl status dhcpcd@eth0.service
+
+dhcpcd@eth0.service - dhcpcd on eth0
+      Loaded: loaded (/usr/lib/systemd/system/dhcpcd@.service; disabled)
+      Active: failed (Result: exit-code) since Tue, 31 Jul 2012 15:09:03 +0200; 2min 58s ago
+     Process: 1251 ExecStart=/sbin/dhcpcd -A -q -w %I (code=exited, status=1/FAILURE)
+      CGroup: name=systemd:/system/dhcpcd@.service/eth0
+
+Jul 31 15:09:03 archtest dhcpcd[1251]: dhcpcd already running on pid 311 (/run/dhcpcd-eth0.pid)
+
+Un autre dhcpcd est en cours :
+$ ps h -C dhcpcd -o cgroup
+
+3:cpuacct,cpu:/system/wicd.service,1:name=systemd:/system/wicd.service
+
+C'était à des fins de tests, wicd.service était lancé.
+Démarrage
+
+Vous pouvez avoir un aperçu de ce qui est démarré et le temps que ça prend avec la commande systemd-analyze.
+Note: Cette commande a besoin de python2-cairo, python2-gobject et python2-dbus, installez-les si ce n'est pas déjà le cas.
+$ systemd-analyze
+
+Startup finished in 5421ms (kernel) + 11246ms (userspace) = 16668ms
+
+$ systemd-analyze blame
+
+3421ms wicd.service
+  1278ms systemd-remount-fs.service
+  1154ms systemd-logind.service
+  1033ms systemd-vconsole-setup.service
+   873ms sys-kernel-debug.mount
+   859ms dev-hugepages.mount
+   845ms systemd-udevd.service
+   795ms dev-mqueue.mount
+   502ms console-kit-daemon.service
+   380ms systemd-udev-trigger.service
+   339ms upower.service
+   251ms systemd-tmpfiles-setup.service
+   235ms systemd-user-sessions.service
+   232ms systemd-sysctl.service
+   187ms udisks2.service
+   117ms home.mount
+   112ms console-kit-log-system-start.service
+     5ms tmp.mount
+     3ms sys-fs-fuse-connections.mount
+
+Ou encore, un aperçu graphique :
+
+systemd-analyze plot > plot.svg
+
+Montage
+
+Si vous avez des périphériques non forcément connectés lors du démarrage et que vous les spécifiez dans /etc/fstab, n'oubliez pas de rajouter l'option nofail pour ne pas vous retrouver avec un démarrage bloqué.
+Note: L'option nofail n'est pas valable pour les types dépendant de fuse (ntfs-3g, cifs, etc.) et les partitions sur le réseau sont gérées différemment, systemd peut démarrer sans.
+
+systemd a un timeout de 90 secondes par défaut, ce n'est qu'après ce temps qu'il vous informe d'un échec :
+
+[ TIME ] Timed out waiting for device dev-sdb1.device
+[DEPEND] Dependency failed for /media/disque_usb_1
+
+et vous donne la main :
+
+Welcome to emergency mode. Use "systemctl default" or ^D to enter default mode.
+Give root password for maintenance
+(or type Control-D to continue):
+
+Important: Le Ctrl-D ou le systemctl default reprendra là où systemd s'est arrêté. Si vous n'avez fait aucun changement, vous allez repartir pour 90s d'attente.
+
+Pour remédier temporairement au souci, vous pouvez éventuellement utiliser le shell d'urgence (celui que vous aurez une fois le mot de passe root entré) :
+
+systemctl mask media-disque_usb_1.mount
+# ne pas oublier de le 'unmask' une fois le souci réglé
+systemctl default
+
+Le démarrage devrait continuer. Mais pour une solution plus pérenne, modifiez la ligne concernant ce périphérique dans le /etc/fstab en rajoutant nofail:
+
+/dev/sdb1 /media/disque__usb_1 auto defaults,nofail 0 0
+
+Journalisation
+
+systemd possède son propre mécanisme de journalisation, syslog n'est plus requis par défaut.
+Visualiser
+Important: Seul le root et le groupe systemd-journal peuvent visualiser le journal.
+
+Pour accéder au log :
+
+journalctl
+# ou si vous voulez les messages d'un seul service
+journalctl -u wicd
+# ou alors par PID
+journalctl _PID=1
+# ou même par exécutable
+journalctl /usr/sbin/dhcpcd
+
+Vous pouvez aussi accéder au log récent d'une unité spécifique par le biais de systemctl status :
+
+systemctl status wicd.service
+
+Ou obtenir les logs depuis ou jusqu'à une date précise, à l'aide respectivement de --since ou --until:
+
+#journal du jour:
+journalctl --since="today"
+#jusqu'à une date donnée (par exemple au 20 février 2013, 12h30):
+journalctl --until="2013-02-20 12:30:00"
+#ou dans un intervalle précis (par exemple le 15 mars 2013 entre 13h et 13h10min30s):
+journalctl --since="2013-03-15 13:00:00" --until="2013-03-15 13:10:30"
+
+journalctl permet aussi de filtrer par le niveau de log (tel que défini par syslog). Pour n'afficher que les erreurs :
+
+journalctl -p err
+
+Vous pouvez voir les pages de manuel de journalctl et systemd.journal-fields pour plus d'informations.
+Taille
+
+Vous pouvez limiter la taille maximum du journal (par défaut à 10% de la taille du système de fichier). Pour la fixer à 50 Mio par exemple :
+Fichier: /etc/systemd/journald.conf
+
+SystemMaxUse=50M
+
+En fixant une limite par fichier, vous aurez un équivalent de logrotate (par défaut, il garde 7 rotations):
+Fichier: /etc/systemd/journald.conf
+
+SystemMaxUse=50M
+SystemMaxFileSize=10M
+
+Si vous ne voulez pas avoir un journal persistent, vous pouvez tout simplement ne pas le stocker sur le disque :
+Fichier: /etc/systemd/journald.conf
+
+[Journal]
+Storage=volatile
+
+syslog
+
+Si vous voulez avoir syslog en parallèle avec journald (pour avoir des fichiers texte par exemple), il suffit d'installer syslog-ng, puis de l'activer :
+
+systemctl enable syslog-ng.service
+
+Autres
+
+    systemadm: une interface graphique pour contrôler systemd fournie dans systemd-ui-git disponible sur AUR (elle est encore loin d'être terminée, à utiliser à vos risques et périls.)
+    logind : gestionnaire de sessions utilisateurs.
+    systemd/cron : réaliser des tâches planifiées.
+    systemd/utilisateur : emploi dans l'espace utilisateur.
 
