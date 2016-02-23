@@ -44,18 +44,101 @@ nginx: the configuration file /root/nginx.conf syntax is ok
 nginx: configuration file /root/nginx.conf test is successful
 
 
-# configuration basique :
+###  configuration basique :
+
+##  configuration des directives
+
+fichier de conf /etc/nginx/nginx.conf 
+
+/!\ toutes les directives finissent par un ";" 
+
+# Directives principales : 
+
+# utilisateur. On peut rajouter un deuxieme nom celui du groupe autoriser à faire tourner le process : 
+user              nginx;  
+
+# nginx fonctionne avec un "single" process
+worker_processes  1; 
+
+# On peut avoir une inclusion de conf via un fichier externe : dans ce cas c'est comme si l'on avait l'intégration du fichier ( ce mecanisme est récursif on peut avoir l'incusion de fichiers de fichiers ....) 
+
+NB: le globbing fonctionne pour les "include".Ex include sites/*.conf; > Ok
 
 
+nginx.conf :
 
+    user        nginx nginx;
+    worker_processes  4;
+    include     other_settings.conf;
 
-
-
-
-
-
+other_settings.conf :
+    error_log logs/error.log;
+    pid logs /nginx.pid;        
  
+Le résultat final sera vu comme tel pour nginx : 
 
+    user              nginx nginx;
+    worker_processes  4;
+    include     other_settings.conf;
+    error_log logs/error.log;
+    pid logs /nginx.pid;        
+
+Les fichiers de base fournis  à l'install de nginx peuvent être regroupés et renommés sans souci.
+
+## Block de directives : 
+
+Les blocs de directives sont apportés avec les modules : l'activation d'un nouveau module forme 
+
+>>> 58 nginx http server
+
+
+
+
+
+
+
+## exemple de fichier de conf : 
+
+user              nginx;
+worker_processes  1;
+
+
+
+
+# path des errors logs :
+error_log  /var/log/nginx/error.log;
+
+# 
+pid        /var/run/nginx.pid;
+
+# 
+events {
+    worker_connections  1024;
+}
+
+#   
+http {
+    include       /etc/nginx/mime.types;
+    default_type  application/octet-stream;
+
+    log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
+                      '$status $body_bytes_sent "$http_referer" '
+                      '"$http_user_agent" "$http_x_forwarded_for"';
+
+    access_log  /var/log/nginx/access.log  main;
+
+    sendfile        on;
+    #tcp_nopush     on;
+
+    #keepalive_timeout  0;
+    keepalive_timeout  65;
+
+    #gzip  on;
+
+    # Load config files from the /etc/nginx/conf.d directory
+    # The default server is in conf.d/default.conf
+    include /etc/nginx/conf.d/*.conf;
+}
 
 
 
