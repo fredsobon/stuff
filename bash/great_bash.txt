@@ -130,7 +130,11 @@ le deuxième param est $2. Ici : Documents/
 le troisième param est $3. Ici : GNS3/ 
 
 
-- Paramètres en arguments : $* , "$*"  $@ et $# 
+- Paramètres en arguments : $* , "$*"  $@ et $# .Cas particulier pour $?
+Tout d'abord $? nous renseigne sut le code retour de la dernière commande invoquée :
+$?=0 de base nous dis que la dernière commande s'est passée avec succès.
+$?=1 est une convention définissant une erreur .
+On peut renseigner nous même nos propres code de sortie à la fin d'une commande parmi les 255 possibilité offertes (de 0 a 254 en nombre)
 
 $* et $@ : affichent tous les paramètres passés en arguments : il n'y a de base pas de différence de comportement entre les deux symboles SAUF quand vont intervenir des espaces dans les arguments (nom de fichiers) et ou la différence apparaitra quandl'utilisation de " ' sera faite.
 $# va afficher le nombre de paramètre passé en argument.
@@ -256,9 +260,11 @@ lap
 
 === chapter 4 : flow control 
 
+= for loop : 
+
 # arithmétique / calcul :
 
-= la syntaxe "(( ))" est directement liée au calcul dans bash.Nous n'avons pas besoin de placer un $ en la définissant.
+= la syntaxe "(( ))"  son équivalent direct est "let" est directement liée au calcul dans bash.Nous n'avons pas besoin de placer un $ en la définissant.
 
 boogie@x61:/tmp$ for ((i=0 ; i < 10 ; i+=1 )); do echo $i ;done
 0
@@ -300,6 +306,35 @@ lapin contains a
 lapin contains p
 lapin contains i
 lapin contains n
+
+== while loop :
+équivalent de l'exercice précédent avec un "while" : "tant que" vrai alors .... : attention à la boucle infinie, il faut également mettre un compteur pour sortir de la boucle : 
+
+boogie@x61:/tmp$ cat e
+#!/bin/bash
+
+var=$1
+num=${#1}
+
+echo " arg is $1 , num is $num "
+
+#let  i=0 
+(( i=0 )) 
+while  ((i < ${num} ))
+    do 
+    echo "$var contains ${var:$i:1}"
+#    let i=$i+1  
+    (( i=$i+1 ))  
+done
+
+boogie@x61:/tmp$ ./e lapin
+ arg is lapin , num is 5 
+lapin contains l
+lapin contains a
+lapin contains p
+lapin contains i
+lapin contains n
+
 
 
 == read :
@@ -349,4 +384,25 @@ echo " rights are $rights for filename $filename "
 boogie@x61:/tmp$ ls -l a.sh |./d
  rights are -rwxr-xr-x for filename a.sh 
 
+
+= case : 
+
+branchement conditionnel : la lecture se fait sequentiellement.Chaque cas est traité l'un après l'autre.
+
+Exemple on demande la saisie d'un chiffre : on attend donc soit un pair soit un impair .si quelque chose d'autre est saisi ..on lève un message 
+
+boogie@x61:/tmp$ cat f.sh 
+#!/bin/bash
+
+echo -n "gimme me a digit please : "
+read var
+
+case "$var" in 
+            2 |4 |6 |8 ) echo "hey chiffre pair!"
+            ;;
+            3|5|7|9) echo "yop : chiffre impair!" 
+            ;;
+            *) echo "hey ..un chiffre svp .."
+               exit 1
+esac  
 
