@@ -107,8 +107,6 @@ boogie@x61:~$ printf "hello %s %d \n" $a $b
 hello lapin 23 
 
 
-
-
 # Paramètres positionnels de script :
 - $0 : le nom du script exécuté :
 
@@ -130,9 +128,45 @@ le deuxième param est $2. Ici : Documents/
 le troisième param est $3. Ici : GNS3/ 
 
 
-- Paramètres en arguments : $* , "$*" et $@ :
+- Paramètres en arguments : $* , "$*"  $@ et $# 
 
-# Il existe une différence concrrète entre $* ; "$*" et  "$@".Il est très important de savoir que $* sans guillemet ne permet pas une interprétation complète correcte : un nom composé sera vu comme plusieurs fichiers distincts. Le "$*" lui 
+$* et $@ : affichent tous les paramètres passés en arguments : il n'y a de base pas de différence de comportement entre les deux symboles SAUF quand vont intervenir des espaces dans les arguments (nom de fichiers) et ou la différence apparaitra quandl'utilisation de " ' sera faite.
+$# va afficher le nombre de paramètre passé en argument.
+Exemple : 
+boogie@x61:/tmp$ cat t.sh 
+#! /bin/bash
+
+a=$*
+b=$@
+c=$#
+echo " ok avec \$* les arguments sont les suivants :" $a
+echo " ok avec \$@ les arguments sont les suivants :" $b
+echo " ok le nombre d'arguments récpéré grâce à \$# est  le suivant :" $c
+
+ce qui nous donne par exemple : 
+boogie@x61:/tmp$ ./t.sh vagrant-boogie-13171/ vagrant-boogie-13318/
+ ok avec $* les arguments sont les suivants : vagrant-boogie-13171/ vagrant-boogie-13318/
+ ok avec $@ les arguments sont les suivants : vagrant-boogie-13171/ vagrant-boogie-13318/
+ ok le nombre d'arguments récpéré grâce à $# est  le suivant : 2
+
+
+boogie@x61:/tmp$ cat a.sh 
+#!/bin/bash
+
+echo "here it is :" $* ; echo "nombre d'arg for \$* => " $#
+echo "here it is :" "$*" ; echo "nombre d'arg for  \"\$*\" => " $#
+echo "here it is :" $@ ; echo "nombre d'arg for \$@ => " $#
+
+here it is : testo testi lapin nain vagrant-boogie-13171 vagrant-boogie-6431
+nombre d'arg for $* =>  5
+here it is : testo testi lapin nain vagrant-boogie-13171 vagrant-boogie-6431
+nombre d'arg for  "$*" =>  5
+here it is : testo testi lapin nain vagrant-boogie-13171 vagrant-boogie-6431
+nombre d'arg for $@ =>  5
+
+
+
+# Il existe une différence concrète entre $* ; "$*" et  "$@".Il est très important de savoir que $* sans guillemet ne permet pas une interprétation complète correcte : un nom composé sera vu comme plusieurs fichiers distincts. Le "$*" lui 
 verra un seul paramètre passé en argumant : même s'il s'agit d'une liste de plusieurs fichiers. Le $@ est la meilleure façon de gérer tous les paramètres passés en arguments: 
 a=$*
 b="$*"
@@ -173,4 +207,18 @@ bba
 boogie@x61:~$ echo ${test##*b}
 a
 
+
+- Modification de variable en affichage ( usage proche du sed ) :
+
+boogie@x61:/tmp$ a=lapin
+boogie@x61:/tmp$ echo $a
+lapin
+boogie@x61:/tmp$ echo ${a/pin/}
+la
+boogie@x61:/tmp$ echo ${a/lapin/}
+
+boogie@x61:/tmp$ echo ${a/lapin/mout}
+mout
+boogie@x61:/tmp$ echo ${a/lap/mout}
+moutin
 
