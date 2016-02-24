@@ -1,4 +1,6 @@
-### great bash ###
+### great bash  : shortcut des videos###
+
+== chapter 1 : 
 
 bash --version
 GNU bash, version 4.3.42(1)-release (x86_64-pc-linux-gnu)
@@ -96,7 +98,7 @@ toto 777
 
 
 
-### Variables : 
+=== chapter 3 : variables  
 
 - printf :
 on peut formatter plus facilement la sortie écran via printf : on va pouvoir "remplir" des champs prédéfini via des types de données : exemple \d : digit \s : string . Afin d'avoir un prompt "normal" (cad avec un retour chariot on alimente notre ligne avec un \n : 
@@ -132,6 +134,7 @@ le troisième param est $3. Ici : GNS3/
 
 $* et $@ : affichent tous les paramètres passés en arguments : il n'y a de base pas de différence de comportement entre les deux symboles SAUF quand vont intervenir des espaces dans les arguments (nom de fichiers) et ou la différence apparaitra quandl'utilisation de " ' sera faite.
 $# va afficher le nombre de paramètre passé en argument.
+
 Exemple : 
 boogie@x61:/tmp$ cat t.sh 
 #! /bin/bash
@@ -149,25 +152,11 @@ boogie@x61:/tmp$ ./t.sh vagrant-boogie-13171/ vagrant-boogie-13318/
  ok avec $@ les arguments sont les suivants : vagrant-boogie-13171/ vagrant-boogie-13318/
  ok le nombre d'arguments récpéré grâce à $# est  le suivant : 2
 
-
-boogie@x61:/tmp$ cat a.sh 
-#!/bin/bash
-
-echo "here it is :" $* ; echo "nombre d'arg for \$* => " $#
-echo "here it is :" "$*" ; echo "nombre d'arg for  \"\$*\" => " $#
-echo "here it is :" $@ ; echo "nombre d'arg for \$@ => " $#
-
-here it is : testo testi lapin nain vagrant-boogie-13171 vagrant-boogie-6431
-nombre d'arg for $* =>  5
-here it is : testo testi lapin nain vagrant-boogie-13171 vagrant-boogie-6431
-nombre d'arg for  "$*" =>  5
-here it is : testo testi lapin nain vagrant-boogie-13171 vagrant-boogie-6431
-nombre d'arg for $@ =>  5
-
-
-
 # Il existe une différence concrète entre $* ; "$*" et  "$@".Il est très important de savoir que $* sans guillemet ne permet pas une interprétation complète correcte : un nom composé sera vu comme plusieurs fichiers distincts. Le "$*" lui 
 verra un seul paramètre passé en argumant : même s'il s'agit d'une liste de plusieurs fichiers. Le $@ est la meilleure façon de gérer tous les paramètres passés en arguments: 
+
+
+script a.sh : 
 #!/bin/bash
 
 echo " in a script => invoke script with $* "
@@ -179,6 +168,8 @@ echo ==
 echo " in a script => invoke script with '"$@"' " 
 ./b "$@"
 echo ==
+
+script b :
 
 #!/bin/bash
 
@@ -245,4 +236,117 @@ boogie@x61:/tmp$ echo ${a/lapin/mout}
 mout
 boogie@x61:/tmp$ echo ${a/lap/mout}
 moutin
+
+- Comptage du nombre de caractères d'une variable :
+
+boogie@x61:/tmp$ echo $a
+lapin
+boogie@x61:/tmp$ echo ${#a}
+5
+
+
+- Interval de caractère d'une variable :
+il est tout  fait possible de faire un extract de sous chaine d'une variable en définissant le numéro du caractère de début et le nombre de caractère composant notre sous chaine désirée :
+boogie@x61:/tmp$ a=lapin
+boogie@x61:/tmp$ echo ${a:1:2}
+ap
+On commence à compter les caractères à partir de "0" : 
+ogie@x61:/tmp$ echo ${a:0:3}
+lap
+
+=== chapter 4 : flow control 
+
+# arithmétique / calcul :
+
+= la syntaxe "(( ))" est directement liée au calcul dans bash.Nous n'avons pas besoin de placer un $ en la définissant.
+
+boogie@x61:/tmp$ for ((i=0 ; i < 10 ; i+=1 )); do echo $i ;done
+0
+1
+2
+3
+4
+5
+6
+7
+8
+9
+boogie@x61:/tmp$ for ((i=0 ; i < 10 ; i+=3 )); do echo $i ;done
+0
+3
+6
+9
+
+
+- Pour afficher les caractères d'une variable passé en argument :
+
+boogie@x61:/tmp$ cat c
+
+#!/bin/bash
+
+var=$1
+num=${#1}
+
+echo " arg is $1 , num is $num "
+
+for  ((i=0 ; i < ${num}  ; i+=1 ))
+    do echo "$var contains ${var:$i:1}" 
+done
+
+boogie@x61:/tmp$ ./c lapin
+ arg is lapin , num is 5 
+lapin contains l
+lapin contains a
+lapin contains p
+lapin contains i
+lapin contains n
+
+
+== read :
+
+permet une interraction directe avec le user : 
+
+boogie@x61:/tmp$ read lapin
+coco
+boogie@x61:/tmp$ echo $lapin
+coco
+On peut avoir une option de "prompt" : 
+boogie@x61:/tmp$ read -p "hey what is yo name :" lapin
+hey what is yo name :coco
+boogie@x61:/tmp$ echo $lapin
+coco
+
+boogie@x61:/tmp$ read a b 
+lapin nain
+boogie@x61:/tmp$ echo $a 
+lapin
+boogie@x61:/tmp$ echo $b
+nain
+Attention les variables ne vont contenir qu'une chaine de caractère par défaut : s'il y a trop de chaine : la dernière variable héritera de tout le reste :
+boogie@x61:/tmp$ read a b 
+lapin blanc nain
+boogie@x61:/tmp$ echo $a 
+lapin
+boogie@x61:/tmp$ echo $b
+blanc nain
+boogie@x61:/tmp$ read a b c
+lapin nain rouge et blanc
+boogie@x61:/tmp$ echo $a 
+lapin
+boogie@x61:/tmp$ echo $b
+nain
+boogie@x61:/tmp$ echo $c
+rouge et blanc
+
+boogie@x61:/tmp$ cat d
+#!/bin/bash
+# parsing des propriétés d'un fichier : ls -l fichier |./d < notre script
+
+read rights links user  group size month day time filename
+
+echo " rights are $rights for filename $filename "  
+
+boogie@x61:/tmp$ ls -l a.sh |./d
+ rights are -rwxr-xr-x for filename a.sh 
+
 
