@@ -168,15 +168,39 @@ nombre d'arg for $@ =>  5
 
 # Il existe une différence concrète entre $* ; "$*" et  "$@".Il est très important de savoir que $* sans guillemet ne permet pas une interprétation complète correcte : un nom composé sera vu comme plusieurs fichiers distincts. Le "$*" lui 
 verra un seul paramètre passé en argumant : même s'il s'agit d'une liste de plusieurs fichiers. Le $@ est la meilleure façon de gérer tous les paramètres passés en arguments: 
-a=$*
-b="$*"
-c="$@"
-echo  "N1 \$* :" 
-ls -l "$a" 
-echo 'N2 "$*" :'  
-ls -ld  $b  
-echo "N3 \$@ :"  
-ls -l $c 
+#!/bin/bash
+
+echo " in a script => invoke script with $* "
+./b $*
+echo ==
+echo " in a script => invoke script with '"$*"' "
+./b "$*"
+echo ==
+echo " in a script => invoke script with '"$@"' " 
+./b "$@"
+echo ==
+
+#!/bin/bash
+
+echo "in b script => invoke with $# arg"
+echo "in b script => first arg $1 is '"$1"'
+echo "in b script =>second arg $2 is '"$2"'
+
+Résultat : on voit que l'on a des résultats très différents sur le nombre d'arg passés : 
+
+boogie@x61:/tmp$ bash a.sh test* lapin\ nain 
+ in a script => invoke script with testi testo lapin nain 
+in b script => invoke with 4 arg
+==
+ in a script => invoke script with 'testi testo lapin nain' 
+in b script => invoke with 1 arg
+==
+ in a script => invoke script with 'testi testo lapin nain' 
+in b script => invoke with 3 arg
+==
+
+la bonne réponse est la numero 3 : on a trois fichiers "lapin  nain" testo et testi 
+
 
 # Remplacement de variable :
 Des caractères spéciaux : % %% et # ## vont permettrent de modifier l'affichage et le traitement de variables (SANS modifier la valeur initiale de celle-ci).
