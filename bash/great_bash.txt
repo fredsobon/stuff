@@ -33,6 +33,7 @@ boogie@x61:/tmp$ cat out.txt
 drwx------ 2 boogie boogie 1024 janv.  1  1970 orbit-boogie
 boogie@x61:/tmp$ cat err.txt 
 ls: impossible d'accéder à not_here: Aucun fichier ou dossier de ce type
+
 -Redirection globale : on peut vouloir regrouper les sorties et les erreurs au sein du même fichier 
 
 boogie@x61:/tmp$ ls -ld orbit-boogie not_here &> all.txt
@@ -92,11 +93,6 @@ EOF
 boogie@x61:/tmp$ bash ph toto
 toto 777
  
-
-
-
-
-
 
 === chapter 3 : variables  
 
@@ -178,8 +174,6 @@ script b :
 #!/bin/bash
 
 echo "in b script => invoke with $# arg"
-echo "in b script => first arg $1 is '"$1"'
-echo "in b script =>second arg $2 is '"$2"'
 
 Résultat : on voit que l'on a des résultats très différents sur le nombre d'arg passés : 
 
@@ -389,7 +383,7 @@ boogie@x61:/tmp$ ls -l a.sh |./d
 
 branchement conditionnel : la lecture se fait sequentiellement.Chaque cas est traité l'un après l'autre.
 
-Exemple on demande la saisie d'un chiffre : on attend donc soit un pair soit un impair. Si une lettre min ou maj est saisi ou un caractère special est saisi ... on lève un message.
+Exemple on demande la saisie d'un chiffre : on attend donc soit un pair soit un impair (grâce au "pipe" qui nous donne le choix selectif). Si une lettre min ou maj est saisi (grâce aux intervals du bash )ou plusieurs lettres (grâce au pattern matching) un caractère special est saisi ... on lève un message.
 On nottera na possibilité de saisir des options et des intervals dans les choix possibles : 
 
 boogie@x61:/tmp$ cat f.sh 
@@ -399,13 +393,39 @@ echo -n "gimme me a digit please : "
 read var
 
 case "$var" in 
-            2 |4 |6 |8 ) echo "hey chiffre pair!"
+            2 |4 |6 |8) echo "hey chiffre pair!"
             ;;
             1|3|5|7|9) echo "yop : chiffre impair!" 
             ;;
             [a-zA-Z]) echo "hey ..un chiffre svp pas une lettre .."
                exit 1
             ;;
+            [a-zA-Z]*) echo "hey ..un chiffre pas plusieurs lettres .."
+                exit 2
+            ;;
             *) echo "hey ..un chiffre svp pas un caractère special.."
-               exit 2
+               exit 3
 esac 
+
+
+
+=== chapter 5 - shell math and logic : 
+
+De base quand on declare une variable avec des chiffres ou nombres : bash ne les considère que sous forme "string" :
+boogie@x61:/tmp$ a=4
+boogie@x61:/tmp$ b=5
+boogie@x61:/tmp$ c=4+5
+boogie@x61:/tmp$ echo $c
+4+5
+boogie@x61:/tmp$ c=$a+$b
+boogie@x61:/tmp$ echo $c
+4+5
+Si on veut faire des opérations arithmetiques il faut déclarer le type "entier" pour notre variable le mot clé "declare" ou "typeset" est à utiliser (ils ont la même action):
+
+declare -i a=5
+b=$(( $a + 4))
+echo $b
+9
+
+
+
