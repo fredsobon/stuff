@@ -461,4 +461,78 @@ test.txt is the file proceed
 hey  test.txt is 30 bytes  long
 714 is the space on disk for 3 files which are  a.sh f.sh test.txt
 
+Il est possible de définir de plusieurs manières un calcul arithmétique :
+
+boogie@x61:/tmp$ let "f=4 + 7"
+boogie@x61:/tmp$ echo $f
+11
+boogie@x61:/tmp$ g=$(( 4 + 7 ))
+boogie@x61:/tmp$ echo $g
+11
+boogie@x61:/tmp$ echo "$(( $f + $g ))"
+22
+
+/!\  : ATTENTION on ne travaille que sur des entiers : les decimaux sont "tronqués".
+
+* Décisions / choix branchements mathématiques :
+
+On peut faire des "if" mathématiques grâce aux "(( ))"
+On a les mêmes opérateurs que dans les languages comme le c ( < , <= , >, >= , == , != ..qu'on peut combiner avec le && , || ..)
+boogie@x61:/tmp$ cat m.sh 
+#!/bin/bash
+
+# vars :
+
+var=$1
+factor=5
+
+if (( $var < 10 ))
+then 
+    echo "nop : too small!"
+    exit 1
+fi
+
+if (( $var >= 100 ))
+then 
+    echo "nop : too big!"
+    exit 2
+fi
+
+if (( $var == 5 * $factor || cheat != 0 ))
+then 
+    echo "bingO!"
+else
+    echo "not so bad ...you can reach it !"
+    exit 3
+fi
+
+Ce qui donne : 
+boogie@x61:/tmp$ ./m.sh 4
+nop : too small!
+
+boogie@x61:/tmp$ ./m.sh 123
+nop : too big!
+
+boogie@x61:/tmp$ ./m.sh 25
+bingO!
+
+boogie@x61:/tmp$ ./m.sh 29
+not so bad ...you can reach it !
+
+boogie@x61:/tmp$ cheat=1 ./m.sh 29
+bingO!
+
+boogie@x61:/tmp$ cheat=1 ./m.sh 11
+bingO!
+
+boogie@x61:/tmp$ cheat=1 ./m.sh 99
+bingO!
+
+
+
+  
+
+
+
+
 
