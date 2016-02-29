@@ -604,4 +604,48 @@ then
     echo "yum a directory!"
 fi
 
+On peut faire les differents tests de comparaison = ; != etc mais attention c'est une comparaison de chaines. 
+Pour comparer des entiers il faut utiliser les test  -eq , -le , gt etc ..ou alors se servir des "(( ))" qui autorisent les test de type < , == etc ...
+
+* Test améliorés avec "[[ ]]" :
+
+on peut se servir du globbing shell pour faire une comparaison de chaine grâce aux double crochet sans avoir de surprise 
+
+boogie@x61:/tmp$ cat c.sh 
+#!/bin/bash
+
+# est ce que notre $1 fini bien par .txt : 0 ou plusieurs caractères suivis de ".txt" 
+if [[ $1 == *.txt ]]
+then 
+    echo "yep it is ==> $1"
+fi
+Ce qui donne la sortie suivante quand on lance en argument un pattern qui match l'expression : 
+
+boogie@x61:/tmp$ ./c.sh test.txt
+yep it is ==> test.txt
+
+On a aussi une seconde expression : la SEULE dans bash qui utilise les regexps comme dans sed et grep :
+
+if [[ $1 =~ t.s..t.. ]]
+then 
+   echo  "mouarf not so far : $1"
+fi
+boogie@x61:/tmp$ ./c.sh tast.taz 
+mouarf not so far : tast.taz
+
+Toutes les constructions de regexps peuvent être utilisées : 
+if [[ $1 =~ t*s..t[a-z]{2} ]]
+then 
+   echo  "mouarf not so far : $1"
+fi
+
+Attention dans le cas précis d'utilisation de =~ pour les regexps il ne faut surtout pas encadrer par des " ' le pattern sinon on annule la recherche par regexp.
+
+[[ == ]] => shell pattern matching
+[[ =~ ]] => regexp pattern matching
+
+
+== Chapitre 6 : définition de fonction 
+
+ 
 
