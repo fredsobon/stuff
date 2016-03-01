@@ -671,5 +671,96 @@ function one with keyword function and ()
 function two -> without () 
  third form -> without function keyword 
 
+Il est possible d'effectuer un groupement de commande avec {} mais aussi (), (( )) et [[]] : les implications sont différentes on sait par exemple que (()) va effectuer des commandes arithmetiques.
+Avec l'utilisation de () : on travaille dans un sous-shell  donc attention aux variables .
 
+/!\ ATTENTION à toujours définir nos fonctions en début de script (comme pour les variables) avant de les invoquer.
+
+= paramètres positionnels dans les fonctions : 
+attention ils sont redéfinis dans la fonction 
+
+boogie@x61:/tmp$ cat t.sh 
+
+fn ()
+{
+echo "inside function here's the parameters : $1 $2"
+}
+echo "before function $1 $2"
+fn bla bloublou
+echo "after function $1 $2"
+Ce qui donne :
+
+boogie@x61:/tmp$ ./t.sh zz tt
+before function zz tt
+inside function here's the parameters : bla bloublou
+after function zz tt
+
+Seule $0 ne change pas : il n'y a pas de redifinition dans la fonction.
+
+= Portée des variables : 
+
+Par defaut toutes les variables sont "globales" dans un script et vues de manières identiques dans une fonction.
+
+Il est toujours important de définir si besoin des variables dans notre fonction : le mot clé local est utile dans ce cas car : la variable ne sera utilisée que dans le contexte de la fonction : elle sera libérée de la mémoire dès la fonction executée : economie , meilleur gestion de la mémoire et protection du systeme.
+
+Les mots clé "declare" "typeset" et "local" ont la même action dans une fonction.
+
+boogie@x61:/tmp$ cat t.sh 
+
+fn ()
+{
+local a="titi"
+echo "inside function here's the parameters : $1 $2 et puis la var a : $a"
+}
+echo "before function $1 $2 et puis la var a : $a "
+fn bla bloublou
+echo "after function $1 $2 et puis la var a :  $a"
+
+Ce qui donne :
+boogie@x61:/tmp$ ./t.sh zz tt
+before function zz tt et puis la var a :  
+inside function here's the parameters : bla bloublou et puis la var a : titi
+after function zz tt et puis la var a : 
+
+Depuis bash version 4.2 on peut définir dans notre fonction une variable globale avec :
+declare -g : donc des que la fonction est lue la variable sera vue a l'exterrieur de la fonction aussi :
+
+
+
+ce qui nous donne :
+boogie@x61:/tmp$ ./t.sh zz tt
+before function zz tt et puis la var a :  
+inside function here's the parameters : bla bloublou et puis la var a : titi
+after function zz tt et puis la var a :  titi
+boogie@x61:/tmp$ cat t.sh 
+
+fn ()
+{
+#local a="titi"
+declare -g a="titi"
+echo "inside function here's the parameters : $1 $2 et puis la var a : $a"
+}
+
+
+echo "before function $1 $2 et puis la var a : $a "
+
+fn bla bloublou
+
+echo "after function $1 $2 et puis la var a :  $a"
+ 
+= Substitution indirecte :
+il est possible de retrouver la valeur d'une variable en appelant une autre variable définie avec la syntaxe :
+${!var} :
+boogie@x61:/tmp$ a=lapin
+boogie@x61:/tmp$ var=a
+boogie@x61:/tmp$ echo ${!var}
+lapin
+
+Il peut être interessant de stocker les fonctions dans une bibliotheque ..ou dans un fichier et les appeller en sourcant le chemin du rep ou du fichier :
+source function.sh
+. function.sh
+
+
+=== Chapitre 7 : les tableaux.
+ 
 
