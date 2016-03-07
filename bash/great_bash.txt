@@ -61,7 +61,7 @@ boogie@x61:/tmp$ wc < out.txt
 boogie@x61:/tmp$ ls |wc 
      10      10     251
  
-On peut combiner la puissance des redirections et le pipe. On peut par exemple rediriger les erreurs vers la sortie standart puis envoyer le tout à une autre commande via le "|" : les erreurs sont bien capturées :
+On peut com la puissance des redirections et le pipe. On peut par exemple rediriger les erreurs vers la sortie standart puis envoyer le tout à une autre commande via le "|" : les erreurs sont bien capturées :
 
 Si on essaye de faire un ls sur un fichier qui n'existe pas : on a un message d'erreur sur la sortie 
 boogie@x61:/tmp$ ls lapin
@@ -759,5 +759,45 @@ source function.sh
 . function.sh
 
 === Chapitre 7 : les tableaux.
+On se sert des tableaux pour traiter  beaucoup de données du même type.
+On peut recupérer les différents éléments d'un tableau. On recupere les differents élements "sous divisés" d'une variable.
  
+Pour définir un tableau on utilise la notation  var[index] et pour recupérer les valeurs du tableau on utilise la notation "${var[index]}"
 
+boogie@x61:/tmp$ index=5
+boogie@x61:/tmp$ var[index]=222
+boogie@x61:/tmp$ echo ${var[5]}
+222
+
+On doit déclarer explicitement un tableau ( array ) dans notre script avec declare -a :
+
+boogie@x61:/tmp$ cat tab.sh 
+#!/bin/bash
+
+declare -a tab
+tab=( zero one two three four [5]=five six seven eight nine ten)
+
+echo "print the first record of our array ==> ${tab[0]}"
+echo "hey print now the seven element => ${tab[7]}"
+
+ce qui nous donne : 
+boogie@x61:/tmp$ ./tab.sh 
+print the first record of our array ==> zero
+hey print now the seven element => seven
+
+On va pour l'exemple creer un script qui va utiliser l'index du tableau pour nous donner le nom de cet index saisi dans notre liste de mot.
+Notre script va nous permettre de convertir chaque chiffre saisi en mot correspondant.
+ex : 3  > trois  
+
+#!/bin/bash
+
+declare -a tab
+tab=( zero one two three four [5]=five six seven eight nine ten )
+
+enter=$1
+
+printf "here it is ==> %s \n" ${tab[$enter]}
+
+Ce qui nous donne :
+boogie@x61:/tmp$ ./ar.sh 3
+here it is ==> three 
