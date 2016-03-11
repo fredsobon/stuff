@@ -802,3 +802,39 @@ printf "here it is ==> %s \n" ${tab[$enter]}
 Ce qui nous donne :
 boogie@x61:/tmp$ ./ar.sh 3
 here it is ==> three 
+
+Version améliorée : on va convertir tous les chiffres saisis en entrée par la valeur de leur index dans le tableau. Si ce qui est saisi n'est pas un chiffre alors on l'affiche tel quel :
+
+#!/bin/bash
+
+# on defini notre tableau 
+declare -a tab
+tab=(zero one two three four five six seven eight nine ten)
+
+# on boucle sur les arguments fournis
+for arg 
+do
+# on cree un compteur et on l'incremente tant qu'il est inferrieur au nombre de caractère fournis en param
+    for (( i=0 ; i<${#arg} ; i++ ))
+    do
+# on isole chaque caractere du param
+        piece=${arg:$i:1}
+# test : si c'est un chiffre alors on associe sa valeur a l'indice du tableau et on a donc sa valeur en lettre 
+        case $piece in 
+            [0-9])res=${tab[$piece]}
+                 ;;
+# on isole le caractère qu'on affichera simplement puisque ce n'est pas un chiffre 
+                *) res=$piece
+        esac
+# on affiche donc la valeur du resultat(chiffre ecrit en lettre ou caractère inchangé)  et un espace. NB on affiche tout sur la même ligne donc pas de "\n" associé à printf
+        printf "%s " $res
+    done
+# on rajoute une ligne vide pour avoir notre prompt ( pour corriger l'effet de notre précédent printf )
+    echo
+done
+
+Ce qui nous donne :
+boogie@x61:/tmp$ ./a.sh 5_allo_7
+five _ a l l o _ seven 
+boogie@x61:/tmp$ ./a.sh '#HEY#777'
+# H E Y # seven seven seven
