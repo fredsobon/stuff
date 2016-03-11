@@ -760,6 +760,7 @@ source function.sh
 . function.sh
 
 === Chapitre 7 : les tableaux.
+
 On se sert des tableaux pour traiter  beaucoup de données du même type.
 On peut recupérer les différents éléments d'un tableau. On recupere les differents élements "sous divisés" d'une variable.
  
@@ -838,3 +839,47 @@ boogie@x61:/tmp$ ./a.sh 5_allo_7
 five _ a l l o _ seven 
 boogie@x61:/tmp$ ./a.sh '#HEY#777'
 # H E Y # seven seven seven
+
+* Utilisation des tableaux dans une boucle :
+
+On peut directement associer à un index de tableau des variables passées à read avec l'option "-a"
+boogie@x61:/tmp$ cat b.sh 
+#!/bin/bash
+
+read -a inputfile
+
+echo ${inputfile[0]}
+echo ${inputfile[2]}
+echo ${inputfile[8]}
+Ce qui donne : 
+boogie@x61:/tmp$ ls -l toto |./b.sh 
+-rw-r--r--
+boogie
+toto
+
+On peut donc recupérer via un tableau le nombre de fichiers par date 
+
+#!/bin/bash
+
+while read -a input
+do
+    day_of_month=${input[6]}
+    (( number[$day_of_month]=number[$day_of_month] + 1)) 
+done
+
+for ((i=0 ; i < 32 ; i++))
+do
+{
+    printf "for the day of the month %2d we have %d files \n" $i ${number[$i]}
+}
+done
+Ce qui nous donne par exemple après la création de 10 fichiers :
+ for i in $(seq -w 1 10) ;  do touch yop_$i ;done
+On voit bien 10 fichiers crées le 11 du mois :
+boogie@x61:/tmp$ ls -l yo* |./c.sh |more
+...
+for the day of the month  9 we have 0 files 
+for the day of the month 10 we have 0 files 
+for the day of the month 11 we have 10 files 
+for the day of the month 12 we have 0 files 
+...
