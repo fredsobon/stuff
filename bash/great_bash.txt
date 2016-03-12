@@ -891,7 +891,7 @@ for the day of the month 12 we have 0 files
 
 On va pouvoir se servir de paramètres speciaux pour "éliminer" de la sortie ecran les entrées ne comportant pas de fichiers.
 
-- Dan sun premier temps on peut avoir la sortie du nombre de fichiers total pour chaque date : la date n'est ici pas encore présente :
+- Dans un premier temps on peut avoir la sortie du nombre de fichiers total pour chaque date : la date n'est ici pas encore présente :
 
 #!/bin/bash
 
@@ -906,7 +906,8 @@ day_of_month=${input[6]}
 (( nb_of_file[$day_of_month]=nb_of_file[$day_of_month]+1 ))
 done
 
-# On utilise le "@" qui va nous permettre d'avoir le nbr total de fichiers enregistrés par date
+# On utilise le "@" qui va nous permettre d'avoir toutes les valeurs de notre tableau.On va pouvoir afficher le compte de fichiers par date
+
 for count in "${nb_of_file[@]}" 
 do
     printf "this is the number of files ..only %s \n" $count
@@ -924,6 +925,115 @@ this is the number of files ..only 10
 this is the number of files ..only 10 
 this is the number of files ..only 10 
 
+Les valeurs à "0" ne sont pas définies. On peut utiliser la forme "${!nb_of_file[@]}" pour avoir les index définis
+On va donc pouvoir récupérer en sortie les dates ayant au moins un fichier au compteur sans passer par un "if" qui filtrerait les dates sans fichiers :
+
+boogie@x61:/tmp$ cat tab.sh 
+#!/bin/bash
+
+
+# memo sur ce que va recevoir notre script en entree :  boogie@x61:/tmp$ ls -l yop_10 
+#-rw-r--r-- 1 boogie boogie 0 mars  11 21:16 yop_10
+
+
+while read -a input
+do
+day_of_month=${input[6]}
+(( nb_of_file[$day_of_month]=nb_of_file[$day_of_month]+1 ))
+done
+
+for index in "${!nb_of_file[@]}"
+do
+    printf "for the date %2d  we have %d \n" ${index} ${nb_of_file[$index]}
+done
+
+Ce qui nous donne :
+boogie@x61:/tmp$ ls -l y* |./tab.sh 
+for the date  7  we have 5 
+for the date  8  we have 4 
+for the date 10  we have 10 
+for the date 11  we have 10 
+for the date 12  we have 10 
+
+
+* Tableau associatif : 
+On peut vouloir travailler sur autre chose que des entiers : disponible à partir de bash 4.0 :
+on doit déclarer ce type de tableau avec declare suivie de l'option -A : ce qui va nous permettre d'avoir des strings en index.
+Exemple :
+declare -A animal
+
+animal["cat"]=10
+animal["lapin"]=5
+
+echo ${animal["cat"]}
+10
+ 
+On va maintenant filtrer pour illustrer l'exemple sur le mois :
+#!/bin/bash
+
+# memo sur ce que va recevoir notre script en entree :  boogie@x61:/tmp$ ls -l yop_10
+#-rw-r--r-- 1 boogie boogie 0 mars  11 21:16 yop_10
+
+
+while read -a input
+do
+# declare -A month : on peut ne pas declarer month comme un tableau : cela fonctionne sans cette declaration d'ou le #
+month=${input[5]}
+
+declare -A nb_of_file # on déclare notre compteur de fichier "nb_of_file" comme un tableau associatif
+
+(( nb_of_file["$month"]=${nb_of_file["$month"]} +1 ))
+#let nb_of_file[$month]++ #: version raccourcie de la ligne précédente
+done
+
+for index in "${!nb_of_file[@]}"
+do
+    printf "for the month of %s we have %d files!\n" ${index} ${nb_of_file[$index]}
+done
+
+Ce qui nous donne 
+boogie@x61:/tmp$ ll -rt --time-style='+%b %d' y* |./month_tab.sh
+for the month of févr. we have 5 files!
+for the month of mars we have 10 files!
+for the month of janv. we have 5 files!
+
+/!\ Attention les index ne sont pas triés : on a donc une sortie dans le désordre ( ici : février , mars puis janvier.. ).Un tri avec sort peut être nécéssaire.
+
+Pour le fun on peut rajouter un "histogramme" qui illustrera notre compteur avec un "#".On va donc boucler et rajouter un "#" à chaque fichier trouvés par mois :
+#!/bin/bash
+
+
+# memo sur ce que va recevoir notre script en entree :  boogie@x61:/tmp$ ls -l yop_10 
+#-rw-r--r-- 1 boogie boogie 0 mars  11 21:16 yop_10
+
+
+while read -a input
+do
+# declare -A month : on peut ne pas declarer month comme un tableau : cela fonctionne sans cette declaration d'ou le # 
+month=${input[5]}
+
+declare -A nb_of_file # on déclare notre compteur de fichier "nb_of_file" comme un tableau associatif 
+
+(( nb_of_file["$month"]=${nb_of_file["$month"]} +1 ))
+#let nb_of_file[$month]++ #: version raccourcie de la ligne précédente
+done
+
+for index in "${!nb_of_file[@]}"
+do
+    printf "for the month of %s we have %d files!:" ${index} ${nb_of_file[$index]} # On ajoute ici un ":" dans notre printf pour passer à la ligne et créer la boucle for qui ajoutera un # à chaque fichier comptés par mois.
+        for ((i=0; i<${nb_of_file[$index]} ; i++))
+        do
+            printf "#"  # on ne passe pas à la ligne pour avoir chaque # ajouter l'un à la suite de l'autre.
+        done
+            printf "\n" # on rajoute ici notre fin de ligne
+done
 
 
 
+Ce qui nous donne :
+boogie@x61:/tmp$ ls -l y* |./month_tab.sh 
+for the month of févr. we have 5 files!:#####
+for the month of mars we have 10 files!:##########
+for the month of janv. we have 5 files!:#####
+ 
+== chapitre 8 : great scripts 
