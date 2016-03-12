@@ -888,3 +888,42 @@ for the day of the month 10 we have 0 files
 for the day of the month 11 we have 10 files 
 for the day of the month 12 we have 0 files 
 ...
+
+On va pouvoir se servir de paramètres speciaux pour "éliminer" de la sortie ecran les entrées ne comportant pas de fichiers.
+
+- Dan sun premier temps on peut avoir la sortie du nombre de fichiers total pour chaque date : la date n'est ici pas encore présente :
+
+#!/bin/bash
+
+
+# memo sur ce que va recevoir notre script en entree :  boogie@x61:/tmp$ ls -l yop_10 
+#-rw-r--r-- 1 boogie boogie 0 mars  11 21:16 yop_10
+
+
+while read -a input
+do
+day_of_month=${input[6]}
+(( nb_of_file[$day_of_month]=nb_of_file[$day_of_month]+1 ))
+done
+
+# On utilise le "@" qui va nous permettre d'avoir le nbr total de fichiers enregistrés par date
+for count in "${nb_of_file[@]}" 
+do
+    printf "this is the number of files ..only %s \n" $count
+done
+
+Ce qui nous donne après la création de fichiers pour tests :
+for i in $(seq -w 1 5) ;  do touch -d 16-03-07 yyp_$i ;done
+for i in $(seq -w 1 10) ;  do touch -d 16-03-10 yap_$i ;done
+for i in $(seq -w 1 10) ;  do touch -d 16-03-11 yop_$i ;done
+for i in $(seq -w 1 10) ;  do touch yup_$i ;done
+
+boogie@x61:/tmp$ ls -l y* |./tab.sh 
+this is the number of files ..only 5 
+this is the number of files ..only 10 
+this is the number of files ..only 10 
+this is the number of files ..only 10 
+
+
+
+
