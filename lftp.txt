@@ -1,0 +1,458 @@
+=== lftp: a better FTP client ===
+
+* basic usage
+
+A command line FTP client should not cause you pain if all you want to do is open a connection. lftp is no exception here:
+$ lftp <site>
+
+To disconnect use the close command. To disconnect and stop lftp use either exit, bye, or quit.
+
+The default behaviour is to connect with user anonymous and password lftp@. To specify credentials explicitly:
+$ lftp -u <user>[,<pass>] <site>
+
+All unecessary text from the server will be suppressed unless we turn on debugging. We do this with the d switch:
+$ lftp -d -u <user>[,<pass>] <site>
+
+To begin to become accustomed to lftp's way of doing things we will now look at the e and c switches. These, respectively, allow lftp to invoke a command and stay connected and to invoke a command and then disconnect. Since all we know about is connecting to a server let us do that now using these switches:
+$ lftp -d -u <user>[,<pass>] -e open <site>
+
+If you have been trying these commands you will have noticed how fast lftp connects. Actually, it hasn't connected at all. It just looks that way. lftp waits until you want something for it to actually connect.
+
+To get something we want we use more commands of course and many of lftp commands do not deviate from the familiar ones: ls, cd, get, put, mget, mput, rm, mv, and so on. There are many more but I will mention a few that may be new to you:
+
+To issue a command locally prepend the command with an !. For some reason this does not work for all local commands. I usually only use it with the ls command: !ls. Otherwise prepend the command with the small letter l: lpwd and lcd are commonly used.
+
+To toggle debugging (and optionally specify level and/or output file): debug [<level>|off] [-o <file>].
+
+To view all available commands: help.
+
+Now for the c switch. Here we connect (to an anonymous server) and disconnect. Not very useful:
+$ lftp -c open <site>
+
+Remember that nothing is done by lftp until we want something so the above command really doesn't do anything except resolve the server's hostname (if we expressed it by name).
+
+Let us now explain the difference between site and URL. A site is ftp.kernel.org and a URL is ftp://ftp.kernel.org/pub/.
+
+The URL expressed above includes the protocol to be used. By default lftp uses FTP so it is not required. Nonetheless, inherent to this form is the ability to include credentials:
+
+ftp://<user>:<pass>@ftp.kernel.org/pub/
+
+Ultimately a URL is identified by the inclusion of a directory on the server. The difference may be a single character:
+
+ftp.kernel.org/ (this is a URL)
+ftp.kernel.org (this is a site)
+
+Therefore, the most explicit form for connecting to a server is this:
+$ lftp -d -u <user>[,<pass>] -e open <site>|<URL>
+
+Above I mentioned that lftp does not actually do anything when we connect. Well, this is not true when we connect using a URL since implicit in a URL is the cd command. You will understand this better if you work in debug mode.
+
+To end this section on basic usage we might as well download something. In order to do this we can connect and then use the get or mget command but let us issue one command instead. We do so using this form:
+$ lftp -c 'open -e "<cmd> <item>" <URL>'
+
+There is a nested command there. Very nice.
+
+Below we download the magnificient lsof program that lies in waiting as a package on an OpenBSD server:
+$ lftp -c 'open -e "mget lsof*" ftp.openbsd.org/pub/OpenBSD/3.7/packages/i386'
+
+
+* support files
+
+lftp has some files you should know about:
+
+    /etc/lftp.conf: the global configuration file (run first)
+    ~/.lftp/rc: the per-user configuration file (run second; overrides global file)
+    ~/.lftp/cwd_history: stores the last cwd per site
+    ~/.lftp/rl_history: stores all used commands
+
+Notes:
+
+    The ~/.lftp directory is created the first time the program is run.
+    The purpose of the cwd file is to allow one to return to the last cwd by connecting to a previously visited site and issueing this command: cd -
+    The purpose of the history file is to issue commands similar to csh history expansion. This is only available if setting cmd:csh-history is turned on (see next section on "command history" and section "varia" for info on settings)
+
+
+command history
+
+Turn on command history in the per-user config file:
+
+$ cd ~/.lftp
+$ cat >> rc
+set cmd:csh-history on
+^d
+
+Once we are connected to some site:
+
+lftp ftp.kernel.org:/pub/linux/kernel> history
+  367  bye
+  368  lftp linuxkernels
+  369  history
+lftp ftp.kernel.org:/pub/linux/kernel> !367
+
+And that exits us from the program. The commands listed are not site-specific; you will see all lftp commands ever used when interaction is required from the user (commands associated with the c switch are not recorded). Read up on csh-like command history for more details.
+
+
+* bookmarks
+
+The concept of bookmarks is not new. It is a shorthand way of referring to sites or URLs. For a URL, connect to a site and navigate to a directory you find yourself returning to often. Using "bookmark add <name>" will bookmark that directory. To view existing bookmarks type "bookmark list".
+
+lftp ftp.kernel.org:/pub/linux/kernel/ports> bookmark add kernelports
+lftp ftp.kernel.org:/pub/linux/kernel/ports> bookmark list
+kernelports     ftp://ftp.kernel.org/pub/linux/kernel/ports/
+linuxkernels    ftp://ftp.kernel.org/pub/linux/kernel/
+obsd37          ftp://ftp.openbsd.org/pub/OpenBSD/3.7/
+
+From your currently connected site you can use a bookmark at any time by using "open bookmark". You may also edit the bookmarks with "bookmark edit" in which case lftp will launch the user's default editor (often vi). Specify your editor by defining the EDITOR variable in your user profile.
+
+Typically you would not already be connected (not at the lftp prompt) and would simply like to open an initial connection using a bookmark:
+$ lftp <bookmark>
+
+Naturally, add credentials if they are required:
+$ lftp -u <user>[,<pass>] <bookmark>
+
+Since the bookmark is typically a URL you have the option of including credentials in it. All bookmarks are stored in the ~/.lftp/bookmarks file. Edit the file directly (either via the shell prompt or the lftp prompt) if you do not mind placing usernames and passwords on disk.
+
+From the shell you can view or edit the bookmarks file:
+$ lftp -c bookmark list|edit
+
+
+* scheduling
+
+Yes, we can schedule lftp events. This is best explained by example.
+
+From the shell, we wait until late to connect (using a bookmark) and download a Slackware ISO file:
+$ lftp -c 'at 02:00 -- open -e "get slackware-10.2-install-d1.iso" slacksite' &
+
+This isn't the most robust method for scheduling a download. You would be better off using the system at command. There are better uses for scheduling and better ways to employ it.
+
+Here is another trivial example. From the lftp prompt this time:
+lftp ftp.openbsd.org:/pub/OpenBSD/3.7/packages/i386> at 14:11 -- mget lsof*
+
+
+* slots
+
+A slot is to a live connection what a bookmark is to a static site/URL. Once multiple slots are created, we can switch between connections. The following interactive session demonstrates this:
+
+lftp ftp.kernel.org:~> slot kernel
+lftp kernel ftp.kernel.org:~> slot fbsd
+lftp fbsd ftp.kernel.org:~> open ftp.freebsd.org
+lftp fbsd ftp.freebsd.org:~> slot nbsd
+lftp nbsd ftp.freebsd.org:~> open ftp.netbsd.org
+lftp nbsd ftp.netbsd.org:~> slot obsd
+lftp obsd ftp.netbsd.org:~> open ftp.openbsd.org
+lftp obsd ftp.openbsd.org:~> slot
+kernel  ftp://ftp.kernel.org
+fbsd    ftp://ftp.freebsd.org
+nbsd    ftp://ftp.netbsd.org
+obsd    ftp://ftp.openbsd.org
+lftp obsd ftp.openbsd.org:~> slot nbsd
+lftp nbsd ftp.netbsd.org:~> slot obsd
+lftp obsd ftp.openbsd.org:~> slot kernel
+lftp kernel ftp.kernel.org:~> slot fbsd
+lftp fbsd ftp.freebsd.org:~>
+
+Observe how the connection to ftp.kernel.org has its slot assigned. The first slot command applies to this initial connection. After that, slot commands apply to subsequent connections.
+
+If the given slot names are integers (0-9) then switching can be performed by utilising the keyboard's Meta key. The Meta key is usually the Alt key. Hence Alt-0, Alt-1, etc.
+
+Finally, we can refer to (or evaluate) a slot by using this nomenclature: slot:<name>. We will make use of this syntax in section "scripts".
+
+
+* varia
+
+At this time I would like to mention a grab bag of important points.
+
+Settings
+lftp comes with a great many adjustable settings. You can view current settings in this way:
+$ lftp -c set -a    { use the "-d" switch to view the default settings; not necessarily the current ones }
+
+* Download directory
+When downloading an item, we can specify the destination directory by using the "-O" switch:
+lftp ftp.freebsd.org:~> mget -O /var/downloads item*
+
+I have been told that this parameter will be available as a setting in the next release.
+
+* Caching
+lftp caches the output to the ls commands. Here are the default cache-related settings:
+
+$ lftp -c set -d | grep cache
+set cache:cache-empty-listings no
+set cache:enable yes
+set cache:expire 60m
+set cache:expire-negative 1m
+set cache:size 1048576
+set cmd:verify-path-cached no
+set dns:cache-enable yes
+set dns:cache-expire 1h
+set dns:cache-size 256
+set hftp:cache yes
+set hftp:cache-control ""
+set http:cache yes
+set http:cache-control ""
+
+There are "do not use the cache!" commands corresponding to ls and nlist. They are rels and renlist respectively ("re" for "Real" maybe).
+
+To view the cache's status:
+$ lftp -c cache
+
+Or just type "cache" at the lftp prompt.
+
+* Aliases
+You may define an alias for any command used at the lftp prompt. You can set them up at the lftp prompt but such aliases do not survive a program restart. The best way is by editing the global or user configuration file:
+
+alias dir ls
+alias less more
+alias zless zmore
+alias bzless bzmore
+alias reconnect "close; cache flush; cd ."
+
+These are the aliases that are included in the sample config file that came with my FreeBSD port of lftp.
+
+So the form is:
+alias <alias_name> <command>
+
+To view current aliases:
+$ lftp -c alias
+
+Or just type "alias" at the lftp prompt.
+
+* Prompt
+Let's set up a customized lftp prompt.
+
+Adding the following to your config file (~/.lftp/rc) will produce the prompt given in the image.
+set prompt "\[\e[1;37m\]lftp\] \[\e[0;32m\]\h\] \w\] \[\e[1;37m\]>\[\e[0m\] "
+
+Note that my default text was already a light gray. So that's an example to get you going. Visit Bash Prompt HOWTO for more information.
+
+
+* mirroring
+
+When an FTP server becomes overburdened with requests a second server is often erected to dish out identical resources. That second server is said to be a mirror of the first and the act of duplicating directory trees is called mirroring. lftp's mirroring capabilities can be run in two modes: a) mirroring a remote server's tree by copying it to the localhost (server A -> client) or b) mirroring it by copying it directly to a second remote server (server A -> server B).
+
+server A -> client
+Here is the form to use at the shell prompt:
+$ lftp -c 'open -e "mirror <remote_dir_path> <local_dir>/" <remote_site>'
+
+Where "remote_dir_path" is the complete directory path on "remote_site" to be copied.
+
+To simplify, you may create a bookmark to the directory just above the one to be copied:
+$ lftp -c 'open -e "mirror <remote_dir> <local_dir>/" <bookmark>'
+
+As an example, I show what the remote server looks like with the intention of mirroring the Changelogs directory under my local directory mirror_dir:
+
+$ lftp -c bookmark list
+obsd37root      ftp://ftp.crimelabs.net/pub/OpenBSD/3.7/
+$ lftp obsd37root
+cd ok, cwd=/pub/OpenBSD/3.7                           
+lftp ftp.crimelabs.net:/pub/OpenBSD/3.7> find Changelogs
+Changelogs/
+Changelogs/ChangeLog.1.gz                                                   
+Changelogs/ChangeLog.2.gz
+Changelogs/ChangeLog.3.gz
+Changelogs/ChangeLog.4.gz
+Changelogs/ChangeLog.5.gz
+Changelogs/ChangeLog.6.gz
+Changelogs/ChangeLog.7.gz
+Changelogs/ChangeLog.8.gz
+Changelogs/ChangeLog.9.gz
+Changelogs/index.txt
+
+So here is how we can use the mirror command:
+$ lftp -c 'open -e "mirror Changelogs mirror_dir/" obsd37root'
+
+I could of remained connected of course and used the following command at the lftp prompt:
+lftp ftp.crimelabs.net:/pub/OpenBSD/3.7> mirror Changelogs mirror_dir/
+
+In both cases, the slash at the end of mirror_dir ensures that the Changelogs directory itself will be copied over instead of just its contents.
+
+There are many options available to the mirror command including logging the commands issued during the procedure and logging a dry run where no files are actually transferred. What I have found particularly useful is the ability to specify what to include or exclude through the use of regular expressions or glob patterns.
+
+With the last example in mind, let's say that I want to perform a real test but I don't want to waste my bandwidth (or time). So I tell lftp to include just the index.txt file under Changelogs:
+$ lftp -c 'open -e "mirror -I index* Changelogs mirror_dir/" obsd37root'
+
+server A -> server B
+When mirroring is done between two remote servers the File eXchange Protocol is used. Obviously, both servers must support this protocol for this operation to succeed.
+
+Technically, FXP is not a protocol but an extension of FTP. It is used to transfer data from one remote server to another without routing this data through the client. The client sends and receives control data to make everything work.
+
+In an FXP session, the client maintains a standard FTP connection to both servers, and can direct either server to connect to the other to initiate a data transfer. The advantage of using FXP (server A -> server B) instead of (twice using) FTP (server A -> client -> server B) is evident when both servers are high-bandwidth but the client is low-bandwidth.
+
+Enabling FXP support, however, can make a server vulnerable to a denial-of-service attack, known as the FTP bounce attack. In such a scenario, the "client" is a compromised machine that bombards server B.
+
+FXP is also frequently used for warez trafficking.
+
+Due to these considerations, FXP is often disabled by default on FTP servers.
+
+Assuming that FXP can be used, from the shell prompt we can use this form:
+$ lftp -c 'open -e "mirror <server-A_dir_path> <server-B_url>" <server-A_site>'
+
+I slip in a bookmark for server-A. It doesn't seem to work when I try to also use a bookmark for server-B:
+$ lftp -c 'open -e "mirror <server-A_dir> <server-B_url>" <server-A_bookmark>'
+
+Assuming we need to authenticate ourselves on both servers I would include my credentials inside <server-A_bookmark> and write them out for <server-B_url>.
+
+Using our previous example but replacing our local directory with my user's home directory on server ftp.blah.org we could do this:
+$ lftp -c 'open -e "mirror Changelogs ftp://<user>:<pass>@ftp.blah.org/~" obsd37root'
+
+From the lftp prompt:
+lftp ftp.crimelabs.net:/pub/OpenBSD/3.7> mirror Changelogs ftp://<user>:<pass>@ftp.blah.org/~
+
+
+* queues
+
+When we want to execute multiple download requests we can use a queue. The requests will be lined up and processed in an orderly manner. A transfer request that is placed in the queue is known as a job. lftp can assign one queue per connection.
+
+lftp provides queue management:
+
+    changing job priority
+    removing a job
+    stopping a particular queue
+    stopping all queues
+    viewing queue status
+
+The following sequence of commands at the lftp prompt will give an overview of queueing and queue management:
+
+ > queue stop
+ > queue 
+Queue is stopped.
+ > queue mget xorp*
+ > queue
+Queue is stopped.
+Commands queued:
+ 1. mget xorp*
+ > queue mget emacs*
+ > queue -n 2 mget kde*
+ > queue 
+Queue is stopped.
+Commands queued:
+ 1. mget xorp*
+ 2. mget kde*
+ 3. mget emacs*
+ > queue -d 2
+Deleted job: mget kde*
+ > queue mget qt3-mysql*
+ > queue 
+Queue is stopped.
+Commands queued:
+ 1. mget xorp*
+ 2. mget emacs*
+ 3. mget qt3-mysql*
+ > queue -m 3 1
+ > queue 
+Queue is stopped.
+Commands queued:
+ 1. mget qt3-mysql*
+ 2. mget xorp*
+ 3. mget emacs*
+ > cd ../alpha
+ > queue get xv-3.10ap0.tgz
+ > queue 
+Queue is stopped.
+Commands queued:
+ 1. mget qt3-mysql*
+ 2. mget xorp*
+ 3. mget emacs*
+ 4. get xv-3.10ap0.tgz
+ > queue start
+ > queue 
+Now executing: [1] mget xorp*
+        `xorp-1.0p0.tgz' at 70400 (0%) 62.1K/s eta:3m [Receiving data]
+Commands queued:
+ 1. mget emacs*
+ 2. get xv-3.10ap0.tgz
+ > queue stop 
+ > queue 
+Queue is stopped.
+Now executing: [1] mget xorp*
+        10383110 bytes transferred in 54 seconds (186.9K/s)
+Commands queued:
+ 1. mget emacs*
+ 2. get xv-3.10ap0.tgz 
+ > queue -d *e*
+Deleted jobs:
+         1. mget emacs*
+         2. get xv-3.10ap0.tgz         
+ > queue  
+Queue is stopped.
+Now executing: [1] mget xorp*
+        10383110 bytes transferred in 54 seconds (186.9K/s)        
+ > queue mget emacs*
+ > queue
+Queue is stopped.
+Now executing: [1] mget xorp*
+        10383110 bytes transferred in 54 seconds (186.9K/s)
+Commands queued:
+ 1. mget emacs*
+ > queue start
+ > queue
+Now executing: [1] mget emacs*
+        Getting directory contents (59008) 39.3K/s [Receiving data]
+ > queue stop 
+ > queue
+Queue is stopped.
+Now executing: [1] mget emacs*
+        `emacs-21.3p1-no_x11.tgz' at 748224 (7%) 92.1K/s eta:2m [Receiving data]
+ > exit
+[1238] Moving to background to complete transfers...
+
+
+Even though we have exited the program, the emacs package will continue to download. As well, as we saw in the example, stopping the queue does not stop jobs currently underway (they are technically no longer in the queue).
+
+
+* scripts
+
+Using the lftp command language we can write a script. A script is contained in a separate file and is invoked in this way:
+$ lftp -f <script_file>
+
+Below are some sample scripts:
+
+a) Simple
+
+debug 10
+open ftp.blah.org
+user <user> <pass>
+ls
+
+
+b) Downloading with mget
+
+debug -o debug5.txt 3
+open obsd37pkgs
+mget lsof*
+mget xclip*
+mget xneko*
+exit
+
+
+The exit command is a nicety; it is not necessary. When logging to a file there is no output to screen.
+
+c) Downloading with queue
+
+open obsd37pkgs
+queue mget lsof*
+queue mget xclip*
+queue mget xneko*
+
+Note that this script is effectively the same as the previous.
+
+d) Mirroring (server A -> server B)
+
+slot A
+open ftp://<user>:<pass>@ftp.blah.org/~
+open obsd37root
+mirror Changelogs slot:A
+exit
+
+
+Note that the first slot is assigned to the next connection. Recall the command line example where the initial slot was assigned to the existing connection. It is different here because there is no existing connection when the script starts.
+
+e) More queueing
+
+cd /usr/downloads/slackware
+open slackware_iso
+queue get slackware-10.2-install-d1.iso
+queue get slackware-10.2-install-d1.iso.md5
+queue get slackware-10.2-install-d2.iso
+queue get slackware-10.2-install-d2.iso.md5
+exit
+
