@@ -1,5 +1,9 @@
 ### great bash  : shortcut des videos###
 
+useful url : http://wiki.bash-hackers.org/scripting/bashchanges
+
+
+
 == chapter 1 : 
 
 bash --version
@@ -1039,6 +1043,119 @@ for the month of janv. we have 5 files!:#####
 == chapitre 8 : great scripts 
 
 * Paramètres optionnels de commandes :
+
 On peut définir nous même les options de nos commandes.
 La commande built-in getopts va nous permettre de mettre en place ce fonctionnement.
 Attention : il existe une commande shell qui s'appelle "getopt".
+Pour les scripts la commande built-in "getops"  est préférée.
+
+
+Avec getopts on va avoir deux chaines de caractères :
+-> l'option que l'on va saisir
+-> le nom de la variable qui va contenir le resultat de notre option 
+
+
+boogie@x61:/tmp$ cat i.sh 
+
+#!/bin/bash
+
+# memo du script avec en entrée le resulat de la commande ls -l et le passaga à read 
+# boogie@x61:/tmp$ ls -l yap_1
+#-rw-r--r-- 1 boogie boogie 7 mars  15 17:18 yap_1
+
+declare -i count=0
+
+while read perm link user group size day month hour filename
+do
+    if [[ ! "$filename" ]] ; then continue ; fi
+    count+=1
+    echo " the file proceed is $filename which is $size bytes sized !"
+    (( total+=$size ))
+done
+echo " $count files procedeed for $total bytes in total" 
+
+
+# -a -c -t
+
+while getopts "act" flag
+do
+    case $flag in 
+        a) aflag=set
+           ;;
+        c) cflag=set
+           ;;
+        t) tflag=set
+           ;;
+        *) echo "usage ${0##*/} [-a] [-c} [-t]  # ici on supprime le path du script pour ne laisser que son nom en aide
+           echo "exemple : ls -l |${0##*/} -ac ""
+           exit 1
+           ;;
+    esac
+done >&2 # on redirige ici dans toutes les sorties du scripts dans un fichiers d'erreur : c'est une bonne pratique.
+
+Ce qui nous donne :
+boogie@x61:/tmp$ ls -l ya* |./i.sh -a
+ the file proceed is yap_1 which is 7 bytes sized !
+ the file proceed is yap_2 which is 0 bytes sized !
+ the file proceed is yap_3 which is 0 bytes sized !
+ the file proceed is yap_4 which is 0 bytes sized !
+ the file proceed is yap_5 which is 0 bytes sized !
+ 5 files procedeed for 7 bytes in total
+boogie@x61:/tmp$ ls -l ya* |./i.sh -g
+ the file proceed is yap_1 which is 7 bytes sized !
+ the file proceed is yap_2 which is 0 bytes sized !
+ the file proceed is yap_3 which is 0 bytes sized !
+ the file proceed is yap_4 which is 0 bytes sized !
+ the file proceed is yap_5 which is 0 bytes sized !
+ 5 files procedeed for 7 bytes in total
+./i.sh : option non permise -- g
+usage i.sh [-a] [-c} [-t]
+exemple : ls -l |i.sh -a
+
+/!\ Nb on peut supprimer le message d'erreur de sortie de getops en ajoutant un ":" au tout début de notre liste d'option. Exemple :
+# -a -c -t
+
+while getopts ":act" flag
+do
+    case $flag in
+        a) aflag=set
+           ;;
+        c) cflag=set
+           ;;
+        t) tflag=set
+           ;;
+        *) echo "usage ${0##*/} [-a] [-c} [-t]"
+           echo "exemple : ls -l |${0##*/} -ac "
+           exit 1
+           ;;
+    esac
+
+Vas nous donner :
+
+boogie@x61:/tmp$ ls -l ya* |./i.sh -g
+ the file proceed is yap_1 which is 7 bytes sized !
+ the file proceed is yap_2 which is 0 bytes sized !
+ the file proceed is yap_3 which is 0 bytes sized !
+ the file proceed is yap_4 which is 0 bytes sized !
+ the file proceed is yap_5 which is 0 bytes sized !
+ 5 files procedeed for 7 bytes in total
+usage i.sh [-a] [-c} [-t]
+exemple : ls -l |i.sh -ac 
+
+La ligne suivante a disparue  "./i.sh : option non permise -- g" : pour plus d'info : man getopts
+
+On peut grâce au double [[ qui attendent un true pour continue compacter des tests de la sorte :
+[[ $aflag ]] && echo " at this moment we have "aflag" is set " . A la place des plus longs : 
+
+if test ${aflag}=="set"  ; then  echo " at this moment we have "AFLAG" is set " ;fi
+if [[ ${aflag}=="set" ]] ; then  echo " at this moment we have "aflag" is set " ;fi (attention au comportement avec les différentes version de bash.
+
+OPTIND est une variable interne définie par getopts et qui va indiquer quel est la prochaine option à être traitée.
+
+L'utilisation de shift dans certains script est donc particulièrement indiquée. On le fait dans ce cas comme ceci :
+shift (( $OPTIND - 1)) : on décalle l'argument qui vient d'être traité ($OPTIND - 1) vers la gauche avec shift 
+
+Pour associer des options avec des arguments on peut utiliser l'option suivie de ":" 
+On definira notre option puis une variable interne OPTARG sera donc définie (grâce au : suivant notre option)
+
+
