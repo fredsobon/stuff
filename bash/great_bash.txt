@@ -1,7 +1,8 @@
 ### great bash  : shortcut des videos###
 
-useful url : http://wiki.bash-hackers.org/scripting/bashchanges
-
+useful url : 
+http://www.tldp.org/LDP/Bash-Beginners-Guide/html/
+http://wiki.bash-hackers.org/scripting/bashchanges
 
 
 == chapter 1 : 
@@ -1157,5 +1158,145 @@ shift (( $OPTIND - 1)) : on décalle l'argument qui vient d'être traité ($OPTI
 
 Pour associer des options avec des arguments on peut utiliser l'option suivie de ":" 
 On definira notre option puis une variable interne OPTARG sera donc définie (grâce au : suivant notre option)
+Par exemple dans notre script :
+on va rajouter une option -u (pour user) qui prendra en paramètre un nom de user. Exemple : script -u boogie
+on rajoute dans notre case l'option u :
+
+        u) uarg="$OPTARG"
+            echo " the arg provided is $uarg"
+           ;;
+
+et on peut rajouter un check en fin de script 
+
+ogie@x61:/tmp$ cat i.sh 
+#!/bin/bash
+
+# memo du script avec en entrée le resulat de la commande ls -l et le passage à read
+# boogie@x61:/tmp$ ls -l yap_1
+#-rw-r--r-- 1 boogie boogie 7 mars  15 17:18 yap_1
+
+declare -i count=0
+
+  while read perm link user group size day month hour filename
+do
+    if [[ ! "$filename" ]] ; then continue ; fi
+    count+=1
+    echo " the file proceed is $filename which is $size bytes sized !"
+    (( total+=$size ))
+    own=${user}
+done
+
+echo "$count files procedeed for $total bytes in total"
+
+echo "ok first check : file processed belong to mister : $own"
 
 
+
+# -a -c -t -u 
+
+while getopts "actu:" flag
+do
+    case $flag in
+        a) aflag=set
+           ;;
+        c) cflag=set
+           ;;
+        t) tflag=set
+           ;;
+        u) uarg="$OPTARG"
+            echo " the arg provided is $uarg"
+           ;;
+        *) echo "usage ${0##*/} [-a] [-c} [-t] " # ici on supprime le path du script pour ne laisser que son nom en aide
+           echo "exemple : ls -l |${0##*/} -ac "
+          exit 1
+           ;;
+    esac
+done >&2 # on redirige ici dans toutes les sorties du scripts dans un fichiers d'erreur : c'est une bonne pratique.
+
+#[[ $uarg && $uarg != ${own} ]] ; 
+
+if [ "${uarg}" != "${own}" ]; then 
+   echo "$uarg => not correct  as ${own} was selected"
+else test "${uarg}" == "${own}" 
+   echo " allright same player : $uarg is $own !!"
+fi
+
+Ce qui nous donne :
+
+boogie@x61:/tmp$ ls -l yu* |./i.sh -u boogie
+ the file proceed is yup.1 which is 6 bytes sized !
+ the file proceed is yup.2 which is 0 bytes sized !
+ the file proceed is yup.3 which is 0 bytes sized !
+ the file proceed is yup.4 which is 0 bytes sized !
+ the file proceed is yup.5 which is 0 bytes sized !
+5 files procedeed for 6 bytes in total
+ok first check : file processed belong to mister : boogie
+ the arg provided is boogie
+ allright same player : boogie is boogie !!
+boogie@x61:/tmp$ ls -l yu* |./i.sh -u jazz
+ the file proceed is yup.1 which is 6 bytes sized !
+ the file proceed is yup.2 which is 0 bytes sized !
+ the file proceed is yup.3 which is 0 bytes sized !
+ the file proceed is yup.4 which is 0 bytes sized !
+ the file proceed is yup.5 which is 0 bytes sized !
+5 files procedeed for 6 bytes in total
+ok first check : file processed belong to mister : boogie
+ the arg provided is jazz
+jazz => not correct  as boogie was selected
+
+* Problematique d'expansion shell ; sous shell etc ...
+
+on peut vouloir dans notre script écrire  directement la commande ls -l de manière à lancer la script directement  "i.sh" par exemple.
+Problème : en faisant cela aucune variable n'est settée ni transmise : résultat on a rien :
+
+boogie@x61:/tmp$ ./i.sh 
+ the file proceed is gpg-oVNcvq which is 1024 bytes sized !
+ the file proceed is i.sh which is 1381 bytes sized !
+ the file proceed is lu11946umznz2.tmp which is 5120 bytes sized !
+ the file proceed is orbit-boogie which is 1024 bytes sized !
+ the file proceed is OSL_PIPE_1000_SingleOfficeIPC_679ff464ed33aa715ce1775a13f51ba3 which is 0 bytes sized !
+ the file proceed is pulse-PKdhtXMmr18n which is 1024 bytes sized !
+ the file proceed is ssh-j7kULiCT0R8x which is 1024 bytes sized !
+ the file proceed is systemd-private-19aa678fdd0448d58e3ede992ad777fb-rtkit-daemon.service-zjkTdu which is 1024 bytes sized !
+ the file proceed is yup.1 which is 6 bytes sized !
+ the file proceed is yup.2 which is 0 bytes sized !
+ the file proceed is yup.3 which is 0 bytes sized !
+ the file proceed is yup.4 which is 0 bytes sized !
+ the file proceed is yup.5 which is 0 bytes sized !
+0 files procedeed for  bytes in total
+ok first check : file processed belong to mister : 
+ allright same player :  is  !!
+
+Le problème est lié au passage après le pipe donc l'arrivée dans le while read dans un sous shell : les variables disparaissent donc : dès l'arrivée dans le while : ls -l |  while read perm link user group size day month hour filename
+
+Pour régler ce souci il faut regrouper au sein d'un shell unique les commandes déroulée par la suite : le groupement se fait via l'ajout de {} qui regroupe toutes nos lignes :
+
+
+ls -l | {  while read perm link user group size day month hour filename
+do
+    if [[ ! "$filename" ]] ; then continue ; fi
+    count+=1
+    echo " the file proceed is $filename which is $size bytes sized !"
+    (( total+=$size ))
+    own=${user}
+done
+
+echo "$count files procedeed for $total bytes in total"
+echo "ok first check : file processed belong to mister : $own"
+}
+
+Dans ce cas on récupère bien le compte de nos fichiers :
+boogie@x61:/tmp/folder$ bash i.sh -u boogie
+ the file proceed is i.sh which is 1456 bytes sized !
+ the file proceed is yup.1 which is 6 bytes sized !
+ the file proceed is yup.2 which is 0 bytes sized !
+ the file proceed is yup.3 which is 0 bytes sized !
+ the file proceed is yup.4 which is 0 bytes sized !
+ the file proceed is yup.5 which is 0 bytes sized !
+6 files procedeed for 1462 bytes in total
+ok first check : file processed belong to mister : boogie
+ the arg provided is boogie
+...
+
+ATTENTION donc {} va nous aider à tout regrouper dans un même shell 
+() passe tout dans un sous shell.
