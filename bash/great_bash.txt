@@ -99,7 +99,126 @@ boogie@x61:/tmp$ bash ph toto
 toto 777
  
 
+# trap :
+
+La commande trap va permettre d'executer une commande fournie en argumant à la reception d'un signal : trap <commande> signal.Exemple :
+trap "/bin/date" EXIT
+la liste des signaux est disponible avec trap -l :
+boogie@x61:~$ trap -l
+ 1) SIGHUP   2) SIGINT   3) SIGQUIT  4) SIGILL   5) SIGTRAP
+ 6) SIGABRT  7) SIGBUS   8) SIGFPE   9) SIGKILL 10) SIGUSR1
+11) SIGSEGV 12) SIGUSR2 13) SIGPIPE 14) SIGALRM 15) SIGTERM
+16) SIGSTKFLT   17) SIGCHLD 18) SIGCONT 19) SIGSTOP 20) SIGTSTP
+21) SIGTTIN 22) SIGTTOU 23) SIGURG  24) SIGXCPU 25) SIGXFSZ
+26) SIGVTALRM   27) SIGPROF 28) SIGWINCH    29) SIGIO   30) SIGPWR
+31) SIGSYS  34) SIGRTMIN    35) SIGRTMIN+1  36) SIGRTMIN+2  37) SIGRTMIN+3
+38) SIGRTMIN+4  39) SIGRTMIN+5  40) SIGRTMIN+6  41) SIGRTMIN+7  42) SIGRTMIN+8
+43) SIGRTMIN+9  44) SIGRTMIN+10 45) SIGRTMIN+11 46) SIGRTMIN+12 47) SIGRTMIN+13
+48) SIGRTMIN+14 49) SIGRTMIN+15 50) SIGRTMAX-14 51) SIGRTMAX-13 52) SIGRTMAX-12
+53) SIGRTMAX-11 54) SIGRTMAX-10 55) SIGRTMAX-9  56) SIGRTMAX-8  57) SIGRTMAX-7
+58) SIGRTMAX-6  59) SIGRTMAX-5  60) SIGRTMAX-4  61) SIGRTMAX-3  62) SIGRTMAX-2
+63) SIGRTMAX-1  64) SIGRTMAX    
+
 === chapter 3 : variables  
+
+-Evaluation :
+
+On doit toujours "coller" la definition de notre variable, le signe "=" et son contenu:
+var=bla
+var="bla bla"
+var='$bla'
+var='$bla blue $bla'
+On peut vérifier si une variable existe avec l'option "set -u":
+boogie@x61:/tmp$ set -u
+boogie@x61:/tmp$ echo $lapin
+bash: lapin : variable sans liaison
+boogie@x61:/tmp$ echo $mm
+bash: mm : variable sans liaison
+On peut reswitcher avec "set +u" :
+boogie@x61:/tmp$ set +u
+boogie@x61:/tmp$ echo $mm
+> pas de sortie (variable non définie : mais pas de message informatif.)
+
+On doit entourer notre variable par des {} pour eviter de mauvaises surprises : 
+
+boogie@x61:/tmp$ var=lapin_nain
+boogie@x61:/tmp$ echo $var
+lapin_nain
+boogie@x61:/tmp$ a=$var_titi
+boogie@x61:/tmp$ echo $a
+boogie@x61:/tmp$ a=${var}_titi
+boogie@x61:/tmp$ echo $a
+lapin_nain_titi
+
+Action par defaut : quand les scripts utilise les valeurs des variables : il est important qu'ils puissent s'executer correctement : c'est pourquoi on peut définir des actions 'par défaut' :
+On peut utiliser ${} avec 4 modificateurs :
+
+-${var:-defaut} -> utilisera defaut si var n'est pas definie ou nulle  :
+boogie@x61:/tmp$ var=titi
+boogie@x61:/tmp$ echo ${var:-lapin}
+titi
+boogie@x61:/tmp$ var=
+boogie@x61:/tmp$ echo ${var:-lapin}
+lapin
+boogie@x61:/tmp$ echo ${babar:-lapin}
+lapin
+
+-${var:=defaut} -> vaudra toujours defaut si var n'est pas definie ou nulle :
+boogie@x61:/tmp$ echo ${babar}
+
+boogie@x61:/tmp$ echo ${babar:=lapin}
+lapin
+boogie@x61:/tmp$ echo ${babar}
+lapin
+
+- ":" l'utilisation de ce caractère est début d'expression va bypasser le résulat d'une expression qui n'existe pas et donc ne pas afficher de résultat d'erreur : on continu le traitement sans se soucier du message. Le ":" signifie "aucune opération"
+
+boogie@x61:/tmp$ ${blabla:=yop}
+bash: yop : commande introuvable
+boogie@x61:/tmp$ : ${blabla:=yop}
+
+- "?" : l'utilisation de ce signe va nous permettre de stopper le script et d'afficher le message après le "?" si la variable n'est pas définie ou est nulle : c'est une précaution :
+boogie@x61:/tmp$ blo=
+boogie@x61:/tmp$ echo ${blo}
+
+boogie@x61:/tmp$ ${blo:?attention var non définie}
+bash: blo: attention var non définie
+Si on ne renseigne rien après le "?" , le shell renvoie un message par défaut :
+boogie@x61:/tmp$ ${blo:?}
+bash: blo : paramètre vide ou non défini
+
+- "+" : l'utilisation de "+" nous permet de fixer la valeur d'une variable définie au préalable :
+boogie@x61:/tmp$ a=lapin
+boogie@x61:/tmp$ echo $a
+lapin
+boogie@x61:/tmp$ echo ${a:+babar}
+babar
+Si la variable est vide ou non définie elle ne sort rien :
+boogie@x61:/tmp$ a=
+boogie@x61:/tmp$ echo ${a:+babar}
+
+Les opérateurs ${:-} ; ${:=} ${:?} ${:+} travaillent sur les variables vides ou indéfinies.
+Pour les variables vraiment indéfinies les formes suivantes existent :
+${-} ; ${=} ${?} ${+}
+
+
+* Export :
+On rend disponible nos variables pour tous les environements du shell en les exportant.La commande export suivie de l'option "-p" nous permet de voir nos variables exportées.
+
+boogie@x61:/tmp$ export -p |grep blabla
+boogie@x61:/tmp$ export blabla=lapin
+boogie@x61:/tmp$ export -p |grep blabla
+declare -x blabla="lapin"
+
+On peut flagger une variable "non exportable" avec export -n :
+boogie@x61:/tmp$ export -n blu
+boogie@x61:/tmp$ export -p |grep blu
+boogie@x61:/tmp$ export -n blu=yop
+boogie@x61:/tmp$ export -p |grep blu
+
+Il est aussi possible d'exporter une fonction avec export -f :
+
+
 
 - printf :
 on peut formatter plus facilement la sortie écran via printf : on va pouvoir "remplir" des champs prédéfini via des types de données : exemple %d : digit %s : string . Afin d'avoir un prompt "normal" (cad avec un retour chariot on alimente notre ligne avec un \n : 
@@ -262,6 +381,21 @@ lap
 = for loop : 
 
 # arithmétique / calcul :
+
+De base une constante numérique est considérée en base 10
+Si elle commence par un 0 -> c'est de la base binaire :
+Si elle commence par un 0x -> c'est de la base hexadecimale :
+
+/!\ Attention au comportement et à l'écriture d'opération : l'ordre des priorité des opérations est respectée .
+Idem pour l'utilisation des variables et du caractère "$" les définissant .
+boogie@x61:/tmp$ a=3+5
+boogie@x61:/tmp$ b=$(( a * 2 ))
+boogie@x61:/tmp$ echo $b
+16
+boogie@x61:/tmp$ b=$(( $a * 2 ))
+boogie@x61:/tmp$ echo $b
+13
+
 
 = la syntaxe "(( ))"  son équivalent direct est "let" est directement liée au calcul dans bash.Nous n'avons pas besoin de placer un $ en la définissant.
 
