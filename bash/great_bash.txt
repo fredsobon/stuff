@@ -219,6 +219,140 @@ boogie@x61:/tmp$ export -p |grep blu
 Il est aussi possible d'exporter une fonction avec export -f :
 
 
+L'utilitaire systeme "printenv" permet d'examiner les variables exportées :
+boogie@x61:/tmp$ var="yes"
+boogie@x61:/tmp$ export var
+boogie@x61:/tmp$ printenv |grep yes
+var=yes
+
+Les attribut de variable :
+on peut comme on sait "exporter" une variable  ce qui copie sa valeur en mémoire et la rend dispo pour les processus.
+*Variables arithmetiques :
+les keywords : declare -i ou typeset -i permettent definir une variable de type "integer" (pour calcul arithmetique) :
+boogie@x61:/tmp$ a=5+1
+boogie@x61:/tmp$ echo $a
+5+1
+boogie@x61:/tmp$ declare -i a
+boogie@x61:/tmp$ a=5+1
+boogie@x61:/tmp$ echo $a
+6
+La commande "declare -i" seule nous permet de voir les variables arithmetiques définies :
+boogie@x61:/tmp$ declare -i
+declare -ir BASHPID
+declare -ir EUID="1000"
+declare -i HISTCMD
+declare -i LINENO
+declare -i MAILCHECK="60"
+declare -i OPTIND="1"
+declare -ir PPID="1679"
+declare -i RANDOM
+declare -ir UID="1000"
+declare -i a="6"
+Idem avec typeset -i :
+boogie@x61:/tmp$ typeset -i b=555
+boogie@x61:/tmp$ echo $b
+555
+boogie@x61:/tmp$ typeset -i
+declare -ir BASHPID
+declare -ir EUID="1000"
+declare -i HISTCMD
+declare -i LINENO
+declare -i MAILCHECK="60"
+declare -i OPTIND="1"
+declare -ir PPID="1679"
+declare -i RANDOM
+declare -ir UID="1000"
+declare -i a="6"
+declare -i b="555"
+
+On peut retirer le flag arithmetique en utilisant : declare +i ou typeset -i :
+boogie@x61:/tmp$ declare -i var=555
+boogie@x61:/tmp$ declare -i |grep var
+declare -ix var="555"
+boogie@x61:/tmp$ declare +i var=555
+boogie@x61:/tmp$ declare -i |grep var
+
+boogie@x61:/tmp$ typeset -i bla=333
+boogie@x61:/tmp$ typeset -i |grep bla
+declare -i bla="333"
+boogie@x61:/tmp$ typeset +i bla=333
+boogie@x61:/tmp$ typeset -i |grep bla
+
+*variable en lecture seule :
+
+
+bash declare des variables en lecture seule et il est possible d'en définir soi même : Attention ces variables seront uniquement en lecture seule pour le shell en cours : si les variables sont exportées alors elles pourront être modifiées dans les environnements fils 
+boogie@x61:/tmp$ declare -r
+declare -r BASHOPTS="checkwinsize:cmdhist:complete_fullquote:expand_aliases:extglob:extquote:force_fignore:histappend:interactive_comments:progcomp:promptvars:sourcepath"
+declare -ir BASHPID
+declare -r BASH_COMPLETION_COMPAT_DIR="/etc/bash_completion.d"
+declare -ar BASH_REMATCH='()'declare -ar BASH_VERSINFO='([0]="4" [1]="3" [2]="42" [3]="1" [4]="release" [5]="x86_64-pc-linux-gnu")'
+declare -ir EUID="1000"
+declare -ir PPID="1679"
+declare -r SHELLOPTS="braceexpand:emacs:hashall:histexpand:history:interactive-comments:monitor"
+declare -ir UID="1000"
+exemple :
+boogie@x61:/tmp$ declare -r babar=pas_bouger
+boogie@x61:/tmp$ babar=lapin
+bash: babar : variable en lecture seule
+
+boogie@x61:/tmp$ export babar
+boogie@x61:/tmp$ bash
+boogie@x61:/tmp$ babar=lapin
+boogie@x61:/tmp$ echo $babar
+lapin
+boogie@x61:/tmp$ exit
+exit
+boogie@x61:/tmp$ echo $babar
+pas_bouger
+
+On a recourt a ce type d'ecriture pour définir des constantes en début de script ou des messages : on peut aussi fixer des limites : dans ce cas on cumule avec l'option "-i"
+ex : declare -ri max_process=256
+ 
+* set : 
+La commande set peut nous aider à definir des paramètres positionnels . En conjonction avec shift on peut les décaler : 
+boogie@x61:/tmp$ set a b c d
+boogie@x61:/tmp$ echo $1 $2 $3
+a b c
+boogie@x61:/tmp$ shift 
+boogie@x61:/tmp$ echo $1 $2 $3
+b c d
+boogie@x61:/tmp$ shift 
+boogie@x61:/tmp$ echo $1 $2 $3
+c d
+boogie@x61:/tmp$ shift 
+boogie@x61:/tmp$ echo $1 $2 $3
+d
+ 
+voir le manuel de bash pour les options de set
+
+* Evaluation :
+La commande eval permet de demander au shell une seconde evaluation des arguments qui lui sont transmis :
+
+boogie@x61:/tmp$ a="ok this is a"
+boogie@x61:/tmp$ b="ok a= \$a"
+boogie@x61:/tmp$ echo $a 
+ok this is a
+boogie@x61:/tmp$ echo $b
+ok a= $a
+# avec eval on voit que 
+eval echo $b est interpretté 
+echo "ok a=" puis  "ok this is a" : $a est interprété en dernier et le \ de protection n'est pas lu par eval echo $b :
+boogie@x61:/tmp$ eval echo $b
+ok a= ok this is a
+
+Si on modifie $a l'eval suit sans que $b n'ai changé :
+
+boogie@x61:/tmp$ a="new A"
+boogie@x61:/tmp$ echo $b
+ok a= $a
+boogie@x61:/tmp$ eval echo $b
+ok a= new A
+avec eval : les  arguments sont lus et regroupés en une seule commande simple. Cette commande est alors lue et exécutée
+              par l'interpréteur et son état final est renvoyé comme valeur de la commande eval. S'il n'y a  pas  d'argu‐
+              ments ou uniquement des arguments NULL, eval renvoie 0.
+
+
 
 - printf :
 on peut formatter plus facilement la sortie écran via printf : on va pouvoir "remplir" des champs prédéfini via des types de données : exemple %d : digit %s : string . Afin d'avoir un prompt "normal" (cad avec un retour chariot on alimente notre ligne avec un \n : 
