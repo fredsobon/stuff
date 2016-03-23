@@ -977,6 +977,155 @@ fi
 On peut faire les differents tests de comparaison = ; != etc mais attention c'est une comparaison de chaines. 
 Pour comparer des entiers il faut utiliser les test  -eq , -le , gt etc ..ou alors se servir des "(( ))" qui autorisent les test de type < , == etc ...
 
+
+Exemples et Utilisations de test
+
+    # Fichier test.sh.
+    # Exemple d'utilisation de test.
+
+    # S'il n'y a pas de parametres fournis par l'utilisateur...
+
+    if [ $# = 0 ]
+    then
+        echo Aucun argument recu !
+        echo "$0 risque de ne pas bien marcher..."
+        echo
+        echo "Normalement il faut fournir en premier argument un nom"
+        echo "de fichier, comme test.sh, par exemple, soit le numero"
+        echo "d'un utilisateur comme indique dans le fichier /etc/passwd"
+        echo "(troisieme champ <user:password:Numero>, 0 devrait marcher)..."
+        echo
+        echo "Essayer \"$0 $0 0\""
+        echo
+    fi
+
+    # $? : valeur de sortie de la derniere commande executee.
+
+    #------#
+    # test #
+    #------#
+
+    # Quelque conditions de test :
+
+    # Fichiers...
+
+    #       -f : fichier normal.
+    #       -s : fichier non vide.
+    #       -d : repertoire.
+    #       -r : fichier accessible en lecture.
+    #       -w : fichier accessible en ecriture.
+
+    # Variables...
+
+    #       -z : variable vide.
+    #       -n : variable non vide.
+
+    # Comparaison d'une variable a un nombre...
+
+    #       -eq : egal.
+    #       -ne : different.
+    #       -lt : <.
+    #       -ge : >.
+    #       -le : <=.
+    #       -ge : >=.       
+
+
+    if test -f "$1"
+    # forme abregee : if [ -f "$1" ]
+    then
+        echo Le fichier \"$1\" est bien present.
+        echo "Nous allons maintenant lire ce fichier grace a la commande less"
+        echo 'Pour quitter less, taper "q"'
+        echo "Voulez vous lire le fichier $1 (o pour l'editer) ?"
+        read reponse
+        if [ $reponse = "o" ]
+        then
+            less "$1"
+        else
+            echo "Ok, pas d'edition du fichier..."
+        fi
+    else
+        echo "Fichier \"$1\" absent"
+    fi
+
+
+    ligne=`grep "^[^:]*:[^:]*:$2:" /etc/passwd`
+    if [ -n "$ligne" ]
+    then
+        echo "Numero $2 d'utilisateur trouve dans le fichier /etc/passwd"
+        echo $ligne
+    else
+        echo "Aucun numero d'utilisateur trouve dans le fichier /etc/passwd"
+    fi
+
+
+    fichier=$1
+
+    if [ $# = 0 ]
+    then
+        echo "Pas de fichiers donnes a $0"
+    else
+        test -e $1
+        echo "Le fichier $fichier est present si 0 est affiche : $?"
+    fi
+
+
+    test -r $0 -a -x $0 && echo "$0 : fichier lisible et ecrivable"
+
+
+    if test \( -r $0 -a -x $0 \) -o \( -r $1 -a -x $1 \)
+    then
+        echo "$0 ou $1 : fichier lisible et ecrivable"
+    fi
+
+
+    vide=$1
+    test -s $vide || echo "$vide : fichier vide"
+
+
+    test $vide = vide.txt
+
+    if [ $? = 0 ]
+    then 
+        echo "La variable vide contient le fichier $vide"
+    fi
+
+
+    [ -d "../shell" ] 
+    if [ $? = 0 ]
+    then
+        echo "le repertoire shell existe"
+    fi
+
+
+    L=25
+    l=7
+
+    test "$L" -eq 25 && echo -n "L=25 "
+    test "$l" -ne 10 && echo -n "l<>10 "
+    test "$l" -lt 10 && echo -n "l<10 "
+    test "$L" -ge 15 && echo -n "L>15 "
+    test "$l" -le 10 && echo -n "l<=7 "
+    test "$L" -ge 10 && echo -n "L>=26 "
+
+
+    if [ -z "$mathieu" ]
+    then
+        echo "la variable mathieu est vide"
+    fi
+
+
+    if [ -n "$L" ]
+    then
+        echo "la variable L est non vide"
+    fi
+
+
+    ( [ -n "$l" ] && echo "la variable l est non vide" ) || echo "la variable
+    l est vide"
+
+
+
 * Test améliorés avec "[[ ]]" :
 
 on peut se servir du globbing shell pour faire une comparaison de chaine grâce aux double crochet sans avoir de surprise 
