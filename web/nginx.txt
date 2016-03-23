@@ -49,24 +49,44 @@ nginx: configuration file /root/nginx.conf test is successful
 ##  configuration des directives
 
 fichier de conf /etc/nginx/nginx.conf 
+on fonctionne sur un mode directive de type :
+clé             valeur;
+ex:
+worker_process  1;
 
 /!\ toutes les directives finissent par un ";" 
 
-# Directives principales : 
+# Directives principales : elles sont ici du "core" de nginx (celles des modules seront vues plus loin)
 
 # utilisateur. On peut rajouter un deuxieme nom celui du groupe autoriser à faire tourner le process : 
 user              nginx;  
-
 # nginx fonctionne avec un "single" process
 worker_processes  1; 
 
 # On peut avoir une inclusion de conf via un fichier externe : dans ce cas c'est comme si l'on avait l'intégration du fichier ( ce mecanisme est récursif on peut avoir l'incusion de fichiers de fichiers ....) 
-
 NB: le globbing fonctionne pour les "include".Ex include sites/*.conf; > Ok
+
+Sur une installation "neuve" on peut voir l'inclusion de plusieurs fichiers :
+
+[root@centos67 nginx]# grep -rin include *
+conf.d/default.conf:13:    include /etc/nginx/default.d/*.conf;
+conf.d/default.conf:45:    #    include        fastcgi_params;
+nginx.conf:21:    include       /etc/nginx/mime.types;
+nginx.conf:40:    include /etc/nginx/conf.d/*.conf;
+nginx.conf.default:18:    include       mime.types;
+nginx.conf.default:70:        #    include        fastcgi_params;
+On peut avoir de base ce type de fichiers :
+
+Standard name Description
+nginx.conf    Base configuration of the application.
+mime.types    A list of file extensions and their associated MIME types.
+fastcgi.conf  FastCGI-related configuration.
+proxy.conf    Proxy-related configuration.
+sites.conf    Configuration of the websites served by Nginx, also known as virtual
+              hosts. It's recommended to create separate files for each domain.
 
 
 nginx.conf :
-
     user        nginx nginx;
     worker_processes  4;
     include     other_settings.conf;
@@ -76,13 +96,11 @@ other_settings.conf :
     pid logs /nginx.pid;        
  
 Le résultat final sera vu comme tel pour nginx : 
-
     user              nginx nginx;
     worker_processes  4;
     include     other_settings.conf;
     error_log logs/error.log;
     pid logs /nginx.pid;        
-
 Les fichiers de base fournis  à l'install de nginx peuvent être regroupés et renommés sans souci.
 
 ## Block de directives : 
@@ -91,11 +109,13 @@ Les blocs de directives sont apportés avec les modules : l'activation d'un nouv
 events {
     worker_connections 1024;
 }
-
 Les directives ne peuvent être définies qu'à l'interrieur de la section.
-/!\ ATTENTION : certaines directives doivent être placées dans la section "main" / root : block principal.
+
+/!\ ATTENTION : certaines directives doivent être placées dans la section "main" / root : block principal et leur action se fait en global sur le serveur web.
+
 Les directives peuvent s'imbriquer : entre les {} :
 
+Exemple pour configurer un serveur web : certains blocs sont obligatoires :
 http  {
       server  {
             listen 80;
@@ -106,43 +126,33 @@ http  {
              }
         }
 }
-
 -> le bloc server permet de configurer un vhost : dans ce cas cette conf s'applique à toutes requettes http ayant dans leur header le nom exemple.com dans le champ HOST
-
 On peut rajouter des sections "location" qui permettent de spécifier certaines conf quand l'URI de la requette match avec le path défini.
-
 NB: la config des blocs est héritée dans les blocs "enfants". Ici on a tous les logs qui tombent a un endroit mais on peut désactiver le loggin pour une section particulière en réutilisant la directive "access_log". Exemple :
+
+Ici on override la conf server en definissant une location ou on ne loggera pas les infos (^~/admin) : la directive access_log à off "override" la partie de conf server :
 
             location ^~ /admin/ {
                 index index.php;
                 access_log off;
              }
-
 ->ici on override la conf de la section server.
 
-
-
 ## exemple de fichier de conf : 
-
 user              nginx;
 worker_processes  1;
-
 # path des errors logs :
 error_log  /var/log/nginx/error.log;
-
 # 
 pid        /var/run/nginx.pid;
-
 # 
 events {
     worker_connections  1024;
 }
-
 #   
 http {
     include       /etc/nginx/mime.types;
     default_type  application/octet-stream;
-
     log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
                       '$status $body_bytes_sent "$http_referer" '
                       '"$http_user_agent" "$http_x_forwarded_for"';
@@ -156,4 +166,122 @@ http {
     # The default server is in conf.d/default.conf
     include /etc/nginx/conf.d/*.conf;
 }
+
+* Syntaxes particulières :
+on peut utiliser des regles de syntaxe dédiées pour configurer certaines directives. Ex :
+
+rewrite ^/(.*)\.(png|jpg|gif)$ /image.php? file=$1&format=$2 last;
+
+* Diminutifs :
+on peut devoir utiliser des diminutifs pour représenter des valeurs.Ex :
+
+client_max_body_size 2M;
+client_max_body_size 2048k;
+ou
+client_body_timeout 3m;
+client_body_timeout 180s;
+client_body_timeout 180;
+client_body_timeout 1m30s;
+client_body_timeout '1m 30s 500ms';  # on peut cumuler les valeurs.
+
+* Variables :
+On peut devoir utiliser des variables pour configurer des directives :
+ex : le  module "core" defini la variable $nginx_version 
+l'utilisation du logformat peut recupérer des valeurs comme :
+log_format main '$pid - $nginx_version - $remote_addr';
+
+Attention toutes les directives ne permettent pas l'utilisation de variables (ex : error_log logs/error-$nginx_version.log; ne fonctionne pas.)
+
+* strings :
+on peut definir les valeurs de chaines de caracteres des directives concernées de trois forme :
+normal , entre "" et entre ''.
+comme en shell il faut ajouter un \ pour proteger un caractère ex : \$
+
+= Modules de base :
+
+-> core : config de base, process managment, securité
+-> events : mecanique interne et réseau
+-> configuration : gestion des inclusions
+
+
+* Core module :
+au demarrage de nginx un seul process existe : process Master en principe lancé en root:root
+Il lance a son tour des process 'worker' qui seront utilisé par un user/group dédié pour dialoguer avec le client.
+
+On peut definir le nombre de worker ainsi que le nombre de connexions que chaque worker peut gérer.
+La plupart des directives du "core" doivent être placées à la racine du serveur et ne peuvent être utilisé qu'une seule fois.Cependant pour certaines directives utilisables plusieurs fois : dans plusieurs contextes.
+ex: 
+user nginx nginx;
+master_process on;
+worker_processes 4;
+
+* Event module : 
+Ce module embarque des directives importantes sur les performances et les mecanismes reseau du serveur.La bloc events doit être placée à la racine du serveur : imperatif sinon le serveur sera HS.
+ex: 
+user nginx nginx;
+master_process on;
+worker_processes 4;
+events {
+  worker_connections 1024;
+  use epoll;
+}
+[...]
+
+
+* Configuration module :
+permet l'inclusion et la directive peut être placée et appellée à plusieurs endroits dans la conf du server :
+ex : 
+include /file/path.conf;
+include sites/*.conf;
+
+* Config de base adaptée :
+en principe de base nginx fonctionne sur beaucoup d'environnment sans config particulière.
+De base quand aucune configs particulière n'est chargée : la conf par defaut est chargée ( on peut donc trouver le fichier de conf initial "light" mais cela peut simplement indiquer le chargement par defaut des conf de base.
+examen de notre conf neuve :
+
+[root@centos67 nginx]# cat nginx.conf
+user              nginx; # user lancant nginx
+worker_processes  1; # nombre de worker lancés au boot. On fixe la valeur de 1 worker par cpu core dispo sur le server.
+
+log_not_ found on; # on peut definir si les 404 sont loggées ou pas (ex : favicon ou robot.txt crawlé ..) : attention c'est un composant du module core : donc à mettre en début de conf .
+
+
+error_log  /var/log/nginx/error.log; # emplacement des logs d'erreurs
+#error_log  /var/log/nginx/error.log  notice;
+#error_log  /var/log/nginx/error.log  info;
+
+pid        /var/run/nginx.pid; # emplacement du pid
+
+events {
+    worker_connections  1024; # nombre de connexion http simultanée par workera : plus on a de ram et cpu plus on peut augmenter la conf.
+}
+
+http {
+    include       /etc/nginx/mime.types; # include des types mimes 
+    default_type  application/octet-stream;
+    log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
+                      '$status $body_bytes_sent "$http_referer" '
+                      '"$http_user_agent" "$http_x_forwarded_for"';    # definition du log format 
+
+    access_log  /var/log/nginx/access.log  main;  # emplacement des logs d'acces
+
+    sendfile        on;
+    #tcp_nopush     on;
+
+    #keepalive_timeout  0;
+    keepalive_timeout  65;
+
+    #gzip  on;
+    
+    # Load config files from the /etc/nginx/conf.d directory
+    # The default server is in conf.d/default.conf
+    include /etc/nginx/conf.d/*.conf;
+
+}
+
+
+== Configuration Http : 
+
+* module 'core' :
+ 
 
