@@ -510,9 +510,97 @@ On commence à compter les caractères à partir de "0" :
 ogie@x61:/tmp$ echo ${a:0:3}
 lap
 
+
+
+
+
+* Commandes - codes retours :
+
+-> ";"
+On a classquement l'enchainement de commandes avec ";" qui correspond à un "retour chariot" dans les scripts : l'execution de commandes se fait quelques soient le retour (ok ou echec)
+-> "&&" : a && b : la commande b se lance uniquement si la commande a se finit avec un succes : traditionnelement un code retour &gal à"0" 
+-> "||" : a ||b : la commande b ne se lance que si a est en echec ( code retour différent de 0 en principe : voir le code retout des commandes dans les pages man ou help)
+
+-> "&" : lancement en arrière plan de la commande : on recupère le prompt (pour certaines commandes on doit appuyer sur <enter>"
+
+un numero de job est attribué à la commande . On peut lister ces commandes avec "jobs -l"
+boogie@x61:/tmp$ sleep 10 &
+[1] 3533
+boogie@x61:/tmp$ jobs -l
+[1]+  3533 En cours d'exécution   sleep 10 &
+
+On peut ramméner la commande au premier plan avec fg et le numéro de job :
+
+boogie@x61:/tmp$ sleep 20 &
+[1] 3534
+boogie@x61:/tmp$ jobs -l
+[1]+  3534 En cours d'exécution   sleep 20 &
+boogie@x61:/tmp$ fg %1
+sleep 20
+boogie@x61:/tmp$ 
+
+On peut repasser un job suspendu en background avec la commande "bg" :
+
+boogie@x61:/tmp$ sleep 30 
+^Z[1]   Fini                    sleep 30
+
+[2]+  Stoppé                 sleep 30
+boogie@x61:/tmp$ jobs -l
+[2]+  3539 Arrêté                sleep 30
+boogie@x61:/tmp$ bg
+[2]+ sleep 30 &
+boogie@x61:/tmp$ jobs -l
+[2]+  3539 En cours d'exécution   sleep 30 &
+ 
+
+Il est possible de paramétrer les "tty" pour filtrer l'affichage sur la sortie standart des commandes en background -> man stty (cf param : tostop)
+
+
+Quand on lance une commande en background son véritable code retour est disponisble avec la commande wait . Le numéro de pid de la commande en background est disponible avec $! :
+
+boogie@x61:/tmp$ sleep 4  &
+[1] 3573
+boogie@x61:/tmp$ wait $!
+[1]+  Fini                    sleep 4
+
+On peut récupérer le code retour d'une commande lancée en background :
+
+boogie@x61:/tmp$ sleep 20  
+^Z[2]   Fini                    sleep 10
+
+[3]+  Stoppé                 sleep 20
+boogie@x61:/tmp$ bg
+[3]+ sleep 20 &
+boogie@x61:/tmp$ jobs -l
+[3]+  3571 En cours d'exécution   sleep 20 &
+boogie@x61:/tmp$ eval echo $? $!
+0 3571
+[3]+  Fini                    sleep 20
+boogie@x61:/tmp$ eval echo $? $!
+0 3571
+
+
+
+
 === chapter 4 : flow control 
 
 = for loop : 
+
+
+Note : De base si on ne donne aucun argument à for : la boucle utilise for i in "$@" : on passe tous les arguments dans la boucle.
+ex :
+boogie@x61:/tmp$ cat testo.sh 
+#!/bin/bash
+
+for i
+do
+    echo "hello $i"
+done
+
+ce qui nous donne :
+boogie@x61:/tmp$ ./testo.sh *.txt
+hello lapin.bla.txt
+hello loulou.txt
 
 # arithmétique / calcul :
 
@@ -679,6 +767,15 @@ case "$var" in
             *) echo "hey ..un chiffre svp pas un caractère special.."
                exit 3
 esac 
+
+
+
+= break et continue :
+
+on peut utiliser ces deux mots clés dans le traitement d'une boucle:
+-> break : lorsque le shell rencontre ce mot clé : il sort de la boucle en passant directement après le "done" de la boucle.
+-> continue : quand il est rencontré par le shell : repart immédiatement en début de boucle (while ,for ..) 
+
 
 
 
