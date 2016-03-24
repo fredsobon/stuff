@@ -396,8 +396,885 @@ Default value: index.html
    index index.php index2.php /catchall.php;
  
 - Requettes clients :
-
 On peut parmi toutes choses configurer le mécanisme de keep-alive et de logging de requettes.
 
+-> keepalive_requests (contexte : http,server,location) : nombre maximum de requette servies pour  une connection keep-alive
+valeur par defaut 100 
 
+-> keepalive_timeout (contexte :http,server,location) : nombre de seconde maximum avant la fermeture de la connection tcp keepalive ( certains navigateurs ferment d'office une page à 60 secondes.)
+keepalive_timeout 75;
+keepalive_timeout 75 60;
+
+-> sent_timeout :  Context: http, server, location
+delai qui permet de fermer une connection http après une durée d'inactivité du client :
+send_timeout Default value: 60
+
+CF : doc nginx pour les directives portant sur les headers, body ,connection etc ...
+
+- Mimes types : 
+
+type : (contexte : http,server,location)
+permet de faire la correspondance entre les mimes types et les extensions : nginx fait le lien entre le fichier et le mimes types : ensuite le mimes types est envoyé dans le header de la requette retour au client :ce qui pourrait indiquer una action a faire pour le navigateur client (exemple on requette un fichier pdf : dans le header on a un mimes type 'application/pdf' du coup notre navigateur peut charger un plugin plutot que downloader le fichier ..)
+nginx se sert d'un include pour charger un maximum de mimes types classiques :
+
+include mimes.types;
+-> si notre fichier n'est pas reconnu dans la liste alors on va chercher dans la directive defaut_type si elle est définie.
+On peut overrider le mimes types : exemple ici on va pouvoir downloader en definissant un default_type à application/octet-stream dans la location /downloads/ :
+     http {
+        include mime.types;
+        location /downloads/ {
+            # removes all MIME types
+            types { }
+            default_type application/octet-stream;
+         }
+     }
+Il est plus sur de configurer le module HTTP header ( voir plus loin.)
+Les valeurs par defaut si le mimes types n'esst pas défini :
+types {
+  text/html html;
+  image/gif gif;
+  image/jpeg jpg;
+}
+
+- Limit et Restrictions :
+
+-> limit_except (Context: location) : va nous permettre de definir les methodes http acceptées.
+On defini explicitement les methodes autorisées ( les autres sont rejettées ) et les autorisations exemple plage ip 
+exemple :
+location /admin/ {
+    limit_except GET {
+      allow 192.168.1.0/24;
+      deny all;
+    }
+}
+ici les requettes sont limitées au get SAUF pour la plage 192.168.1.0/24 qui peut tout faire .
+NB : le GET authorisé implique de fait le HEAD ( on a donc les deux autorisés)
+
+-> limit_rate  (Context: http, server, location, if)
+limitation du taux de transfert par connexion client en bytes/s
+ex :     limit_rate 500k; (Default value: No limit)
+
+-> satisfy :  (Context: location )
+The satisfy directive defines whether clients require all access conditions to be valid (satisfy all) or at least one (satisfy any).
+    location /admin/ {
+          allow 192.168.1.0/24;
+          deny all;
+          auth_basic "Authentication required";
+          auth_basic_user_file conf/htpasswd;
+    }
+In the previous example, there are two conditions for clients to be able to access the resource:
+Through the allow and deny directives (HTTP Access module), we only allow clients that have a local IP address, all other clients are denied access
+Through the auth_basic and auth_basic_user_file directives (HTTP Auth Basic module), we only allow clients that provide a valid username and password
+With satisfy all, the client must satisfy both conditions in order to gain access to the resource. With satisfy any, if the client satisfies either condition, they are
+granted access.
+Syntax: satisfy any | all
+Default value: all
+
+->internal : (Context: location)
+This directive specifies that the location block is internal. In other words, the specified resource cannot be accessed by external requests.
+    server {
+         server_name .website.com;
+         location /admin/ {
+              internal;
+         }
+    }
+With the previous configuration, clients will not be able to browse http://website.com/admin/. Such requests will be met with 404 Not Found errors. The only way to access the resource is via internal redirects (check the Rewrite module section for more information on internal redirects).
+
+- Gestion du cache et du traitement des fichiers :
+
+It's important for your websites to be built upon solid foundations. File access and caching is a critical aspect of web serving. In this perspective, Nginx lets you perform precise tweaking with the use of the following directives.
+
+-> disable_symlinks
+This directive allows you to control the way Nginx handles symbolic links when they are to be served. By default (directive value is off) symbolic links are allowed and Nginx follows them. You may decide to disable the following of symbolic links
+under different conditions by specifying one of these values:
+on: If any part of the requested URI is a symbolic link, access to it is denied and Nginx returns a 403 HTTP error page.
+
+if_not_owner: Similar to the above, but access is denied only if the link and the object it points to have different owners.
+The optional parameter from= allows you to specify a part of the URL that will not be checked for symbolic links. For example, disable_symlinks on from=$document_root will tell Nginx to normally follow symbolic links in the URI up to the $document_root folder. If a symbolic link is found in the URI parts after that, access to the requested file will be denied.
+
+-> directio
+Context: http, server, location
+If this directive is enabled, files with a size greater than the specified value will be
+read with the Direct I/O system mechanism. This allows Nginx to read data from
+the storage device and place it directly in memory with no intermediary caching
+process involved.
+Syntax: Size value, or off
+Default value: off
+
+->open_file_cache (Context: http, server, location) 
+This directive allows you to enable the cache which stores information about open files. It does not actually store file contents itself but only information such as:
+File descriptors (file size, modification time, and so on).
+The existence of files and directories.
+File errors, such as Permission denied, File not found, and so on. Note that this can be disabled with the open_file_cache_errors directive.
+This directive accepts two arguments:
+max=X, where X is the amount of entries that the cache can store. If this amount is reached, older entries will be deleted in order to leave room for newer entries.
+Optionally inactive=Y, where Y is the amount of seconds that a cache entry should be stored. By default, Nginx will wait 60 seconds before clearing a cache entry. If the cache entry is accessed, the timer is reset. If the cache entry is accessed more than the value defined by open_file_cache_min_uses, the cache entry will not be cleared (until Nginx runs out of space and decides to clear out older entries).
+Syntax: open_file_cache max=X [inactive=Y] | off
+Default value: off
+Example:
+     open_file_cache max=5000 inactive=180;
+
+etc : voir doc nginx 
+
+- Diverses directives :
+
+->log_not_found (Context: http, server, location)
+Enables or disables logging of 404 Not Found HTTP errors. If your logs get filled with 404 errors due to missing favicon.ico or robots.txt files, you might want to turn this off.
+Syntax: on or off
+Default value: on
+
+->log_subrequest (Context: http, server, location) 
+Enables or disables logging of sub-requests triggered by internal redirects (see the Rewrite module section) or SSI requests (see the Server Side Includes module section).
+Syntax: on or off
+Default value: off
+
+->resolver (Context: http, server, location)
+Specifies the name servers that should be employed by Nginx to resolve hostnames to IP addresses and vice-versa. DNS query results are cached for some time, either by respecting the TTL provided by the DNS server, or by specifying a time value to the
+valid argument.
+Syntax: IP addresses, valid=Time value
+Default value: None (system default)
+    resolver 127.0.0.1; # use local DNS
+    resolver 8.8.8.8 8.8.4.4 valid=1h; # use Google DNS and cache results
+    for 1 hour
+
+->resolver_timeout (Context: http, server, location)
+Timeout for a hostname resolution query.
+Syntax: Time value (in seconds)
+Default value: 30
+
+->server_tokens (Context: http, server, location)
+This directive allows you to define whether or not Nginx should inform the clients of the running version number. There are two situations where Nginx indicates its version number:
+In the server header of HTTP responses (such as nginx/1.2.9). If you set server_tokens to off, the server header will only indicate Nginx.
+On error pages, Nginx indicates the version number in the footer. If you set server_tokens to off, the footer of error pages will only indicate Nginx.
+If you are running an older version of Nginx and do not plan to update it, it might be a good idea to hide your version number for security reasons.
+Syntax: on or off
+Default value: on
+
+->underscores_in_headers (Context: http, server)
+Allows or disallows underscores in custom HTTP header names. If this directive is set to on, the following example header is considered valid by Nginx: test_
+header: value.
+Syntax: on or off
+Default value: off
+
+->post_action (Context: http, server, location, if)
+Defines a post-completion action, a URI that will be called by Nginx after the request has been completed.
+Syntax: URI or named location block.
+Example:
+    location /payment/ {
+        post_action /scripts/done.php;
+    }
+
+- Variables de modules :
+
+Beaucoup de variables sont utiles pour certaines directives mais toutes ne sont pas utilisables par tous les modules.
+3 types de variables existent : celles envoyées dans les headers du client, celles des headers envoyées au client par nginx et celles definies en interne par nginx.
+
+->Request headers
+Nginx lets you access the client request headers under the form of variables that you will be able to employ later on in the configuration:
+  Variable                  Description
+  $http_host                Value of the Host HTTP header, a string indicating the
+                            hostname that the client is trying to reach.
+  $http_user_agent          Value of the User-Agent HTTP header, a string indicating the
+                            web browser of the client.
+  $http_referer             Value of the Referer HTTP header, a string indicating the URL
+                            of the previous page from which the client comes.
+  $http_via                 Value of the Via HTTP header, which informs us about
+                            possible proxies used by the client.
+  $http_x_forwarded_        Value of the X-Forwarded-For HTTP header, which shows the
+  for                       actual IP address of the client if the client is behind a proxy.
+  $http_cookie              Value of the Cookie HTTP header, which contains the cookie
+                            data sent by the client.
+  $http_...                 Additional headers sent by the client can be retrieved using
+                            $http_ followed by the header name in lowercase and with
+                            dashes (-) replaced by underscores (_).
+-> Response headers
+In a similar fashion, you are allowed to access the HTTP headers of the response that was sent to the client. These variables are not available at all times they will only carry a value after the response is sent, for instance, at the time of writing messages in the logs.
+Variable                       Description
+$sent_http_content_            Value of the Content-Type HTTP header, indicating the
+type                           MIME type of the resource being transmitted.
+$sent_http_content_            Value of the Content-Length HTTP header informing the
+length                         client of the response body length.
+$sent_http_location            Value of the Location HTTP header, which indicates that
+                               the location of the desired resource is different than the
+                               one specified in the original request.
+$sent_http_last_               Value of the Last-Modified HTTP header corresponding to
+modified                       the modification date of the requested resource.
+
+$sent_http_connection         Value of the Connection HTTP header, defining whether
+                              the connection will be kept alive or closed.
+$sent_http_keep_alive         Value of the Keep-Alive HTTP header that defines the
+                              amount of time a connection will be kept alive.
+$sent_http_transfer_          Value of the Transfer-Encoding HTTP header, giving
+encoding                      information about the response body encoding method
+                              (such as compress, gzip).
+$sent_http_cache_             Value of the Cache-Control HTTP header, telling us
+control                       whether the client browser should cache the resource or
+                              not.
+$sent_http_...                Additional headers sent to the client can be retrieved
+                                using $sent_http_ followed by the header name, in
+                                lowercase and with dashes (-) replaced by underscores (_).
+-> Nginx generated
+Apart from the HTTP headers, Nginx provides a large amount of variables concerning the request, the way it was and will be handled, as well as settings in use with the current configuration.
+Variable                Description
+$arg_XXX                Allows you to access the query string (GET parameters), where
+                        XXX is the name of the parameter you want to utilize.
+$args                   All of the arguments of the query string combined together.
+$binary_remote_         IP address of the client as binary data (4 bytes).
+addr
+$body_bytes_sent        Amount of bytes sent in the body of the response.
+$connection_            Amount of requests already served by the current connection.
+requests
+$content_length         Equates to the Content-Length HTTP header.
+$content_type           Equates to the Content-Type HTTP header.
+$cookie_XXX             Allows you to access cookie data where XXX is the name of the
+                        parameter you want to utilize.
+$document_root          Returns the value of the root directive for the current request.
+$document_uri           Returns the current URI of the request. It may differ from the
+                        original request URI if internal redirects were performed. It is
+                        identical to the $uri variable.
+
+$host             This variable equates to the Host HTTP header of the request.
+                  Nginx itself gives this variable a value for cases where the Host
+                  header is not provided in the original request.
+$hostname         Returns the system hostname of the server computer
+$https            Set to on for HTTPS connections, empty otherwise.
+$is_args          If the $args variable is defined, $is_args equates to ?. If
+                  $args is empty, $is_args is empty as well. You may use this
+                  variable for constructing an URI that optionally comes with a
+                  query string, such as index.php$is_args$args. If there is
+                  any query string argument in the request, $is_args is set to ?,
+                  making this a valid URI.
+$limit_rate       Returns the per-connection transfer rate limit, as defined by the
+                  limit_rate directive. You are allowed to edit this variable by
+                  using set (directive from the Rewrite module):
+                      set $limit_rate 128k;
+$nginx_version    Returns the version of Nginx you are running.
+$pid              Returns the Nginx process identifier.
+$query_string     Identical to $args.
+$remote_addr      Returns the IP address of the client.
+$remote_port      Returns the port of the client socket.
+$remote_user      Returns the client username if they used authentication.
+$realpath_root    Returns the document root in the client request, with symbolic
+                  links resolved into the actual path.
+$request_body     Returns the body of the client request, or - if the body is empty.
+$request_body_    If the request body was saved (see the client_body_in_
+file              file_only directive) this variable indicates the path of the
+                  temporary file.
+$request_         Returns OK if the request is completed, an empty string
+completion        otherwise.
+$request_filename Returns the full filename served in the current request.
+$request_method   Indicates the HTTP method used in the request, such as GET
+                  or POST.
+$request_uri      Corresponds to the original URI of the request, remains
+                  unmodified all along the process (unlike $document_
+                  uri/$uri).
+$scheme           Returns either http or https, depending on the request.
+
+$server_addr     Returns the IP address of the server. Be aware as each use of the
+                 variable requires a system call, which could potentially affect
+                 overall performance in the case of high-traffic setups.
+$server_name     Indicates the value of the server_name directive that was
+                 used while processing the request.
+$server_port     Indicates the port of the server socket that received the request
+                 data.
+$server_protocol Returns the protocol and version, usually HTTP/1.0 or
+                 HTTP/1.1.
+$tcpinfo_rtt,    If your operating system supports the TCP_INFO socket option,
+$tcpinfo_rttvar, these variables will be populated with information on the
+$tcpinfo_snd_    current client TCP connection.
+cwnd, $tcpinfo_
+rcv_space
+$time_iso8601,   Provides the current time respectively in ISO 8601 and local
+$time_local      formats for use with the access_log directive.
+$uri             Identical to $document_uri.
+
+
+- Location :
+On peut finement configurer notre server a travers le protocole ( bloc http) , le server (bloc server) et l'uri ( bloc location)
+
+->Location modifier
+Nginx allows you to define location blocks by specifying a pattern that will be matched against the requested document URI.
+   server {
+        server_name website.com;
+        location /admin/ {
+        # The configuration you place here only applies to
+        # http://website.com/admin/
+        }
+   }
+
+Instead of a simple folder name, you can indeed insert complex patterns. The syntax
+of the location block is:
+    location [=|~|~*|^~|@] pattern { ... }
+
+The first optional argument is a symbol called location modifier that will define the way Nginx matches the specified pattern and also defines the very nature of the pattern (simple string or regular expression). The following paragraphs detail the
+different modifiers and their behavior.
+
+->The = modifier
+
+The requested document URI must match the specified pattern exactly. The pattern
+here is limited to a simple literal string; you cannot use a regular expression:
+    server {
+          server_name website.com;
+          location = /abcd {
+          ...
+          }
+    }
+The configuration in the location block:
+Applies to http://website.com/abcd (exact match)
+Applies to http://website.com/ABCD (it is case-sensitive if your operating system uses a case-sensitive filesystem)
+Applies to http://website.com/abcd?param1&param2 (regardless of query string arguments)
+Does not apply to http://website.com/abcd/ (trailing slash)
+Does not apply to http://website.com/abcde (extra characters after the specified pattern)
+
+->No modifier
+The requested document URI must begin with the specified pattern. You may not use regular expressions:
+    server {
+          server_name website.com;
+          location /abcd {
+            ...
+          }
+    }
+
+The configuration in the location block:
+Applies to http://website.com/abcd (exact match)
+Applies to http://website.com/ABCD (it is case-sensitive if your operating system uses a case-sensitive filesystem)
+Applies to http://website.com/abcd?param1&param2 (regardless of query string arguments)
+Applies to http://website.com/abcd/ (trailing slash)
+Applies to http://website.com/abcde (extra characters after the specified pattern)
+
+-> The ~ modifier
+The requested URI must be a case-sensitive match to the specified regular expression:
+    server {
+         server_name website.com;
+         location ~ ^/abcd$ {
+         ...
+         }
+    }
+The ^/abcd$ regular expression used in this example specifies that the pattern
+must begin (^) with /, be followed by abc, and finish ($) with d. Consequently,
+the configuration in the location block:
+Applies to http://website.com/abcd (exact match)
+Does not apply to http://website.com/ABCD (case-sensitive)
+Applies to http://website.com/abcd?param1&param2 (regardless of query string arguments)
+Does not apply to http://website.com/abcd/ (trailing slash) due to the specified regular expression
+Does not apply to http://website.com/abcde (extra characters) due to the specified regular expression With operating systems such as Microsoft Windows, ~ and ~* are both case-insensitive, as the OS uses a case-insensitive filesystem.
+
+->The ~* modifier 
+The requested URI must be a case-insensitive match to the specified regular expression:
+    server {
+         server_name website.com;
+         location ~* ^/abcd$ {
+         ...
+         }
+    }
+The regular expression used in the example is similar to the previous one.
+Consequently, the configuration in the location block:
+Applies to http://website.com/abcd (exact match)
+Applies to http://website.com/ABCD (case-insensitive)
+Applies to http://website.com/abcd?param1&param2 (regardless of query string arguments)
+Does not apply to http://website.com/abcd/ (trailing slash) due to the specified regular expression 
+Does not apply to http://website.com/abcde (extra characters) due to the specified regular expression
+
+-> The ^~ modifier
+Similar to the no-symbol behavior, the location URI must begin with the specified
+pattern. The difference is that if the pattern is matched, Nginx stops searching for
+other patterns (read the section below about search order and priority).
+
+->The @ modifier
+Defines a named location block. These blocks cannot be accessed by the client,
+but only by internal requests generated by other directives, such as try_files or
+error_page.
+
+- Priorité et recherche :
+comme on peut definir plusieurs bloc de location , nginx va chercher le bloc location qui correspond au mieux avec la requette ,l'uri .
+
+server {
+    server_name website.com;
+    location /files/ {
+      # applies to any request starting with "/files/"
+      # for example /files/doc.txt, /files/, /files/temp/
+    }
+    location = /files/ {
+      # applies to the exact request to "/files/"
+      # and as such does not apply to /files/doc.txt
+      # but only /files/
+    }
+}
+
+Important :  l'ordre des regles d'acces est lié aux priorités des "modifier" : 
+
+When a client visits http://website.com/files/doc.txt, the first location block
+applies. However, when they visit http://website.com/files/, the second block
+applies (even though the first one matches) because it has priority over the first one
+(it is an exact match).
+The order you established in the configuration file (placing the /files/ block before
+the = /files/ block) is irrelevant. Nginx will search for matching patterns in a
+specific order:
+      1.     location blocks with the = modifier: If the specified string exactly matches
+          the requested URI, Nginx retains the location block.
+
+      2.     location blocks with no modifier: If the specified string exactly matches the
+          requested URI, Nginx retains the location block.
+      
+      3.     location blocks with the ^~ modifier: If the specified string matches the
+          beginning of the requested URI, Nginx retains the location block.
+      
+      4.     location blocks with ~ or ~* modifier: If the regular expression matches the
+          requested URI, Nginx retains the location block.
+      
+      5.     location blocks with no modifier: If the specified string matches the
+          beginning of the requested URI, Nginx retains the location block.
+
+In that extent, the ^~ modifier begins to make sense, and we can envision cases where it becomes useful.
+
+Case 1:
+  server {
+      server_name website.com;
+      location /doc {
+         # requests beginning with "/doc"
+      }
+      location ~* ^/document$ {
+         requests exactly matching "/document"
+      }
+  }
+You might wonder: when a client requests http://website.com/document, which of these two location blocks applies? Indeed, both blocks match this request. Again, the answer does not lie in the order in which the blocks appear in the configuration
+files. In this case, the second location block will apply as the ~* modifier has priority over the other.
+
+Case 2:
+     server {
+           server_name website.com;
+           location /document {
+             # requests beginning with "/document"
+           }
+           location ~* ^/document$ {
+             # requests exactly matching "/document"
+           }
+     }
+The question remains the same what happens when a client sends a request to download http://website.com/document? There is a trick here. The string specified in the first block now exactly matches the requested URI. As a result, Nginx prefers it over the regular expression.
+
+Case 3:
+     server {
+           server_name website.com;
+           location ^~ /doc {
+              # requests beginning with "/doc"
+           }
+           location ~* ^/document$ {
+           # requests exactly matching "/document"
+           }
+     }
+This last case makes use of the ^~ modifier. Which block applies when a client visits http://website.com/document? The answer is the first block. The reason being that ^~ has priority over ~*. As a result, any request with a URI beginning with / doc will be affected to the first block, even if the request URI matches the regular expression defined in the second block.
+
+
+== Modules Configuration :
+
+La richesse de nginx reside dans ses modules.
+
+= Rewrite rules :
+
+Le principe permet une réécriture complète des urls avant de transmettre le document au user.
+ex :http://example.com/article.php?id=1234&comment=3a devient grâce aux rewrite http://website.com/article-1234-32-US-
+economy-strengthens.html : bien plus pratique pour les users et utile pour le SEO.
+L'utilisation des regexps est essentielle :
+
+String Pattern Matches? Explanation
+hello  ^hello$ Yes      The string begins by character h (^h),
+                        followed by e, l, l, and then finishes by o
+                        (o$).
+hell   ^hello$ No       The string begins by character h (^h),
+                        followed by e, l, l but does not finish by o.
+Hello  ^hello$ Depends  If the engine performing the match is case-
+                        sensitive, the string doesn't match the pattern.
+
+Exemple d'adresse mail : ^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,4}$
+
+->PCRE syntax
+Dans sa forme la plus simple il s'agit d'un caractère 
+x match par exemple 
+[a-z] ou des groupe [a-z0-9]. matches any character between a and z
+hell[a-z0-9] match hello and hell4, but not hell or hell!.
+
+Metacharacter     Description
+
+^                 The entity after this character must be found at the beginning.
+Beginning         Example pattern: ^h
+                  Matching strings: hello, h, hh
+                  Non-matching strings: character, ssh
+
+$                 The entity before this character must be found at the end.
+End               Example pattern: e$
+                  Matching strings: sample, e, file
+                  Non-matching strings: extra, shell
+
+.                 Matches any character.
+Any               Example pattern: hell
+                  Matching strings: hello, hellx, hell5, hell!
+                  Non-matching strings: hell, helo
+
+
+[ ]         Matches any character within the specified set.
+Set         Syntax: [a-z] for a range, [abcd] for a set, and [a-z0-9] for
+            two ranges. Note that if you want to include the character in a
+            range, you need to insert it right after the [ or just before the ].
+            Example pattern: hell[a-y123-]
+            Matching strings: hello, hell1, hell2, hell3, hell-
+            Non-matching strings: hellz, hell4, heloo, he-llo
+
+[^ ]        Matches any character that is not within the specified set.
+Negate set  Example pattern: hell[^a-np-z0-9]
+            Matching strings: hello, hell;
+            Non-matching strings: hella, hell5
+
+|           Matches the entity placed either before or after the |.
+Alternation Example pattern: hello|welcome
+            Matching strings: hello, welcome, helloes, awelcome
+            Non-matching strings: hell, ellow, owelcom
+
+( )         Groups a set of entities, often to be used in conjunction with |.
+Grouping    Example pattern: ^(hello|hi) there$
+            Matching strings: hello there, hi there.
+            Non-matching strings: hey there, ahoy there
+
+\           Allows you to escape special characters.
+Escape      Example pattern: Hello\.
+            Matching strings: Hello., Hello. How are you?, Hi!
+            Hello...
+            Non-matching strings: Hello, Hello, how are you?
+
+Quantificateur :
+
+Quantifier         Description
+*                  The entity preceding * must be found 0 or more times.
+0 or more times    Example pattern: he*llo
+                   Matching strings: hllo, hello, heeeello
+                   Non-matching strings: hallo, ello
+
++                  The entity preceding + must be found 1 or more times.
+1 or more times    Example pattern: he+llo
+                   Matching strings: hello, heeeello
+                   Non-matching strings: hllo, helo
+
+?                  The entity preceding ? must be found 0 or 1 time.
+0 or 1 time        Example pattern: he?llo
+                   Matching strings: hello, hllo
+                   Non-matching strings: heello, heeeello
+
+{x}                The entity preceding {x} must be found x times.
+x times            Example pattern: he{3}llo
+                   Matching strings: heeello, oh heeello there!
+                   Non-matching strings: hello, heello, heeeello
+
+{x,}               The entity preceding {x,} must be found at least x times.
+At least x times   Example pattern: he{3,}llo
+                   Matching strings: heeello, heeeeeeello
+                   Non-matching strings: hllo, hello, heello
+
+{x,y}              The entity preceding {x,y} must be found between x and y times.
+x to y times       Example pattern: he{2,4}llo
+                   Matching strings: heello, heeello, heeeello
+                   Non-matching strings: hello, heeeeello
+
+/!\  As you probably noticed, the { and } characters in the regular expressions conflict
+with the block delimiter of the Nginx configuration file syntax language. If you want
+to write a regular expression pattern that includes curly brackets, you need to place
+the pattern between quotes (single or double quotes):
+    rewrite hel{2,}o /hello.php; # invalid
+    rewrite "hel{2,}o" /hello.php; # valid
+    rewrite 'hel{2,}o' /hello.php; # valid
+
+-Captures
+
+One last feature of the regular expression mechanism is the ability to capture sub-expressions. Whatever text is placed between parentheses ( ) is captured and can be used after the matching process.
+Here are a couple of examples to illustrate the principle:
+
+Pattern                                       String           Captured
+^(hello|hi) (sir|mister)$                     hello sir        $1 = hello
+                                                               $2 =  sir
+
+^(hello (sir))$                               hello sir        $1 =  hello sir
+                                                               $2 =  sir
+
+^(.*)$                                        nginx rocks      $1 =  nginx rocks
+
+^(.{1,3})([0-9]{1,4})([?!]{1,2})$             abc1234!?        $1 =  abc
+                                                               $2 = 1234
+                                                               $3 = !?
+Named captures are also supported:            /admin/doc       $folder = admin
+^/(?<folder>[^/]*)/(?<file>.*)$                                $file = doc
+
+When you use a regular expression in Nginx, for example, in the context of a location
+block, the buffers that you capture can be employed in later directives:
+
+    server {
+          server_name website.com;
+          location ~* ^/(downloads|files)/(.*)$ {
+              add_header Capture1 $1;
+              add_header Capture2 $2;
+          }
+    }
+
+In the preceding example, the location block will match the request URI against a regular expression. A couple of URIs that would apply here: /downloads/file.txt, /files/archive.zip, or even /files/docs/report.doc. Two parts are captured $1 will contain either downloads or files and $2 will contain whatever comes after /downloads/ or /files/. Note that the add_header directive (syntax: add_header header_name header_value, see the HTTP headers module section) is employed here to append arbitrary headers to the client response for the sole purpose of demonstration.
+
+
+->  Internal requests
+Nginx differentiates external and internal requests. External requests directly
+originate from the client; the URI is then matched against possible location blocks:
+    server {
+         server_name website.com;
+         location = /document.html {
+              deny all; # example directive
+         }
+    }
+A client request to http://website.com/document.html would directly fall into
+the above location block.
+
+Opposite to this, internal requests are triggered by Nginx via specific directives. In
+default Nginx modules, there are several directives capable of producing internal
+requests: error_page, index, rewrite, try_files, add_before_body, add_after_
+body (from the Addition module), the include SSI command, and more.
+There are two different kinds of internal requests:
+Internal redirects Nginx redirects the client requests internally. The URI is
+        changed, and the request may therefore match another location block and
+        become eligible for different settings. The most common case of internal
+        redirects is when using the Rewrite directive, which allows you to rewrite the
+        request URI.
+Sub-requests: Additional requests that are triggered internally to generate
+        content that is complementary to the main request. A simple example would
+        be with the Addition module. The add_after_body directive allows you
+        to specify a URI that will be processed after the original one, the resulting
+        content being appended to the body of the original request. The SSI module
+        also makes use of sub-requests to insert content with the include command.
+
+-> error_page
+Detailed in the module directives of the Nginx HTTP Core module, error_page
+allows you to define the server behavior when a specific error code occurs. The
+simplest form is to affect a URI to an error code:
+    server {
+         server_name website.com;
+         error_page 403 /errors/forbidden.html;
+         error_page 404 /errors/not_found.html;
+    }
+When a client attempts to access a URI that triggers one of these errors, Nginx is
+supposed to serve the page corresponding to the error code. In fact, it does not just
+Consequently, you can end up falling back on a different configuration, like in the
+following example:
+    server {
+         server_name website.com;
+         root /var/www/vhosts/website.com/httpdocs/;
+         error_page 404 /errors/404.html;
+         location /errors/ {
+             alias /var/www/common/errors/;
+             internal;
+         }
+    }
+When a client attempts to load a document that does not exist, they will initially
+receive a 404 error. We employed the error_page directive to specify that 404 errors
+should create an internal redirect to /errors/404.html. As a result, a new request
+is generated by Nginx with the URI /errors/404.html. This URI falls under the
+location /errors/ block so the configuration applies.
+              Logs can prove to be particularly useful when working with redirects
+              and URL rewrites. Be aware that information on internal redirects will
+              show up in the logs only if you set the error_log directive to debug.
+              You can also get it to show up at the notice level, under the condition
+              that you specify rewrite_log on; wherever you need it.
+
+A raw, but trimmed, excerpt from the debug log summarizes the mechanism:
+    ->http request line: "GET /page.html HTTP/1.1"
+    ->http uri: "/page.html"
+    ->test location: "/errors/"
+    ->using configuration ""
+    ->http filename: "/var/www/vhosts/website.com/httpdocs/page.html"
+    -> open() "/var/www/vhosts/website.com/httpdocs/page.html" failed (2:
+    No such file or directory), client: 127.0.0.1, server: website.com,
+    request: "GET /page.html HTTP/1.1", host:"website.com"
+    ->http finalize request: 404, "/page.html?" 1
+    ->http special response: 404, "/page.html?"
+    ->internal redirect: "/errors/404.html?"
+    ->test location: "/errors/"
+    ->using configuration "/errors/"
+    ->http filename: "/var/www/common/errors/404.html"
+    ->http finalize request: 0, "/errors/404.html?" 1
+
+Note that the use of the internal directive in the location block forbids clients
+from accessing the /errors/ directory. This location can only be accessed from an
+internal redirect.
+The mechanism is the same for the index directive (detailed further on in the Index
+module) if no file path is provided in the client request, Nginx will attempt to serve
+the specified index page by triggering an internal redirect.
+
+->  Rewrite
+While the previous directive error_page is not actually part of the Rewrite module,
+detailing its functionality provides a solid introduction to the way Nginx handles
+requests.
+Similar to how the error_page directive redirects to another location, rewriting the
+URI with the rewrite directive generates an internal redirect:
+    server {
+         server_name website.com;
+         root /var/www/vhosts/website.com/httpdocs/;
+         location /storage/ {
+               internal;
+               alias /var/www/storage/;
+         }
+         location /documents/ {
+               rewrite ^/documents/(.*)$ /storage/$1;
+         }
+    }
+A client query to http://website.com/documents/file.txt initially matches
+the second location block (location /documents/). However, the block contains
+a rewrite instruction that transforms the URI from /documents/file.txt to /
+storage/file.txt. The URI transformation reinitializes the process - the new
+URI is matched against the location blocks. This time, the first location block
+(location /storage/) matches the URI (/storage/file.txt).
+
+Again, a quick peek at the debug log confirms the mechanism:
+->http request line: "GET /documents/file.txt HTTP/1.1"
+->http uri: "/documents/file.txt"
+->test location: "/storage/"
+->test location: "/documents/"
+->using configuration "/documents/"
+->http script regex: "^/documents/(.*)$"
+->"^/documents/(.*)$" matches "/documents/file.txt", client: 127.0.0.1, server: website.com, request: "GET /documents/file.txt
+HTTP/1.1", host: "website.com"
+->rewritten data: "/storage/file.txt", args: "", client: 127.0.0.1,
+server: website.com, request: "GET /documents/file.txt HTTP/1.1",
+host: "website.com"
+->test location: "/storage/"
+->using configuration "/storage/"
+->http filename: "/var/www/storage/file.txt"
+->HTTP/1.1 200 OK
+->http output filter "/storage/test.txt?"
+
+=== ATTENTION aux boucles infinies avec les regexp et les rewrites rules :
+    server {
+         server_name website.com;
+         location /documents/ {
+              rewrite ^(.*)$ /documents/$1;
+         }
+    }
+You thought you were doing well, but this configuration actually triggers internal
+redirects /documents/anything to /documents//documents/anything. Moreover,
+since the location patterns are re-evaluated after an internal redirect, /documents//
+documents/anything becomes /documents//documents//documents/anything. ===
+
+Heureusement nginx a une mecanique de protection interne qui limite à 10 boucles max avant de tomber en erreur 500.
+
+-> SSI : server side include.
+A potential source of sub-requests is the Server Side Include (SSI) module. The purpose of SSI is for the server to parse documents before sending the response to the client in a somewhat similar fashion to PHP or other preprocessors.
+Within a regular HTML file (for example), you have the possibility to insert tags corresponding to commands interpreted by Nginx:
+    <html>
+    <head>
+       <!--# include file="header.html" -->
+    </head>
+    <body>
+       <!--# include file="body.html" -->
+    </body>
+    </html>
+Nginx processes these two commands; in this case, it reads the contents of head.
+html and body.html and inserts them into the document source, which is then sent
+to the client.
+
+Several commands are at your disposal; they are detailed in the SSI module section
+in this chapter. The one we are interested in for now is the include command :
+including a file into another file:
+    <!--# include virtual="/footer.php?id=123" -->
+The specified file is not just opened and read from a static location. Instead, a whole
+subrequest is processed by Nginx, and the body of the response is inserted instead of
+the include tag.
+
+-> Conditional structure
+The Rewrite module introduces a new set of directives and blocks, among which is
+the if conditional structure:
+    server {
+         if ($request_method = POST) {
+           ...
+         }
+    }
+This gives you the possibility to apply a configuration according to the specified
+condition. If the condition is true, the configuration is applied; otherwise, it isn't.
+The following table describes the different syntaxes accepted when forming a condition:
+
+   Operator         Description
+
+   None             The condition is true if the specified variable or data is not equal to an
+                    empty string or a string starting with character 0:
+                       if ($string) {
+                          ...
+                       }
+
+   =, !=            The condition is true if the argument preceding the = symbol is
+                    equal to the argument following it. The following example can be
+                    read as "if the request_method is equal to POST, then apply the
+                    configuration":
+                       if ($request_method = POST) {
+                          ...
+                       }
+                    The != operator does the opposite: "if the request method is different
+                    than GET, then apply the configuration":
+                       if ($request_method != GET) {
+                          ...
+                       }
+
+   ~, ~*, !~,       The condition is true if the argument preceding the ~ symbol matches
+   !~*              the regular expression pattern placed after it:
+                       if ($request_filename ~ "\.txt$") {
+                          ...
+                       }
+                    ~ is case-sensitive, ~* is case-insensitive. Use the ! symbol to negate
+                    the matching:
+                       if ($request_filename !~* "\.php$") {
+                          ...
+                       }
+                    Note that you can insert capture buffers in the regular expression:
+                       if ($uri ~ "^/search/(.*)$") {
+                          set $query $1;
+                          rewrite ^ http://google.com/search?q=$query;
+
+    -f, !-f Tests the existence of the specified file:
+           if (-f $request_filename) {
+             ... # if the file exists
+           }
+           Use !-f to test the non-existence of the file:
+           if (!-f $request_filename) {
+             ... # if the file does not exist
+           }
+-d, !-d Similar to the -f operator, for testing the existence of a directory.
+-e, !-e Similar to the -f operator, for testing the existence of a file, directory,
+        or symbolic link.
+-x, !-x Similar to the -f operator, for testing if a file exists and is executable.
+
+-> Directives
+The Rewrite module provides you with a set of directives that do more than just
+rewriting a URI. The following table describes these directives along with the context
+in which they can be employed:
+  
+  Directive           Description
+  
+  rewrite             As discussed previously, the rewrite directive allows you to
+  Context: server,    rewrite the URI of the current request, thus resetting the treatment
+  location, if        of the said request.
+                      Syntax: rewrite regexp replacement [flag];
+                      Where regexp is the regular expression the URI should match in
+                      order for the replacement to apply.
+                      Flag may take one of the following values:
+
+                         -last: The current rewrite rule should be the last to be
+                             applied. After its application, the new URI is processed by
+                             Nginx and a location block is searched for. However,
+                             further rewrite instructions will be disregarded.
+
+                         -break: The current rewrite rule is applied, but Nginx
+                             does not initiate a new request for the modified URI (does
+                             not restart the search for matching location blocks). All
+                             further rewrite directives are ignored.
+
+                         -redirect: Returns a 302 Moved temporarily HTTP
+                             response, with the replacement URI set as value of the
+                             location header.
+
+                         -permanent: Returns a 301 Moved permanently HTTP
+                             response, with the replacement URI set as the value of the
+                             location header.
+
+                         -If you specify a URI beginning with http:// as the
+                             replacement URI, Nginx will automatically use the
+                             redirect flag.
 
