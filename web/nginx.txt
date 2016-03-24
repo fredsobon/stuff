@@ -1277,4 +1277,996 @@ in which they can be employed:
                          -If you specify a URI beginning with http:// as the
                              replacement URI, Nginx will automatically use the
                              redirect flag.
+                    -Note that the request URI processed by the directive is a
+                        relative URI: It does not contain the hostname and protocol.
+                        For a request such as http://website.com/documents/
+                        page.html, the request URI is /documents/page.html.
+                    -Is decoded: The URI corresponding to a request such as
+                        http://website.com/my%20page.html would be /my
+                        page.html.
+                    -Does not contain arguments: For a request such as http://
+                        website.com/page.php?id=1&p=2, the URI would be
+                        /page.php. When rewriting the URI, you don't need to
+                        consider including the arguments in the replacement URIâ
+                        Nginx does it for you. If you wish for Nginx to not include
+                        the arguments in the rewritten URI, then insert a ? at the
+                        end of the replacement URI: rewrite ^/search/(.*)$
+                        /search.php?q=$1?.
+                    -Examples:
+                        rewrite    ^/search/(.*)$ /search.php?q=$1;
+                        rewrite    ^/search/(.*)$ /search.php?q=$1?;
+                        rewrite    ^ http://website.com;
+                        rewrite    ^ http://website.com permanent;
+
+break                   The break directive is used to prevent further rewrite directives.
+Context: server,        Past this point, the URI is fixed and cannot be altered.
+location, if            Example:
+                         if (-f $uri) {
+                            break; # break if the file exists
+                            }
+                            if ($uri ~ ^/search/(.*)$) {
+                            set $query $1;
+                            rewrite ^ /search.php?q=$query?;
+                            }       
+                 This example rewrites /search/anything-like queries to /
+                 search.php?q=anything. However, if the requested file exists
+                 (such as /search/index.html), the break instruction prevents
+                 Nginx from rewriting the URI.
+
+return           Interrupts the request treatment process and returns the specified
+Context: server, HTTP status code or specified text.
+location, if     Syntax: return code | text;
+                 Where code is picked among the following status codes: 204, 400,
+                 402 to 406, 408, 410, 411, 413, 416, and 500 to 504. In addition,
+                 you may use the Nginx-specific code 444 in order to return a HTTP
+                 200 OK status code with no further header or body data. You
+                 may also specify the raw text that will be returned to the user as
+                 response body.
+                 Example:
+                     if ($uri ~ ^/admin/) {
+                       return 403;
+                       # the instruction below is NOT executed
+                       # as Nginx already completed the request
+                       rewrite ^ http://website.com;
+                     }
+
+set              Initializes or redefines a variable. Note that some variables cannot
+Context: server, be redefined, for example, you are not allowed to alter $uri.
+location, if     Syntax: set $variable value;
+                 Examples:
+                     set $var1 "some text";
+                     if ($var1 ~ ^(.*) (.*)$) {
+                       set $var2 $1$2; #concatenation
+                       rewrite ^ http://website.com/$var2;
+                     }
+
+uninitialized_   If set to on, Nginx will issue log messages when the configuration
+variable_warn    employs a variable that has not yet been initialized.
+Context: http,   Syntax: on or off
+server,              uninitialized_variable_warn on;
+location, if
+
+rewrite_log      If set to on, Nginx will issue log messages for every operation
+Context: http,   performed by the rewrite engine at the notice error level (see
+server,          error_log directive).
+location, if     Syntax: on or off
+                 Default value: off
+                     rewrite_log off;
+
+Exemples classiques de rewrites rules :
+
+Common rewrite rules
+Here is a set of rewrite rules that satisfy basic needs for dynamic websites that
+wish to beautify their page links thanks to the URL rewriting mechanism. You
+will obviously need to adjust these rules according to your particular situation
+as every website is different.
+->Performing a search
+This rewrite rule is intended for search queries. Search keywords are included in
+the URL.
+  Input URI         http://website.com/search/some-search-keywords
+  Rewritten URI     http://website.com/search.php?q=some-search-keywords
+  Rewrite rule      rewrite ^/search/(.*)$ /search.php?q=$1?;
+
+->User profile page
+Most dynamic websites that allow visitors to register, offer a profile view page. URLs
+of this form can be employed, containing both the user ID and the username.
+  Input URI           http://website.com/user/31/James
+  Rewritten URI       http://website.com/user.php?id=31&name=James
+  Rewrite rule        rewrite ^/user/([0-9]+)/(.+)$ /user.
+                      php?id=$1&name=$2?;
+->Multiple parameters
+Some websites may use different syntaxes for the argument string, for example, by
+separating non-named arguments with slashes.
+  Input URI         http://website.com/index.php/param1/param2/param3
+  Rewritten URI     http://website.com/index.php?p1=param1&p2=param2&p3=
+                    param3
+  Rewrite rule      rewrite ^/index.php/(.*)/(.*)/(.*)$ /index.
+                    php?p1=$1&p2=$2&p3=$3?;
+
+
+= SSI :
+
+a examiner : les commandes permettant de générer à partir de txt du html coté serveur : utile pour maintenance. 
+
+= Divers modules :
+
+-> Acces et logging 
+
+-index 
+pour fournir les fichiers de base lors d'une requette simple(sans fichier précisé par ex : http://localhost > renvoit http://localhost/index.php / html .. en fonction de la conf nginx.
+
+    index index.php index.html index.htm;
+    index index.php index2.php /catchall.php;
+This directive is valid in the following contexts: http, server, location.
+
+
+-Autoindex
+If Nginx cannot provide an index page for the requested directory, the default behavior is to return a 403 Forbidden HTTP error page. With the following set of directives, you enable an automatic listing of the files that are present in the
+requested directory:
+Three columns of information appear for each file : the filename, the file date and
+time, and the file size in bytes.
+Directive                   Description
+
+autoindex                   Enables or disables automatic directory listing for directories
+Context: http, server,      missing an index page.
+location                    Syntax: on or off
+
+autoindex_exact_            If set to on, this directive ensures that the listing displays file
+size                        sizes in bytes. Otherwise, another unit is employed, such as
+Context: http, server,      KB, MB, or GB.
+location                    Syntax: on or off
+                            Default value: on
+
+autoindex_localtime         By default, this directive is set to off, so the date and time of
+Context: http, server,      files in the listing appears as GMT time. Set it to on to make
+location                    use of the local server time.
+                            Syntax: on or off
+                            Default value: off
+
+-Log :
+This module controls the behavior of Nginx regarding access logs. It is a key module
+for system administrators as it allows analyzing the runtime behavior of web
+applications. It is composed of three essential directives:
+Directive                Description
+
+access_log               This parameter defines the access log file path, the format
+Context: http, server,   of entries in the access log by selecting a template name, or
+location                 disables access logging.
+                         Syntax: access_log path [format [buffer=size]] |
+                         off;
+                         Some remarks concerning the directive syntax:
+                            -Use access_log off to disable access logging at the
+                               current level
+                            -The format argument corresponds to a template declared
+                               with the log_format directive, described below
+                            -If the format argument is not specified, the default format
+                               is employed (combined)
+                            -You may use variables in the file path
+log_format               Defines a template to be utilized by the access_log directive,
+Context: http, server,   describing the contents that should be included in an entry of
+location                 the access log.
+                          Syntax: log_format template_name format_string;
+                          The default template is called combined and matches the
+                          following example:
+EXEMPLE : 
+                             log_format combined '$remote_addr - $remote_user
+                             [$time_local] '"$request" $status
+                             $body_bytes_sent '"$http_referer"
+                             "$http_user_agent"';
+                             # Other example
+                             log_format simple '$remote_addr $request';
+
+open_log_file_cache       Configures the cache for log file descriptors. Please refer to the
+                          open_file_cache directive of the HTTP Core module for
+Context: http, server,    additional information.
+location                  Syntax: open_log_file_cache max=N [inactive=time]
+                          [min_uses=N] [valid=time] | off;
+                          The arguments are similar to the open_file_cache and other
+                          related directives; the difference being that this applies to access
+                          log files only.
+The Log module also enables several new variables, though they are only accessible
+when writing log entries:
+
+-$connection: The connection number
+-$pipe: The variable is set to "p" if the request was pipelined
+-$time_local: Local time (at the time of writing the log entry)
+-$msec: Local time (at the time of writing the log entry) to the microsecond
+-$request_time: Total length of the request processing, in milliseconds
+-$status: Response status code
+-$bytes_sent: Total number of bytes sent to the client
+-$body_bytes_sent: Number of bytes sent to the client for the response body
+-$apache_bytes_sent: Similar to $body_bytes, which corresponds to the %B parameter of Apache's mod_log_config
+-$request_length: Length of the request body
+
+-> Limits and restrictions
+The following modules allow you to regulate access to the documents of your
+websites - require users to authenticate, match a set of rules, or simply restrict
+access to certain visitors.
+
+-Auth_basic module
+The auth_basic module enables the basic authentication functionality. With the
+two directives that it reveals, you can make it so that a specific location of your
+website (or your server) is restricted to users that authenticate using a username
+and password:
+ 
+    location /admin/ {
+          auth_basic "Admin control panel";
+          auth_basic_user_file access/password_file;
+    }
+
+The first directive, auth_basic, can be set to either off or a text message usually
+referred to as authentication challenge or authentication realm. This message is displayed
+by web browsers in a username/password box when a client attempts to access the
+protected resource.
+The second one, auth_basic_user_file, defines the path of the password file
+relative to the directory of the configuration file. A password file is formed of lines
+respecting the following syntax: username:password[:comment]. 
+
+The password must be encrypted with the crypt(3) function, for example, using the htpasswd
+command-line utility from Apache.
+If you aren't too keen on installing Apache on your system just for the sake of the htpasswd tool, you may resort to online tools as there are plenty of them available. Fire up your favorite search engine and type "online htpasswd".
+
+-Access : 
+Two important directives are brought up by this module: allow and deny. They let you allow or deny access to a resource for a specific IP address or IP address range. Both directives have the same syntax: allow IP | CIDR | all, where IP is an IP
+address, CIDR is an IP address range (CIDR syntax), and all specifies that the
+directive applies to all clients:
+
+     location {
+         allow 127.0.0.1; # allow local IP address
+         deny all; # deny all other IP addresses
+     }
+
+Note that rules are processed from top-down if your first instruction is deny all,
+all possible allow exceptions that you place afterwards will have no effect. The
+opposite is also true if you start with allow all, all possible deny directives that
+you place afterwards will have no effect, as you already allowed all IP addresses.
+
+-Limit connections
+The mechanism induced by this module is a little more complex than regular ones.
+It allows you to define the maximum amount of simultaneous connections to the
+server for a specific zone.
+The first step is to define the zone using the limit_conn_zone directive:
+     Directive syntax: limit_conn_zone $variable zone=name:size;
+     $variable is the variable that will be used to differentiate one client from another, typically $binary_remote_addr the IP address of the client in binary format (more efficient than ASCII)
+     name is an arbitrary name given to the zone
+     size is the maximum size you allocate to the table storing session states
+
+The following example defines zones based on the client IP addresses:
+     limit_conn_zone $binary_remote_addr zone=myzone:10m;
+Now that you have defined a zone, you may limit connections using limit_conn:
+     limit_conn zone_name connection_limit;
+
+When applied to the previous example it becomes:
+     location /downloads/ {
+         limit_conn myzone 1;
+     }
+As a result, requests that share the same $binary_remote_addr are subject to the
+connection limit (one simultaneous connection). If the limit is reached, all additional
+concurrent requests will be answered with a 503 Service unavailable HTTP
+response. If you wish to log client requests that are affected by the limits you have
+set, enable the limit_conn_log_level directive and specify the log level (info |
+notice | warn | error).
+
+-Limit request
+In a similar fashion, the Limit request module allows you to limit the amount of
+requests for a defined zone.
+Defining the zone is done via the limit_req_zone directive; its syntax differs from
+the Limit zone equivalent directive:
+     limit_req_zone $variable zone=name:max_memory_size rate=rate;
+
+The directive parameters are identical, except for the trailing rate: expressed in
+requests per second (r/s) or requests per minute (r/m). It defines a request rate that
+will be applied to clients where the zone is enabled. To apply a zone to a location,
+use the limit_req directive:
+     limit_req zone=name burst=burst [nodelay];
+
+The burst parameter defines the maximum possible bursts of requests when the
+amount of requests received from a client exceeds the limit defined in the zone,
+the responses are delayed in a manner that respects the rate that you defined. To a
+certain extent, only a maximum of burst requests will be accepted simultaneously.
+Past this limit, Nginx returns a 503 Service Unavailable HTTP error response:
+     limit_req_zone $binary_remote_addr zone=myzone:10m rate=2r/s;
+     ...
+     location /downloads/ {
+         limit_req zone=myzone burst=10;
+     }
+If you wish to log client requests that are affected by the limits you have set, enable
+the limit_req_log_level directive and specify the log level (info | notice | warn
+| error).
+
+>-Content and encoding
+The following set of modules provides functionalities having an effect on the
+contents served to the client, either by modifying the way the response is encoded,
+by affecting the headers, or by generating a response from scratch.
+
+-Empty GIF
+The purpose of this module is to provide a directive that serves a 1 x 1 transparent
+GIF image from the memory. Such files are sometimes used by web designers to
+tweak the appearance of their website. With this directive, you get an empty GIF
+straight from the memory instead of reading and processing an actual GIF file from
+the storage space.
+To utilize this feature, simply insert the empty_gif directive in the location of
+your choice:
+     location = /empty.gif {
+           empty_gif;
+     }
+-FLV and MP4
+FLV and MP4 are separate modules enabling a simple functionality that becomes
+useful when serving Flash (FLV) or MP4 video files. It parses a special argument
+of the request, start, which indicates the offset of the section the client wishes
+to download or pseudo-stream. The video file must thus be accessed with the
+following URI: video.flv?start=XXX. This parameter is prepared automatically
+by mainstream video players such as JWPlayer.
+                       This module is not included in the default Nginx build.
+To utilize this feature, simply insert the flv or mp4 directive in the location of
+your choice:
+     location ~* \.flv {
+           flv;
+     }
+     location ~* \.mp4 {
+           mp4;
+     }
+Be aware that in case Nginx fails to seek to the requested position within the video
+file, the request will result in a 500 Internal Server Error HTTP response.
+JWPlayer sometimes misinterprets this error and simply displays a "Video not
+found" error message.
+
+-HTTP headers
+Two directives are introduced by this module that will affect the header of the
+response sent to the client.
+First, add_header Name value lets you add a new line in the response headers,
+respecting the following syntax: Name: value. The line is added only for responses
+of the following code: 200, 201, 204, 301, 302, and 304. You may insert variables in
+the value argument.
+
+Additionally, the expires directive allows you to control the value of the Expires
+and Cache-Control HTTP header sent to the client, affecting requests of the same code,
+as listed above. It accepts a single value among the following:
+     -off: Does not modify either headers.
+     -A time value: The expiration date of the file is set to the current time +,
+         the time you specify. For example, expires 24h will return an expiry
+         date set to 24 hours from now.
+     -epoch: The expiration date of the file is set to January 1, 1970. The
+         Cache-Control header is set to no-cache.
+     -max: The expiration date of the file is set to December 31, 2037. The
+         Cache-Control header is set to 10 years.
+
+-Gzip filter
+This module allows you to compress the response body with the Gzip algorithm
+before sending it to the client. To enable Gzip compression, use the gzip directive
+(on or off) at the http, server, location, and even the if level (though that is
+not recommended). The following directives will help you further configure the
+filter options:
+Directive             Description
+gzip_buffers          Defines the amount and size of buffers to be used for storing the
+Context: http,        compressed response.
+server, location      Syntax: gzip_buffers amount size;
+                      Default: gzip_buffers 4 4k (or 8 k depending on the OS).
+gzip_comp_level       Defines the compression level of the algorithm. The specified value
+Context: http,        ranges from 1 (low compression, faster for the CPU) to 9 (high
+server, location      compression, slower).
+                      Syntax: Numeric value.
+                      Default: 1
+gzip_disable          Disables Gzip compression for requests where the User-Agent
+Context: http,        HTTP header matches the specified regular expression.
+server, location      Syntax: Regular expression
+                      Default: None
+gzip_http_       Enables Gzip compression for the specified protocol version.
+version
+                 Syntax: 1.0 or 1.1
+Context: http,
+                 Default: 1.1
+server, location
+gzip_min_length  If the response body length is inferior to the specified value, it is
+Context: http,   not compressed.
+server, location Syntax: Numeric value (size)
+                 Default: 0
+gzip_proxied     Enables or disables Gzip compression for the body of responses
+Context: http,   received from a proxy (see reverse-proxying mechanisms in later
+server, location chapters).
+                 The directive accepts the following parameters; some can be
+                 combined:
+                     -off/any: Disables or enables compression for all requests
+                     -expired: Enables compression if the Expires header
+                        prevents caching
+                     -no-cache/no-store/private: Enables compression
+                        if the Cache-Control header is set to no-cache, no-store, or
+                        private
+                     -no_last_modified: Enables compression in case the Last-
+                        Modified header is not set
+                     -no_etag: Enables compression in case the ETag header is
+                        not set
+                     -auth: Enables compression in case an Authorization header
+                        is set
+gzip_types       Enables compression for types other than the default text/html
+Context: http,   MIME type.
+server, location Syntax:
+                     gzip_types mime_type1 [mime_type2...]
+                     gzip_types *;
+                 Default: text/html (cannot be disabled)
+gzip_vary        Adds the Vary: Accept-Encoding HTTP header to the response.
+Context: http,   Syntax: on or off
+server, location
+                 Default: off
+
+-> Charset filter
+With the Charset filter module, you can control the character set of the response
+body more accurately. Not only are you able to specify the value of the charset
+argument of the Content-Type HTTP header (such as Content-Type: text/
+html; charset=utf-8), but Nginx can also re-encode data to a specified encoding
+method automatically.
+ 
+ Directive              Description
+ charset                This directive adds the specified encoding to the Content-Type
+ Context: http,         header of the response. If the specified encoding differs from the
+ server, location,      source_charset one, Nginx re-encodes the document.
+ if                     Syntax: charset encoding | off;
+                        Default: off
+                        Example: charset utf-8;
+ 
+ source_charset         Defines the initial encoding of the response; if the value specified in
+ Context: http,         the charset directive differs, Nginx re-encodes the document.
+ server, location,      Syntax: source_charset encoding;
+ if
+ 
+ override_              When Nginx receives a response from the proxy or FastCGI
+ charset                gateway, this directive defines whether or not the character
+ Context: http,         encoding should be checked and potentially overridden.
+ server, location,      Syntax: on or off
+ if
+                        Default: off
+ charset_types          Defines the MIME types that are eligible for re-encoding.
+ Context: http,         Syntax:
+ server, location         charset_types mime_type1 [mime_type2...];
+                          charset_types *Â ;
+                        Default: text/html, text/xml, text/plain, text/vnd.wap.
+                        wml, application/x-javascript, application/rss+xml
+ charset_map            Lets you define character re-encoding tables. Each line of the table
+ Context: http          contains two hexadecimal codes to be exchanged. You will find re-
+                        encoding tables for the koi8-r character set in the default Nginx
+                        configuration folder (koi-win and koi-utf).
+                        Syntax: charset_map src_encoding dest_encoding { ...}
+
+
+-> Memcached :
+Memcached is a daemon application that can be connected to via sockets. Its main
+purpose, as the name suggests, is to provide an efficient distributed key/value
+memory caching system. The Nginx Memcached module provides directives allowing
+you to configure access to the Memcached daemon.
+ Directive                            Description
+ memcached_pass                       Defines the hostname and port of the Memcached
+ Context: location, if                daemon.
+                                      Syntax: memcached_pass hostname:port;
+                                      Example: memcached_pass localhost:11211;
+ memcached_bind                       Forces Nginx to use the specified local IP address
+ Context: http, server, location      for connecting to the Memcached server. This can
+                                      come in handy if your server has multiple network
+                                      cards connected to different networks.
+                                      Syntax: memcached_bind IP_address;
+                                      Example: memcached_bind 192.168.1.2;
+ memcached_connect_timeout            Defines the connection timeout in milliseconds
+ Context: http, server, location      (default: 60,000). Example: memcached_connect_
+                                      timeout 5000;
+ memcached_send_timeout               Defines the data writing operations timeout
+ Context: http, server, location      in milliseconds (default: 60,000). Example:
+                                      memcached_send_timeout 5,000;
+ memcached_read_timeout               Defines the data reading operations timeout
+ Context: http, server, location      in milliseconds (default: 60,000). Example:
+                                      memcached_read_timeout 5,000;
+ memcached_buffer_size                Defines the size of the read and write buffer, in
+ Context: http, server, location      bytes (default: page size). Example: memcached_
+                                      buffer_size 8k;
+ memcached_next_upstream              When the memcached_pass directive is connected
+ Context: http, server, location      to an upstream block (see Upstream module),
+                                      this directive defines the conditions that should
+                                      be matched in order to skip to the next upstream
+                                      server.
+                                      Syntax: Values selected among error timeout,
+                                      invalid_response, not_found, or off
+                                      Default: error timeout
+                                      Example: memcached_next_upstream off;
+
+  
+Additionally, you will need to define the $memcached_key variable that defines the
+key of the element that you are placing or fetching from the cache. You may, for
+instance, use set $memcached_key $uri or set $memcached_key $uri?$args.
+Note that the Nginx Memcached module is only able to retrieve data from the cache;
+it does not store the result of requests. Storing data in the cache should be done by
+a server-side script. You just need to make sure to employ the same key naming
+scheme in both your server-side scripts and the Nginx configuration. As an example,
+we could decide to use memcached to retrieve data from the cache before passing the
+request to a proxy, if the requested URI is not found (see Chapter 7, From Apache to
+Nginx, for more details about the Proxy module):
+    server {
+         server_name example.com;
+         [...]
+         location / {
+              set $memcached_key $uri;
+              memcached_pass 127.0.0.1:11211;
+              error_page 404 @notcached;
+         }
+         location @notcached {
+              internal;
+              # if the file is not found, forward request to proxy
+              proxy_pass 127.0.0.1:8080;
+         }
+    }
+
+-> Image filter
+This module provides image processing functionalities through the GD Graphics
+Library (also known as gdlib).
+
+Make sure to employ the following directives on a location block that filters image
+files only, such as location ~* \.(png|jpg|gif)$ {... }.
+  Directive                 Description
+  image_filter              Lets you apply a transformation on the image before sending
+  Context: location         it to the client. There are five options available:
+                                -test: Makes sure that the requested document is an
+                                    image file, returns a 415 Unsupported media type
+                                    HTTP error if the test fails.
+                                -size: Composes a simple JSON response indicating
+                                    information about the image such as the size and
+                                    type (for example; { "img": { "width":50,
+                                    "height":50, "type":"png"}}). If the file is
+                                    invalid, a simple {} is returned.
+                                -resize width height: Resizes the image to the
+                                    specified dimensions.
+                                -crop width height: Selects a portion of the image
+                                    of the specified dimensions.
+                                -rotate 90 | 180 | 270: Rotates the image by the
+                                    specified angle (in degrees).
+                            Example: image_filter resize 200 100;
+  image_filter_buffer       Defines the maximum file size for images to be processed.
+  Context: http, server,    Default: image_filter_buffer 1m;
+  location
+  image_filter_jpeg_        Defines the quality of output JPEG images.
+  quality
+                            Default: image_filter_jpeg_quality 75;
+  Context: http, server,
+  location
+  image_filter_             By default, PNG and GIF images keep their existing
+  transparency              transparency during operations you perform using the Image
+  Context: http, server,    Filter module. If you set this directive to off, all existing
+  location                  transparency will be lost but the image quality will be
+                            improved.
+                            Syntax: on or off
+                            Default: on
+  image_filter_             Sharpens the image by specified percentage (value may
+  sharpen                   exceed 100).
+  Context: http, server,    Syntax: Numeric value
+  location
+                            Default: 0
+  
+  
+Please note that when it comes to JPG images, Nginx automatically strips off
+metadata (such as EXIF) if it occupies more than 5 percent of the total space of
+the file.
+
+-> XSLT
+The Nginx XSLT module allows you to apply an XSLT transform on an XML file or
+response received from a backend server (proxy, FastCGI, and so on) before serving
+the client.
+                   This module is not included in the default Nginx build.
+ Directive            Description
+ xml_entities         Specifies the DTD file containing symbolic element definitions.
+ Context: http,       Syntax: File path
+ server, location     Example: xml_entities xml/entities.dtd;
+ xslt_stylesheet      Specifies the XSLT template file path with its parameters. Variables
+ Context: location    may be inserted in the parameters.
+                      Syntax: xslt_stylesheet template [param1] [param2â¦];
+                      Example: xslt_stylesheet xml/sch.xslt param=value;
+ xslt_types           Defines additional MIME types to which the transforms may apply,
+ Context: http,       other than text/xml.
+ server, location     Syntax: MIME type
+                      Example:
+                         xslt_types text/xml text/plain;
+                         xslt_types *;
+ xslt_paramxslt_      Both directives allow defining parameters for XSLT stylesheets. The
+ string_param         difference lies in the way the specified value is interpreted: using
+ Context: http,       xslt_param, XPath expressions in the value are processed; while
+ server, location     xslt_string_param should be used for plain character strings.
+                      Syntax: xslt_param key value;
+
+-> About your visitors
+The following set of modules provides extra functionality that will help you find out
+more information about the visitors, such as by parsing client request headers for
+browser name and version, assigning an identifier to requests presenting similarities,
+and so on.
+  
+-Browser
+The Browser module parses the User-Agent HTTP header of the client request in
+order to establish values for variables that can be employed later in the configuration.
+The three variables produced are:
+     -$modern_browser: If the client browser is identified as being a modern
+         web browser, the variable takes the value defined by the modern_browser_
+         value directive.
+     -$ancient_browser: If the client browser is identified as being an old web
+         browser, the variable takes the value defined by ancient_browser_value.
+     -$msie: This variable is set to 1 if the client is using a Microsoft IE browser.
+
+To help Nginx recognize web browsers, telling the old from the modern, you need to
+insert multiple occurrences of the ancient_browser and modern_browser directives:
+     modern_browser opera 10.0;
+With this example, if the User-Agent HTTP header contains Opera 10.0, the client
+browser is considered modern.
+-Map
+Just like the Browser module, the Map module allows you to create maps of values
+depending on a variable:
+     map $uri $variable {
+       /page.html 0;
+       /contact.html 1;
+       /index.html 2;
+       default 0;
+     }
+     rewrite ^ /index.php?page=$variable;
+Note that the map directive can only be inserted within the http block. Following this
+example, $variable may have three different values. If $uri was set to /page.html,
+$variable is now defined as 0; if $uri was set to /contact.html, $variable is
+now 1; if $uri was set to /index.html, $variable now equals 2. For all other cases
+(default), $variable is set to 0. The last instruction rewrites the URL accordingly.
+Apart from default, the map directive accepts another special keyword: hostnames.
+It allows you to match hostnames using wildcards such as *.domain.com.
+
+-Two additional directives allow you to tweak the way Nginx manages the
+mechanism in memory:
+    -map_hash_max_size: Sets the maximum size of the hash table holding a map
+    -map_hash_bucket_size: The maximum size of an entry in the map
+Regular expressions may also be used in patterns if you prefix them with ~ (case
+sensitive) or ~* (case insensitive):
+    map $http_referer $ref {
+    ~google "Google";
+         ~* yahoo "Yahoo";
+         \~bing "Bing"; # not a regular expression due to the \ before the
+    tilde
+    default $http_referer; # variables may be used
+    }
+
+->Geo
+The purpose of this module is to provide functionality that is quite similar to the
+map directive affecting a variable based on client data (in this case, the IP address).
+The syntax is slightly different in the extent that you are allowed to specify address
+ranges (in CIDR format):
+
+    geo $variable {
+       default unknown;
+       127.0.0.1      local;
+       123.12.3.0/24 uk;
+       92.43.0.0/16 fr;
+    }
+
+Note that the above block is being presented to you just for the sake of the example
+and does not actually detect U.K. and French visitors; you'll want to use the GeoIP
+module if you wish to achieve proper geographical location detection. In this block,
+you may insert a number of directives that are specific to this module:
+    -delete: Allows you to remove the specified subnetwork from the mapping.
+    -default: The default value given to $variable in case the user's IP address
+        does not match any of the specified IP ranges.
+    -include: Allows you to include an external file.
+    -proxy: Defines a subnet of trusted addresses. If the user IP address is among
+        the trusted, the value of the X-Forwarded-For header is used as IP address
+        instead of the socket IP address.
+    -proxy_recursive: If enabled, this will look for the value of the
+        X-Forwarded-For header even if the client IP address is not trusted.
+    -ranges: If you insert this directive as the first line of your geo block, it
+        allows you to specify IP ranges instead of CIDR masks. The following
+        syntax is thus permitted: 127.0.0.1-127.0.0.255              LOCAL;
+
+->GeoIP
+Although the name suggests some similarities with the previous one, this optional
+module provides accurate geographical information about your visitors by making
+use of the MaxMind (www.maxmind.com) GeoIP binary databases. You need to
+download the database files from the MaxMind website and place them in your
+Nginx directory.
+This module is not included in the default Nginx build.
+
+All you have to do then is specify the database path with either directive:
+    geoip_country country.dat; # country information db
+    geoip_city city.dat; # city information db
+    geoip_org geoiporg.dat; # ISP/organization db
+
+The first directive enables several variables: $geoip_country_code (two-letter
+country code), $geoip_country_code3 (three-letter country code), and $geoip_
+country_name (full country name). The second directive includes the same
+variables but provides additional information: $geoip_region, $geoip_city,
+$geoip_postal_code, $geoip_city_continent_code, $geoip_latitude, $geoip_
+longitude, $geoip_dma_code, $geoip_area_code, $geoip_region_name. The third
+directive offers information about the organization or ISP that owns the specified IP
+address, by filling up the $geoip_org variable.
+If you need the variables to be encoded in UTF-8, simply add the utf8 keyword at the end of the geoip_ directives.
+
+-> UserID filter
+This module assigns an identifier to clients by issuing cookies. The identifier can be
+accessed from variables $uid_got and $uid_set further in the configuration.
+ Directive                  Description
+ userid                     Enables or disables issuing and logging of cookies.
+ Context: http, server,     The directive accepts four possible values:
+ location
+                               -on: Enables v2 cookies and logs them
+                               -v1: Enables v1 cookies and logs them
+                               -log: Does not send cookie data but logs incoming
+                                   cookies
+                               -off: Does not send cookie data
+                            Default value: userid off;
+ userid_service             Defines the IP address of the server issuing the cookie.
+ Context: http, server,     Syntax: userid_service ip;
+ location
+                            Default: IP address of the server
+ userid_name                Defines the name assigned to the cookie.
+ Context: http, server,     Syntax: userid_name name;
+ location
+                            Default value: The user identifier
+ userid_domain              Defines the domain assigned to the cookie.
+ Context: http, server,     Syntax: userid_domain domain;
+ location
+                            Default value: None (the domain part is not sent)
+ userid_path                Defines the path part of the cookie.
+ Context: http, server,     Syntax: userid_path path;
+ location
+                            Default value: /
+ userid_expires             Defines the cookie expiration date.
+ Context: http, server,     Syntax: userid_expires date | max;
+ location
+                            Default value: No expiration date
+ userid_p3p                 Assigns a value to the P3P header sent with the cookie.
+ Context: http, server,     Syntax: userid_p3p data;
+ location
+                            Default value: None
+
+  
+  
+-> Referer
+A simple directive is introduced by this module: valid_referers. Its purpose is to
+check the Referer HTTP header from the client request and possibly to deny access
+based on the value. If the referrer is considered invalid, $invalid_referer is set to
+1. In the list of valid referrers, you may employ three kinds of values:
+     -None: The absence of a referrer is considered to be a valid referrer
+     -Blocked: A masked referrer (such as XXXXX) is also considered valid
+     -A server name: The specified server name is considered to be a valid referrer
+Following the definition of the $invalid_referer variable, you may, for example,
+return an error code if the referrer was found invalid:
+     valid_referers none blocked *.website.com *.google.com;
+       if ($invalid_referer) {
+       return 403;
+     }
+Be aware that spoofing the Referer HTTP header is a very simple process, so
+checking the referrer of client requests should not be used as a security measure.
+
+
+-> Real IP
+This module provides one simple feature : it replaces the client IP address by the
+one specified in the X-Real-IP HTTP header for clients that visit your website behind
+a proxy or for retrieving IP addresses from the proper header if Nginx is used as a
+backend server (it essentially has the same effect as Apache's mod_rpaf, see Chapter
+7, From Apache to Nginx, for more details). To enable this feature, you need to insert
+the real_ip_header directive that defines the HTTP header to be exploited : either
+X-Real-IP or X-Forwarded-For. The second step is to define trusted IP addresses.
+
+In other words, the clients that are allowed to make use of those headers. This can
+be done thanks to the set_real_ip_from directive, which accepts both IP addresses
+and CIDR address ranges:
+     real_ip_header X-Forwarded-For;
+     set_real_ip_from 192.168.0.0/16;
+     set_real_ip_from 127.0.0.1;
+     set_real_ip_from unix:; # trusts all UNIX-domain sockets
+
+->Split Clients
+The Split Clients module provides a resource-efficient way to split the visitor base
+into subgroups based on the percentages that you specify. To distribute visitors into
+one group or another, Nginx hashes a value that you provide (such as the visitor's
+IP address, cookie data, query arguments, and so on) and decides which group the
+visitor should be affected to. The following example configuration divides visitors
+up into three groups based on their IP address. If a visitor is affected to the first 50
+percent, the value of $variable will be set to group1:
+    split_clients "$remote_addr" $variable {
+       50% "group1";
+       30% "group2";
+       20% "group3";
+    }
+    location ~ \.php$ {
+       set $args "${query_string}&group=${variable}";
+    }
+
+= SSL and security
+Nginx provides secure HTTP functionalities through the SSL module but also offers
+an extra module called Secure Link that helps you protect your website and visitors in
+a totally different way.
+
+->SSL
+The SSL module enables HTTPS support, HTTP over SSL/TLS in particular. It gives
+you the possibility to serve secure websites by providing a certificate, a certificate
+key, and other parameters defined with the following directives:
+
+Directive              Description
+
+ssl_certificate        Sets the path of the PEM certificate.
+Context: http, server  Syntax: File path
+
+ssl_certificate_key    Sets the path of the PEM secret key file.
+Context: http, server  Syntax: File path
+
+ssl_client_certificate Sets the path of the client PEM certificate.
+Context: http, server  Syntax: File path
+
+ssl_crl                Orders Nginx to load a CRL (Certificate Revocation
+Context: http, server  List) file, which allows checking the revocation status of
+                       certificates.
+ssl_dhparam            Sets the path of the Diffie-Hellman parameters file.
+Context: http, server  Syntax: File path.
+
+ssl_protocols          Specifies the protocol that should be employed.
+Context: http, server  Syntax: ssl_protocols [SSLv2] [SSLv3]
+                       [TLSv1] [TLSv1.1] [TLSv1.2];
+                       Default: ssl_protocols SSLv2 SSLv3 TLSv1;
+ssl_ciphers            Specifies the ciphers that should be employed. The
+Context: http, server  list of available ciphers can be obtained running the
+                       following command from the shell: openssl ciphers.
+                       Syntax: ssl_ciphers cipher1[:cipher2...;
+                       Default: ssl_ciphers ALL:!ADH:RC4+RSA:+HIGH:
+                       +MEDIUM:+LOW:+SSLv2:+EXP;
+ssl_prefer_server_     Specifies whether server ciphers should be preferred
+ciphers                over client ciphers.
+Context: http, server  Syntax: on or off
+                       Default: off
+ssl_verify_client      Enables verifying certificates transmitted by the client
+Context: http, server  and sets the result in the $ssl_client_verify. The
+                       optional_no_ca value verifies the certificate if there
+                       is one, but does not require it to be signed by a trusted
+                       CA certificate.
+                       Syntax: on | off | optional | optional_no_ca
+                       Default: off
+ssl_verify_depth       Specifies the verification depth of the client certificate
+Context: http, server  chain.
+                       Syntax: Numeric value
+                       Default: 1
+  
+ssl_session_cache                 Configures the cache for SSL sessions.
+Context: http, server             Syntax: off, none, builtin:size or
+                                   shared:name:size
+                                   Default: off (disables SSL sessions)
+ssl_session_timeout               When SSL sessions are enabled, this directive defines
+Context: http, server             the timeout for using session data.
+                                   Syntax: Time value
+                                   Default: 5 minutes
+
+Additionally, the following variables are made available:
+    -$ssl_cipher: Indicates the cipher used for the current request
+    -$ssl_client_serial: Indicates the serial number of the client certificate
+    -$ssl_client_s_dn and $ssl_client_i_dn: Indicates the value of the
+        Subject and Issuer DN of the client certificate
+    -$ssl_protocol: Indicates the protocol at use for the current request
+    -$ssl_client_cert and $ssl_client_raw_cert: Returns client
+        certificate data, which is raw data for the second variable
+    -$ssl_client_verify: Set to SUCCESS if the client certificate was
+        successfully verified
+    -$ssl_session_id: Allows you to retrieve the ID of an SSL session
+
+- Setting up an SSL certificate
+Although the SSL module offers a lot of possibilities, in most cases only a couple of
+directives are actually useful for setting up a secure website. This guide will help
+you configure Nginx to use an SSL certificate for your website (in the example, your
+website is identified by secure.website.com). Before doing so, ensure that you
+already have the following elements at your disposal:
+
+    1/ A  .key file generated with the following command: openssl genrsa -out
+        secure.website.com.key 1024 (other encryption levels work too).
+    2/ A .csr file generated with the following command: 
+openssl req -new -key secure.website.com.key -out secure.website.com.csr.
+    3/ Your website certificate file, as issued by the Certificate Authority, for
+        example, secure.website.com.crt. (Note: In order to obtain a certificate
+        from the CA, you will need to provide your .csr file.)
+    4/ The CA certificate file as issued by the CA (for example, gd_bundle.crt if
+        you purchased your certificate from GoDaddy.com).
+  
+The first step is to merge your website certificate and the CA certificate together with
+the following command:
+     cat secure.website.com.crt gd_bundle.crt > combined.crt
+You are then ready to configure Nginx to serve secure content:
+
+     server {
+         listen 443;
+         server_name secure.website.com;
+         ssl on;
+         ssl_certificate /path/to/combined.crt;
+         ssl_certificate_key /path/to/secure.website.com.key;
+         ...
+     }
+
+
+->Secure link
+Totally independent from the SSL module, Secure link provides a basic protection by
+checking the presence of a specific hash in the URL before allowing the user to access
+a resource:
+     location /downloads/ {
+     secure_link_md5    "secret";
+     secure_link $arg_hash,$arg_expires;
+         if ($secure_link = "") {
+            return 403;
+         }
+     }
+With such a configuration, documents in the /downloads/ folder must be accessed
+via a URL containing a query string parameter hash=XXX (note the $arg_hash in
+the example), where XXX is the MD5 hash of the secret you defined through the
+secure_link_md5 directive. The second argument of the secure_link directive
+is a UNIX timestamp defining the expiration date. The $secure_link variable
+is empty if the URI does not contain the proper hash or if the date has expired.
+Otherwise, it is set to 1.
+
+->Other miscellaneous modules
+The remaining three modules are optional (which all need to be enabled at compile
+time) and provide additional advanced functionality.
+
+-Stub status
+The Stub status module was designed to provide information about the current state
+of the server, such as the amount of active connections, the total handled requests,
+and more. To activate it, place the stub_status directive in a location block. All
+requests matching the location block will produce the status page:
+      location = /nginx_status {
+           stub_status on;
+           allow 127.0.0.1; # you may want to protect the information
+           deny all;
+      }
+                    This module is not included in the default Nginx build.
+An example result produced by Nginx:
+      Active connections: 1
+      server accepts handled requests
+        10 10 23
+      Reading: 0 Writing: 1 Waiting: 0
+It's interesting to note that there are several server monitoring solutions such as
+Monitorix that offer Nginx support through the stub status page by calling it at
+regular intervals and parsing the statistics.
+
+-Degradation
+The HTTP Degradation module configures your server to return an error page when
+your server runs low on memory. It works by defining a memory amount that is to
+be considered low, and then specifies the locations for which you wish to enable the
+degradation check:
+      degradation sbrk=500m; # to be inserted at the http block level
+      degrade 204; # in a location block, specify the error code (204 or
+      444) to return in case the server condition has degraded
+
+-Google-perftools
+This module interfaces the Google Performance Tools profiling mechanism for the
+Nginx worker processes. The tool generates a report based on performance analysis
+of the executable code. More information can be discovered from the official website
+of the project http://code.google.com/p/google-perftools/.
+                     This module is not included in the default Nginx build.
+In order to enable this feature, you need to specify the path of the report file that will
+be generated using the google_perftools_profiles directive:
+    google_perftools_profiles logs/profiles;
+
+-WebDAV
+WebDAV is an extension of the well-known HTTP protocol. While HTTP was
+designed for visitors to download resources from a website (in other words,
+reading data) WebDAV extends the functionality of web servers by adding write
+operations such as creating files and folders, moving and copying files, and more.
+The Nginx WebDAV module implements a small subset of the WebDAV protocol:
+                     This module is not included in the default Nginx build.
+ Directive                  Description
+ dav_methods                Selects the DAV methods you want to enable.
+ Context: http, server,     Syntax: dav_methods [off | [PUT] [DELETE]
+ location                   [MKCOL] [COPY] [MOVE]];
+                            Default: off
+ dav_access                 Defines access permissions at the current level.
+ Context: http, server,     Syntax: dav_access [user:r|w|rw] [group:r|w|rw]
+ location                   [all:r|w|rw];
+                            Default: dav_access user:rw;
+ create_full_put_           This directive defines the behavior when a client requests to
+ path                       create a file in a directory that does not exist. If set to on, the
+ Context: http, server,     directory path is created. If set to off, the file creation fails.
+ location                   Syntax: on or off
+                            Default: off
+ Directive              Description
+ min_delete_depth       This directive defines a minimum URI depth for deleting files
+ Context: http, server, or directories when processing the DELETE command.
+ location               Syntax: Numeric value
+                        Default: 0
+- Third-party modules
+The Nginx community has been growing larger over the past few years and
+many additional modules were written by third-party developers. These can
+be downloaded from the official wiki website 
+
+http://wiki.nginx.org/nginx3rdPartyModules.
+
+
+== Php et python avec nginx :
 
