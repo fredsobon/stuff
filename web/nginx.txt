@@ -253,7 +253,7 @@ error_log  /var/log/nginx/error.log; # emplacement des logs d'erreurs
 pid        /var/run/nginx.pid; # emplacement du pid
 
 events {
-    worker_connections  1024; # nombre de connexion http simultanée par workera : plus on a de ram et cpu plus on peut augmenter la conf.
+    worker_connections  1024; # nombre de connexion http simultanée par worker : plus on a de ram et cpu plus on peut augmenter la conf.
 }
 
 http {
@@ -284,4 +284,120 @@ http {
 
 * module 'core' :
  
+c'est le composant qui contient tout ce qui est fondamental pour le serveur http : block, directives, variables.
+L'organisation du serveur http s'articule autour des trois blocks : http, server et location.
+On a donc tout de suite après la structure essentielle du fichier de conf , le module events (seule place possible dans la conf) PUIS les blocks suivants : http, server et location.
+-http :
+Sa place est traditionnellement après le module events mais ce n'est pas obligatoire et on peut declarer plusieurs blocs http sachant que les dernieres directives déclarées sont celles qui sont prises en compte : override des précédentes identiques si elles existent.
+-server :
+ce bloc sert à définir un site et doit être inclu dans le bloc http
+-location :
+permet de definir des specificité de conf pour certains emplacements du site. Ce bloc doit être inclu dans le bloc server ou dans un autre bloc location.
+
+On a donc le bloc principal http qui va contenir tous nos sites compris dans la /les blocs servers qui vont eux mêmes contenir un ou des blocs location permettant de definir l'acces à des ressources uri particulières : les notions d'héritages et d'override sont donc à prendre en compte. On peut donc modifier le comportement sur le site en fonction de paramètres dédiés et possible (quand cela est possible en terme de bloc, directives et logique (on ne met pas de bloc server dans un bloc location par exemple...)
+Ex : 
+
+http {
+   # Enable gzip compression at the http block level
+   gzip on;
+   server {
+       server_name localhost;
+         listen 80;
+       # At this stage, gzip still set to on
+       location /downloads/ {
+            gzip off;
+     #      This directive only applies to documents found
+     #      in /downloads/
+       }
+   }
+}
+
+Principale directives :
+
+- Socket et hostname :
+server bloc : on defini le hostname ou ip de notre virtualhost et la directive listen :
+->listen : (contexte : server )
+listen adresse port <options>;
+listen 127.0.0.1;
+listen 80 default; 
+listen [:::a8c9:1234]:80; # IPv6 addresses must be put between square brackets
+listen 443 ssl; # ssl est une options pour gerer le ssl 
+listen unix:/tmp/nginx.sock; # cette directive permet les sockets unix
+
+-> server_name : (contexte : server)
+permet de definir un ou plusieurs noms au server : quand la requette http arrive nginx examine le champ HOST et passe cette requette à la première section server qui lui correspond.
+Si aucun champ ne correspond alors nginx passe la requette au premier bloc qui match un catch-all du type : 
+listen *:80
+Cette directive prend les wildcards et les regexps :
+   server_name    www.website.com;
+   server_name    www.website.com website.com;
+   server_name    *.website.com;
+   server_name    .website.com; # combines both *.website.com and website.
+   com
+   server_name    *.website.*;
+   server_name    ~^\.example\.com$;
+Note that you may use an empty string as the directive value in order to catch all of the requests that do not come with a Host header, but only after at least one regular name (or "_" for a dummy hostname):
+   server_name website.com "";
+   server_name _ "";
+
+-> server_name_in_redirect : (contexte :http,server, location)
+s'applique pour les redirections internes (cf rewriterules) deux params on (prend le champ hostname  et off( prend le champ host de la requete)
+
+-> tcp_nodelay :(contexte :http,server, location)
+permet d'activer ou non l'option tcp_nodelay pour les connections tcp keepalive (dans le cas de certaines applications qui envoient un surplus d'information quand le temps de réponse du serveur est trop long pour elles.)
+param on ou off : par défaut à on.
+
+->tcp_nopush : (contexte : http,server,location)
+s'applique uniquement si la directive sendfile est settée. tcp_nopush on ou off permet à on de transmettre toutes l'entête http de la reponse en un seul packet tcp.
+
+->sendfile : (contexte : http,server,location)
+on ou off . A on : nginx va permettre au kernel de gerer la transmission d'un fichier . A off c'est nginx qui va gérer. En fonction de l'emplacement du fichier (exemple sur montage nfs ) on peut avoir de gros probleme de performance.
+
+-Path et documents 
+
+->root : (contexte http,server,location,if) va nous permettre de définir l'emplacement racine d'oû notre server web pourra fournir les documents .
+par défaut la veleur de la directive est à html.
+ex : 
+root /home/website.com/public_html;
+
+->alias : (contexte : location )
+uniquement dans le bloc location. permet de fournir un autre chemin pour acceder a un document. ex :
+http {
+   server {
+         server_name localhost;
+         root /var/www/website.com/html;
+          location /admin/ {
+          alias /var/www/locked/;
+       }
+   }
+}
+Ici les requettes envoyées à http://localhost vont permettre d'avoir le contenu de /var/www/website.com/html par contre les requettes http://localhost/admin/ vont permettre d'avoir acces à /var/www/locked/
+Nb :ne pas oublier de mettre le "/" de fin à l'url.
+
+-> error_page : (contexte : http,server,location,if .variables acceptées.)
+permet de definir des codes http aux uri et de substituer un code http par un autre 
+error_page 404 /not_found.html;
+error_page 500 501 502 503 504 /server_error.html;
+error_page 403 http://website.com/;
+error_page 404 @notfound; # jump to a named location block
+error_page 404 =200 /index.html; # in case of 404 error, redirect to index.html with a 200 OK response code
+
+-> if_modified_since : (contexte : http,server,location) 
+defini le comportement quand nginx lit le header http : If-Modified-Since ( souvent utilisé par les bots /crawler des moteurs de recherche )
+Le bot indique la date de son dernier passage : si le doc n'a pas été modifié nginx renvoie une 304 Not Modified
+if_modified_since : off (le header If-Modified-Since est ignoré) exact ( si la date de la requete est identique à la date du fichier 304 Not Modified renvoyé au client. Si la date de la requette est anterieure ou posterieure alors un 200 est envoyé au client)  ou before ( si la date du header est anterrieur ou egal a la date du doc : un 304 Not Modified est envoyé )option. Par defaut setté à exact.
+
+->index : (http,server,location .variables acceptées)
+Defini la page par defaut renvoyé au client si la requette ne definie pas de fichier (ex :  http://localhost )
+on peut definir plusieurs documents : le premier listé sera servi.
+Si aucun doc n'est defini : autoindex pourra être utilisé par nginx ( le module doit être activé) sinon une 403 sera renvoyée.
+Default value: index.html
+   index index.php index.html index.htm;
+   index index.php index2.php /catchall.php;
+ 
+- Requettes clients :
+
+On peut parmi toutes choses configurer le mécanisme de keep-alive et de logging de requettes.
+
+
 
