@@ -2950,4 +2950,62 @@ On recupere bien notre page avec les infos php :
 <a href="http://www.php.net/"><img border="0" src="/index.php?=PHPE9568F34-D428-11d2-A769-00AA001ACF42" alt="PHP Logo" /></a>
 <h1 class="p">PHP Version 5.3.3</h1>
 
+== Python et Nginx :
+
+On va utiliser nginx comme serveur web pour faire tourner du python via django qui gère nativement les connections fastcgi.
+Les pre-requis sont :
+[root@centos67 conf.d]# yum install python python-devel
+
+Dans notre conf on va partir des sources de django : on a besoin de svn en prerequi :
+yum install subversion
+
+On cree un home_dir et on download django :
+
+[root@website.com ~]# mkdir django && cd django
+[root@website.com django]# svn co http://code.djangoproject.com/svn/
+django/trunk/
+[root@website.com django]# cd trunk
+[root@website.com trunk]# python setup.py install
+
+Finally, there is one last component required for running the Python FastCGI manager:
+the flup library. This provides the actual FastCGI protocol implementation. For Red
+Hat-based systems and other systems using Yum as the package manager (EPEL
+repositories must be enabled, otherwise you will need to build from source), use:
+
+yum install python-flup
+
+Starting the FastCGI process manager
+
+The process of beginning to build a website with the Django framework will not be
+detailed here. Once that part is done, you will find a manage.py Python script that
+comes with the default project template. Move to the directory of this file, and run
+the following command:
+
+[root@website.com www]# python manage.py runfcgi method=prefork
+host=127.0.0.1 port=9000 pidfile=/var/run/ django.pid
+
+If everything was correctly configured, and the dependencies are properly installed,
+running this command should produce no output, which is often a good sign. The
+FastCGI process manager is now running in the background waiting for connections.
+You can verify that the application is running with the ps command (for example,
+by executing ps aux | grep python). All we need to do now is to set up the virtual
+host in the Nginx configuration file.
+
+Nginx configuration
+
+The Nginx configuration is similar to the PHP one:
+     server {
+         server_name .website.com;
+         listen 80;
+         root /home/website/www;
+         index index.html;
+         location / {
+             fastcgi_pass 127.0.0.1:9000;
+              fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_
+     name;
+              fastcgi_param PATH_INFO $fastcgi_script_name;
+              include fastcgi_params;
+         }
+     }
+
 
