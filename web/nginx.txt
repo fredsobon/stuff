@@ -2270,3 +2270,474 @@ http://wiki.nginx.org/nginx3rdPartyModules.
 
 == Php et python avec nginx :
 
+= FastCgi 
+Historiquement le web livrait des pages statiques en html: le client demandait une page, le serveur web recevait la requette puis générait la page html et renvoyait la reponse au client.
+Vint ensuite l'introduction de languages plus evolué pour le web (php, python) : le client demande une page, le serveur web recoit la requette (fait eventuellement un traitement : rewrite etc ..) puis la passe la requette au processeur php via un canal de communication : CGI (common gateway interface) : le traitement php se fait, une page est renvoyé au serveur web va cgi et celui ci renvoie le doc au client.
+Le cgi est un protocole qui decrit la manière dont un serveur web (gere les connexion, reseau, comm avec le client) et une application cgi (php, python : qui gere les données) travaillent conjointement.
+En pratique quand un serveur web doit envoyer une requette a l'appli cgi : il execute une commande '/usr/bin/php' .
+Les infos du clients (user agent ...) sont fournies via arguments ou variables et les data sont transmisent via les methodes http post, put etc ...sur la sortie standart ; l'application traite la requette et renvoie le document sur la sortie standart au serveur web.
+Des limitations apparaissent :
+> chaque requette client : génere la creation d'un process par le serveur web 
+> les infos ne sont pas conservées entre les processus ( pas de partage memoire ..)
+> le systeme peut vite est submergé en cas de requettes massives à traiter ( génération de process ...)
+> séparer le serveur web du serveur php semble compliqué coir impossible.
+
+La creation des FASTCGI a donc été poussée pour pallier ces limites avec notamment les améliorations suivantes :
+-> gestion de processus persistants qui peuvent traiter plusieurs requettes http ( plus de demaarage , execution a chaque requette)
+-> le serveur web et l'appli communique par socket : tcp ou local ipc : on peut dissocier physiquement  le serveur web de l'appli php, python
+-> le serveur web envoie la requette et recoit la reponse du cgi via une seule connection 
+-> la communication se faisant via socket : le language communicant avec le serveur web peut en theorie être de toute sorte.
+
+Une des difficulté réside dans l'etablissement de la communication entre le serveur web et le language .
+Le module FASTCGI va nous permettre de configurer notre systeme.
+
+Nb : il existe des autres modules pour le traitement : uWCGI : principalement pour du python et SCGI : plus ancien que FASTCGI. Les modules comportent des directives assez similaires avec FASTCGI
+Les modules FASTCGI / uWCGI / SCGI sont embarqués dans le package nginx de base 
+
+
+
+= FastCGI : configuration principales & Main directives :
+
+
+Les directives suivantes permettent de passer les requettes au process fastcgi 
+Par defaut les conf de base "fastcgi_params" conviennent à la plupart des confs
+
+- fastcgi_pass : defini la manière dont la communication s'etablie entre le serveur web et l'application :socket tcp ou unix 
+
+Examples:
+fastcgi_pass localhost:9000;
+fastcgi_pass 127.0.0.1:9000;
+fastcgi_pass unix:/tmp/fastcgi.socket;
+# Using an upstream block 
+upstream fastcgi {
+  server 127.0.0.1:9000;
+  server 127.0.0.1:9001;
+}
+location ~* \.php$ {
+      fastcgi_pass fastcgi;
+}
+
+- fastcgi_param : doit fournir en arguments : le script qui sera invoqué pour passer la requette à l'appli et  la query string ( NB que pour les methodes http comme POST ayant plusieurs parametres : tout est normalement présent dans le fichier fcgi_params fournis par nginx) : SEUL le nom du script et son path pour envoyer les requettes est a définir )
+
+Example:
+fastcgi_param SCRIPT_FILENAME /home/website.com/www$fastcgi_script_name;
+fastcgi_param QUERY_STRING $query_string;
+
+
+
+
+
+Directives :            Description : 
+
+fastcgi_pass            This directive specifies that the request should be
+Context: location       passed to the FastCGI server, by indicating its location:
+if                         -For TCP sockets, the syntax is:
+                            fastcgi_pass hostname:port;
+                        
+                        -For Unix Domain sockets, the syntax is:
+                            fastcgi_pass unix:/path/to/fastcgi.
+                            socket;
+                        You may also refer to upstream blocks (read the
+                            following sections for more information):
+                            fastcgi_pass myblock;
+                      
+Examples:
+fastcgi_pass localhost:9000;
+fastcgi_pass 127.0.0.1:9000;
+fastcgi_pass unix:/tmp/fastcgi.socket;
+# Using an upstream block
+upstream fastcgi {
+  server 127.0.0.1:9000;
+  server 127.0.0.1:9001;
+}
+location ~* \.php$ {
+      fastcgi_pass fastcgi;
+}
+
+
+
+fastcgi_param          This directive allows you to configure the request
+Context: http, server, passed to FastCGI. Two parameters are strictly
+location               required for all FastCGI requests: SCRIPT_FILENAME
+                       and QUERY_STRING.
+Example:
+fastcgi_param SCRIPT_FILENAME /home/website.com/www$fastcgi_script_name;
+fastcgi_param QUERY_STRING $query_string;
+
+                       As for POST requests, additional parameters are
+                       required: REQUEST_METHOD, CONTENT_TYPE, and
+                       CONTENT_LENGTH:
+                           fastcgi_param REQUEST_METHOD $request_
+                           method;
+                           fastcgi_param CONTENT_TYPE $content_
+                           type;
+                           fastcgi_param CONTENT_LENGTH $con
+                           tent_length;
+                       The fastcgi_params file that you will find in the
+                       Nginx configuration folder already includes all of
+                       the necessary parameter definitions, except for the
+                       SCRIPT_FILENAME,which you need to specify for
+                       each of your FastCGI configurations.
+                       If the parameter name begins with HTTP_, it will
+                       override potentially existing HTTP headers of the
+                       client request.
+                       You may optionally specify the if_not_empty
+                       keyword, forcing Nginx to transmit the parameter
+                       only if the specified value is not empty.
+                       Syntax: fastcgi_param PARAM value [if_not_
+                       empty];
+
+fastcgi_bind           This directive binds the socket to a local IP address,
+Context: http, server, allowing you to specify the network interface you
+location               want to use for FastCGI communications.
+                       Syntax: fastcgi_bind IP_address;
+
+
+
+fastcgi_pass_header      This directive specifies the additional headers that
+Context: http, server,   should be passed to the FastCGI server.
+location                 Syntax: fastcgi_pass_header headername;
+Example:
+fastcgi_pass_header Authorization;
+
+fastcgi_hide_header      This directive specifies the headers that should be
+Context: http, server,   hidden from the FastCGI server (headers that Nginx
+location                 does not forward).
+                         Syntax: fastcgi_hide_header headername;
+Example:
+fastcgi_hide_header X-Forwarded-For;
+
+fastcgi_index            The FastCGI server does not support automatic
+Context: http, server,   directory indexes. If the requested URI ends with a /,
+location                 Nginx appends the value fastcgi_index.
+                         Syntax: fastcgi_index filename;
+Example:
+fastcgi_index index.php;
+
+fastcgi_ignore_client_   This directive lets you define what happens if the
+abort                    client aborts their request to the web server. If the
+Context: http, server,   directive is turned on, Nginx ignores the abort
+location                 request and finishes processing the request. If it's
+                         turned off, Nginx does not ignore the abort request.
+                         It interrupts the request treatment and aborts related
+                         communication with the FastCGI server.
+                         Syntax: on or off
+                         Default: off
+
+fastcgi_intercept_errors This directive defines whether or not Nginx should
+Context: http, server,   process the errors returned by the gateway or directly
+location                 return error pages to the client. (Note: Error processing
+                         is done via the error_page directive of Nginx.)
+                         Syntax: on or off
+                         Default: off
+
+fastcgi_read_timeout    This directive defines the timeout for the response
+Context: http, server,  from the FastCGI application. If Nginx does not
+location                receive the response after this period, the 504
+                        Gateway Timeout HTTP error is returned.
+                        Syntax: Numeric value (in seconds)
+                        Default: 60 seconds
+
+fastcgi_connect_timeout This directive defines the backend server connection
+Context: http, server,  timeout. This is different than the read/send timeout.
+location                If Nginx is already connected to the backend server,
+                        the fastcgi_connect_timeout is not applicable.
+                        Syntax: Time value (in seconds)
+                        Default: 60 seconds
+
+fastcgi_send_timeout    This is the timeout for sending data to the backend
+Context: http, server,  server. The timeout isn't applied to the entire response
+location                delay but rather between two write operations.
+                        Syntax: Time value (in seconds)
+                        Default value: 60
+
+fastcgi_split_path_info A directive particularly useful for URLs of the
+Context: location       following form: http://website.com/page.php/param1/param2/.
+                       
+                        The directive splits the path information according to
+                        the specified regular expression:
+                           fastcgi_split_path_info ^(.+\.php)(.*)$;
+                        This affects two variables:
+                           -$fastcgi_script_name: The filename of
+                              the actual script to be executed (in the example:
+                              page.php)
+                           -$fastcgi_path_info: The part of the URL
+                              that is after the script name (in the example: /
+                              param1/param2/)
+                        These can be employed in further parameter
+                        definitions:
+                           fastcgi_param SCRIPT_FILENAME
+                           /home/website.com/www$fastcgi_script_
+                           name;
+                           fastcgi_param PATH_INFO
+                           $fastcgi_path_info;
+                        Syntax: Regular expression
+
+fastcgi_store            This directive enables a simple cache store where
+Context: http, server,   responses from the FastCGI application are stored
+location                 as files on the storage device. When the same URI is
+                         requested again, the document is directly served from
+                         the cache store instead of forwarding the request to
+                         the FastCGI application.
+                         This directive enables or disables the cache store.
+                         Syntax: on or off
+
+fastcgi_store_access     This directive defines the access permissions applied
+Context: http, server,   to the files created in the context of the cache store.
+location                 Syntax: fastcgi_store_access [user:r|w|rw]
+                         [group:r|w|rw] [all:r|w|rw];
+                         Default: fastcgi_store_access user:rw;
+
+fastcgi_temp_path        This directive sets the path of temporary and cache
+Context: http, server,   store files.
+location                 Syntax: File path
+                         Example:
+                            fastcgi_temp_path /tmp/nginx_fastcgi;
+
+fastcgi_max_temp_file_   Set this directive to 0 to disable the use of temporary
+size                     files for FastCGI requests or to specify a maximum
+Context: http, server,   file size.
+location                 Default value: 1 GB
+                         Syntax: Size value
+                         Example: fastcgi_max_temp_file_size 5m;
+
+fastcgi_temp_file_write_ This directive sets the write buffer size when saving
+size                     temporary files to the storage device.
+Context: http, server,   Syntax: Size value
+location
+                         Default value: 2 * proxy_buffer_size
+
+fastcgi_buffers          This directive sets the amount and size of buffers that
+Context: http, server,   will be used for reading the response data from the
+location                 FastCGI application.
+                         Syntax: fastcgi_buffers amount size;
+                         Default: 8 buffers, 4 k or 8 k each, depending on
+                         platform
+                         Example:
+                         fastcgi_buffers 8 4k;
+
+fastcgi_buffer_size    This directive sets the size of the buffer for reading
+Context: http, server, the beginning of the response from the FastCGI
+location               application, which usually contains simple header
+                       data.
+                       The default value corresponds to the size of 1 buffer,
+                       as defined by the previous directive (fastcgi_
+                       buffers).
+                       Syntax: Size value
+                       Example:
+                       fastcgi_buffer_size 4k;
+
+fastcgi_send_lowat     This option allows you to make use of the SO_
+Context: http, server, SNDLOWAT flag for TCP sockets under FreeBSD only.
+location               This value defines the minimum number of bytes in
+                       the buffer for output operations.
+                       Syntax: Numeric value (size)
+                       Default value: 0
+
+fastcgi_pass_request_  This directive defines whether or not, respectively,
+body                   the request body and extra request headers should be
+
+fastcgi_pass_request_  passed on to the backend server.
+headers                Syntax: on or off;
+Context: http, server, Default: on
+location
+
+fastcgi_ignore_headers This directive prevents Nginx from processing one
+Context: http, server, or more of the following headers from the backend
+location               server response:
+                          X-Accel-Redirect
+                          X-Accel-Expires
+                          Expires
+                          Cache-Control
+                          X-Accel-Limit-Rate
+                          X-Accel-Buffering
+                          X-Accel-Charset
+                       Syntax: fastcgi_ignore_headers header1
+                       [header2 ...;
+
+fastcgi_next_upstream  When fastcgi_pass is connected to an upstream
+Context: http, server, block, this directive defines the cases where requests
+location               should be abandoned and re-sent to the next
+                       upstream server of the block. The directive accepts a
+                       combination of values among the following:
+                          -error: An error occurred while
+                              communicating or attempting to communicate
+                              with the server
+                          -timeout: A timeout occurs during transfers or
+                              connection attempts
+                          -invalid_header: The backend server
+                              returned an empty or invalid response
+                          -http_500, http_502, http_503, http_504,
+                              http_404: In case such HTTP errors occur,
+                              Nginx switches to the next upstream
+                          -off: Forbids from using the next upstream
+                              server
+Examples:
+fastcgi_next_upstream error timeout
+http_504;
+fastcgi_next_upstream timeout invalid_header;
+
+
+fastcgi_catch_stderr   This directive allows you to intercept some of the error
+Context: http, server, messages sent to stderr (Standard Error stream) and
+location               store them in the Nginx error log.
+                       Syntax: fastcgi_catch_stderr filter;
+                       Example: fastcgi_catch_stderr "PHP Fatal
+                       error:";
+
+fastcgi_keep_conn      When set to on, Nginx will conserve the connection to
+Context: http, server, the FastCGI server, thus reducing overhead.
+location               Syntax: on or off (default: off).
+                       Note that there is no equivalent directive in the
+                       uWSGI and SCGI modules.
+
+
+= FastCgi : gestion de cache 
+
+Une fois la conf de basse faite on peut vouloir optimiser le système :
+
+Directive                    Description
+
+fastcgi_cache                This directive defines a cache zone. The identifier given to
+Context: http, server,       the zone is to be reused in further directives.
+location                     Syntax: fastcgi_cache zonename;
+
+Example: fastcgi_cache cache1;
+
+
+fastcgi_cache_key            This directive defines the cache key. In other words, what
+Context: http, server,       differentiates a cache entry from another. If the cache key
+location                     is set to $uri, as a result, all requests with a similar $uri
+                              will correspond to the same cache entry. It's not enough
+                              for most dynamic websites, you also need to include the
+                              query string arguments in the cache key so that /index.
+                              php and /index.php?page=contact do not point to the
+                              same cache entry.
+                              Syntax: fastcgi_cache_key key;
+Example: fastcgi_cache "$scheme$host$request_uri $cookie_user";
+
+fastcgi_cache_methods        This directive defines the HTTP methods eligible for
+Context: http, server,       caching. GET and HEAD are included by default and cannot
+location                     be disabled. You may, for example, enable caching of POST
+                              requests.
+                              Syntax: fastcgi_cache_methods METHOD;
+Example: fastcgi_cache_methods POST;
+
+fastcgi_cache_min_uses        This directive defines the minimum amount of hits before a
+                              request is eligible for caching. By default, the response of a
+ Context: http, server,       request is cached after one hit (next requests with the same
+ location                     cache key will receive the cached response).
+                              Syntax: Numeric value
+Example: fastcgi_cache_min_uses 1;
+
+fastcgi_cache_path     This directive indicates the directory for storing cached
+Context: http, server, files, as well as other parameters.
+location               Syntax: fastcgi_cache_path path
+                       [levels=numbers]
+                       keys_zone=name:size [inactive=time] [max_
+                       size=size] [loader_files=number] [loader_
+                       sleep=time] [loader_threshold=time];
+                       The additional parameters are:
+                          -levels: Indicates the depth of subdirectories (1:2
+                               indicates that subfolders will be created down to
+                               two levels)
+                          -keys_zone: Selects the zone you previously
+                               declared with the fastcgi_cache directive, and
+                               indicates the size to occupy in memory
+                          -inactive: If a cached response is not used within
+                               the specified time frame, it's removed from the
+                               cache (default: 10 minutes)
+                          -max_size: Defines the maximum size of the entire
+                               cache
+                          -loader_files, loaded_sleep, loader_
+                               threshold: Configures the cache loader: the
+                               amount of files it processes in one read cycle
+                               (loader_files, default: 100 files), the pause time
+                               between read cycles (loader_sleep, default:
+                               50ms), and the maximum duration of a read cycle
+                               (loader_threshold, default: 200ms).
+
+Example: fastcgi_cache_path /tmp/nginx_cachelevels=1:2 zone=zone1:10m inactive=10m max_size=200M;
+
+
+fastcgi_cache_use_stale     This directive defines whether or not Nginx should serve
+                            stale cached data in certain circumstances (in regards to
+Context: http, server, the gateway). If you use fastcgi_cache_use_stale
+location               timeout, and if the gateway times out, then Nginx will
+                       serve cached data.
+                       Syntax: fastcgi_cache_use_stale [updating]
+                       [error] [timeout] [invalid_header]
+                       [http_500];
+Example: fastcgi_cache_use_stale error timeout;
+
+fastcgi_cache_valid            This directive allows you to customize the caching time
+ Context: http, server,        for different kinds of response codes. You may cache
+ location                      responses associated to 404 error codes for 1 minute, and
+                               on the opposite cache, 200 OK responses for 10 minutes
+                               or more. This directive can be inserted more than once,
+                               demonstrated as follows:
+fastcgi_cache_valid 404 1m;
+fastcgi_cache_valid 500 502 504 5m;
+fastcgi_cache_valid 200 10;
+                               Syntax: fastcgi_cache_valid code1 [code2...] time;
+
+
+fastcgi_no_cache              You may want to disable caching for requests that meet
+ Context: http, server,        certain conditions. The directive accepts a series of
+ location                      variables. If at least one of these variables has a value (not
+                               an empty string, and not 0), this request will not be stored
+                               in cache.
+                               Syntax: fastcgi_no_cache $variable1
+                               [$variable2] [...];
+Example: fastcgi_no_cache $args_nocaching;
+ 
+fastcgi_cache_bypass           This directive functions in a similar manner to fastcgi_
+ Context: http, server,        no_cache, except that it tells Nginx whether or not
+ location                      the request should be loaded from cache, if it can be (as
+                               opposed to deciding whether to store the request result in
+                               cache).
+                               Syntax: fastcgi_cache_bypass $variable1
+                               [$variable2] [...];
+Example: fastcgi_cache_bypass $cookie_bypass_cache;
+
+fastcgi_cache_lock,             If set to on, fastcgi_cache_lock prevents repopulating
+Exemple : 
+fastcgi_cache_lock on;
+
+fastcgi_cache_lock_timeout      existing cache elements for the duration specified by
+                                fastcgi_cache_lock_timeout.
+Context: http, server, location        
+Example:
+fastcgi_cache_lock_timeout 10s;
+
+
+Here is a full Nginx FastCGI cache configuration example, making use of most of the
+cache-related directives described in the preceding table:
+
+    fastcgi_cache phpcache;
+    fastcgi_cache_key "$scheme$host$request_uri"; # $request_uri includes
+    the request arguments (such as /page.php?arg=value)
+    fastcgi_cache_min_uses 2; # after 2 hits, a request receives a cached
+    response
+    fastcgi_cache_path /tmp/cache levels=1:2 keys_zone=phpcache:10m inac
+    tive=30m max_size=500M;
+    fastcgi_cache_use_stale updating timeout;
+    fastcgi_cache_valid 404 1m;
+    fastcgi_cache_valid 500 502 504 5m;
+
+Since these directives are valid for pretty much any virtual host configuration, you
+may want to save these in a separate file (fastcgi_cache) that you include at the
+appropriate place:
+    server {
+         server_name website.com;
+         location ~* \.php$ {
+               fastcgi_pass 127.0.0.1:9000;
+               fastcgi_param SCRIPT_FILENAME
+    /home/website.com/www$fastcgi_script_name;
+               fastcgi_param PATH_INFO $fastcgi_script_name;
+               include fastcgi_params;
+               include fastcgi_cache;
+         }
+    }
+
+
