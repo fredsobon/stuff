@@ -2740,4 +2740,214 @@ appropriate place:
          }
     }
 
+= Upstream :
+
+On a donc un serveur web qui va communiquer a un backend : ce backend peut être hébergé sur un autre serveur ou alors derriere un load balancer. Php etant gourmant en ressource il est souvent préférable d'etablir un pool de serveur selon le traffic.
+Pour répartir les requettes à plusieurs backend le module upstream est donc nécéssaire.
+
+The upstream module allows you to declare named upstream blocks that define
+lists of servers:
+     upstream   phpfpm {
+        server  192.168.0.50:9000;
+        server  192.168.0.51:9000;
+        server  192.168.0.52:9000;
+     }
+When defining the FastCGI configuration, connect to the upstream block:
+     server {
+          server_name website.com;
+          location ~* \.php$ {
+               fastcgi_pass phpfpm;
+               [...
+          }
+     }
+In this case, requests eligible to FastCGI will be forwarded to one of the backend
+servers defined in the upstream block.
+
+
+La repartition se fait de base en roundrubin.
+
+Ceci peut être un probleme notamment pour les sessions php si elles ne sont pas répliquées entre les backends.
+
+To ensure that requests from a same visitor always get processed by the same backend
+server, you may enable the ip_hash option when declaring the upstream block:
+    upstream phpfpm {
+       ip_hash;
+       server 192.168.0.50:9000;
+       server 192.168.0.51:9000;
+       server 192.168.0.52:9000;
+    }
+This will distribute requests based on the visitors IP address employing a regular
+round robin algorithm. However, be aware that client IP addresses are sometimes
+subject to change for various reasons such as dynamic IP refresh, proxy switching,
+Tor. Consequently, the ip_hash mechanism cannot fully guarantee that clients will
+always be involved to the same upstream server. Alternatively, you may force Nginx
+to select the backend server that currently has the last amount of active connections,
+through the use of the least_conn directive.
+
+- Server directive
+The server directive that you place within upstream blocks accepts several
+parameters that influence the backend selection by Nginx:
+   -weight=n: This lets you indicate a numeric value that will affect the
+       weight of the backend server. If you create an upstream block with
+       two backend servers, and set the weight of the first one to 2, it will
+       be selected twice more often:
+       upstream php {
+         server 192.168.0.1:9000 weight=2;
+         server 192.168.0.2:9000;
+       }
+
+   -max_fails=n: This defines the number of communication failures
+       that should occur (in the time frame specified with the fail_timeout
+       parameter below) before Nginx considers the server inoperative.
+
+   -fail_timeout=n: This defines the time frame within which the maximum
+       failure count applies. If Nginx fails to communicate with the backend
+       server max_fails times over fail_timeout seconds, the server is
+       considered inoperative.
+   -down: If you mark a backend server as down, the server is no longer used.
+       This only applies when the ip_hash directive is enabled.
+   -backup: If you mark a backend server as backup, Nginx will not make
+       use of the server until all other servers (servers not marked as backup)
+       are down or inoperative.
+
+These parameters are all optional and can be used altogether:
+
+   upstream   phpbackend {
+      server  localhost:9000 weight=5;
+      server  192.168.0.1 max_fails=5 fail_timeout=60s;
+      server  unix:/tmp/backend backup;
+   }
+
+               Inserting the keepalive directive in your upstream block enables
+               a connection cache to your backend servers. Requests can then be
+               processed faster since the socket connection and disconnection times
+               are eliminated. For example, keepalive 32 will maintain up to 32
+               connections (per worker process) to your backend servers.
+
+
+= Php et Nginx :
+
+A partir de php5.3.3  une gestion intégrée d' un manager fastcgi a été implémentée : fpm 
+Bien que php gére le fastcgi on va intégrer un manager pour les process fastcgi : php-fpm (FastcgiProcessManager)
+
+php-fpm recoit les requettes de nginx et va traiter les requettes dans les environnments configurés.
+php-fpm permet : de lancer les scripts en background, lancées les scripts  dans des env "chrootés"; une gestion de pool de connexion ; une gestion fine des logs ...
+
+-setting :
+
+On a des dependances à respecter :
+[root@centos67 nginx]# yum install libxml2-devel.x86_64 libevent-devel.x86_64
+puis : 
+[root@centos67 nginx]# yum install php-fpm
+Installed:
+  php-fpm.x86_64 0:5.3.3-46.el6_7.1                                                                                          
+Dependency Installed:
+  php-common.x86_64 0:5.3.3-46.el6_7.1   
+
+Attention a s'assurer que la directive cgi.fix_pathinfo est bien settée à 1 ('est le cas par defaut) : lié à une faille de secu php
+
+Config de php-fpm.conf : c'est le fichier de conf principal dont il ya une multitude d'options. Les principales pour un serveur  très simple :
+
+->Edit the user(s) and group(s) used by the worker processes and
+   optionally the UNIX sockets
+->Address(es) and port(s) on which PHP-FPM will be listening
+->Amount of simultaneous requests that will be served
+->IP address(es) allowed to connect to PHP-FPM
+
+En fonction des distributions Linux utilisées : il faut examiner le fichier php-fpm.conf mais également le repertoire :/etc/php-fpm.d qui lui peut contenir un fichier d'exemple qu'il faudra adapter a nos besoins :
+exemple : ici la fichier de conf fourni par redhat mentionne le user / group apache : on va donc indiquer nginx comme dans notre conf : /etc/nginx/nginx.conf
+
+/!\ Attention pour nos pools fpm on pourra et devra indiquer le user du vhost dedié de manière a securiser notre serveur
+
+il y a un include dans la conf principale du fichier php-fpm.conf qui appelle la def des pool php : 
+include=/etc/php-fpm.d/*.conf
+
+
+Dans le cas d'une centos67 on a un fichier de conf  qui se nomme www.conf, on va donc s'assurer d'avoir les champs requis correctement remplis :  
+
+[www]
+
+listen = 127.0.0.1:9000 # socket de connection 
+listen.allowed_clients = 127.0.0.1 # adresse autorisée pour se connecter à php 
+
+user = nginx  # user proprietaire des process php
+group = nginx # group proprietaire des process php
+
+pm.max_children = 50 # 
+pm.start_servers = 5 # nombre de process lancés au demarrage du serveur 
+pm.min_spare_servers = 5 # nombre minimum de process dispos en attente de connection
+pm.max_spare_servers = 35 # nombre maximum de process dispos en attente de connection
+;pm.max_requests = 500 # nombre maximum de requettes simultanée par process : par defaut setté à 0 
+
+
+Une fois qu'on a verifié et modifier notre conf on redémmare php-fpm et on examine le résultat :
+le process master est bien lancé par root puis le pool php-fpm composé de "www" est bien executé par nginx on voit bien les 5 process dispos 
+root      2831  0.4  0.5 203288  3636 ?        Ss   10:51   0:00 php-fpm: master process (/etc/php-fpm.conf)
+nginx     2832  0.1  0.5 203288  3260 ?        S    10:51   0:00  \_ php-fpm: pool www            
+nginx     2833  0.1  0.5 203288  3260 ?        S    10:51   0:00  \_ php-fpm: pool www            
+nginx     2834  0.1  0.5 203288  3260 ?        S    10:51   0:00  \_ php-fpm: pool www            
+nginx     2835  0.1  0.5 203288  3260 ?        S    10:51   0:00  \_ php-fpm: pool www            
+nginx     2836  0.0  0.5 203288  3260 ?        S    10:51   0:00  \_ php-fpm: pool www            
+
+On active php-fpm dans les runlevels :
+[root@centos67 etc]# chkconfig php-fpm on
+[root@centos67 etc]# chkconfig --list php-fpm
+php-fpm         0:off   1:off   2:on    3:on    4:on    5:on    6:off
+
+Conf nginx :
+
+server {
+    server_name .exemple.net; # server name, accepting www
+    listen 80; # listen on port 80
+    root /home/website/www; # our root document path
+    index index.php; # default request filename: index.php
+    location ~* \.php$ { # for requests ending with .php
+         # specify the listening address and port that you configured
+previously
+         fastcgi_pass 127.0.0.1:9000;
+         # the document path to be passed to PHP-FPM
+         fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_
+name;
+         # the script filename to be passed to PHP-FPM
+         fastcgi_param PATH_INFO $fastcgi_script_name;
+         # include other FastCGI related configuration settings
+         include fastcgi_params;
+    }
+}
+                                 [ 181 ]
+On configure un "home_dir" pour notre site avec un fichier et on teste :
+
+[root@centos67 conf.d]# tree /home/
+/home/
+└── website
+    └── www
+        └── index.php
+echo "<?php phpinfo(); ?>" >/home/website/www/index.php
+
+[root@centos67 conf.d]# curl -I http://localhost
+HTTP/1.1 200 OK
+Server: nginx/1.0.15
+Date: Fri, 25 Mar 2016 11:23:38 GMT
+Content-Type: text/html
+Connection: keep-alive
+X-Powered-By: PHP/5.3.3
+
+On recupere bien notre page avec les infos php :
+
+<title>phpinfo()</title><meta name="ROBOTS" content="NOINDEX,NOFOLLOW,NOARCHIVE" /></head>
+<body><div class="center">
+<table border="0" cellpadding="3" width="600">
+<tr class="h"><td>
+<a href="http://www.php.net/"><img border="0" src="/index.php?=PHPE9568F34-D428-11d2-A769-00AA001ACF42" alt="PHP Logo" /></a>
+<h1 class="p">PHP Version 5.3.3</h1>
+
+On recupere bien notre page avec les infos php :
+
+<title>phpinfo()</title><meta name="ROBOTS" content="NOINDEX,NOFOLLOW,NOARCHIVE" /></head>
+<body><div class="center">
+<table border="0" cellpadding="3" width="600">
+<tr class="h"><td>
+<a href="http://www.php.net/"><img border="0" src="/index.php?=PHPE9568F34-D428-11d2-A769-00AA001ACF42" alt="PHP Logo" /></a>
+<h1 class="p">PHP Version 5.3.3</h1>
+
 
