@@ -1,13 +1,72 @@
 
 == Awk : ===
 
+
+urls utiles :
+http://nyal.developpez.com/tutoriel/gawk/?page=intro
+http://www.shellunix.com/awk.html
+
 - bases : 
 
-Awk traite ligne par ligne sous la forme '/pattern/ {command} .On peut rajouter une section en début de travail qui ne sera afficher q'une fois ( comme un header ) ensuite le cours de notre traitement ex ici on recherche le pattern 'boogie' dans notre fichier /etc/passwd et on l'affiche. A la fin on rajoute un bloc END qui fait office de footer. Exemple :
+Awk traite ligne par ligne sous la forme '/pattern/ {command} .On peut rajouter une section en début de travail qui ne sera afficher q'une fois ( comme un header ) ensuite le cours de notre traitement .
+
+awk -Fs '/pattern/ {action}' input-file  
+(or)
+awk -Fs '{action}' intput-file
+ 
+/pattern/ est optionnel : si on ne precise rien : l'integralité du texte est traitée.
+TOUTES les commandes/actions awk doivent être entourées par des '{}'.
+TOUTES les chaines de caractères doivent être encadrées par des ""
+
+
+# Format d'un programme awk
+
+-TROIS blocs : 
+->BEGIN : qui sert d'affichage de 'header'  et à initialiser des variables.On peut avoir plusieurs bloc BEGIN (qui est optionnel) : BEGIN{action} 
+->BODY : /pattern/ {action} : executé une fois pour chaque ligne du fichier traitée.
+->END : END{action} : sert de message / rapport : footer 
+
+
+
+BEGIN {
+    print "Démarrage du programme"
+}
+
+{ print "Pas de critères. Donc ce message s'affiche autant de fois qu'il y a d'enregistrement" }
+
+END {
+    print "Fin du programme"
+}
+
+Ex ici on recherche le pattern 'boogie' dans notre fichier /etc/passwd et on l'affiche. A la fin on rajoute un bloc END qui fait office de footer. Exemple :
 boogie@x61:~/lab/lab-awk$ cat /etc/passwd |awk 'BEGIN { print "== header ==" } /boogie/ {print $1} END {print "== footer =="}'
 == header ==
 boogie:x:1000:1000:boogie,,,:/home/boogie:/bin/bash
 == footer ==
+
+En forcant le séparateur de champ à ':' : on affine :
+boogie@x61:/tmp$ cat /etc/passwd |awk 'BEGIN { FS=":" ;print "== header ==" } /boogie/ {print $1} END {print "== footer =="}'== header ==
+boogie
+== footer ==
+Si on veut enregistrer nos commandes dans un fichier : pas de pb : on appelle awk avec l'option '-f" ensuite :
+
+BEGIN {
+ FS=":"
+  print "---header---"
+}
+/boogie/ {
+  print $1
+}
+END {
+  print "---footer---"
+}
+
+boogie@x61:/tmp$ awk -f myscript.awk /etc/passwd
+---header---
+boogie
+---footer---
+
+
 
 - FS : field separator. Par défaut le séparateur est l'espace mais on peut définir ce que l'on veut avec le champ FS.
 Exemple on cherche le shell du user root dans le fichier /etc/passwd :
@@ -19,6 +78,63 @@ On peut encadrer notre FS entre "" ou '' :
 boogie@x61:~/lab/lab-awk$ cat employee.txt |awk -F',' '/101/ {print "hey here  the uid =>", $1}'
 hey here  the uid => 101
 
+On peut utiliser l'option -F ou alors FS= MAIS il faut l'insérer dans un bloc BEGIN :
 
+boogie@x61:/tmp$ cat employee.txt |awk -F "," '{print $2}'
+John Doe
+Jason Smith
+Raj Reddy
+Anand Ram
+Jane Miller
 
+boogie@x61:/tmp$ cat employee.txt |awk 'BEGIN{FS=","}; {print $2}'
+John Doe
+Jason Smith
+Raj Reddy
+Anand Ram
+Jane Miller
+L'alertnative avec FS et bloc BEGIN :
+boogie@x61:/tmp$ cat employee_multi_fs.txt |awk 'BEGIN{FS="[,:%]"} {print $2}'
+John Doe
+Jason Smith
+Raj Reddy
+Anand Ram
+Jane Miller
 
+On peut utiliser les regexp dans la recherche de pattern // :
+
+On affiche le nom des users du texte contenant des lignes finissant par CEO :
+boogie@x61:/tmp$ cat employee.txt |awk -F "," '/CEO$/ {printf "hey hello " ; print $2}'
+hey hello John Doe
+
+On affiche le nom des users dont le texte commence par 10 :
+boogie@x61:/tmp$ cat employee.txt |awk -F "," '/^10/ {printf "hey hello The CEO => " ; print $2}'
+hey hello The CEO => John Doe
+hey hello The CEO => Jason Smith
+hey hello The CEO => Raj Reddy
+hey hello The CEO => Anand Ram
+hey hello The CEO => Jane Miller
+
+On peut définir des intervalles même pour les field separator : 
+boogie@x61:/tmp$ cat  employee_multi_fs.txt
+101,John Doe:CEO%10000
+102,Jason Smith:IT Manager%5000
+103,Raj Reddy:Sysadmin%4500
+104,Anand Ram:Developer%4500
+105,Jane Miller:Sales Manager%3000
+boogie@x61:/tmp$ cat employee_multi_fs.txt |awk -F "[,:%]" '{print $2}'
+John Doe
+Jason Smith
+Raj Reddy
+Anand Ram
+Jane Miller
+
+On peut utiliser des "|" pour le choix du pattern :
+boogie@x61:/tmp$ cat lapin |awk '/root|resolve|boogie/ {print $1}'
+root:x:0:0:root:/root:/bin/bash
+root:x:3333333:0:ROOT:/root:/bin/bash
+systemd-resolve:x:102:105:systemd
+boogie:x:1000:1000:boogie,,,:/home/boogie:/bin/bash
+
+-OFS : Output File Separator :
+De base le caractère de séparation de champ de sortie est l'espace. C'est modifiable.
