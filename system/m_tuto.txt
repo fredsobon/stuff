@@ -1,0 +1,240 @@
+##  2 Bastions pour acceder a la prod :
+
+zinflogbast01bv.admin > accede au serveurs sauf payment
+zinfbast02bv.admin > accede au serveurs de payments 
+## topo bck 
+
+2 master bck 
+les bck ne sont pas croisés .Chaque serveur est backupé sur son dc : b -> beissieres u -> ulis
+xinfback01b 
+xinfback02u
+
+
+# metrologie
+
+serveurs munin : zinfmetro01b 
+http://metrix.meetic.ilius.net/
+
+les metriques sont stockées dans /var/www/html/munin/
+Exemples : 
+[f.sobon@zinfmetro01b /var/www/html/munin/payment/xpayhdws01bv.backend] $ ls
+apache_accesses.html                hdws_eligibilite_reptime_max.html             hdws_ws_passinfo_reptime_avg.html  irqstats.html                      jmx_MemorySurvivorPeak.html           open_inodes.html
+apache_processes.html               hdws_eligibilite_reptime_min.html             hdws_ws_passinfo_reptime_max.html  java_errors.html                   jmx_MemorySurvivorUsage.html          processes.html
+apache_volume.html                  hdws_eligibilite_requests.html                hdws_ws_passinfo_reptime_min.html  jmx_ClassesLoaded.html             jmx_MemorySurvivorUsagePostGC.html    sendmail_mailqueue.html
+cpu.html                            hdws_provisioning_reptime_avg.html            hdws_ws_passinfo_requests.html     jmx_ClassesLoadedTotal.html        jmx_MemoryTenuredGenPeak.html         sendmail_mailstats.html
+df.html                             hdws_provisioning_reptime_max.html            hdws_ws_right_reptime_avg.html     jmx_ClassesUnloaded.html           jmx_MemoryTenuredGenUsage.html        sendmail_mailtraffic.html
+df_inode.html                       hdws_provisioning_reptime_min.html            hdws_ws_right_reptime_max.html     jmx_CompilationTimeTotal.html      jmx_MemoryTenuredGenUsagePostGC.html  swap.html
+diskblast.html                      hdws_provisioning_requests.html               hdws_ws_right_reptime_min.html     jmx_CurrentThreadCpuTime.html      jmx_MemorythresholdPostGCCount.html   tomcat_access.html
+diskstats_iops                      hdws_ws_collecte_reptime_avg.html             hdws_ws_right_requests.html        jmx_CurrentThreadUserTime.html     jmx_MemorythresholdUsageCount.html    tomcat_avgtime.html
+diskstats_latency                   hdws_ws_collecte_reptime_max.html             if_err_eth0.html                   jmx_GCCount.html                   jmx_ProcessorsAvailable.html          tomcat_jvm.html
+diskstats_throughput                hdws_ws_collecte_reptime_min.html             if_err_eth1.html                   jmx_GCTime.html                    jmx_ThreadsDaemon.html                tomcat_maxtime.html
+diskstats_utilization               hdws_ws_collecte_requests.html                if_err_eth2.html                   jmx_MemoryAllocatedHeap.html       jmx_ThreadsDeadlocked.html            tomcat_threads.html
+entropy.html                        hdws_ws_consultation_cached_reptime_avg.html  if_err_eth3.html                   jmx_MemoryAllocatedNonHeap.html    jmx_Threads.html                      tomcat_volume.html
+forks.html                          hdws_ws_consultation_cached_reptime_max.html  if_eth0.html                       jmx_MemoryEdenPeak.html            jmx_ThreadsPeak.html                  vmstat.html
+hddtemp_smartctl.html               hdws_ws_consultation_cached_reptime_min.html  if_eth1.html                       jmx_MemoryEdenUsage.html           jmx_ThreadsStartedTotal.html          vmware_fake.html
+hdws_consultation_reptime_avg.html  hdws_ws_consultation_cached_requests.html     if_eth2.html                       jmx_MemoryEdenUsagePostGC.html     jmx_Uptime.html
+hdws_consultation_reptime_max.html  hdws_ws_passinfo_cached_reptime_avg.html      if_eth3.html                       jmx_MemoryObjectsPending.html      load.html
+hdws_consultation_reptime_min.html  hdws_ws_passinfo_cached_reptime_max.html      index.html                         jmx_MemoryPermGenPeak.html         memory.html
+hdws_consultation_requests.html     hdws_ws_passinfo_cached_reptime_min.html      interrupts.html                    jmx_MemoryPermGenUsage.html        netstat.html
+hdws_eligibilite_reptime_avg.html   hdws_ws_passinfo_cached_requests.html         iostat.html                        jmx_MemoryPermGenUsagePostGC.html  open_files.html
+
+
+
+Anciennes config finissent par cfg les autres sont puppetisees et ont une nomenclature node.*.*.conf
+
+
+
+# Recupération des infos de dans le ticket : 
+1 / 
+Dans le repos puppet on va ajouter les infos dans le fichier hosts 
+"/puppet/profile/files"
+
+
+10.102.0.240 xwebwspriv147b.ilo  > ilo
+10.120.0.240 xwebwspriv147b.backend xwebwspriv147b  > 
+10.110.0.240 xwebwspriv147b.frontend >> frontal derrriere F5  / Vlan 40 
+10.101.0.240 xwebwspriv147b.admin >>> setup  / VLan 50 
+10.3.0.240 xwebwspriv147b.backup >>> bck 
+
+on vire les entrees du reseau 200
+
+ex 10.200.132.229 xwebwspriv149b
+on commit : 
+
+ogie@boogie:~/Documents/work/repos/puppet$ git commit profile/files/hosts -m "[WSPRIV] Install servers - GDC-27990 "
+
+
+boogie@boogie:~/Documents/work/repos/puppet$ git branch
+* production
+boogie@boogie:~/Documents/work/repos/puppet$ git push origin production 
+
+
+2 / Ajout des hosts dans hiera :
+
+
+boogie@boogie:~/Documents/lab$ for i in 147 149 151 ; do cp xwebwspriv146u.yaml xwebwspriv${i}b.yaml ;done
+boogie@boogie:~/Documents/lab$ ls
+xwebwspriv146u.yaml  xwebwspriv148u.yaml  xwebwspriv150u.yaml  xwebwspriv152u.yaml
+xwebwspriv147b.yaml  xwebwspriv149b.yaml  xwebwspriv151b.yaml
+boogie@boogie:~/Documents/lab$ cp xwebwspriv148u.yaml xwebwspriv150u.yaml xwebwspriv152u.yaml  xwebwspriv147b.yaml  xwebwspriv149b.yaml xwebwspriv151b.yaml /home/boogie/Documents/work/repos/hiera/certname/
+boogie@boogie:~/Documents/lab$ cd /home/boogie/Documents/work/repos/hiera/certname
+boogie@boogie:~/Documents/work/repos/hiera/certname$ git pull
+Already up-to-date.
+boogie@boogie:~/Documents/work/repos/hiera/certname$ git status
+Sur la branche production
+Votre branche est à jour avec 'origin/production'.
+Fichiers non suivis:
+  (utilisez "git add <fichier>..." pour inclure dans ce qui sera validé)
+
+	xwebwspriv147b.yaml
+	xwebwspriv148u.yaml
+	xwebwspriv149b.yaml
+	xwebwspriv150u.yaml
+	xwebwspriv151b.yaml
+	xwebwspriv152u.yaml
+
+exemple : 
+
+$ cat xwebwspriv151b.yaml
+—
+profile::base::params::kernel_version: os_default
+profile::base::params::platform_env: prod
+profile::base::params::ip: "100.234"
+classes:
+
+    profile::ws::priv
+
+
+
+aucune modification ajoutée à la validation mais des fichiers non suivis sont présents (utilisez "git add" pour les suivre)
+boogie@boogie:~/Documents/work/repos/hiera/certname$ git add .
+boogie@boogie:~/Documents/work/repos/hiera/certname$ git status
+Sur la branche production
+Votre branche est à jour avec 'origin/production'.
+Modifications qui seront validées :
+  (utilisez "git reset HEAD <fichier>..." pour désindexer)
+
+	nouveau fichier : xwebwspriv147b.yaml
+	nouveau fichier : xwebwspriv148u.yaml
+	nouveau fichier : xwebwspriv149b.yaml
+	nouveau fichier : xwebwspriv150u.yaml
+	nouveau fichier : xwebwspriv151b.yaml
+	nouveau fichier : xwebwspriv152u.yaml
+
+boogie@boogie:~/Documents/work/repos/hiera/certname$ git branch
+* production
+boogie@boogie:~/Documents/work/repos/hiera/certname$ git commit . -m "[WSPRIV] install server - GDC-27990"
+[production 06fe38f] [WSPRIV] install server - GDC-27990
+ 6 files changed, 36 insertions(+)
+ create mode 100644 certname/xwebwspriv147b.yaml
+ create mode 100644 certname/xwebwspriv148u.yaml
+ create mode 100644 certname/xwebwspriv149b.yaml
+ create mode 100644 certname/xwebwspriv150u.yaml
+ create mode 100644 certname/xwebwspriv151b.yaml
+ create mode 100644 certname/xwebwspriv152u.yaml
+boogie@boogie:~/Documents/work/repos/hiera/certname$ git push origin production 
+Décompte des objets: 8, fait.
+Delta compression using up to 4 threads.
+Compression des objets: 100% (8/8), fait.
+Écriture des objets: 100% (8/8), 696 bytes | 0 bytes/s, fait.
+Total 8 (delta 6), reused 0 (delta 0)
+To git@gitlab.meetic.ilius.net:infra-prod/hiera.git
+   ed95059..06fe38f  production -> production
+
+ 
+Conf du bios en fonction des modele serveur 
+
+Proliant DL360 G8
+F9
+System Options > Processor Options > Hyperthreading >
+Disabled (non présent pour AMD)
+Power Management Options > HP Power Profile >
+Maximum Performance
+Power Management Options > HP Power Regulator >
+HP Static High Performance Mode
+Power Management Options > Redundant Power Supply >
+High Effenciency Mode (Auto)
+Power Management Options > Advanced Power Management Options > Dynamic Power Capping Functionality >
+Disabled (si present)
+-----------------------------------------------------------------------------------------
+Proliant G9
+
+System Options > Processor Options > Hyperthreading >
+Disabled (non présent pour AMD)
+System Options > Boot time optimizations > Dynamic Power Capping Functionnality >
+Disabled
+Boot options > boot mode >
+Legacy BIOS Mode
+Power Management > HP Power Profile >
+Maximum Performance
+Power Management > Advanced Power Options > Redundant Power Supply >
+High Effenciency Mode (Auto)
+
+
+Prepartion de la conf pour le déploiement :
+
+on recupère la mac eth0 du serveur 
+
+puis login sur xinfmrepo02uv  
+
+On lance la commande de déployement 
+                          
+[root@xinfmrepo02uv ~] # kickmethat -m mac serveur  -i ip_eth0 -h hostname -v majeure os  -u mineure os -d distrib
+[root@xinfmrepo02uv ~] # kickmethat -m 94:57:a5:52:6f:d0 -i 10.101.100.240 -h xwebwspriv147b -v 6 -u 6 -d redhat
+Shutting down dhcpd:                                       [  OK  ]
+Starting dhcpd:                                            [  OK  ]
+Stopping httpd:                                            [  OK  ]
+Starting httpd:                                            [  OK  ]
+
+Cela génére ensuite un fichier :
+On essaye de le cleaner : 
+[root@xinfmrepo02uv ~] # cat /etc/kickmethat/dhcpd/kickstart-new.conf
+#
+#
+# DHCP file of xwebwspriv147b
+host xwebwspriv147b { hardware ethernet 94:57:a5:52:6f:d0 ; fixed-address 10.101.100.240 ; }
+#
+
+
+# memo 
+
+1 / install java version oracle :
+http://www.java.com/fr/download/help/linux_x64_install.xml
+
+> creeer une arbo cible :
+/usr/local/bin/java 
+> Downloader le .tgz 
+> le décompresser dans notre repertoire créee
+
+
+2 / unijob 
+
+>  
+## topo bck 
+
+2 master bck 
+les bck ne sont pas croisés .Chaque serveur est backupé sur son dc : b -> beissieres u -> ulis
+xinfback01b 
+xinfback02u
+
+
+##  2 Bastions pour acceder a la prod :
+
+zinflogbast01bv.admin > accede au serveurs sauf payment
+zinfbast02bv.admin > accede au serveurs de payments 
+# Network : 
+https://dcp.colt.net/
+https://business.netnames.com/authentication/logon.rails
+https://outlook.office365.com/owa/?path=/mail/inbox
+https://jira.meetic.ilius.net:8443/
+
+# Monito : 
+https://imon2.meetic.ilius.net/SiteScope/htdocs/DetailBackup.html
+
+# hp hardware :
+
+https://hpinsight1:50000/
+
+
+# gitlab :
+http://gitlab.meetic.ilius.net/
