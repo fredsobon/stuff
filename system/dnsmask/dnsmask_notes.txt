@@ -1,0 +1,16 @@
+## dnsmask : 
+Il est possible au cas ou un serveur dns est indisponible /inexistant ou autre ) de forcer l'utilisation d'un fichier hosts local 
+    addn-hosts=/home/boogie/Documents/work/repos/puppet/profile/files/hosts
+
+On pourra donc faire des requettes sur ce fichier qui lui meme pourra être modifié car dans un repos.
+Pour eviter des incohérences on va coupler le tout avec le service 'incron' :
+On va poser un fichier dans lequel on va dire au dnsmasq de se reload si une modif a été détectée sur le fichier "hosts"
+cat /etc/incron.d/meetic_hosts_dnsmasq 
+/home/boogie/Documents/work/repos/puppet/profile/files/hosts  IN_CLOSE_WRITE,IN_CREATE,IN_MODIFY,IN_MOVE_SELF,IN_DELETE service dnsmasq  reload
+On rajoute ensuite un export dans notre fichier host pour matcher le fichier "versionné"
+
+export HOSTFILE="/home/boogie/Documents/work/repos/puppet/profile/files/hosts"
+
+
+
+
