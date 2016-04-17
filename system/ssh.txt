@@ -1,0 +1,22 @@
+=== notes ssh :
+
+- config client ssh :
+
+il est possible d'établir un profil particulier à certains types d'equipement : user de connexion , passage par un mod proxy pour se connecter en ssh sur les machinnes se trouvant derriere un bastion :
+Un fichier config dans le repertoire .ssh du $HOME du user est à creeer : 
+
+/.ssh$ cat config 
+# exemple le user du home dir se connectera automatiquement en netadmin sur les equipements se nommant switch-* et routeur-*
+Host switch-* routeur-*
+User netadmin
+
+# ici c'est en root que le user se connecte : on précise qu'il n'ya pa de check de modif de clé ssh a checker et qu'on forward l'agent ssh :
+Host bigip*  webfront* avamar*
+User root
+ForwardAgent yes
+StrictHostKeyChecking no
+
+# ici on se connecte à tous les hosts money* en passant par un bastion qui est utilisé comme proxy :
+Host money*
+proxyCommand ssh bastion nc %h %p
+
