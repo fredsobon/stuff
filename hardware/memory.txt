@@ -1,0 +1,83 @@
+ Libérer la mémoire cache du serveur
+
+Astuce pour forcer le noyau à abandonner la page de cache, inode dentry caches. Cette astuce peut contribuer à libérer la mémoire de Linux sans redémarrage.
+
+Note: Il s'agit d'une opération non-destructive. Dirty objets ne sont pas freeable, par conséquent, vous devez exécuter la synchronisation préalable.
+
+Pour utilisation de “/proc/sys/vm/drop_caches” :
+
+  Pour libérer pagecache: 
+
+#> sync; echo 1 > /proc/sys/vm/drop_caches
+
+  Pour libérer dentries et inodes: 
+
+#> sync; echo 2 > /proc/sys/vm/drop_caches
+
+  Pour libérer pagecache, dentries et inodes: 
+
+#> sync; echo 3 > /proc/sys/vm/drop_caches
+
+  Remise Par défaut : 
+
+#> sync; echo 0 > /proc/sys/vm/drop_caches
+
+== identifier le process qui swap :
+#!/bin/bash
+# Get current swap usage for all running processes
+# Erik Ljungstrom 27/05/2011
+SUM=0
+OVERALL=0
+for DIR in `find /proc/ -maxdepth 1 -type d | egrep "^/proc/[0-9]"` ; do
+PID=`echo $DIR | cut -d / -f 3`
+PROGNAME=`ps -p $PID -o comm --no-headers`
+for SWAP in `grep Swap $DIR/smaps 2>/dev/null| awk '{ print $2 }'` ; do
+let SUM=$SUM+$SWAP
+done
+echo "PID=$PID - Swap used: $SUM - ($PROGNAME )"
+let OVERALL=$OVERALL+$SUM
+SUM=0
+ 
+done
+echo "Overall swap used: $OVERALL"
+
+=Forcer l'occupation de toute la ram avant le swap :
+
+ Forcer l'utilisation quasi-total de la RAM avant de swapper
+
+La variable swappiness permet de faire varier l’utilisation de la mémoire vive par rapport à la swap.
+
+Par défaut, cette variable est fixée à 60 sur une échelle qui va de 0 à 100.
+
+Plus cette valeur est élevée plus le système va avoir tendance à swapper au détriment de l’utilisation de la mémoire vive.
+
+Cela peut améliorer les performances du système, en modifiant la valeur :
+
+# echo 10 > /proc/sys/vm/swappiness
+
+  Prise en compte a chaque démarrage : 
+
+#echo "vm.swappiness = 10" >> /etc/sysctl.conf
+
+= creation d'un tmpfs :
+
+ Créer un tmpfs répertoire en RAM
+
+  TMPFS est le nom donne au système de fichier Unix temporaire. 
+
+L'implémentation de tmpfs dans les noyaux Linux 2.6 est base sur ramfs.
+
+Création d'un point de montage sur /mnt/mytmpfs :
+
+mkdir /mnt/mytmpfs
+chmod 777 /mnt/mytmpfs
+mount -t tmpfs -o size=512M tmpfs /mnt/mytmpfs
+
+Implémenter dans FSTAB :
+
+tmpfs /mnt/mytmpfs tmpfs defaults,size=512m 0 0
+Resize online
+#> mount -t tmpfs -o remount,size=2048M tmpfs /tmp
+
+
+
