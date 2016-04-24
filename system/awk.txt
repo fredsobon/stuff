@@ -138,3 +138,74 @@ boogie:x:1000:1000:boogie,,,:/home/boogie:/bin/bash
 
 -OFS : Output File Separator :
 De base le caractère de séparation de champ de sortie est l'espace. C'est modifiable.
+
+
+
+
+
+
+= Utilisation de commandes systêmes via awk :
+
+
+ex :   On veut renommer des rep : “filer06-std-dc3 en filer06-dc3 ”
+
+On declare le field separator à “-” avec comme fin dc3 si le nombre de champ est egal à 3 alors on renomme en premier champ“-'dernier champ :
+
+root@boogieland:/mnt# ls | awk  'BEGIN {FS="-"} /.*dc3$/ {  if(NF == 3 ) print"mv "$0" "$1"-"$3" ;" ; } '
+mv filer06-std-dc3 filer06-dc3 ;
+mv filer07-std-dc3 filer07-dc3 ;
+mv filer08-std-dc3 filer08-dc3 ;
+mv filer09-std-dc3 filer09-dc3 ;
+mv filer10-std-dc3 filer10-dc3 ;
+mv filer11-std-dc3 filer11-dc3 ;
+mv filer12-std-dc3 filer12-dc3 ;
+mv filer13-std-dc3 filer13-dc3 ;
+
+root@boogieland:/mnt# ls | awk  'BEGIN {FS="-"} /.*dc3$/ {  if(NF == 3 ) system("mv "$0" "$1"-"$3" ;") ; } '
+
+    On veut trier , compter les connexions tcp par src :
+
+ ss -tan 'sport = :11211' | awk '{print $(NF)" "$(NF-1)}' | sed 's/:[^ ]*//g' | sort | uniq -c
+
+
+
+= Exemple assignation et tri de variable utilisées dans bash :
+
+
+cat monrer.sh 
+#!/bin/sh
+ 
+# CONFIGURATION
+URL="http://monrer.fr"
+STATION="LEG"
+MISSIONS="ROMI|DEBA|MONA|BALI"
+#IMG=/usr/share/icons/gnome-colors-common/16x16/apps/clock.png
+IMG=
+ 
+trains=$(wget -q -4 -O - $URL/json?s=$STATION | jq '.trains|.[]| .mission,.time,.retard,.destination' | sed -e 's/$/;/' | xargs -n 4 echo | sed -e 's/; /;/g' -e 's/;$//')
+ 
+next=$( echo "$trains" | awk -F\; -v missions="$MISSIONS" '$1 ~ missions {print $2 " " $3}' | sort | head -1 | sed 's/ /\n/')
+ 
+trains=$(echo "$trains" | sed 's/;/\t/g')
+ 
+if [ -n "$IMG" ] && [ -f "$IMG" ]
+then
+    echo "<img>$IMG</img>"
+fi
+echo "<txt>$next</txt>"
+echo "<tool>$trains</tool>"
+echo "<click>xdg-open $URL/?s=$STATION</click>"
+
+
+= Calcul avec awk : incrementation de variables :
+Somme d'une colonne avec AWK
+
+Par exemple, pour connaitre la place utilisee en memoire par le processus apache2 :
+
+    ps -ely | grep '\<apache2\>' | awk '{SUM += $8} END {print SUM}'
+
+ou pour connaitre la place en Ko prise par tous les fichiers PNG du repertoire :
+
+    ls -l *.png | awk '{SUM += $5} END {print SUM/1024}'
+
+
