@@ -17,7 +17,7 @@ content=$(ls -d "$src"/* |grep -v "lost+found" )
 if [ "C$target" == "C$res" ]; then 
 	echo  "ok "${src}" present ..."
 else
-	echo "no data ..to be loaded. plz chk"
+	echo "no data ..to be loaded. plz chk" ; exit 1
 fi
 
 [ -n "${content}" ] && echo "here are folder present on "${src}" ====:  " ; echo "$content"
