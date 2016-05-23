@@ -776,7 +776,72 @@ on peut utiliser ces deux mots clés dans le traitement d'une boucle:
 -> break : lorsque le shell rencontre ce mot clé : il sort de la boucle en passant directement après le "done" de la boucle.
 -> continue : quand il est rencontré par le shell : repart immédiatement en début de boucle (while ,for ..) 
 
+* while + break + test :
 
+interprete_chaine.sh
+
+#! /bin/sh
+while true ; do
+    echo -n "[Commande]>"
+	if ! read chaine ; then
+	echo "Saisie invalide"
+	break
+	fi
+	if [ -z "$chaine" ] ; then
+	echo "Saisie vide"
+	break
+	fi
+	if [ "$chaine" = "fin" ] ; then
+	echo "Fin demandée"
+	break
+	fi
+	eval $chaine
+done
+echo "Au revoir"
+
+Ce mini-interpréteur offre trois sorties possibles :
+$ ./interprete_chaine.sh
+[Commande]>ls
+descente_repertoires.sh test_fichier.sh
+deux_sorties.sh
+test_noyau.sh
+echo_stderr.sh
+ftpauto.sh
+test_select.sh
+interprete_chaine.sh factorielle.sh
+[Commande]>
+(Entrée)
+Saisie vide
+Au revoir
+$ ./interprete_chaine.sh
+[Commande]>
+(Contrôle-D) Saisie invalide
+Au revoir
+$ ./interprete_chaine.sh
+[Commande]>ls /dev | wc
+2395
+2395 14963
+[Commande]>fin
+Fin demandée
+Au revoir
+$
+La commande true renvoie toujours vrai, à l’inverse de son acolyte false . En dehors de
+while true ; do et de until false ; do , on les emploie également lors de la mise au point
+d’un script pour remplacer temporairement une commande et vérifier ainsi ce qui se
+passe lorsqu’elle échoue ou réussit.
+
+Le mot-clé break du shell peut également être suivi d’un entier indiquant le nombre de
+boucles imbriquées dont on désire sortir en une seule fois. Par défaut, la valeur est 1 , mais
+il est ainsi possible de transférer le contrôle à la fin d’une boucle extérieure plus large. On
+notera que les scripts qui font usage de cette possibilité sont souvent moins lisibles et
+plus difficiles à maintenir.
+
+Le mot-clé continue permet de renvoyer le contrôle au début de la boucle. On revient
+ainsi immédiatement à l’emplacement du test while ou until sans exécuter les instruc-
+tions suivantes. Nous en verrons un exemple dans le script présenté plus bas dans le para-
+graphe qui traite des fonctions. Comme pour break , il est possible d’ajouter un argument
+entier qui indique combien de boucles imbriquées doivent être traversées pour revenir au
+début.
 
 
 === chapter 5 - shell math and logic : 
