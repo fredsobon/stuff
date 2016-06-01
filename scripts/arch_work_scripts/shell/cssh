@@ -1,0 +1,27 @@
+#!/bin/sh
+
+CSSH="clusterssh"
+
+for pattern in $@
+do
+	hosts="$hosts `dns_search -g -1 $pattern|xargs echo`"
+done
+
+if [ -n "$hosts" ]
+then
+
+	echo "Hosts:"
+	echo $hosts|sed 's/ /\n/g'|sort -t. -k2
+
+	count=`echo $hosts|sed 's/ /\n/g'|wc -l`
+
+	echo -n "\n$count host(s), let's go ? (y/N): "
+	read ok
+
+	if echo "$ok" | grep -qi ^y
+	then
+		$CSSH $hosts &
+	fi
+else
+	echo "No matching hosts"
+fi

@@ -1,0 +1,61 @@
+#!/bin/sh
+
+#
+# Inspired from Vincent Batoufflet and Maxime Guillet
+# Last Updated by Frederic Sobon -  Mon, 14 Jan 2013 12:56:42 +0100
+
+
+# VAR 
+
+ARCHROOT=/srv/packages/ubuntu
+MASTER=vit
+VERBOSE=0
+
+
+# USAGE 
+
+print_usage() {
+        cat <<EOF
+Usage: $(basename $0) [options]
+
+Options:
+        -h      display this text and exit
+        -v      run in verbose mode
+EOF
+        exit 1
+}
+
+# TESTS 
+
+[ -d $ARCHROOT ] || { echo "Can't find  archives base directory: $ARCHROOT. Abort"; exit 1; }
+
+
+while getopts 'hv' option; do
+        case "$option" in
+                v)      VERBOSE=1 ;;
+                h|*)    print_usage ;;
+        esac
+done
+
+
+DOMAIN=$(hostname -d) || { echo "fail to resolv FQDN" >&2; exit 1; }
+echo $DOMAIN | grep -q "\.$MASTER\."
+if [ $? -ne 0 ]; then
+		if 
+			[ $VERBOSE -ne 0 ] && echo 'Not in the master datacenter' ; then 
+       			 exit 0
+		elif
+			[ $VERBOSE -eq 0 ] && echo 'Ok Master dc location' >/dev/null ; then
+			exit 0
+		fi
+fi
+
+
+# UPDATE REPOS :
+
+reprepro -b $ARCHROOT processincoming default
+
+if [ $? -ne 0 ]; then
+	echo "fail to include $changes" >&2
+	exit 1
+fi	

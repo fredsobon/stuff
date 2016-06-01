@@ -1,0 +1,70 @@
+#!/bin/sh
+# vim: syn=sh
+#
+# SARA install script for LISA nodes: 
+# Initial Authors: Bas van der Vlies and Jaap Dijkshoorn
+#
+# SVN Info:
+#	$Id: masterscript.new 475 2012-03-16 09:57:18Z dennis $
+
+. /tmp/variables.txt
+
+# Load functions and other variables
+. /etc/init.d/functions
+
+get_overrides() {
+	for OVERRIDE in $OVERRIDES ; do
+		# Use rsync
+		logmsg "trying to download override ${OVERRIDE} with rsync..."
+		logmsg "rsync -av --numeric-ids $IMAGESERVER::overrides/$OVERRIDE/ /a/"
+		rsync -av --numeric-ids $IMAGESERVER::overrides/$OVERRIDE/ /a/ > /dev/console || logmsg "Override directory $OVERRIDE doesn't seem to exist, but that may be OK."
+	done
+}
+
+# disklabel can be msdos or gpt
+DISKLABEL=msdos
+EXTRA_LOG='/var/log/extra-sali.log'
+
+get_arch
+
+# Remove .master from script name
+SARA_IMAGE=`echo $0 | cut -d. -f1`
+
+[ -z $IMAGENAME ] && IMAGENAME=`basename $SARA_IMAGE`
+#[ -z $OVERRIDES ] && OVERRIDES=`basename $SARA_IMAGE`
+
+export IMAGENAME
+save_param IMAGENAME "${IMAGENAME}"
+
+# Setting hostname
+[ -z "$HOSTNAME" ] && HOSTNAME=$FQDN
+save_param HOSTNAME "${HOSTNAME}"
+
+[ -z "$GRUB2" ] && GRUB2='no'
+save_param GRUB2 "${GRUB2}"
+
+logmsg "Image: $IMAGENAME"
+logmsg "Hostname: $HOSTNAME"
+logmsg "using GRUB 2: $GRUB2"
+
+# Test for mounted filesystems
+mount | grep '[hs]d[a-z][1-9]|md[0-9]' > /dev/null 2>&1
+[ $? -eq 0 ] && logmsg '[ERROR] must not run on a working machine' && shellout
+
+# Checking raid
+MEGARAID=$(grep -i megaraid /proc/devices || lsscsi |grep -Ei '(Virtual Disk|HP\s+LOGICAL VOLUME)')
+if [ "$FORCE_SOFTRAID" = 'yes' ] || [ -z "$MEGARAID" ]; then
+	logmsg 'using software raid'
+	RAID_SOFT=1
+else
+	logmsg 'using hardware raid'
+	RAID_SOFT=0
+fi
+
+lvchange -ay mvg
+mkdir /a
+
+# Tell the image server we are done
+rsync $IMAGESERVER::scripts/imaging_complete > /dev/null 2>&1
+
+# Ready to open a shell

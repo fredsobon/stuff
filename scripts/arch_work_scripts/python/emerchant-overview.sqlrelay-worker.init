@@ -1,0 +1,37 @@
+#!/bin/bash
+
+NAME=sqlrelay-worker
+DAEMON=/usr/bin/python
+ARGS="/usr/share/pyshared/overview/module/sqlrelay/worker.py"
+PIDFILE=/tmp/sqlrelay-worker.pid
+RUN_AS_USER=www-data
+RUN_AS_GROUP=www-data
+
+test -f /etc/default/$NAME && . /etc/default/$NAME
+
+. /lib/init/vars.sh
+. /lib/lsb/init-functions
+
+case "$1" in
+  start)
+    echo "Starting server"
+    start-stop-daemon --start --pidfile $PIDFILE \
+        --user $RUN_AS_USER --group $RUN_AS_GROUP \
+        -b --make-pidfile \
+        --chuid $RUN_AS_USER \
+        --exec $DAEMON $ARGS
+    ;;
+  stop)
+    echo "Stopping server"
+    start-stop-daemon --stop --pidfile $PIDFILE --verbose
+    ;;
+  status)
+    status_of_proc -p "$PIDFILE" "$DAEMON" "$NAME" && exit 0 || exit $?
+    ;;
+  *)
+    echo "Usage: /etc/init.d/sqlrelay-worker {start|stop|status}"
+    exit 1
+    ;;
+esac
+
+exit 0

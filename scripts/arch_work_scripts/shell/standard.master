@@ -1,0 +1,387 @@
+#!/bin/sh -x
+# vim: syn=sh
+# $Rev: 15395 $:  Revision of last commit
+# $Author: d.larquey $:  Author of last commit
+# $Date: 2015-08-27 16:30:49 +0200 (jeu. 27 août 2015) $:  Date of last commit
+# $HeadURL: http://svn.e-merchant.net/svn/norel-puppet/modules/systemimager/files/si-scripts/standard.master $: Path 
+#
+
+# E-Merchant: log all actions and commands
+exec 1>/tmp/$(basename $0).log
+exec 2>&1
+echo "CMDLINE: "
+cat /proc/cmdline
+
+
+# SARA install script for LISA nodes: 
+# Initial Authors: Bas van der Vlies and Jaap Dijkshoorn
+#
+# SVN Info:
+#	$Id: masterscript.new 475 2012-03-16 09:57:18Z dennis $
+
+. /tmp/variables.txt
+
+# Load functions and other variables
+. /etc/init.d/functions
+
+# LVM creation additional function
+vgcreation() {
+	# exemple :
+	# vgcreation mvg /dev/sda1
+	VGNAME=$1
+    shift
+	VGDEV=$@
+	logmsg "initializing partition(s) $VGDEV as LVM"
+	pvcreate --metadatatype 2 -ff --yes $VGDEV || shellout
+	lvremove -f /dev/$VGNAME >/dev/null 2>&1 && vgremove $VGNAME >/dev/null 2>&1
+	vgcreate --metadatatype 2 -l 0 -p 0 -s 4096K $VGNAME $VGDEV || shellout
+}
+
+lvcreation() {
+	# exemple :
+	# lvcreation mvg 10G:ext4:racine:/:raid10 4G:ext4:home:/home:raid10 4G:swap:swap:none
+
+	VGNAME=$1
+	shift
+
+	logmsg "creating volume on group $VGNAME"
+
+	while [ $# -gt 0 ]; do
+		SIZE=$( echo $1 | awk -F ":" '{ print $1 }' )
+		TYPE=$( echo $1 | awk -F ":" '{ print $2 }' )
+		LABEL=$( echo $1 | awk -F ":" '{ print $3 }' )
+		MOUNTPATH=$( echo $1 | awk -F ":" '{ print $4 }' )
+        RAIDLEVEL=$( echo $1 | awk -F ":" '{ print $5 }' )
+        
+        case x$RAIDLEVEL in
+        xraid0)
+            STRIPESMIRRORSARGS="-i $NUMDISKS"
+        ;;
+        xraid1)
+            STRIPESMIRRORSARGS="-i $NUMDISKS"
+        ;;
+        xraid10)
+            STRIPESMIRRORSARGS="-i `expr $NUMDISKS / 2` -m 1 --nosync"
+        ;;
+        xraid5)
+            STRIPESMIRRORSARGS="-i `expr $NUMDISKS - 1`"
+        ;;        
+        xraid6)
+            STRIPESMIRRORSARGS="-i `expr $NUMDISKS - 2`"
+        ;;  
+        *)
+            # raidlevel non reconnu, on le désactive
+            RAIDLEVEL=''
+        ;;     
+        esac
+
+		DEV="/dev/mapper/${VGNAME}-${LABEL}"
+		if [ -z $RAIDLEVEL ] ; then
+		    lvcreate --size $SIZE -n $LABEL $VGNAME || shellout
+		else
+		    lvcreate --size $SIZE -n $LABEL --type $RAIDLEVEL $STRIPESMIRRORSARGS $VGNAME || shellout
+		fi
+		create_filesystem $DEV $TYPE $LABEL
+
+		if [ "$MOUNTPATH" != 'none' ]; then
+			create_disk_mount_file $VGNAME $MOUNTPATH $TYPE $DEV
+		fi
+
+		shift
+	done
+}
+
+get_overrides() {
+	for OVERRIDE in $OVERRIDES ; do
+		# Use rsync
+		logmsg "trying to download override ${OVERRIDE} with rsync..."
+		logmsg "rsync -av --numeric-ids $IMAGESERVER::overrides/$OVERRIDE/ /a/"
+		rsync -av --numeric-ids $IMAGESERVER::overrides/$OVERRIDE/ /a/ > /dev/console || logmsg "Override directory $OVERRIDE doesn't seem to exist, but that may be OK."
+	done
+}
+
+# disklabel can be msdos or gpt
+DISKLABEL=msdos
+EXTRA_LOG='/var/log/extra-sali.log'
+RAID_SOFT_LEVEL=raid1
+
+# RAID_SOFT_TYPE can be lvm or md
+RAID_SOFT_TYPE=md
+
+get_arch
+
+# Remove .master from script name
+SARA_IMAGE=`echo $0 | cut -d. -f1`
+
+[ -z $IMAGENAME ] && IMAGENAME=`basename $SARA_IMAGE`
+
+export IMAGENAME and HOSTNAME
+save_param IMAGENAME "${IMAGENAME}"
+save_param HOSTNAME "${HOSTNAME}"
+
+[ -z "$GRUB2" ] && GRUB2='no'
+save_param GRUB2 "${GRUB2}"
+
+logmsg "Image: $IMAGENAME"
+logmsg "Hostname: $HOSTNAME"
+logmsg "using GRUB 2: $GRUB2"
+
+# Test for mounted filesystems
+mount | grep '[hs]d[a-z][1-9]|md[0-9]' > /dev/null 2>&1
+[ $? -eq 0 ] && logmsg '[ERROR] must not run on a working machine' && shellout
+
+# Checking raid
+HARDRAID=$(grep -i 'megaraid\|202 xvd' /proc/devices || lsscsi |grep -Ei '(Virtual Disk|HP\s+LOGICAL VOLUME)')
+if [ "$FORCE_SOFTRAID" = 'yes' ] || [ -z "$HARDRAID" ]; then
+	logmsg 'using software raid'
+	RAID_SOFT=1
+else
+	logmsg 'using hardware raid'
+	RAID_SOFT=0
+fi
+
+# Sort disk, first disk to be found are sd* disk
+disk_enumerate 'sd,xvd'
+
+# Misc checks
+if [ $RAID_SOFT -eq 1 ] && [ -z "$DISK1" ]; then
+	logmsg '[ERROR] only one disk found for software raid'
+	shellout
+fi
+#if [ $RAID_SOFT -eq 1 ] && [ "$GRUB2" != 'yes' ]; then
+#	logmsg '[ERROR] software raid can only be use with grub2'
+#	shellout
+#fi
+# RAID_SOFT_TYPE overide for OSes not supporting LVM/DM RAID
+case $IMAGENAME in
+    oracle-linux5*) RAID_SOFT_TYPE=md ;;
+    oracle-linux6*) RAID_SOFT_TYPE=md ;;
+    lucid*)         RAID_SOFT_TYPE=md ;;
+    precise*)       RAID_SOFT_TYPE=md ;;
+    *)              RAID_SOFT_TYPE=md ;;
+esac
+
+# Disk partition
+if [ $RAID_SOFT -eq 1 ]; then
+	for i in `seq 0 $(( $NUMDISKS - 1 ))`; do
+        #disk=DISK${i}
+        #disk_list="$disk_list ${!disk}"
+        #first_part_list="$first_part_list ${!disk}1"
+        disk=`eval echo $\`echo DISK${i}\``
+        disk_list="$disk_list ${disk}"
+        first_part_list="$first_part_list ${disk}1"
+        second_part_list="$second_part_list ${disk}2"
+    done
+else
+	disk_list="$DISK0"
+	first_part_list="${DISK0}1"
+    second_part_list="${DISK0}2"
+fi
+
+for disk in $disk_list; do
+	logmsg "setting disk configuration for device $disk"
+	set_disklabel $disk $DISKLABEL || shellout >$EXTRA_LOG 2>&1
+	
+	if [ $RAID_SOFT -eq 1 ]; then
+	    if [ "$GRUB2" != 'yes' ]; then
+            if [ $RAID_SOFT_TYPE != "md" ]; then
+                logmsg "partition $disk 250:none:: 0:none::lvm"
+                partition $disk 250:none:: 0:none::lvm || shellout >$EXTRA_LOG 2>&1
+                parted -s -- $disk set 2 lvm on || shellout >$EXTRA_LOG 2>&1
+            else
+                logmsg "partition $disk 250:none:: 0:none::"
+                partition $disk 250:none:: 0:none:: || shellout >$EXTRA_LOG 2>&1
+                parted -s -- $disk set 2 raid on || shellout >$EXTRA_LOG 2>&1
+            fi
+            parted -s -- $disk set 1 raid on || shellout >$EXTRA_LOG 2>&1
+        else
+        	logmsg "partition $disk 0:none::"
+		    partition $disk 0:none:: || shellout >$EXTRA_LOG 2>&1
+		    parted -s -- $disk set 1 raid on || shellout >$EXTRA_LOG 2>&1
+        fi
+	else
+		if [ "$GRUB2" != 'yes' ]; then
+		    logmsg "partition $disk 250:ext2.128:/boot:boot 0:none::lvm"
+		    partition $disk 250:ext2.128:/boot:boot 0:none::lvm || shellout >$EXTRA_LOG 2>&1
+		    parted -s -- $disk set 2 lvm on || shellout >$EXTRA_LOG 2>&1
+		else
+		    logmsg "partition $disk 0:none::lvm"
+		    partition $disk 0:none::lvm || shellout >$EXTRA_LOG 2>&1
+		    parted -s -- $disk set 1 lvm on || shellout >$EXTRA_LOG 2>&1
+		fi
+	
+	fi	
+	parted -s -- $disk set 1 boot on || shellout >$EXTRA_LOG 2>&1
+done
+
+
+#MDRAID setup
+if [ $RAID_SOFT -eq 1 ]; then
+    modprobe raid1 
+    modprobe raid10 
+    modprobe dm-raid
+
+    if [ "$GRUB2" != 'yes' ]; then
+        # /boot
+        logmsg 'creating software raid for device md0'
+        yes | mdadm --create /dev/md0 \
+                --force \
+                --auto yes \
+                --level raid1 \
+                --raid-devices $NUMDISKS \
+                --metadata=0.90 \
+                --assume-clean \
+                $first_part_list || shellout >$EXTRA_LOG 2>&1
+        create_filesystem /dev/md0 ext2.128 boot
+        create_disk_mount_file md0 /boot ext2 /dev/md0
+        
+        # PV
+        if [ $RAID_SOFT_TYPE = "md" ]; then
+            logmsg 'creating software raid for device md1'
+                yes | mdadm --create /dev/md1 \
+                --force \
+                --auto yes \
+                --level $RAID_SOFT_LEVEL \
+                --raid-devices $NUMDISKS \
+                --metadata=0.90 \
+                $second_part_list || shellout >$EXTRA_LOG 2>&1
+        fi   
+    else
+        # PV
+        if [ $RAID_SOFT_TYPE = "md" ]; then
+            logmsg 'creating software raid for device md0'
+                yes | mdadm --create /dev/md0 \
+                --force \
+                --auto yes \
+                --level $RAID_SOFT_LEVEL \
+                --raid-devices $NUMDISKS \
+                --metadata=0.90 \
+                $first_part_list || shellout >$EXTRA_LOG 2>&1
+        fi  
+    fi     
+fi
+
+
+# Naming partition
+PV_LIST=''
+BOOT_DEV=''
+if [ $RAID_SOFT -eq 1 ]; then
+    if [ "$GRUB2" != 'yes' ]; then
+        if [ $RAID_SOFT_TYPE = "md" ]; then
+            PV_LIST="/dev/md1"
+            BOOT_DEV="/dev/md0"
+        else
+            PV_LIST="$second_part_list"
+            BOOT_DEV="/dev/md0"
+        fi
+    else
+        PV_LIST="/dev/md0"
+        BOOT_DEV="/dev/mapper/mvg-boot"
+    fi
+else
+    if [ "$GRUB2" != 'yes' ]; then
+        PV_LIST="$second_part_list"
+        BOOT_DEV="$first_part_list"
+    else
+        PV_LIST="$first_part_list"
+        BOOT_DEV="/dev/mapper/mvg-boot"
+    fi
+fi
+
+# LVs creation
+if [ $RAID_SOFT -eq 1 ] && [ $RAID_SOFT_TYPE = "lvm" ]; then
+    root_config="10G:ext4:racine:/:${RAID_SOFT_LEVEL}"
+    tmp_config="4G:ext4:tmp:/tmp:${RAID_SOFT_LEVEL}"
+    varlog_config="4G:ext4:varlog:/var/log:${RAID_SOFT_LEVEL}"
+    if [ -n "$HOME_SIZE" ] && [ "$HOME_SIZE" != '0' ]; then 
+       home_config="$HOME_SIZE:ext4:home:/home:${RAID_SOFT_LEVEL}"
+    fi
+    boot_config=""
+else
+    root_config="10G:ext4:racine:/"
+    tmp_config="4G:ext4:tmp:/tmp"
+    varlog_config="4G:ext4:varlog:/var/log"
+    if [ -n "$HOME_SIZE" ] && [ "$HOME_SIZE" != '0' ]; then
+        home_config="$HOME_SIZE:ext4:home:/home"
+	fi
+	if [ "$GRUB2" != 'yes' ]; then
+	    boot_config=""
+    else
+        boot_config="250M:ext2.128:boot:/boot"
+	fi
+fi
+vgcreation mvg $PV_LIST || shellout >$EXTRA_LOG 2>&1
+logmsg "lvcreation mvg $root_config $boot_config $home_config $tmp_config $varlog_config $SWAP:swap:swap:none"
+lvcreation mvg $root_config $boot_config $home_config $tmp_config $varlog_config $SWAP:swap:swap:none || shellout >$EXTRA_LOG 2>&1
+
+
+# Hack for grub-pc which under Ubuntu Lucid which doesn't follow symlink
+# (see http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=550704)
+logmsg "deleting links top /dev/mapper  (grub-pc's fault !)"
+for lv in /dev/mapper/mvg-* ; do
+	[ ! -L "$lv" ] && continue
+	lv_src=$(dirname "$lv")/$(readlink "$lv")
+	rm -f "$lv" && cp -R "$lv_src" "$lv" || shellout >$EXTRA_LOG 2>&1
+done
+
+# Mounting partition
+logmsg 'mounting disks'
+mount_disks || shellout >$EXTRA_LOG 2>&1
+
+logmsg 'chrooting new system'
+chroot_mount_system_fs || shellout >$EXTRA_LOG 2>&1
+
+if [ ! -z $MONITOR_SERVER ]; then
+	start_report_task
+fi
+
+# Let s get the image
+logmsg "starting rsync, please wait..."
+getimage || shellout >$EXTRA_LOG 2>&1
+
+logmsg "rsync completed"
+
+# Get overrides
+get_overrides
+
+# Fix fstab
+sed -i -e "s#^.*/boot.*ext2.*#${BOOT_DEV}\t/boot\t\t\text2    defaults        0 2#" /a/etc/fstab
+
+# Leave notice of which image is installed on the client
+echo $IMAGENAME > /a/etc/systemimager/IMAGE_LAST_SYNCED_TO || shellout
+
+# Post Install Scripts
+logmsg "running post install scripts"
+touch /var/log/monitor.log
+run_post_install_scripts || shellout >$EXTRA_LOG 2>&1
+
+# Save virtual console session in the imaged client
+if [ "x$MONITOR_CONSOLE" = "xyes" ]; then
+	[ ! -d /a/var/log ] && mkdir -p /a/var/log
+	cp -f /var/log/sali.log /a/var/log/sali.log
+fi
+
+# unmount filesystems
+logmsg "exiting from the chroot"
+chroot_umount_system_fs || shellout >$EXTRA_LOG 2>&1
+
+# E-Merchant: copy logs to the target root volume
+DESTLOGDIR=/a/root/sali
+mkdir -p $DESTLOGDIR
+cp /tmp/$(basename $0).log ${DESTLOGDIR}/
+
+for file in devices cmdline partitions mdstat modules mounts swaps interrupts; do
+    cp /proc/${file} ${DESTLOGDIR}/
+done
+lspci >${DESTLOGDIR}/lspci
+dmesg >${DESTLOGDIR}/dmesg
+
+logmsg "unmounting disks"
+umount_disks || shellout >$EXTRA_LOG 2>&1
+
+# Tell the image server we are done
+rsync $IMAGESERVER::scripts/imaging_complete > /dev/null 2>&1
+logmsg "Imaging completed"
+
+# Last action to do
+reboot

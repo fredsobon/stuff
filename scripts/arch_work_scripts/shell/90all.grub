@@ -1,0 +1,57 @@
+#!/bin/sh
+# $Rev: 15383 $:  Revision of last commit
+# $Author: j.civray $:  Author of last commit
+# $Date: 2015-08-25 17:07:12 +0200 (mar. 25 août 2015) $:  Date of last commit
+# $HeadURL: http://svn.e-merchant.net/svn/norel-puppet/modules/systemimager/files/si-scripts/post-install/90all.grub $: Path 
+# Get the Systemimager variables
+. /tmp/post-install/variables.txt
+
+echo "setting up grub: running grub.."
+if [ -f /etc/redhat-release ]; then
+	mdadm_file=/etc/mdadm.conf
+	grub2_cmd_prefix=grub2
+else
+	mdadm_file=/etc/mdadm/mdadm.conf
+	grub2_cmd_prefix=grub
+fi
+
+if [ -e "/boot/$grub2_cmd_prefix/grub.cfg" ]; then
+	if [ -e '/dev/md0' ]; then
+		# Mdadm configuration
+		echo "Using GRUB2 install method on software raid! :: $DISK0 $DISK1"
+		/sbin/mdadm --detail --scan --verbose > $mdadm_file
+		sed -i 's/00.90/0.90/g' $mdadm_file
+		echo "MAILADDR it.prod.admin@pixmania-group.com" >> $mdadm_file
+		if [ -f /etc/debian_version ]; then
+			/usr/sbin/update-rc.d -f mdadm start 25 2 3 4 5 . stop 25 0 1 6 .
+		elif [ -f /etc/redhat-release ]; then
+			/sbin/chkconfig --level 2345 mdmonitor on
+		fi
+		
+		# Grub configuration files
+		${grub2_cmd_prefix}-mkdevicemap --no-floppy
+		#echo '(hd9) /dev/md0' >> /boot/$grub2_cmd_prefix/device.map
+                echo 'GRUB_PRELOAD_MODULES="disk diskfilter mdraid09 lvm normal extcmd minicmd biosdisk blocklist partmap parttool command scsi reboot fshelp"' >> /etc/default/grub
+
+                ${grub2_cmd_prefix}-install --no-floppy  $DISK0
+                ${grub2_cmd_prefix}-install --no-floppy  $DISK1
+
+                LANG=C update-initramfs -u
+	else
+		echo "Using GRUB2 install method! :: $DISK0"
+		${grub2_cmd_prefix}-install --no-floppy $DISK0
+	fi
+	echo "Generating grub.cfg. Please wait..."
+	${grub2_cmd_prefix}-mkconfig -o /boot/$grub2_cmd_prefix/grub.cfg
+
+	echo "GRUB2 install done"
+else
+	echo "Using Legacy GRUB install method!"
+	grub --batch <<EOF
+root (hd0,0)
+setup (hd0)
+EOF
+        echo "setting up grub: done."
+fi
+
+exit 0

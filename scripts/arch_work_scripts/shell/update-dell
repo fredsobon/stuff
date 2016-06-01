@@ -1,0 +1,67 @@
+#!/bin/sh
+
+#
+# Inspired from Vincent Batoufflet
+#
+
+# DEFINITIONS
+MIRROR_BASE=/srv/mirrors
+MASTER=vit
+
+# FUNCTIONS
+print_usage() {
+	cat <<EOF
+Usage: $(basename $0) [options]
+
+Options:
+	-h	display this text and exit
+	-v	run in verbose mode
+EOF
+	exit 1
+}
+
+update_mirrors() {
+	[ "$1" = 'verbose' ] && VERBOSE='-v'
+
+	# update main mirror
+	/usr/bin/debmirror $VERBOSE \
+		--arch amd64,i386 \
+		--dist trusty \
+                --section openmanage \
+		--getcontents \
+		--host linux.dell.com \
+		--ignore-release-gpg \
+		--ignore-small-errors \
+		--method rsync \
+		--root :repo/community/ubuntu\
+		$MIRROR_BASE/dell
+
+
+}
+
+# MAIN
+_verbose=0
+
+[ -d $MIRROR_BASE ] || { echo "Can't find mirror base directory: $MIRROR_BASE. Abort"; exit 1; }
+
+while getopts 'hv' option; do
+	case "$option" in
+		v)	_verbose=1 ;;
+		h|*)	print_usage ;;
+	esac
+done
+
+DOMAIN=$(hostname -d) || { echo "fail to resolv FQDN" >&2; exit 1; }
+echo $DOMAIN | grep -q "\.$MASTER\."
+if [ $? -ne 0 ]; then
+	[ $_verbose -ne 0 ] && echo 'Not in the master datacenter'
+	exit 0
+fi
+
+if [ $_verbose -eq 0 ]; then
+	update_mirrors >/dev/null 2>&1 | grep -v '^\(Failed to download some Package, Sources or Release files!\|WARNING: releasing 1 pending lock...\)$'
+else
+	update_mirrors verbose
+fi
+
+exit

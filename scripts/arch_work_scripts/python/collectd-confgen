@@ -1,0 +1,155 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+# vim: bg=dark ft=python ts=4 sw=4 et
+
+import getopt
+import sys
+import yaml
+from socket import getfqdn
+
+DOMAIN = 'e-merchant.net'
+DC = getfqdn().split('.')[-3]
+
+SNMP_COMMUNITY = 'pixro'
+SNMP_VERSION = 2
+SNMP_OID_F5_POOLS   = 'F5-BIGIP-LOCAL-MIB::ltmPoolStatName'
+SNMP_OID_F5_VS      = 'F5-BIGIP-LOCAL-MIB::ltmVirtualServStatName'
+
+ASSIGNED_DC = {
+    'vit': 'vit',
+    'cha': 'dc3',
+    'nan': 'dc3',
+    'dc3': 'dc3',
+    'rof01': 'vit',
+    'rof03': 'vit',
+    'shop01': 'vit',
+    'shop02': 'vit',
+    'shop03': 'vit',
+    'shop04': 'vit',
+    'shop05': 'vit',
+    'shop06': 'vit',
+    'shop07': 'vit',
+    'shop08': 'vit',
+    'shop09': 'vit',
+    'shop10': 'vit',
+    'shop11': 'vit',
+    'shop12': 'vit',
+    'shop13': 'vit',
+    'shop14': 'vit',
+    'shop15': 'vit',
+    'shop16': 'vit',
+    'shop17': 'vit',
+    'shop18': 'vit',
+    'shop19': 'vit',
+}
+
+HOST_DEF = '''Address "%s"
+Version %d
+Community "%s"'''
+
+def is_distant(host):
+    host_dc = host.split('.')[-3]
+    if host_dc == DC or (host_dc in ASSIGNED_DC and ASSIGNED_DC[host_dc] == DC):
+        return False
+    else:
+        return True
+
+def usage():
+    print('usage: %s -c <file>' % sys.argv[0])
+    return True
+
+#------------------------------------------------------------------------------
+
+if len(sys.argv) < 2:
+    usage()
+    sys.exit(1)
+
+# loading configuration file
+try:
+    opts, args = getopt.gnu_getopt(sys.argv[1:], 'c:')
+
+    for opt, arg in opts:
+        if opt == '-c':
+            conf_file = arg
+except getopt.GetoptError, e:
+    print('%s' % e)
+    usage()
+    sys.exit(1)
+
+try:
+    f = open(conf_file, 'r')
+    conf = yaml.load(f)
+    f.close()
+
+    hosts_net       = conf['hosts_net']
+    hosts_srv       = conf['hosts_srv']
+    metrics         = conf['metrics']
+    lb_pools_back   = conf['lb_pools_back']
+    lb_pools_front  = conf['lb_pools_front']
+    lb_vs_back      = conf['lb_vs_back']
+    lb_vs_front     = conf['lb_vs_front']
+except IOError, e:
+    print('error: unable to load configuration file (%s)' % e)
+    sys.exit(1)
+
+# populating F5 lb_{pools,vs}_{back,front}
+for pool in lb_pools_back:
+    metrics['f5_lb_back'].append(
+        [
+            'f5_poolconns_' + pool.replace('POOL_', '').lower(),
+            'f5_poolbytes_' + pool.replace('POOL_', '').lower(),
+        ]
+    )
+
+for pool in lb_pools_front:
+    metrics['f5_lb_front'].append(
+        [
+            'f5_poolconns_' + pool.replace('POOL_', '').lower(),
+            'f5_poolbytes_' + pool.replace('POOL_', '').lower(),
+        ]
+    )
+
+for vs in lb_vs_back:
+    metrics['f5_lb_back'].append(
+        [
+            'f5_vsreq_' + vs.replace('VS_', '').lower(),
+        ]
+    )
+
+for vs in lb_vs_front:
+    metrics['f5_lb_front'].append(
+        [
+            'f5_vsreq_' + vs.replace('VS_', '').lower(),
+        ]
+    )
+
+print('<Plugin snmp>')
+for host in hosts_srv:
+    if is_distant(host):
+	    continue
+
+    print('<Host "%s">' % host)
+    snmp_version = SNMP_VERSION
+
+    for metricgroup in hosts_srv[host]:
+        if metricgroup == 'snmp_version':
+            snmp_version = hosts_srv[host]['snmp_version']
+            continue
+
+        for metric in metrics[metricgroup]:
+            print('Collect %s' % ', '.join(map(lambda a: "\"%s\"" % a, metric)))
+
+    print(HOST_DEF % (host, snmp_version, SNMP_COMMUNITY))
+    print('</Host>')
+
+for host in hosts_net:
+    if is_distant(host):
+	    continue
+
+    print('<Host "%s">' % host)
+    print(HOST_DEF % (host, SNMP_VERSION, SNMP_COMMUNITY))
+    for metricgroup in hosts_net[host]:
+        for metric in metrics[metricgroup]:
+            print('Collect %s' % ', '.join(map(lambda a: "\"%s\"" % a, metric)))
+    print('</Host>')
+print('</Plugin>')

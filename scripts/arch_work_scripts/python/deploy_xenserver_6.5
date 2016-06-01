@@ -1,0 +1,59 @@
+#!/bin/bash
+
+RED=`tput setaf 1`
+GREEN=`tput setaf 2`
+YELLOW=`tput setaf 3`
+NC=`tput sgr0` # No Color
+
+NOM_SERVEUR=$1
+if host ${NOM_SERVEUR} ; then
+  IP_SERVEUR=$(host ${NOM_SERVEUR} | awk '/has address/ { print $4 }')
+  IP_HEX=$(printf '%02X' ${IP_SERVEUR//./ }; echo)
+  SITE=$(echo ${NOM_SERVEUR} | awk -F. '{ print $(NF-2)  ;}')
+  if [ "${SITE}" == 'dc3' ]; then
+    IP_DEPLOY="10.4.251.36"
+  else
+    IP_DEPLOY="10.3.251.36"
+  fi
+  echo "Creation de ${GREEN}/srv/tftpboot/pxelinux.cfg/${IP_HEX} ${NC}"
+  cat << EOF > /srv/tftpboot/pxelinux.cfg/${IP_HEX}
+default xenserver-auto
+label xenserver-auto
+    kernel /xs-6.5/mboot.c32
+    append /xs-6.5/xen.gz dom0_max_vcpus=2-4 dom0_mem=2G,max:4G com1=115200,8n1 console=com1,vga --- xs-6.5/vmlinuz  xencons=hvc console=hvc0 console=tty1 console=ttyS1,115200n8 answerfile=http://${IP_DEPLOY}/tftpboot.xs/6.5/server/${IP_HEX} net.ifnames=0 biosdevname=0  install --- xs-6.5/install.img
+EOF
+
+ echo "Creation de ${GREEN}/srv/tftpboot.xs/6.5/server/${IP_HEX} ${NC} "
+  cat << EOF >  /srv/tftpboot.xs/6.5/server/${IP_HEX}
+<?xml version="1.0"?>
+    <installation srtype="ext">
+       <primary-disk>sda</primary-disk>
+       <keymap>fr</keymap>
+       <root-password>SaliRoot</root-password>
+       <source type="url">http://${IP_DEPLOY}/tftpboot.xs/6.5/</source>
+       <script type="url" stage="installation-complete">http://${IP_DEPLOY}/tftpboot.xs/6.5/post_install.sh</script>
+       <hostname>${NOM_SERVEUR}</hostname>
+       <admin-interface name="eth2" proto="static" >
+          <ipaddr>${IP_SERVEUR}</ipaddr>
+          <subnet>255.255.255.0</subnet>
+          <gateway>$(echo ${IP_SERVEUR}|cut -d"." -f1-3).254</gateway>
+       </admin-interface>
+       <name-server>10.4.253.100</name-server>
+       <name-server>10.3.253.100</name-server>
+       <ntp-server>ntp.dc3.e-merchant.net</ntp-server>
+       <ntp-server>ntp.vit.e-merchant.net</ntp-server>
+       <timezone>Europe/Paris</timezone>
+    </installation>
+EOF
+
+  cd /srv
+  echo "Lancement du serveur web python, ne pas tenir compte des erreurs lors du ${YELLOW}CTRL+C ${NC} pour le stopper"
+  echo 'Le stopper lors du reboot du serveur'
+  python -m SimpleHTTPServer 80
+  echo "Suppression de ${GREEN}/srv/tftpboot/pxelinux.cfg/${IP_HEX}${NC} et de ${GREEN}/srv/tftpboot.xs/6.5/server/${IP_HEX}${NC} "
+  rm /srv/tftpboot.xs/6.5/server/${IP_HEX}  /srv/tftpboot/pxelinux.cfg/${IP_HEX}
+  echo "Retour au repertoire d'origine"
+  cd -
+else
+  echo "Erreur nom d'host inconnu"
+fi

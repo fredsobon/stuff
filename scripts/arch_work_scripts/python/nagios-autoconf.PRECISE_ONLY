@@ -1,0 +1,435 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# nagios-autoconf: Nagios automatic configuration generator
+#                  by Vincent Batoufflet <vbatoufflet@e-merchant.com>
+#
+
+import argparse
+import codecs
+import copy
+import httplib
+import os
+import re
+import socket
+import sys
+import time
+import yaml
+
+from glob import glob
+
+DOMAIN_SUFFIX = 'e-merchant.net'
+
+DOMAIN_SITES = [ 'vit', 'dc3' ]
+
+PUPPET_SERVER = 'slave01.puppet.common.prod.%s.' + DOMAIN_SUFFIX
+PUPPET_PORT = 18137
+
+RESOURCES_DIR = os.path.join(os.path.dirname(sys.argv[0]), 'resources')
+
+SERVICES_POOLS = {}
+
+
+class Loader(yaml.Loader):
+    def __init__(self, *args, **kwargs):
+        yaml.Loader.__init__(self, *args, **kwargs)
+        self.add_multi_constructor('', constructor)
+
+    def construct_mapping(self, node, deep=False):
+        if not isinstance(node, yaml.nodes.MappingNode):
+            raise yaml.constructor.ConstructorError(None, None, 'expected a mapping node, but found %s' % node.id,
+                node.start_mark)
+
+        mapping = {}
+
+        for key_node, value_node in node.value:
+            key = self.construct_object(key_node, deep=deep)
+
+            try:
+                hash(key)
+            except TypeError, exc:
+                if isinstance(key_node, yaml.nodes.SequenceNode):
+                    key = '\x00'.join(self.construct_sequence(key_node))
+                else:
+                    raise yaml.constructor.ConstructorError('while constructing a mapping', node.start_mark,
+                        'found unacceptable key (%s)' % exc, key_node.start_mark)
+
+            mapping[key] = self.construct_object(value_node, deep=deep)
+
+        return mapping
+
+
+class Object(yaml.YAMLObject):
+    def __init__(self, data):
+        self.attr = data
+
+    def __getattr__(self, name):
+        return self.attr[name] if isinstance(self.attr, dict) else None
+
+    def __repr__(self):
+        if isinstance(self.attr, dict):
+            return '%s(%s)' % (self.__class__.__name__, self.attr)
+        else:
+            return repr(self.attr)
+
+
+def constructor(loader, suffix, node):
+    if isinstance(node, yaml.nodes.ScalarNode):
+        data = loader.construct_scalar(node)
+    elif isinstance(node, yaml.nodes.MappingNode):
+        data = loader.construct_mapping(node)
+    elif isinstance(node, yaml.nodes.SequenceNode):
+        data = loader.construct_sequence(node)
+    else:
+        data = None
+
+    return Object(data)
+
+
+def apply_rules(host, node_name):
+    # Generate rules files list
+    paths = []
+
+    groups_tmp = host['hostgroups'][:-1]
+    groups_tmp.reverse()
+
+    while groups_tmp:
+        paths.append(os.path.join(RESOURCES_DIR, 'rules', *groups_tmp) + '.yaml')
+        groups_tmp.pop()
+
+    paths.reverse()
+    paths.insert(0, os.path.join(RESOURCES_DIR, 'rules', 'default.yaml'))
+
+    # Handle rules
+    rules_services = {}
+
+    for file_path in paths:
+        if not os.path.exists(file_path):
+            continue
+
+        rules_data = yaml.load(codecs.open(file_path, 'r', 'utf-8').read())
+
+        if rules_data.get('services'):
+            for pool_name, pool_data in rules_data['services'].iteritems():
+                merge_dict(rules_services, get_services_pools(pool_name))
+
+                if pool_data is None:
+                    continue
+
+                merge_dict(rules_services, pool_data)
+
+            del rules_data['services']
+
+        if rules_data.get('hostgroups'):
+            host['hostgroups'].extend(rules_data.get('hostgroups', []))
+
+            del rules_data['hostgroups']
+
+        host.update(rules_data)
+
+    # Append node-specific overrides
+    file_path = os.path.join(RESOURCES_DIR, 'rules', 'fqdn', node_name + '.yaml')
+
+    if not os.path.exists(file_path):
+        return rules_services
+
+    rules_data = yaml.load(codecs.open(file_path, 'r', 'utf-8').read())
+
+    if 'services' in rules_data:
+        # Reset services if inherit is set to `False'
+        if not rules_data['services'].get('__inherit__', True):
+            rules_services = {}
+
+        # Apply services overrides
+        for pool_name, pool_data in rules_data['services'].iteritems():
+            merge_dict(rules_services, get_services_pools(pool_name))
+
+            if pool_data is None:
+                continue
+
+            merge_dict(rules_services, pool_data)
+
+    if rules_data.get('hostgroups'):
+        host['hostgroups'].extend(rules_data['hostgroups'])
+
+    return rules_services
+
+
+def get_groups(node_name):
+    # Get groups list from FQDN
+    groups = node_name.split('.')[-7:-2] if node_name.endswith(DOMAIN_SUFFIX) else []
+
+    if groups:
+        groups[0] = re.sub(r'[0-9]+[a-z]?$', '', groups[0])
+
+    return groups
+
+
+def get_services_pools(pool_name):
+    # Get service pools list
+    if pool_name not in SERVICES_POOLS:
+        file_path = os.path.join(RESOURCES_DIR, 'services', pool_name + '.yaml')
+
+        if not os.path.exists(file_path):
+            sys.stderr.write("Warning: skipping unknown `%s' service pool\n" % pool_name)
+            return {}
+
+        SERVICES_POOLS[pool_name] = yaml.load(codecs.open(file_path, 'r', 'utf-8').read())
+
+    return copy.deepcopy(SERVICES_POOLS[pool_name].get('services', {}))
+
+
+def get_short_name(node_name):
+    # Get node short name
+    return node_name[0:(len(DOMAIN_SUFFIX) + 1) * -1] if node_name.endswith(DOMAIN_SUFFIX) else node_name
+
+
+def merge_dict(dst, src):
+    stack = [(dst, src)]
+
+    while len(stack) > 0:
+        cur_dst, cur_src = stack.pop()
+
+        for key in cur_src:
+            if not key in cur_dst:
+                cur_dst[key] = cur_src[key]
+            else:
+                if isinstance(cur_src[key], dict) and isinstance(cur_dst[key], dict):
+                    stack.append((cur_dst[key], cur_src[key]))
+                else:
+                    cur_dst[key] = cur_src[key]
+
+
+def print_block(name, data):
+    # Print configuration block
+    items = ['    %s %s' % x for x in sorted(data.iteritems())]
+
+    if not 'use' in items and name in ['host', 'service']:
+        items.insert(0, '    use %s' % name)
+
+    sys.stdout.write('define %(name)s {\n%(entries)s\n}\n\n' % {
+        'name': name.encode('utf-8'),
+        'entries': '\n'.join(items).encode('utf-8'),
+    })
+
+
+# Parse for command line arguments
+parser = argparse.ArgumentParser(description='Nagios automatic configuration builder.')
+parser.add_argument('-f', '--filter', help='host name filter (separated by commas)')
+parser.add_argument('-g', '--groups', help='group filter (separated by commas)')
+
+args = parser.parse_args()
+args.filter = args.filter.split(',') if args.filter else None
+args.groups = args.groups.split(',') if args.groups else None
+
+# Define global dictionaries
+facts = {}
+hostgroups = {}
+servicegroups = {}
+
+try:
+    # Get nodes list from puppet server
+    nodes = {}
+
+    for site_name in DOMAIN_SITES:
+        http = httplib.HTTPConnection(PUPPET_SERVER % site_name, PUPPET_PORT)
+        http.request('GET', '/production/facts_search/search', headers={'Accept': 'yaml'})
+
+        response = http.getresponse()
+
+        if response.status != 200:
+            sys.stderr.write('Error: unable to get nodes list from %s server, exiting.\n' % PUPPET_SERVER)
+            sys.exit(1)
+
+        list_data = yaml.load(response.read(), Loader=Loader)
+
+        nodes[PUPPET_SERVER % site_name] = [x for x in list_data if x.endswith('.%s.%s' % (site_name, DOMAIN_SUFFIX))]
+
+        http.close()
+
+    # Get exclude list from file
+    file_path = os.path.join(RESOURCES_DIR, 'hosts', 'exclude.yaml')
+
+    if os.path.exists(file_path):
+        exclude_data = yaml.load(codecs.open(file_path, 'r', 'utf-8').read())
+
+    # Generate nodes list
+    exclude_hosts = []
+    exclude_patterns = []
+    exclude_regexp = None
+
+    # Deal with exclusion list
+    for entry in exclude_data.get('exclude', []):
+        if entry.startswith('regexp:'):
+            exclude_patterns.append(entry[7:])
+        else:
+            exclude_hosts.append(entry)
+
+    if len(exclude_patterns) > 0:
+        exclude_regexp = re.compile(r'(%s)' % '|'.join(exclude_patterns))
+
+    # Get nodes data from facts
+    for puppet_server, nodes_list in nodes.iteritems():
+        http = httplib.HTTPConnection(puppet_server, PUPPET_PORT)
+
+        for node_name in nodes_list:
+            # Check if host excluded or matches excusion patterns
+            if args.groups is not None and len(set(args.groups) & set(get_groups(node_name))) == 0:
+                continue
+            elif args.filter and not node_name in args.filter:
+                continue
+            elif node_name in exclude_hosts:
+                sys.stderr.write("Notice: skipping `%s' excluded host\n" % node_name)
+                continue
+            elif exclude_regexp is not None and exclude_regexp.search(node_name):
+                sys.stderr.write("Notice: skipping `%s' excluded host\n" % node_name)
+                continue
+
+            http.request('GET', '/production/facts/%s' % node_name, headers={'Accept': 'yaml'})
+            response = http.getresponse()
+
+            if response.status != 200:
+                sys.stderr.write("Warning: unable to get facts for `%s' from `%s' server\n" % (node_name, puppet_server))
+                continue
+
+            # Parse YAML data
+            node_data = yaml.load(response.read(), Loader=Loader)
+
+            # Store node facts
+            facts[node_data.name] = node_data.attr.get('values', {})
+
+        http.close()
+
+    # Get nodes from configuration
+    for file_path in glob(os.path.join(RESOURCES_DIR, 'hosts', '*')):
+        host_data = yaml.load(codecs.open(file_path, 'r', 'utf-8').read())
+
+        for node_name in host_data.get('hosts', []):
+            # Skip nodes according to requested groups
+            if args.groups is not None and len(set(args.groups) & set(get_groups(node_name))) == 0:
+                continue
+            elif args.filter and not node_name in args.filter:
+                continue
+
+            facts[node_name] = {}
+
+    # Generate configuration
+    for node_name, node_facts in facts.iteritems():
+        # Get host resources
+        host = {
+            'host_name': get_short_name(node_name),
+            'alias': node_facts.get('fqdn', node_name),
+            'hostgroups': get_groups(node_name)
+        }
+
+        try:
+            host['address'] = node_facts.get('ipaddress', socket.gethostbyname(node_name))
+        except:
+	    sys.stderr.write("Warning: fail to resolve `%s'\n" % (node_name))
+            host['address'] = 'unknown'
+
+        if node_facts is not None:
+            host['notes'] = '%s (S/N: %s)' % (node_facts.get('productname', 'unknown service_flavourl'),
+                node_facts.get('serialnumber', 'unknown'))
+
+        # Get host services rules
+        host_services = apply_rules(host, node_name)
+
+        # Update host groups
+        hostgroups.update(dict((x, None) for x in host['hostgroups']))
+        host['hostgroups'] = ','.join(host['hostgroups'])
+
+        # Dump host entry
+        print_block('host', host)
+
+        # Get services resources
+        if not host_services:
+            sys.stderr.write("Warning: no services defined for "+node_name+"\n")
+        for service_name in sorted(host_services):
+            service_flavour = None
+
+            for flavour_name, flavour_data in host_services[service_name].iteritems():
+                skip = False
+
+                if node_facts is not None and '__facter__' in flavour_data:
+                    for field in flavour_data['__facter__']:
+                        try:
+                            operator, value = flavour_data['__facter__'][field]
+                        except:
+                            sys.stderr.write("Warning: malformed condition `%s:%s' for `%s' node\n" % (field,
+                                ','.join(flavour_data['__facter__'][field]), node_name))
+
+                            continue
+
+                        try:
+                            if operator == '@' and field in node_facts:
+                                pass
+                            elif operator == '!@' and not field in node_facts:
+                                pass
+                            elif operator == '=' and node_facts.get(field) == value:
+                                pass
+                            elif operator == '>' and node_facts.get(field) > value:
+                                pass
+                            elif operator == '<' and node_facts.get(field) < value:
+                                pass
+                            elif operator == '>=' and node_facts.get(field) >= value:
+                                pass
+                            elif operator == '<=' and node_facts.get(field) <= value:
+                                pass
+                            elif operator == '!=' and node_facts.get(field) != value:
+                                pass
+                            elif operator == '~' and re.match(value, node_facts.get(field, '')):
+                                pass
+                            elif operator == '!~' and not re.match(value, node_facts.get(field, '')):
+                                pass
+                            else:
+                                skip = True
+                                break
+                        except Exception as e:
+                            sys.stderr.write(("Error: an error occured while handling facts `%s' node " +
+                                "(operator: %s, value: %s))\n") % (node_name, operator, value))
+
+                            import traceback
+                            traceback.print_exc()
+
+                    del flavour_data['__facter__']
+
+                if not skip:
+                    if 'servicegroups' in flavour_data:
+                        servicegroups.update(dict((x, None) for x in flavour_data['servicegroups']))
+
+                        flavour_data['servicegroups'] = ', '.join(set(flavour_data['servicegroups']))
+
+                    flavour_data.update({
+                        'host_name': host['host_name'],
+                        'service_description': service_name.upper(),
+                    })
+
+                    service_flavour = flavour_name
+
+            # Print services entries
+            if service_flavour:
+                print_block('service', host_services[service_name][service_flavour])
+
+    # Generate host groups
+    for file_path in glob(os.path.join(RESOURCES_DIR, 'hostgroups', '*.yaml')):
+        res_data = yaml.load(codecs.open(file_path, 'r', 'utf-8').read())
+
+        if res_data and res_data.get('hostgroups'):
+            hostgroups.update(res_data.get('hostgroups'))
+
+    for hostgroup_name in sorted(hostgroups):
+        print_block('hostgroup', {
+            'hostgroup_name': hostgroup_name,
+            'alias': hostgroups[hostgroup_name] if hostgroups[hostgroup_name] else 'auto-generated',
+        })
+
+    for servicegroup_name in sorted(servicegroups):
+        print_block('servicegroup', {
+            'servicegroup_name': servicegroup_name,
+            'alias': servicegroups[servicegroup_name] if servicegroups[servicegroup_name] else 'auto-generated',
+        })
+
+    sys.stdout.write('# generated on: %s\n' % time.asctime())
+except KeyboardInterrupt:
+    pass

@@ -1,0 +1,206 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+import getpass
+import os
+import pysvn
+import shutil
+import subprocess
+import sys
+import tempfile
+
+from dialog import Dialog
+
+
+SVN_BASE = 'http://svn.e-merchant.net/svn'
+
+SYNC_EXCL_FILE = '/etc/emsync/staging-exclude.list'
+
+TERM_COLUMN = os.environ.get('COLUMNS', 80) - 2
+
+
+def connect_svn():
+    svn = pysvn.Client()
+
+    auth_user = ''
+
+    # Prompt for credentials
+    while True:
+        retcode, auth_user = dialog.inputbox('\nUsername:', init=auth_user, width=40)
+
+        if retcode != 0:
+            return False
+
+        retcode, auth_pass = dialog.passwordbox('\nPassword:', width=40)
+
+        if retcode != 0:
+            return False
+
+        svn.set_default_username(auth_user)
+        svn.set_default_password(auth_pass)
+
+        try:
+            svn.ls(os.path.join(SVN_BASE, user))
+            break
+        except Exception:
+            dialog.msgbox('\nAuthentication failed!', width=26, height=7)
+
+    return svn
+
+
+def do_choose(prompt=False):
+    global tag
+
+    if prompt:
+        retcode, tag_filter = dialog.inputbox('\nSearch:', width=48)
+    else:
+        tag_filter = None
+
+    # List tags
+    tags = get_tags(tag_filter)
+
+    if not tags:
+        return False
+
+    retcode, retval = dialog.radiolist('Please choose a tag:',
+        choices=[(x, '', 'on' if x == tag else 'off') for x in tags], width=48)
+
+    if retval:
+        tag = retval
+
+
+def do_find():
+    do_choose(True)
+
+
+def do_staging():
+    global tag
+
+    # Check for mandatory tag
+    if not tag:
+        dialog.msgbox('\nYou must select a tag first!', width=32, height=7)
+        return
+
+    # Export repository data
+    tmp_dir = tempfile.mkdtemp(prefix='emsync-')
+
+    svn.export(os.path.join(SVN_BASE, user, 'tags', tag), os.path.join(tmp_dir, 'export'))
+
+    # Peform dry-run synchronization
+    dialog.infobox('\nRetrieving delta...', width=23, height=5)
+
+    proc = exec_sync(os.path.join(tmp_dir, 'export'), os.path.join(tmp_dir, 'delta-error.log'), ['--dry-run'])
+
+    log_file = open(os.path.join(tmp_dir, 'delta.log'), 'w')
+    log_total = 0
+
+    while proc.poll() == None:
+        log_file.write(proc.stdout.readline())
+        log_total += 1
+
+    log_file.close()
+
+    # Display delta summary
+    dialog.textbox(os.path.join(tmp_dir, 'delta.log'), width=TERM_COLUMN, title='%s - Synchronization summary' % user)
+
+    if proc.returncode != 0:
+        dialog.textbox(os.path.join(tmp_dir, 'delta-error.log'), width=TERM_COLUMN, title='Error')
+
+    # Ask to continue if needed
+    if proc.returncode == 0 and not dialog.yesno('\nDo you want to perform synchronization now?',
+            defaultno=True, width=47, height=7, title='%s - %s' % (user, tag)):
+        dialog.gauge_start('Syncing data...', width=TERM_COLUMN)
+
+        proc = exec_sync(os.path.join(tmp_dir, 'export'), os.path.join(tmp_dir, 'sync-error.log'))
+
+        log_file = open(os.path.join(tmp_dir, 'sync.log'), 'w')
+        log_count = 0
+
+        while proc.poll() == None:
+            log_file.write(proc.stdout.readline())
+            log_count += 1
+
+            percent = log_count * 100 / log_total
+            dialog.gauge_update(percent if percent < 100 else 100)
+
+        log_file.close()
+
+        dialog.gauge_stop()
+
+        if proc.returncode != 0:
+            dialog.textbox(os.path.join(tmp_dir, 'sync-error.log'), width=TERM_COLUMN, title='Error')
+
+    shutil.rmtree(tmp_dir)
+
+
+def exec_sync(src_dir, err_log, options=None):
+    sync_args = [
+        'rsync',
+        '--archive',
+        '--chmod=ug=rwX,o=rX',
+        '--delete',
+        '--omit-dir-times',
+        '--out-format=[%o] %f',
+    ]
+
+    if os.path.exists(SYNC_EXCL_FILE):
+        sync_args.append('--exclude-from=%s' % SYNC_EXCL_FILE)
+
+    if options:
+        sync_args.extend(options)
+
+    cwd = os.curdir
+    os.chdir(src_dir)
+
+    sync_args.extend(['./', os.path.join(os.environ.get('HOME'), '')])
+
+    os.chdir(cwd)
+
+    return subprocess.Popen(sync_args, stdout=subprocess.PIPE, stderr=open(err_log, 'w'))
+
+
+def get_tags(tag_filter):
+    items = []
+
+    # Get tags list
+    for item in svn.ls(os.path.join(SVN_BASE, user, 'tags')):
+        name = os.path.basename(item.name)
+
+        if not tag_filter or tag_filter in name:
+            items.append(name)
+
+    return items
+
+
+def get_user():
+    # Get base user name
+    user = getpass.getuser()
+    return user[:user.find('_')] if '_' in user else user
+
+
+# Check for root user
+if os.getuid() == 0:
+    sys.stderr.write("Error: this program shouldn't be run as root!\n")
+    sys.exit(1)
+
+# Display application
+dialog = Dialog()
+
+user = get_user()
+svn = connect_svn()
+tag = None
+
+if not svn:
+    sys.exit(1)
+
+while True:
+    retcode, retval = dialog.menu('\nPlease choose an action:', choices=[
+        ('find', 'Find tag'),
+        ('choose', 'Choose tag'),
+        ('staging', 'Pull to staging'),
+    ], width=48, title=user + (' - %s' % tag if tag else ''))
+
+    if retcode == 0:
+        locals()['do_%s' % retval]()
+    elif retcode == 1 or retcode == 2:
+        break

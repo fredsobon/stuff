@@ -1,0 +1,108 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+# vim: bg=dark ft=python ts=4 et
+#
+# Author: Marc Falzon <m.falzon@pixmania-group.com>
+# Last updated:
+#   Maxime Guillet - Thu, 16 Oct 2014 15:02:20 +0200
+
+import re
+import sys
+import getopt
+import httplib
+
+RP_POOLS = {
+    'cfour': [
+        ('rp01.front.cfour.prod.vit.e-merchant.net', 80),
+        ('rp02.front.cfour.prod.vit.e-merchant.net', 80),
+        ('rp03.front.cfour.prod.vit.e-merchant.net', 80),
+    ],
+    'pixmania': [
+        ('rp01.front.pix.prod.vit.e-merchant.net', 8080),
+        ('rp02.front.pix.prod.vit.e-merchant.net', 8080),
+        ('rp03.front.pix.prod.vit.e-merchant.net', 8080),
+    ],
+    'pixdeals': [
+        ('rp01.front.pix.prod.vit.e-merchant.net', 8081),
+        ('rp02.front.pix.prod.vit.e-merchant.net', 8081),
+        ('rp03.front.pix.prod.vit.e-merchant.net', 8081),
+    ],
+    'bo': [
+        ('rp01.back.corepub.prod.vit.e-merchant.net', 80),
+        ('rp02.back.corepub.prod.vit.e-merchant.net', 80),
+        ('rp03.back.corepub.prod.vit.e-merchant.net', 80),
+    ],
+    'apc': [
+        ('rp01.front.mutu.prod.vit.e-merchant.net', 8082),
+        ('rp02.front.mutu.prod.vit.e-merchant.net', 8082),
+    ],
+    'celio': [
+        ('rp01.front.mutu.prod.vit.e-merchant.net', 8080),
+        ('rp02.front.mutu.prod.vit.e-merchant.net', 8080),
+    ],
+    'monnier': [
+        ('rp01.front.mutu.prod.vit.e-merchant.net', 8084),
+        ('rp02.front.mutu.prod.vit.e-merchant.net', 8084),
+    ],
+    'pixpro': [
+        ('rp01.front.mutu.prod.vit.e-merchant.net', 8081),
+        ('rp02.front.mutu.prod.vit.e-merchant.net', 8081),
+    ],
+    'static': [
+        ('static01.svc.corepub.prod.vit.e-merchant.net', 80),
+        ('static02.svc.corepub.prod.vit.e-merchant.net', 80),
+        ('static03.svc.corepub.prod.vit.e-merchant.net', 80),
+    ],
+}
+
+def usage():
+    print('usage: %s -p <pool> -u <url>' % sys.argv[0])
+    print('example:')
+    print('  %s -p apc -u http://www.apc.fr/wwuk/women_u1.html' % sys.argv[0])
+    return True
+
+#------------------------------------------------------------------------------
+
+if len(sys.argv) < 5:
+    usage()
+    sys.exit(1)
+
+# Parsing commandline options
+try:
+    opts, args = getopt.gnu_getopt(sys.argv[1:], 'p:ru:')
+
+    for opt, arg in opts:
+        #if opt == '-r':
+        #    do_regexps = True
+        if opt == '-p':
+            pool = arg
+        elif opt == '-u':
+            url = arg
+except getopt.GetoptError, e:
+    print('%s' % e)
+    usage()
+    sys.exit(1)
+
+# Pool check
+if pool not in RP_POOLS:
+    print('error: `%s` is not in known pools list. Known pools :' % pool)
+    for pool in RP_POOLS.keys():
+        print('- %s' % pool)
+    sys.exit(1)
+
+# URL splitting
+r = re.search(r'^(?:http:\/\/)?([a-z0-9\.-]*)(/.*)$', url)
+(req_http_host, req_url) = r.group(1, 2)
+
+# Loop on every pool's server and purge specified URL
+for rp, port in RP_POOLS[pool]:
+    conn = httplib.HTTPConnection(rp, port)
+    conn.request('PURGE', req_url, headers=dict(Host=req_http_host))
+    resp = conn.getresponse()
+
+    if resp.status == 200:
+        print('* %s: purge OK' % rp)
+    else:
+        print('* %s: purge failed ("%d %s")' % (rp, resp.status, resp.reason))
+
+sys.exit(0)

@@ -1,0 +1,38 @@
+#!/bin/sh
+# m.guillet 2012-05-29
+# Chroot systemimager image
+
+SI_IMAGEDIR='/var/lib/systemimager/images'
+
+usage() {
+	echo "Usage: $(basename $0) <image name>"
+	si_lsimage  | tail -n +4
+}
+
+[ $# -ne 1 ] && { usage; exit 0; }
+
+IMAGENAME="$1"
+CHROOTDIR="$SI_IMAGEDIR/$IMAGENAME"
+
+[ ! -d "$CHROOTDIR" ] && { echo "Image $IMAGENAME not found." >&2 ; exit 1; }
+
+for device in dev proc sys ; do
+	mount -o bind "/$device" "$CHROOTDIR/$device"
+done
+
+if [ -L "$CHROOTDIR/var/lock" ]; then
+	lockdir="$CHROOTDIR/$(readlink "$CHROOTDIR/var/lock")"
+	mkdir "$lockdir"
+fi
+
+echo "Chrooting to $IMAGENAME"
+chroot "$CHROOTDIR" /bin/bash
+
+echo 'Exiting the chroot...'
+for device in dev proc sys ; do
+	umount "$CHROOTDIR/$device"
+done
+
+[ -n "$lockdir" ] && rm -rf "$lockdir"
+
+#rm -f "$CHROOTDIR/root/.bash_history"

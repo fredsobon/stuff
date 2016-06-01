@@ -1,0 +1,21 @@
+#!/bin/sh
+# Dechiffrement des fichiers oney
+
+SOURCE=/srv/data/prod/exchange/data/pixmania/fep/oney
+DESTINATION=/srv/data/prod/exchange/data/pixmania/fep/bo_compta/credit/oney/PENDING
+
+export GNUPGHOME=/etc/gnupg-oney
+
+# Checking if files present
+[ $(find $SOURCE -type f ! -name 'temp_*' | wc -l) -eq 0 ] && exit
+
+cd $SOURCE
+for file in $(find $SOURCE -iname '*.gpg'); do
+	gpg --decrypt-files $file
+	rm -f $file
+done
+
+chown 5052:10069 $SOURCE/*
+mv $SOURCE/* $DESTINATION/
+
+exit 0

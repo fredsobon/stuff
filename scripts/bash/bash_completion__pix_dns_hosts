@@ -1,0 +1,54 @@
+#
+# Bash completion for E-Merchant dns lookups
+#
+# vim: syntax=sh
+
+###
+# dlarquey , 30/11/2011 :	Hostname completion for the DNS name resolution at E-Merchant platforms
+###
+
+#
+# * Description:
+#
+# This bash completion script calls "dns_search" tool in the aim of using bash completion for all our favorite network commands (ssh,scp,ping,traceroute and others)
+#
+# * Requirements:
+#
+# dns_search : internal name lookups for both historical and NG platforms
+#
+# * Install:
+#
+# - Add this file in /etc/bash_completion.d directory with adapted owner rights (644)
+# - Specify in this script the full path of the "dns_search" search script or add it into /usr/local/bin
+# - "dns_search" needs to have DNS_SVN_PATH environment set to point to local repository of DNS zone files
+
+# The method used is to redirect "_known_hosts_real" function. This function is used for hostname completion by network commands like ssh,scp,rsync,ping,traceroute and others
+
+_pix_dns_hosts() {
+	local cur prev hosts
+
+	#_get_comp_words_by_ref -n : cur prev
+	cur="${COMP_WORDS[COMP_CWORD]}"
+	prev="${COMP_WORDS[COMP_CWORD-1]}"
+
+# dns_search
+	[ -x $(which dns_search >/dev/null) ] && hosts=( $($(which dns_search) --hostonly --nameonly ^$cur |xargs) )
+	COMPREPLY=( $(compgen -W '${COMPREPLY[@]} ${hosts[@]}' -- "$cur") )
+	return 0
+}
+
+
+if ! declare -f _pix_old_known_hosts_real >/dev/null; then
+	[ ! -x $(which dns_search >/dev/null) ] && { echo "WARNING: dns_search is missing for bash completion (e-merchant DNS lookups)" >&2; return 1; }
+
+	eval "$(declare -f _known_hosts_real|sed s@_known_hosts_real[[:blank:]]*\(\)@_pix_old_known_hosts_real\(\)@)"
+
+	_known_hosts_real() {
+		_pix_old_known_hosts_real "$@"
+		_pix_dns_hosts "$@"
+		return 0
+	}
+else
+	echo "WARNING: Can't handle known_hosts function for bash completion" >&2
+fi
+

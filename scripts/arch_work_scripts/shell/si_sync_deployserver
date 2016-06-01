@@ -1,0 +1,47 @@
+#!/bin/sh
+# Author: Maxime Guillet
+# Last Update: Mon, 01 Oct 2012 11:56:54 +0200
+
+
+get_remote() {
+	local_fqdn="$1"
+	local_site="$(echo $local_fqdn | cut -d \. -f 5)"
+
+	if [ "$local_site" = 'dc3' ]; then
+		remote_site='vit'
+	else
+		remote_site='dc3'
+	fi
+
+	echo "$(echo $local_fqdn | cut -d \. -f 1-4).$remote_site.$(echo $local_fqdn | cut -d \. -f 6-)"
+
+	return 
+}
+
+FQDN=$(hostname -f) || { echo "retrieving FQDN failed." >&2; exit 1; }
+
+
+if pgrep si_chroot >/dev/null 2>&1; then
+	echo "Chroot in progress, can't synchronize." >&2
+	exit 1
+fi
+
+[ "$1" = '-n' ] && DRY_RUN='-n'
+
+
+rsync \
+	--archive \
+	--hard-links \
+	--numeric-ids \
+	--relative \
+	--sparse \
+	--verbose \
+	--delete \
+	$DRY_RUN \
+	/etc/systemimager/rsync_stubs \
+	/srv/tftpboot/x86_64 \
+	/srv/systemimager/images \
+	/srv/systemimager/overrides \
+	$(get_remote $FQDN):/
+
+

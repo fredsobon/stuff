@@ -1,0 +1,56 @@
+#!/bin/sh
+
+#
+# do-remote: Execute remote service commands
+#            by Vincent Batoufflet <vbatoufflet@e-merchant.com>
+#
+
+POOL_SUFFIX='e-merchant.local'
+
+print_usage() {
+    cat <<EOF
+Usage: $(basename $0) apache {reload|restart}
+       $(basename $0) php {reload|restart}
+EOF
+    exit 1
+}
+
+# Check for current user
+if [ $(id -u) -ge 20000 ]; then
+    sudo -u do-remote $0 $@
+    exit $?
+fi
+
+# Check for command-line arguments
+[ $# -ne 2 ] && print_usage
+
+SERVICE=$1
+ACTION=$2
+
+case "$SERVICE" in
+    apache)
+        SERVICE=apache2 ;;
+    php)
+        SERVICE=php5-fpm ;;
+    *)
+        print_usage ;;
+esac
+
+case "$ACTION" in
+    reload|restart)
+        ;;
+    *)
+        print_usage ;;
+esac
+
+# Get hosts addresses list
+TMP_FILE=$(mktemp)
+
+for POOL in web-back-corepub-dev web-front-mutu-dev web-svc-core-dev web-svc-corepub-dev; do
+    dig +tcp +short $POOL.$POOL_SUFFIX >>$TMP_FILE
+done
+
+# Execute remote action
+dsh -r ssh -m $(sed -e ':a;$!N;s/\n/,/; ta' $TMP_FILE) "sudo service $SERVICE $ACTION"
+
+rm -f $TMP_FILE

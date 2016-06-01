@@ -1,0 +1,141 @@
+#! /bin/sh
+
+### BEGIN INIT INFO
+# Provides:          varnish
+# Required-Start:    $local_fs $remote_fs $network
+# Required-Stop:     $local_fs $remote_fs $network
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Start HTTP accelerator
+# Description:       This script provides a server-side cache
+#                    to be run in front of a httpd and should
+#                    listen on port 80 on a properly configured
+#                    system
+### END INIT INFO
+
+# Source function library
+. /lib/lsb/init-functions
+
+TARGET="$2"
+NAME=varnishd
+DESC="HTTP accelerator"
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+DAEMON=/usr/sbin/varnishd
+
+
+test -x $DAEMON || exit 0
+
+# if a target has been specified check if it exists otherwise exit
+if [ -n "${TARGET}" ] ;then
+	[ -d "/etc/varnish/${TARGET}" ] || log_failure_msg "Instance ${TARGET} not found"
+else
+# if no target was specified assume we want a global restart and set every instance in $target
+	TARGET="$(find /etc/varnish -mindepth 1 -maxdepth 1 -type d -printf %f\ ) "
+fi
+
+# Open files (usually 1024, which is way too small for varnish)
+ulimit -n ${NFILES:-131072}
+
+# Maxiumum locked memory size for shared memory log
+ulimit -l ${MEMLOCK:-82000}
+
+# If $DAEMON_OPTS is not set at all in /etc/default/varnish, use minimal useful
+# defaults (Backend at localhost:8080, a common place to put a locally
+# installed application server.)
+DAEMON_OPTS=${DAEMON_OPTS:--b localhost}
+
+# Ensure we have a PATH
+export PATH="${PATH:+$PATH:}/usr/sbin:/usr/bin:/sbin:/bin"
+
+start_varnishd() {
+    for instance in $@; do
+	# source default conf if present
+	[ -f "/etc/default/varnish-${instance}" ] && . /etc/default/varnish-${instance} || log_failure_msg "No default config found for ${instance}"
+	PIDFILE=/var/run/$NAME-$instance.pid
+	[ -e "/var/run/$NAME-$instance.pid" ] && log_failure_msg "$instance is already running." && continue
+	log_daemon_msg "Starting $DESC" "$NAME" "for $instance"
+	output=$(/bin/tempfile -s.varnish.$instance)
+	if start-stop-daemon \
+        --start --quiet --pidfile ${PIDFILE} --exec ${DAEMON} -- \
+        -P ${PIDFILE} ${DAEMON_OPTS} > ${output} 2>&1; then
+        log_end_msg 0
+
+    else
+        log_end_msg 1
+        cat $output
+        exit 1
+    fi
+    /bin/rm -rf $output
+    done
+}
+
+stop_varnishd() {
+   for instance in $@; do
+    PIDFILE="/var/run/${NAME}-${instance}.pid"
+    if [ -e "${PIDFILE}" ]; then
+    	log_daemon_msg "Stopping $DESC" "$NAME" "for $instance (${PIDFILE})"
+	if killproc -p "${PIDFILE}" && rm -f ${PIDFILE}; then
+#    	if start-stop-daemon \
+#        --stop --pidfile $PIDFILE --retry 10 \
+#        --exec $DAEMON ; then
+        	log_end_msg 0
+	fi
+    else
+		log_failure_msg "$instance is not running."
+        	log_end_msg 1
+    	fi
+    done
+}
+
+disabled_varnishd() {
+    log_daemon_msg "Not starting $DESC" "$NAME"
+    log_progress_msg "disabled in /etc/default/varnish"
+    log_end_msg 0
+}
+
+
+reload_varnishd() {
+    log_daemon_msg "Reloading $DESC" "$NAME"
+    if /usr/share/varnish/reload-vcl -q; then
+        log_end_msg 0
+    else
+        log_end_msg 1
+    fi
+}
+
+
+status_varnishd() {
+    for instance in $@; do
+    	PIDFILE=/var/run/$NAME-$instance.pid
+    	state=$(status_of_proc -p "${PIDFILE}" "${DAEMON}" "${NAME}")
+    	echo "$state for $instance"
+    done
+    exit $?
+}
+
+case "$1" in
+    start)
+        start_varnishd "$TARGET"
+        ;;
+    stop)
+        stop_varnishd "$TARGET"
+        ;;
+    reload)
+#        reload_varnishd "$TARGET"
+        echo "Please use service varnish restart [instance_name]." && exit 0
+        ;;
+    status)
+        status_varnishd "$TARGET"
+        ;;
+    restart|force-reload)
+        for instance in $TARGET; do
+            $0 stop "$instance"
+            $0 start "$instance"
+        done
+        ;;
+    *)
+        log_success_msg "Usage: $0 {start|stop|restart|force-reload} [instance_name]" && exit 1
+        ;;
+esac
+
+exit 0

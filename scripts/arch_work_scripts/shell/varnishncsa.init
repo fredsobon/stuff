@@ -1,0 +1,140 @@
+#! /bin/sh
+
+### BEGIN INIT INFO
+# Provides:          varnishncsa
+# Required-Start:    $local_fs $remote_fs $network
+# Required-Stop:     $local_fs $remote_fs $network
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Start HTTP accelerator log daemon
+# Description:       This script provides logging for varnish
+### END INIT INFO
+
+# Source function library
+. /lib/lsb/init-functions
+
+TARGET="$2"
+NAME=varnishncsa
+DESC="HTTP accelerator log deamon"
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+DAEMON=/usr/bin/$NAME
+#PIDFILE=/var/run/$NAME/$NAME.pid
+LOGFILE=/var/log/varnish/varnishncsa.log
+USER=varnishlog
+
+# Include defaults if available
+if [ -f /etc/default/$NAME ] ; then
+        . /etc/default/$NAME
+fi
+
+# If unset, or set to "0" or "no", exit
+if [ -z "${VARNISHNCSA_ENABLED}" ] || \
+   [ "${VARNISHNCSA_ENABLED}" = "0" ] || \
+   [ "${VARNISHNCSA_ENABLED}" = "no" ]; then
+  exit 0;
+fi
+
+DAEMON_OPTS=""
+LOGGER_OPTS="-p local7.info -t varnish"
+
+
+test -x $DAEMON || exit 0
+
+# if a target has been specified check if it exists otherwise exit
+if [ -n "${TARGET}" ] ;then
+    [ -d "/etc/varnish/${TARGET}" ] || log_failure_msg "Instance ${TARGET} not found"
+else
+# if no target was specified assume we want a global restart and set every instance in $target
+    TARGET="$(find /etc/varnish -mindepth 1 -maxdepth 1 -type d -printf %f\ ) "
+fi
+
+start_varnishncsa() {
+    for instance in $@; do
+        PIDFILE=/var/run/$NAME/$NAME-$instance.pid
+
+        [ -e "/var/run/$NAME-$instance.pid" ] && log_failure_msg "$instance is already running." && continue
+        output=$(/bin/tempfile -s.varnish.$instance)
+        log_daemon_msg "Starting $DESC" "$NAME" "for $instance"
+        create_pid_directory
+        if start-stop-daemon --start --quiet --pidfile ${PIDFILE} \
+             --chuid $USER --exec ${DAEMON} -- -P $PIDFILE ${DAEMON_OPTS} -n $instance -F '%{X-Forwarded-For}i %l %u %t "%r" %s %b %{Varnish:time_firstbyte}x "%{Referer}i" "%{User-agent}i" %{VCL_Log:Device}x %{Varnish:hitmiss}x %{VCL_Log:backend}x' | /usr/bin/logger ${LOGGER_OPTS}& 1> /dev/null 2>&1; then
+            log_end_msg 0
+        else
+            log_end_msg 1
+            cat $output
+            exit 1
+        fi
+        rm $output
+    done
+}
+
+stop_varnishncsa(){
+    for instance in $@; do
+        PIDFILE=/var/run/$NAME/$NAME-$instance.pid
+        if [ -e "${PIDFILE}" ]; then
+            log_daemon_msg "Stopping $DESC" "$NAME" "for $instance ($PIDFILE)"
+
+            if start-stop-daemon --stop --quiet --pidfile $PIDFILE \
+                --retry 10 --exec $DAEMON; then
+            log_end_msg 0
+            else
+            log_end_msg 1
+            fi
+        else
+            log_failure_msg "$instance is not running."
+        	log_end_msg 1
+        fi
+    done
+}
+
+reload_varnishncsa(){
+    for instance in $@; do
+    	PIDFILE=/var/run/$NAME/$NAME-$instance.pid
+        log_daemon_msg "Reloading $DESC" "$NAME" "for $instance"
+        if kill -HUP $(cat $PIDFILE) >/dev/null 2>&1; then
+            log_end_msg 0
+        else
+            log_end_msg 1
+            exit 1
+        fi
+    done
+}
+
+status_varnishncsa(){
+    for instance in $@; do
+    	PIDFILE=/var/run/$NAME/$NAME-$instance.pid
+    	state=$(status_of_proc -p "${PIDFILE}" "${DAEMON}" "${NAME}")
+    	echo "$state for $instance"
+    done
+}
+
+create_pid_directory() {
+    install -o $USER -g $USER -d $(dirname $PIDFILE)
+}
+
+case "$1" in
+    start)
+        start_varnishncsa "$TARGET"
+	;;
+    stop)
+        stop_varnishncsa "$TARGET"
+        ;;
+    reload)
+        reload_varnishncsa "$TARGET"
+        ;;
+    status)
+        status_varnishncsa "$TARGET"
+	;;
+    restart|force-reload)
+        for instance in $TARGET; do
+            $0 stop "$instance"
+            $0 start "$instance"
+        done
+        ;;
+    *)
+        log_success_msg "Usage: $0 {start|stop|restart|force-reload|reload}"
+        exit 1
+        ;;
+esac
+
+exit 0

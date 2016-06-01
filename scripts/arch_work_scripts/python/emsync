@@ -1,0 +1,373 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+#
+# emsync: e-merchant code syncing tool
+#         Vincent Batoufflet <vbatoufflet@e-merchant.com>
+#
+
+import base64
+import ConfigParser
+import getpass
+import os
+import PAM
+import pysvn
+import re
+import shutil
+import socket
+import subprocess
+import sys
+import tempfile
+import urllib2
+import yaml
+
+from dialog import Dialog
+
+
+CONFIG_FILE = '/etc/emsync/emsync.conf'
+
+CONFIG_SETTINGS = {
+    'main': ('environment', 'domain_suffix', 'exclude_file', 'exclude_dir_file', 'resource_file'),
+    'svn':  ('base', 'find_pattern'),
+}
+
+LOG_FILE_DELTA = 'delta.log'
+LOG_FILE_ERROR = 'error.log'
+LOG_FILE_SYNC = 'sync.log'
+
+try:
+    TERM_WIDTH = int(os.environ.get('COLUMNS', 80)) - 2
+except:
+    TERM_WIDTH = 78
+
+
+def do_tag(prompt=False):
+    global tag
+
+    if prompt:
+        ret, tag_filter = dialog.inputbox('\nSearch:')
+    else:
+        tag_filter = None
+
+    # List tags
+    tags = svn_get_tags(tag_filter)
+
+    if not tags:
+        return False
+
+    ret, val = dialog.radiolist('\nPlease choose a tag:', choices=[(x, '', 'on' if x == tag else 'off') for x in tags])
+
+    if val:
+        tag = val
+
+
+def do_find():
+    do_tag(True)
+
+
+def do_switch():
+    menu_project()
+
+
+def do_sync():
+    if not tag:
+        dialog.msgbox('\nYou must select a tag first!', width=32, height=7)
+        return
+
+    success = True
+
+    tmp_dir = tempfile.mkdtemp(prefix='emsync-')
+
+    # Load resources file
+    resource = yaml.load(open(parser.get('main', 'resource_file'), 'r'))
+
+    # Get instance name
+    try:
+        instances = resource['user_list'][project][parser.get('main', 'environment')].keys()
+    except:
+        dialog.msgbox('\nUnable to find instance information!', width=40, height=7)
+        return
+
+    ret, instance = dialog.radiolist('\nPlease choose an instance:', choices=[(str(x), '', 'on' if x == 'default' else 'off')
+        for x in instances])
+
+    if ret != 0:
+        return
+
+    # Get components list
+    try:
+        components = resource['user_list'][project]['components']
+    except:
+        dialog.msgbox('\nUnable to find resource information!', width=40, height=7)
+        return
+
+    # Export repository data
+    svn.export(os.path.join(parser.get('svn', 'base'), 'svn', project, 'tags', tag), os.path.join(tmp_dir, 'export'))
+
+    set_releaseversion(tmp_dir)
+
+    # Get nodes list
+    addresses = []
+
+    log_err = open(os.path.join(tmp_dir, LOG_FILE_ERROR), 'w')
+
+    for pool_name in ['%s-%s.%s' % (x, parser.get('main', 'environment'), parser.get('main', 'domain_suffix')) for x in components]:
+        try:
+            addresses.extend(socket.gethostbyname_ex(pool_name)[2])
+        except socket.gaierror, e:
+            log_err.write('socket error: %s - %s' % (pool_name, e))
+            success = False
+
+    log_err.close()
+
+    if not success:
+        dialog.textbox(os.path.join(tmp_dir, LOG_FILE_ERROR), title='Error')
+        ret = dialog.yesno('\nDo you want to continue?', defaultno=True, width=28, height=7)
+
+        if ret != 0:
+            return
+
+    # Peform dry-run synchronization
+    dialog.infobox('Retrieving delta...')
+
+    log_err = open(os.path.join(tmp_dir, LOG_FILE_ERROR), 'w')
+    log_delta = open(os.path.join(tmp_dir, LOG_FILE_DELTA), 'w')
+    log_total = 0
+
+    proc = exec_sync(os.path.join(tmp_dir, 'export'), '%s::%s%s' % (addresses[0], project, '_' + instance
+        if instance != 'default' else ''), log_err, ['--dry-run'])
+
+    while proc.poll() is None:
+        log_delta.write(proc.stdout.readline())
+        log_total += 1
+
+    log_delta.close()
+    log_err.close()
+
+    # Display delta summary
+    dialog.textbox(os.path.join(tmp_dir, LOG_FILE_DELTA), title='%s - Synchronization summary' % project)
+
+    if proc.returncode != 0:
+        dialog.textbox(os.path.join(tmp_dir, LOG_FILE_ERROR), title='Error')
+
+    # Ask to continue if needed
+    if proc.returncode == 0 and not dialog.yesno('\nDo you want to perform synchronization now?', defaultno=True,
+            title='%s - %s' % (project, tag), width=47, height=7):
+        log_err = open(os.path.join(tmp_dir, LOG_FILE_ERROR), 'w')
+        log_sync = open(os.path.join(tmp_dir, LOG_FILE_SYNC), 'w')
+
+        for address in set(addresses):
+            dialog.gauge_start('Syncing data to %s...' % address)
+
+            if os.path.isdir(os.path.join(tmp_dir, 'export','src')):
+                proc = exec_sync(os.path.join(tmp_dir, 'export','src'), '%s::%s%s' % (address, project, '_' + instance
+                    if instance != 'default' else ''), log_err)
+                log_count = 0
+            else:
+                proc = exec_sync(os.path.join(tmp_dir, 'export'), '%s::%s%s' % (address, project, '_' + instance
+                    if instance != 'default' else ''), log_err)
+                log_count = 0
+
+            while proc.poll() is None:
+                log_sync.write(proc.stdout.readline())
+                log_count += 1
+
+                percent = log_count * 100 / log_total
+                dialog.gauge_update(percent if percent < 100 else 100)
+
+            dialog.gauge_stop()
+
+        log_sync.close()
+        log_err.close()
+
+    shutil.rmtree(tmp_dir)
+
+
+def exec_sync(src_path, dst_path, log_err, options=None):
+    sync_args = [
+        'rsync',
+        '-az',
+        '--delete',
+        '--chmod=ug=rwX,o=rX',
+        '--out-format=[%o] %f',
+    ]
+
+    if os.path.exists(os.path.join(parser.get('main', 'exclude_dir_file'), '/', project)):
+        sync_args.append('--exclude-from=%s' % os.path.join(parser.get('main', 'exclude_dir_file'), '/', project))
+    else:
+        sync_args.append('--exclude-from=%s' % parser.get('main', 'exclude_file'))
+
+    if options:
+        sync_args.extend(options)
+
+    cwd = os.curdir
+    os.chdir(src_path)
+
+    proc = subprocess.Popen(sync_args + ['.', dst_path], stdout=subprocess.PIPE, stderr=log_err)
+
+    os.chdir(cwd)
+
+    return proc
+
+
+def menu_main():
+    ret, val = dialog.menu('\nPlease select an action:', choices=[
+        ('find', 'Find tag'),
+        ('tag', 'Choose tag'),
+        ('switch', 'Switch project'),
+        ('sync', 'Sync code on %s' % parser.get('main', 'environment').upper()),
+    ], title=project + (' (%s)' % tag if tag else ''), width=int(TERM_WIDTH / 1.5))
+
+    return val if ret == 0 else None
+
+
+def menu_project():
+    global project
+    global tag
+
+    ret, project = dialog.menu('\nPlease select a project:', choices=[(x, '') for x in svn_get_projects()],
+        width=(TERM_WIDTH / 2))
+
+    tag = None
+
+
+def pam_conv(auth, query_list, user_data):
+    global passwd
+
+    response = []
+
+    for i in range(len(query_list)):
+        query, pam_type = query_list[i]
+
+        if pam_type == PAM.PAM_PROMPT_ECHO_OFF:
+            ret, passwd = dialog.passwordbox('\nPassword:', width=(TERM_WIDTH / 2))
+
+            if ret == 0:
+                response.append((passwd, 0))
+            else:
+                return None
+        elif pam_type == PAM.PAM_PROMPT_ERROR_MSG or pam_type == PAM.PAM_PROMPT_TEXT_INFO:
+            dialog.msgbox(query)
+            response.append(('', 0))
+        else:
+            return None
+
+    return response
+
+
+def svn_get_projects():
+    # Get user projects
+    req = urllib2.Request(os.path.join(parser.get('svn', 'base'), 'websvn'))
+    req.add_header('Authorization', 'Basic %s' % base64.encodestring('%s:%s' % (user, passwd))[:-1])
+
+    url = urllib2.urlopen(req)
+    projects = [x for x in re.findall(parser.get('svn', 'find_pattern'), url.read()) if not x.startswith('norel-')]
+    url.close()
+
+    return sorted(list(set(projects)))
+
+
+def svn_get_tags(tag_filter):
+    items = []
+
+    # Get tags list
+    for item in svn.ls(os.path.join(parser.get('svn', 'base'), 'svn', project, 'tags')):
+        name = os.path.basename(item.name)
+
+        if not tag_filter or tag_filter in name:
+            items.append(name)
+
+    return items
+
+
+def user_authenticate():
+    global svn
+
+    # Test for user credentials
+    auth = PAM.pam()
+    auth.start('passwd')
+    auth.set_item(PAM.PAM_USER, user)
+    auth.set_item(PAM.PAM_CONV, pam_conv)
+
+    try:
+        auth.authenticate()
+        auth.acct_mgmt()
+    except:
+        dialog.msgbox('\nAuthentication failed!', width=26, height=7)
+    else:
+        # Initialize SVN client
+        svn = pysvn.Client()
+        svn.set_default_username(user)
+        svn.set_default_password(passwd)
+
+        return True
+
+def set_releaseversion(rep):
+    if os.path.isdir(os.path.join(rep, 'export','src')):
+        with open(os.path.join(rep, 'export', 'src', 'release_version.inc.php'), 'w') as release_version_php:
+            release_version_php.write("<?php\ndefine('RELEASE_VERSION', '" + tag + "');\n?>")
+        with open(os.path.join(rep, 'export', 'src', 'release.version'), 'w') as release_version:
+            release_version.write(tag + '\n')
+    else:
+        with open(os.path.join(rep, 'export', 'release_version.inc.php'), 'w') as release_version_php:
+            release_version_php.write("<?php\ndefine('RELEASE_VERSION', '" + tag + "');\n?>")
+        with open(os.path.join(rep, 'export', 'release.version'), 'w') as release_version:
+            release_version.write(tag + '\n')
+
+
+# Check for root user
+if os.getuid() == 0:
+    sys.stderr.write("Error: this program shouldn't be run as root!\n")
+    sys.exit(1)
+
+# Check for configuration file
+if not os.path.exists(CONFIG_FILE):
+    sys.stderr.write("Error: missing `%s' configuration file\n" % CONFIG_FILE)
+    sys.exit(1)
+
+parser = ConfigParser.ConfigParser()
+parser.read([CONFIG_FILE])
+
+for section, keys in CONFIG_SETTINGS.iteritems():
+    if not parser.has_section(section):
+        sys.stderr.write("Error: missing `%s' configuration section\n" % section)
+        sys.exit(1)
+
+    for key in keys:
+        if not parser.has_option(section, key):
+            sys.stderr.write("Error: missing `%s:%s' configuration setting\n" % (section, key))
+            sys.exit(1)
+
+# Initialize application
+dialog = Dialog()
+
+user = getpass.getuser()
+passwd = None
+project = None
+tag = None
+
+svn = None
+
+# Authenticate user
+while not user_authenticate():
+    ret = dialog.yesno('\nDo you want to authenticate again?', width=38, height=7)
+
+    if ret != 0:
+        sys.exit(0)
+
+# Prompt for project and environment
+menu_project()
+
+if not project:
+    sys.exit(0)
+
+# Display main menu
+while True:
+    action = menu_main()
+
+    if action:
+        locals()['do_' + action]()
+    else:
+        break
+
+# vim: ts=4 sw=4 et

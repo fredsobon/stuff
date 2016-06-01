@@ -1,0 +1,53 @@
+#! /bin/sh
+## CONFIGURE WITH PUPPET ##
+
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+DAEMON=/usr/bin/memcached
+DAEMONBOOTSTRAP=/usr/share/memcached/scripts/start-memcached-sessions
+NAME=memcached-sessions
+DESC=memcached-sessions
+PIDFILE=/var/run/$NAME.pid
+
+test -x $DAEMON || exit 0
+test -x $DAEMONBOOTSTRAP || exit 0
+
+set -e
+
+case "$1" in
+  start)
+        echo -n "Starting $DESC: "
+        start-stop-daemon --start --quiet --exec $DAEMONBOOTSTRAP
+        echo "$NAME."
+        python -c "import memcache; memcache.Client(['localhost:11311']).set('healthcheck', 'OK')"
+        echo "Setting healthcheck key."
+        ;;
+  stop)
+        echo -n "Stopping $DESC: "
+        start-stop-daemon --stop --quiet --oknodo --pidfile $PIDFILE --exec $DAEMON 
+        echo "$NAME."
+        rm -f $PIDFILE
+        ;;
+  restart|force-reload)
+        #
+        #       If the "reload" option is implemented, move the "force-reload"
+        #       option to the "reload" entry above. If not, "force-reload" is
+        #       just the same as "restart".
+        #
+        echo -n "Restarting $DESC: "
+        start-stop-daemon --stop --quiet --oknodo --pidfile $PIDFILE
+        rm -f $PIDFILE
+        sleep 1
+        start-stop-daemon --start --quiet --exec $DAEMONBOOTSTRAP
+        echo "$NAME."
+        python -c "import memcache; memcache.Client(['localhost:11311']).set('healthcheck', 'OK')"
+        echo "Setting healthcheck key."
+        ;;
+  *)
+        N=/etc/init.d/$NAME
+        # echo "Usage: $N {start|stop|restart|reload|force-reload}" >&2
+        echo "Usage: $N {start|stop|restart|force-reload}" >&2
+        exit 1
+        ;;
+esac
+
+exit 0

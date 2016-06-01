@@ -1,0 +1,44 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+import argparse
+import sys
+
+from dataxchg import __version__
+from dataxchg.purge import purge_static
+
+# Create arguments parser instance
+parser = argparse.ArgumentParser(description='Manage static URL purge.')
+parser.add_argument('-u', '--user', help='user name', required=True)
+parser.add_argument('-f', '--file', help='file path', required=True)
+parser.add_argument('-D', '--debug', action='store_true', help='enable debug mode')
+parser.add_argument('-V', '--version', action='version', version='%(prog)s ' +
+    (__version__ if __version__ else '(Development)'), help='show program version and exit')
+
+# Display help by default
+if len(sys.argv) == 1:
+    sys.argv.append('-h')
+
+# Parse command-line arguments
+try:
+    args = parser.parse_args()
+except KeyboardInterrupt:
+    pass
+except Exception, e:
+    if args.debug:
+        print('-' * 80)
+
+        import traceback
+        traceback.print_exc()
+
+        if hasattr(e, 'errmsg'):
+            print('Error: %s' % e.errmsg)
+
+        print('-' * 80)
+
+    sys.stderr.write('Error: %s\n' % e)
+
+if '__main__' == __name__:
+    purge_static(args.user, args.file)
+
+# vim: ft=python

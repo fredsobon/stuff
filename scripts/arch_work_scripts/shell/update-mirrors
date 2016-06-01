@@ -1,0 +1,126 @@
+#!/bin/sh
+
+#
+# Inspired from Vincent Batoufflet
+# Last Updated by Maxime Guillet - Mon, 17 Dec 2012 10:36:03 +0100
+#
+
+# DEFINITIONS
+MIRROR_BASE=/srv/mirrors
+MASTER=vit
+
+# FUNCTIONS
+print_usage() {
+	cat <<EOF
+Usage: $(basename $0) [options]
+
+Options:
+	-h	display this text and exit
+	-v	run in verbose mode
+EOF
+	exit 1
+}
+
+update_mirrors() {
+	[ "$1" = 'verbose' ] && VERBOSE='-v'
+
+	# update main mirror
+	/usr/bin/debmirror $VERBOSE \
+		--arch amd64,i386 \
+		--dist lucid,lucid-updates,lucid-security,precise,precise-updates,precise-security,trusty,trusty-updates,trusty-security \
+		--getcontents \
+		--host ftp.free.org \
+		--ignore-release-gpg \
+		--ignore-small-errors \
+		--method rsync \
+		--root :ubuntu \
+		$MIRROR_BASE/ubuntu
+
+	# Oracle Linux 5 Server Update 8 installation media copy
+	/usr/bin/yummirror $VERBOSE \
+		-u http://public-yum.oracle.com/repo/OracleLinux/OL5/8/base/x86_64/ \
+		-d /srv/mirrors/OracleLinux/OL5/8/base/x86_64/
+
+	# Oracle Linux 5 Server Update 9 installation media copy
+	/usr/bin/yummirror $VERBOSE \
+		-u http://public-yum.oracle.com/repo/OracleLinux/OL5/9/base/x86_64/ \
+		-d /srv/mirrors/OracleLinux/OL5/9/base/x86_64/
+
+	# Oracle Linux 5 Server Update 10 installation media copy
+	/usr/bin/yummirror $VERBOSE \
+		-u http://public-yum.oracle.com/repo/OracleLinux/OL5/10/base/x86_64/ \
+		-d /srv/mirrors/OracleLinux/OL5/10/base/x86_64/
+
+	# Oracle Linux 6 Server Update 5 installation media copy
+	/usr/bin/yummirror $VERBOSE \
+		-u http://public-yum.oracle.com/repo/OracleLinux/OL6/5/base/x86_64/ \
+		-d /srv/mirrors/OracleLinux/OL6/5/base/x86_64/
+
+	# Oracle Linux 5 Server Latest
+	/usr/bin/yummirror $VERBOSE \
+		 -u http://public-yum.oracle.com/repo/OracleLinux/OL5/latest/x86_64/ \
+		 -d /srv/mirrors/OracleLinux/OL5/latest/x86_64/
+
+	# Oracle Linux 6 Server Latest
+	/usr/bin/yummirror $VERBOSE \
+		 -u http://public-yum.oracle.com/repo/OracleLinux/OL6/latest/x86_64/ \
+		 -d /srv/mirrors/OracleLinux/OL6/latest/x86_64/
+
+	# Unbreakable Enterprise Kernel for Oracle Linux 5 Server
+	/usr/bin/yummirror $VERBOSE \
+		-u http://public-yum.oracle.com/repo/OracleLinux/OL5/UEK/base/x86_64/ \
+		-d /srv/mirrors/OracleLinux/OL5/UEK/base/x86_64/
+
+	# Unbreakable Enterprise Kernel for Oracle Linux 6 Server
+	/usr/bin/yummirror $VERBOSE \
+		 -u http://public-yum.oracle.com/repo/OracleLinux/OL6/UEK/base/x86_64/ \
+		 -d /srv/mirrors/OracleLinux/OL6/UEK/base/x86_64/
+
+	# Latest Unbreakable Enterprise Kernel for Oracle Linux 5 Server
+	/usr/bin/yummirror $VERBOSE \
+		 -u http://public-yum.oracle.com/repo/OracleLinux/OL5/UEK/latest/x86_64/ \
+		 -d /srv/mirrors/OracleLinux/OL5/UEK/latest/x86_64/
+
+	# Latest Unbreakable Enterprise Kernel for Oracle Linux 6 Server
+	/usr/bin/yummirror $VERBOSE \
+		 -u http://public-yum.oracle.com/repo/OracleLinux/OL6/UEK/latest/x86_64/ \
+		 -d /srv/mirrors/OracleLinux/OL6/UEK/latest/x86_64/
+
+	# Fedora Extra Packages for Entreprise Linux 5
+	/usr/bin/yummirror $VERBOSE \
+		-u http://dl.fedoraproject.org/pub/epel/5/x86_64/ \
+		-d /srv/mirrors/epel/5/x86_64/
+
+	# Fedora Extra Packages for Entreprise Linux 6
+	/usr/bin/yummirror $VERBOSE \
+		 -u http://dl.fedoraproject.org/pub/epel/6/x86_64/ \
+		 -d /srv/mirrors/epel/6/x86_64/
+
+}
+
+# MAIN
+_verbose=0
+
+[ -d $MIRROR_BASE ] || { echo "Can't find mirror base directory: $MIRROR_BASE. Abort"; exit 1; }
+
+while getopts 'hv' option; do
+	case "$option" in
+		v)	_verbose=1 ;;
+		h|*)	print_usage ;;
+	esac
+done
+
+DOMAIN=$(hostname -d) || { echo "fail to resolv FQDN" >&2; exit 1; }
+echo $DOMAIN | grep -q "\.$MASTER\."
+if [ $? -ne 0 ]; then
+	[ $_verbose -ne 0 ] && echo 'Not in the master datacenter'
+	exit 0
+fi
+
+if [ $_verbose -eq 0 ]; then
+	update_mirrors >/dev/null 2>&1 | grep -v '^\(Failed to download some Package, Sources or Release files!\|WARNING: releasing 1 pending lock...\)$'
+else
+	update_mirrors verbose
+fi
+
+exit

@@ -1,0 +1,93 @@
+What?
+====
+
+    shift_planning - Print the Te@m shift planning in your favorite term !
+    For E Merchant internal use only.
+   
+
+SETUP
+=====
+
+    /!\ All planning files must be edited in a specific format (Format used by E-Merchant) to be parsed by all those included scripts
+
+    You must have 2 scripts:
+
+        - download_planning.sh (Depends: ssconvert (gnumeric), xlsx2csv.py (https://github.com/dilshod/xlsx2csv.git), sshpass)
+            Used for downloading the planning file
+
+        - shift_planning (perl script)
+            Used for displaying the planning
+
+    Dependencies: (for converting XLS file to CSV)
+        - ssconvert (gnumeric). Default converter program used by the script: download_planning.sh
+        - xlsx2csv.py: If you want to use another converter program
+
+    
+    1/ Put all scripts into a directory of your PATH
+
+    2/ Create the base datadir & datadir to store the local planning file
+
+            # mkdir -p ~/DATA/Planning/{SYS,DBA}
+
+    3/ Create your configuration file: $HOME/.shift_planning
+
+    datadir : the base directory to store the local planning file
+    team    : your team: it could be DBA or SYS
+    user    : your trigram username
+    script_donwload_planning    : The place where to find the script "download_planning.sh"
+
+
+    Example:
+
+        # Configuration file for displaying the te@m shift planning
+        datadir=/DATA/Planning
+        team=DBA
+        user=DLA
+        script_donwload_planning = /somewhere/to/find/download_planning.sh
+        # Converter tool to use
+        # 0 : ssconvert
+        # 1 : xlsx2csv.py
+        converter=0
+
+    4/ Download the most recent planning file for your team using the script "download_planning.sh"
+
+        To display the help
+
+            # download_planning.sh -h
+
+        Examples:
+
+            - use the configuration file
+                # download_planning.sh -c $HOME/.shift_planning
+
+            - options in the command line
+                # download_planning.sh -d /DATA/Planning -t DBA -C1
+
+    5/ use the script "shift_planning" to display your team planning. You can force an update of the planning file for each call (Use the "-g" option).
+
+        To display the help
+
+            # shift_planning -h
+
+        Example:
+
+            # shift_planning -g -c -t DBA -u DLA
+
+    6/ If you want, add aliases in your profile and adapt it according to your team & user's trigram. Something like:
+
+        alias spbase='/DATA/bin/shift_planning -W -t DBA -p -x'
+        alias sp='spbase -D -i 3'
+        alias spwho='spbase -D -i 3 -H'
+        alias spweek='spbase -D -i 7'
+        alias spcal='spbase -D -C'
+        alias spduty='spbase -D -C -u duty'
+
+
+
+
+Author
+======
+
+    David Larquey <d.larquey@pixmania-group.com>
+    Last modified: Tue Aug 12 13:32:54 CEST 2014
+

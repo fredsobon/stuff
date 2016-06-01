@@ -1,0 +1,217 @@
+#!/bin/sh
+# vim: ts=4 sw=4
+# j.tetillon 2012-01-02
+# m.guillet 2012-05-25
+
+PXE_DIR='/var/lib/tftpboot/pxelinux.cfg'
+SI_DIR='/var/lib/systemimager'
+SI_SERVER="$(ifconfig eth0 | awk '$1=="inet" {sub(".*:","",$2); print $2}')"
+IPMI_USER='root'
+IPMI_PASS='L4nPlu5+'
+DEFAULT_APPEND="SSHD=y VERBOSE_LEVEL=20 MONITOR_CONSOLE=yes MONITOR_SERVER=$SI_SERVER ETHER_SLEEP=10"
+SALI_FLAVOR='sali-1.5.6'
+
+usage() {
+	cat <<EOF
+
+Deploy (2012/05/25)
+
+Usage:
+    deploy -f|--fqdn <fqdn> -i|--image <imagename> [<options>]
+
+Arguments :
+
+[Minimal]
+   -f | --fqdn <fqdn>
+         FQDN du serveur à installer. Il doit être renseigné dans le DHCP ainsi que dans le DNS
+   -i | --image <imagename>
+         Nom de l'image à déployer. Les images disponibles sont visible via la commande si_lsimage
+
+[Optionnel]
+   -s | --script <scriptname>
+         Nom du script à utiliser. Par défaut le script utilisé est NOM_DE_L'IMAGE.master. Si vous souhaitez tester un script modifié vous pouvez le spécifier ici
+   -x | --xen 
+         Pour Ajouter les éléments nécessaires pour xen console dans le fichier de conf pour les VM Xen 
+   -r | --reboot
+         Reboote le client via IPMI pour démarrer l'installation
+   -R | --force-swraid
+         Force la création d'un raid logiciel (deux disques doivent être disponibles)
+   -w | --swap <swap>
+         Spécifie une taille différente pour le swap. (sous la forme --swap XXX K/M/G)
+   -H | --home <home size>
+         Spécifie une taille différente pour /home. (sous la forme --home XXX K/M/G), 0 pour désactiver
+   -o | --overrides <override list>
+         Spécifie des overrides à utiliser
+
+[Divers]
+   -h | --help
+         Affiche cette aide
+   -F | --force
+         Force la création du fichier de boot pxe. Si ce fichier existe la machine est probablement déjà installée
+
+Images Disponibles :
+EOF
+	si_lsimage | tail -n+4
+}
+
+while [ $# -ne 0 ]; do
+	case $1 in
+		'--fqdn'|'-f')
+			FQDN=$2
+			;;
+		'--image'|'-i')
+			IMAGE=$2
+			;;
+		'--script'|'-s')
+			SCRIPT=$2
+			;;	
+		'--help'|'-h')
+			usage
+			exit
+			;;
+		'--force'|'-F')
+			FORCE=1
+			;;
+		'--xen'|'-x')
+			XEN=1
+	        	;;
+		'--reboot'|'-r')
+			REBOOT=1
+			;;
+		'--raid-soft'|'-R')
+			RS=1
+			;;
+		'--swap'|'-w')
+			SWAP=$2
+			;;
+		'--home'|'-H')
+			HOME_SIZE=$2
+			;;
+		'--overrides'|'-o')
+			OVERRIDES=$2
+			;;
+		*)
+			;;
+	esac
+	shift
+done
+
+# Check mandatory parameters
+if [ -z "$FQDN" ] || [ -z "$IMAGE" ]; then
+	usage
+	exit 1
+fi
+
+# Get IP address
+IP_ADDR=$(dig +short $FQDN)
+[ $? -ne 0 ] && { echo "No DNS record found for $FQDN" >&2 ; exit 1; }
+
+if [ -n "$REBOOT" ]; then
+	# Get IPMI IP address
+	IPMI_IP_ADDR=$(dig +short ipmi.$FQDN)
+	[ $? -ne 0 ] && { echo "No DNS record found for ipmi.$FQDN" >&2 ; exit 1; }
+fi
+
+# Check PXE file
+FILENAME="$PXE_DIR/$(printf '%02X' $(echo $IP_ADDR | tr . ' '))"
+
+if [ -f "$FILENAME" ] && [ -z "$FORCE" ]; then
+	echo "This machine already have a PXE file ($FILENAME)"
+	echo 'Would you like to overwrite it (y/N) ?'
+
+	read answer
+	if [ "$answer" != 'y' ] && [ "$answer" != 'Y' ] ; then
+		echo 'abording...' >&2
+		exit 1
+	fi
+fi
+
+# Check SI script
+[ -z "$SCRIPT" ] && SCRIPT='standard.master'
+[ ! -e "$SI_DIR/scripts/$SCRIPT" ] && { echo "SI script not found ($SI_DIR/scripts/$SCRIPT)" >&2 ; exit 1; }
+
+# Check SI image
+[ ! -d "$SI_DIR/images/$IMAGE" ] && { echo "SI image not found ($SI_DIR/images/$IMAGE)" >&2 ; exit 1; }
+
+# Configure swap size
+[ -z "$SWAP" ] && SWAP='8G'
+
+# Configure swap size
+[ -z "$HOME_SIZE" ] && HOME_SIZE='4G'
+
+APPEND="$DEFAULT_APPEND"
+
+# Check Grub2 or not
+if [ -e "$SI_DIR/images/$IMAGE/boot/grub/grub.cfg" ] || \
+	[ -e "$SI_DIR/images/$IMAGE/boot/grub2/grub.cfg" ] ; then
+	GRUB2='yes'
+	APPEND="$APPEND GRUB2=yes"
+fi
+
+# Overrides
+[ -n "$OVERRIDES" ] && APPEND="$APPEND OVERRIDES=$OVERRIDES"
+
+# Software raid creation force
+[ -n "$RS" ] && APPEND="$APPEND FORCE_SOFTRAID=yes"
+
+# Installation summary
+cat << EOF
+
+Server will be installed with this configuration:
+
+    Name        : $FQDN
+    IP address  : $IP_ADDR
+    Image name  : $IMAGE
+    Script name : $SCRIPT
+    Raid type   : $([ -n "$RS" ] && echo 'forcing software raid' || echo 'autodetect')
+    Swap size   : $SWAP
+    Home size   : $([ "$HOME_SIZE" = '0' ] && echo 'No home partition' || echo "$HOME_SIZE")
+    Grub2       : $([ -n "$GRUB2" ] && echo 'yes' || echo 'no')
+
+EOF
+if [ -n "$REBOOT" ]
+then
+	cat << EOF
+    IPMI:
+    Name        : ipmi.$FQDN
+    IP address  : $IPMI_IP_ADDR
+
+EOF
+fi
+
+echo -n "Would you like to continue (y/N) ? "
+
+read answer
+if [ "$answer" != 'y' ] && [ "$answer" != 'Y' ] ; then
+	echo 'abording...' >&2
+	exit 1
+fi
+
+if [ "$XEN" = 1 ]; then
+        APPEND="$APPEND showopts console=tty1 console=ttyS0"
+fi
+# Generate PXE file
+si_mkclientnetboot \
+	--verbose \
+	--flavor=$SALI_FLAVOR \
+	--netboot \
+	--clients "$FQDN" \
+	--arch 'x86_64' \
+	--append "IMAGENAME=${IMAGE} SCRIPTNAME=${SCRIPT} HOSTNAME=${FQDN} ${APPEND} SWAP=${SWAP} HOME_SIZE=${HOME_SIZE}"
+
+if [ "$XEN" = 1 ]; then
+sed -i "s/# SERIAL/SERIAL/g" $FILENAME 
+sed -i "/SERIAL/aterminal --timeout=5 serial console" $FILENAME
+fi
+# Action to do if SOL or reboot is asked
+if [ -n "$REBOOT" ]; then
+	# Check IPMI
+	ping -q -c 1 ipmi.$FQDN 2>&1 >/dev/null || { echo 'IPMI is not reachable by ping' >&2 ; exit 1; }
+
+	# Reboot server
+	echo 'sending reboot command...'
+	ipmitool -U $IPMI_USER -P $IPMI_PASS -I lanplus -H ipmi.$FQDN power cycle
+	[ $? -ne 0 ] && { echo 'reboot command failed, the server must be manually reboot' >&2 ; exit 1; }
+fi
+
+exit 0

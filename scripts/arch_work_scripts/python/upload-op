@@ -1,0 +1,92 @@
+#!/usr/bin/env python
+# -*- coding: utf-8
+
+import argparse
+import sys
+import os
+import shutil
+import logging
+import logging.handlers
+import subprocess
+
+
+def log_handler():
+    my_logger = logging.getLogger()
+    my_logger.setLevel(logging.DEBUG)
+
+    handler = logging.handlers.SysLogHandler(address='/dev/log')
+    formatter = logging.Formatter('upload-op: %(message)s')
+
+    # handler = logging.StreamHandler()
+    # formatter = logging.Formatter('%(levelname)s %(message)s')
+
+    handler.setFormatter(formatter)
+
+    my_logger.addHandler(handler)
+
+    return my_logger
+
+if '__main__' == __name__:
+
+    # Create arguments parser instance
+    parser = argparse.ArgumentParser(
+        description='Upload script for commercial operation.')
+    parser.add_argument('-u', '--user', help='user name', required=True)
+    parser.add_argument('-f', '--file', help='file path', required=True)
+    parser.add_argument('-D', '--debug', action='store_true', help='enable debug mode')
+
+    # Display help by default
+    if len(sys.argv) == 1:
+        sys.argv.append('-h')
+
+    # Parse command-line arguments
+    args = parser.parse_args()
+
+    global logger
+    logger = log_handler()
+
+    prefix = '/srv/exchange/data/'
+    dst_prefix = prefix + 'e-merchant/static/' + \
+        args.user.replace('_op', '').replace('em_static_', '').replace('_', '-')
+
+    # Strip 3 folders from FTP path (client + base static folder)
+    rel_path = '/' + args.file.split('/', 4)[-1]
+
+    src_path = prefix.rstrip('/') + '/' + args.file.lstrip('/')
+    dst_path = dst_prefix.rstrip('/') + '/css/themes/' + rel_path.lstrip('/')
+    dst_rel_path = '/css/themes/' + rel_path.lstrip('/')
+
+    # Move CSS in the root of static content
+    if os.path.dirname(rel_path) == '/':
+
+        if os.path.splitext(rel_path)[1] == '.css':
+            try:
+                shutil.move(src_path, dst_path)
+                logger.info('moving %s for user %s' % (dst_rel_path, args.user))
+            except shutil.Error, e:
+                logger.error('error while moving %s' % rel_path)
+                sys.exit(1)
+        else:
+            # Remove others files in root of static content
+            os.unlink(src_path)
+            sys.exit(1)
+
+    # Move files in subfolder of static content
+    else:
+        if not os.path.isdir(os.path.dirname(dst_path)):
+            os.makedirs(os.path.dirname(dst_path))
+
+        try:
+            logger.info('moving %s for user %s' % (dst_rel_path, args.user))
+            shutil.move(src_path, dst_path)
+        except shutil.Error, e:
+            logger.error('error while moving %s' % rel_path)
+            sys.exit(1)
+
+    flush = subprocess.Popen([
+        '/usr/bin/purge-static',
+        '-u', args.user.replace('_op', ''),
+        '-f', dst_rel_path,
+        ], stdin=None, stdout=None)
+
+# vim: ft=python et sw=4 ts=4

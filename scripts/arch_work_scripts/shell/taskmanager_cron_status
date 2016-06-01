@@ -1,0 +1,35 @@
+#!/bin/bash
+# Abdel - pour facter TaskmanagercronStatus 
+
+file=`hostname -f`
+host=`hostname`
+fonction=`echo $file |awk -F "." '{print$2}'`
+env=`echo $file |awk -F "." '{print$4}'`
+
+if [ $fonction != 'job' ]; then 
+exit
+fi 
+
+case $env in
+prod)
+if [ $host == 'cron00' ]; then 
+var=0
+else
+var=`cat /mnt/share/taskmanager/state/$file`
+fi 
+;;
+uat)
+var=`cat /mnt/share/uat/taskmanager/state/$file`
+;;
+*)
+var=1
+esac
+
+case $var in
+1)
+echo "Master"
+;;
+0)
+echo "Slave"
+esac
+

@@ -1,0 +1,49 @@
+#!/bin/sh
+# JT - 20120116
+# Maxime Guillet - 2012-05-25
+#
+# Network post-setup script.
+
+# Get the Systemimager variables
+. /tmp/post-install/variables.txt
+
+# Set ip address
+HOSTNAME_SHORT=$(echo $HOSTNAME | cut -d '.' -f1)
+DOMAIN=$(echo $HOSTNAME | cut -d '.' -f2-)
+
+[ -z "$GATEWAY" ] && GATEWAY="$(echo $IPADDR | cut -d '.' -f1,2,3).254"
+[ -z "$DEVICE" ] && DEVICE='eth0'
+
+systemconfigurator --confignet --stdin << EOL
+[NETWORK]
+HOSTNAME = $HOSTNAME_SHORT
+DOMAINNAME = $DOMAIN
+GATEWAY = $GATEWAY
+
+[INTERFACE0]
+DEVICE = $DEVICE
+TYPE = static
+IPADDR = $IPADDR
+NETMASK = $NETMASK
+EOL
+
+# Set /etc/resolv.conf file
+echo "domain $DOMAIN" > /etc/resolv.conf
+echo "nameserver $(echo $IPADDR | cut -d '.' -f1,2).253.100" >> /etc/resolv.conf
+
+if [ -f /etc/debian_version ]; then
+	# Debian / Ubuntu
+
+	# Generating udev persistent-net file
+	udevnet=/etc/udev/rules.d/70-persistent-net.rules
+	nic_infos=$(ifconfig -a | grep -E '^eth[0-9] ' | awk '{print $1"@"$5}')
+
+	echo > $udevnet
+	for nic_info in $nic_infos; do
+		device=$(echo $nic_info | cut -d @ -f 1)
+		mac=$(echo $nic_info | cut -d @ -f 2)
+		echo "SUBSYSTEM==\"net\", ACTION==\"add\", DRIVERS==\"?*\", ATTR{address}==\"$mac\", ATTR{type}==\"1\", KERNEL==\"eth*\", NAME=\"$device\"" >> $udevnet
+	done
+fi
+
+exit 0

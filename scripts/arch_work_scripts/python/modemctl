@@ -1,0 +1,111 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# modemctl -- Basic modem device management
+# Author: Marc Falzon <m.falzon@pixmania-group.com>
+
+import argparse
+import io
+import sys
+import time
+
+COMMANDS = ('info', 'signal', 'status', 'unlock')
+
+parser = argparse.ArgumentParser(epilog="available commands: %s" % ', '.join(COMMANDS))
+parser.add_argument('command', nargs='?', default='status', help='command to send to modem (default: status)')
+parser.add_argument('-d', '--device', default='/dev/ttyACM0', help='modem device (default: /dev/ttyACM0)')
+parser.add_argument('-p', '--pin', help='modem PIN code (default: 0000)')
+args = parser.parse_args()
+
+
+class Modem():
+    _MODEM_CRLF = '\r\n'
+    _MODEM_SIGNAL_PREFIX = '+CSQ: '
+    _MODEM_PINSTATUS_PREFIX = '+CPIN: '
+    _MODEM_AT_COMMANDS = {
+        'pin_status':       'AT+CPIN?',
+        'pin_unlock':       'AT+CPIN=%s',
+        'signal_strength':  'AT+CSQ',
+        'device_info':      'AT+GMI;+GMM;+GMR',
+    }
+
+    def __init__(self, device):
+        self.conn = io.FileIO(args.device, 'r+')
+
+    def _query(self, command, argument=None):
+        if command not in self._MODEM_AT_COMMANDS:
+            return False
+
+        at_command = self._MODEM_AT_COMMANDS[command]
+        if argument:
+            at_command = at_command % argument
+
+        self.conn.write(at_command + self._MODEM_CRLF)
+        time.sleep(0.1)
+
+        output = []
+        for i in self.conn.readlines():
+            line = i.strip()
+            if line == '' or line == self._MODEM_AT_COMMANDS[command]:
+                continue
+            else:
+                output.append(line)
+
+        if output[-1] in ('OK', 'ERROR'):
+            output.pop()
+
+        return tuple(output)
+
+    def info(self):
+        return self._query('device_info')
+
+    def signal_strength(self):
+        signal_strength = self._query('signal_strength')
+
+        if len(signal_strength) > 0 and signal_strength[0].startswith(self._MODEM_SIGNAL_PREFIX):
+            return round((float(signal_strength[0][len(self._MODEM_SIGNAL_PREFIX):].replace(',', '.')) * 100) / 32)
+        else:
+            return -1
+
+    def status(self):
+        status = self._query('pin_status')
+
+        if len(status) > 0 and status[0].startswith(self._MODEM_PINSTATUS_PREFIX):
+            return status[0][len(self._MODEM_PINSTATUS_PREFIX):]
+        else:
+            return 'UNKNOWN'
+
+    def pin_unlock(self, device_pin='0000'):
+        self._query('pin_unlock', device_pin)
+        return self.status() == 'READY'
+
+
+if args.command not in COMMANDS:
+    print('error: unknown command "%s", exiting' % sys.argv[1])
+    sys.exit(1)
+
+try:
+    modem = Modem(args.device)
+except IOError, e:
+    print(e)
+    sys.exit(1)
+
+try:
+    if args.command == 'info':
+        modem_info = modem.info()
+        print('''identifier: %s
+    model: %s
+    firmware revision: %s''' % modem_info)
+    elif args.command == 'status':
+        print('%s' % modem.status())
+    elif args.command == 'signal':
+        print('%s%%' % modem.signal_strength())
+    elif args.command == 'unlock':
+        print('OK' if modem.pin_unlock(args.pin) else 'ERROR')
+except Exception, e:
+    print("error: something's gone wrong during command execution (%s)" % e)
+    sys.exit(1)
+
+sys.exit(0)
+
+# vim: et sw=4 ts=4

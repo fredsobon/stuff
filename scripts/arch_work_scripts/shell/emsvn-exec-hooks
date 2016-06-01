@@ -1,0 +1,18 @@
+#!/bin/bash
+#
+# emsvn-exec-hooks: E-Merchant SVN hooks launcher
+#                   Vincent Batoufflet <vbatoufflet@e-merchant.com>
+#
+
+BASE_DIR=$(readlink -f $(dirname $0))
+HOOK_TYPE=$(basename $0)
+
+for FILE in $(find $BASE_DIR/$HOOK_TYPE.d \( -type f -o -type l \) | sort -n); do
+    if [ ! -x $FILE ]; then
+        echo "Warning: $HOOK_TYPE $(basename $FILE) hook script should be executable"
+        continue
+    fi
+
+    # Execute hook
+    $FILE $@ || exit $?
+done

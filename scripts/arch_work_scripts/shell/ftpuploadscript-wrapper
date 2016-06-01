@@ -1,0 +1,23 @@
+#!/bin/sh
+
+print_usage() {
+	echo "Usage: $(basename $0) -u <user> -f <file> [-h]"
+}
+
+while getopts 'f:u:vh' option; do
+	case "$option" in
+		h) print_usage; exit 0 ;;
+		f) file="$OPTARG" ;;
+		u) user="$OPTARG" ;;
+	esac
+done
+
+[ -z "$file" ] && [ -z "$user" ] && { print_usage; exit 1; }
+
+export HOME=/tmp
+
+test "$user" = 'em_static_fo_carrefour_op' && /usr/local/bin/upload-op -u "$user" -f "$file"
+echo "$user" | grep -q '^em_static_' && purge-static -u "$user" -f "$file"
+echo "$user" | grep -q '^pix_europe' && purge-static -u "$user" -f "$file"
+
+exit 0
