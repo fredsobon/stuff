@@ -40,3 +40,36 @@ justify                     removed       removed
 matchit                     removed       removed       
 puppet                      installed     installed     
 
+
+2 / description du run :
+la node va charger ses facts puis faire une requette au master qui va examiner et compiler un catalogue qu'il va envoyer au client . Celui ci depile les changements ( enregistre le run dans /var/lib/client_data ) . le resulat du run est envoyé au master et pourra etre consulter via des outils (puppetdb etc ...)
+
+3 / base :
+a l'install issue du package : la conf est située dans /etc/puppet/
+boogie@x61-boogie:~$ ls /etc/puppet/
+auth.conf              fileserver.conf  puppet.conf
+etckeeper-commit-post  manifests
+etckeeper-commit-pre   modules
+
+on va creer un fichier de base obligatoire : le site.pp IMPERATIF qui se situe dans le repertoire manifest :
+ex ici on creer juste un fichier avec une notif pour tous les nodes :
+
+cat /etc/puppet/manifests/site.pp 
+node default {
+  notify{"run for default node:" }
+}
+
+On peut utiliser l'utilitaire : puppet-lint pour tester notre code.
+puppet-lint site.pp 
+WARNING: double quoted string containing no variables on line 2
+
+on peut specifier des noms de nodes particuliers et utiliser des regexp :
+ex : 
+cat site.pp 
+node default {
+  notify{"run for default node": }
+}
+
+node  /^x61/ {
+  notify{"thinkpad dedicated run :)": }
+}
