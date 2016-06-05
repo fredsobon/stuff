@@ -6,10 +6,12 @@ filter=$( grep -Ei "${arg}" "${search_file}" |grep  ".frontend" |grep -v "old" |
 
 echo  "here are the target machines : "
 echo "$filter" |sed -n 's/.frontend//p' 
-echo "let's go :"
- 
+count_nodes=$(echo "$filter" |sed -n 's/.frontend//p'|wc -l)
+echo "hey our target's node number is $count_nodes let's go ? y / N"
 
-cssh $(echo -n "$filter" |sed 's/.frontend//p' |sed ':a;N;$!ba;s/\n/ /g') 
+echo "cssh $(echo -n "$filter" |sed 's/.frontend//p' |sed ':a;N;$!ba;s/\n/ /g') "
+#echo "gimme something to eat plz !"
+
 
 
 
