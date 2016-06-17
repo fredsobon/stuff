@@ -54,6 +54,8 @@ etckeeper-commit-pre   modules
 on va creer un fichier de base obligatoire : le site.pp IMPERATIF qui se situe dans le repertoire manifest :
 ex ici on creer juste un fichier avec une notif pour tous les nodes :
 
+-notify : est donc un type qui va nous servir à afficher le message saisi dans la portion de code : 
+
 cat /etc/puppet/manifests/site.pp 
 node default {
   notify{"run for default node:" }
@@ -73,3 +75,346 @@ node default {
 node  /^x61/ {
   notify{"thinkpad dedicated run :)": }
 }
+
+NB : on peut biensur utiliser les différents facter pour identifier précisemment notre système.ex :
+
+root@x61-boogie:/etc/puppet/manifests# facter -p fqdn
+x61-boogie.localdomain
+
+root@x61-boogie:/etc/puppet/manifests# facter  |grep operatingsystem
+operatingsystem => Ubuntu
+operatingsystemmajrelease => 16.04
+operatingsystemrelease => 16.04
+
+- puppet-lint :
+Il est possible de tester notre fichier .pp avec l'utilitaire puppet-lint :
+root@x61-boogie:/etc/puppet/manifests# puppet-lint site.pp 
+WARNING: double quoted string containing no variables on line 2
+WARNING: double quoted string containing no variables on line 6
+
+
+Nous pouvons tester notre conf directement :
+- en local avec puppet apply :
+
+root@x61-boogie:/etc/puppet/manifests# puppet apply site.pp 
+Notice: Compiled catalog for x61-boogie.localdomain in environment production in 0.03 seconds
+Notice: thinkpad dedicated run ohYeah 
+Notice: /Stage[main]/Main/Node[x61]/Notify[thinkpad dedicated run ohYeah ]/message: defined 'message' as 'thinkpad dedicated run ohYeah '
+Notice: Finished catalog run in 0.04 seconds
+
+- en interrogeant le master avec puppet agent -t ( --test )
+root@x61-boogie:/etc/puppet/manifests# puppet agent -t
+Info: Retrieving pluginfacts
+Info: Retrieving plugin
+Info: Caching catalog for x61-boogie.localdomain
+Info: Applying configuration version '1465742006'
+Notice: thinkpad dedicated run ohYeah 
+Notice: /Stage[main]/Main/Node[x61]/Notify[thinkpad dedicated run ohYeah ]/message: defined 'message' as 'thinkpad dedicated run ohYeah '
+Notice: Finished catalog run in 0.04 seconds
+
+
+= ressources :
+
+puppet gere beaucoup de ressource. Une commande ressource nous permet d'etudier ces ressources. Ex :
+
+root@x61-boogie:/etc/puppet/manifests# puppet resource file /etc/hosts
+file { '/etc/hosts':
+  ensure  => 'file',
+  content => '{md5}9af8b5d072dffc1ed4d401fbc1ec0673',
+  ctime   => '2016-06-05 22:38:02 +0200',
+  group   => '0',
+  mode    => '666',
+  mtime   => '2016-06-05 22:38:02 +0200',
+  owner   => '0',
+  type    => 'file',
+}
+
+
+root@x61-boogie:/etc/puppet/manifests# puppet resource service vlc
+Error: Could not run: #<IO:0x00000003822b18>  # on a une erreur d'acces ..à verifier (pb sur notre pc ..?)
+root@x61-boogie:/etc/puppet/manifests# puppet resource package vim
+package { 'vim':
+  ensure => '2:7.4.1689-3ubuntu1',
+}
+
+
+on peut examiner les doc sur les differentes ressources et options que puppet gere en consultant https://docs.puppet.com/puppet/latest/reference/type.html
+
+= Manifest :
+c'est un fichier qui sera interprété par le puppet agent ou master et qui permettra entre autre de creer des ressources.
+ex : on crée un manifest dans le repertoire root : on defini la creation d'un fichier et son contenu : on lance le run et le fichier est bien crée . 
+Tant que le manifest n'est pas changé les run seront identiques . Si on modifie le fichier : le run nous le remettra comme ndiqué dans le manifest.
+Le hash du fichier est utilisé par puppet pour faire des checks d'intégrité
+
+*root@x61-boogie:~# ls
+file.pp  system
+root@x61-boogie:~# cat file.pp 
+file{"/root/filetest.txt":
+	ensure => 'file',
+	content => "This file is managed by Puppet",
+
+}
+root@x61-boogie:~# puppet apply file.pp 
+Notice: Compiled catalog for x61-boogie.localdomain in environment production in 0.31 seconds
+Notice: /Stage[main]/Main/File[/root/filetest.txt]/ensure: defined content as '{md5}1051da9635b4229471d478c268cb0218'
+Notice: Finished catalog run in 0.04 seconds
+root@x61-boogie:~# ls
+file.pp  filetest.txt  system
+root@x61-boogie:~# cat filetest.txt 
+This file is managed by Puppet
+
+On change le manifest, et on voit au run le hash modifié :
+root@x61-boogie:~# cat file.pp 
+file{"/root/filetest.txt":
+	ensure => 'file',
+	content => "This file is managed by Puppet in root directory",
+
+}
+
+puppet apply file.pp 
+Notice: Compiled catalog for x61-boogie.localdomain in environment production in 0.31 seconds
+Notice: /Stage[main]/Main/File[/root/filetest.txt]/content: content changed '{md5}1051da9635b4229471d478c268cb0218' to '{md5}520af95fb851576102c6a49c4fdf58ac'
+Notice: Finished catalog run in 0.08 seconds
+root@x61-boogie:~# cat filetest.txt 
+This file is managed by Puppet in root directory
+
+root@x61-boogie:~# cat filetest.txt 
+This file is managed by Puppet in root directory 
+On rajoute un retour chariot pour un visibilité améliorée :
+root@x61-boogie:~# cat file.pp  
+file{"/root/filetest.txt":
+	ensure => 'file',
+	content => "This file is managed by Puppet in root directory \n",
+
+}
+
+root@x61-boogie:~# puppet apply file.pp 
+Notice: Compiled catalog for x61-boogie.localdomain in environment production in 0.31 seconds
+Notice: /Stage[main]/Main/File[/root/filetest.txt]/content: content changed '{md5}520af95fb851576102c6a49c4fdf58ac' to '{md5}bd69070cd1de35cf1a37f4bed08a8df6'
+Notice: Finished catalog run in 0.07 seconds
+root@x61-boogie:~# cat filetest.txt 
+This file is managed by Puppet in root directory 
+root@x61-boogie:~#
+On peut effectuer un dry run avec la commande --noop :
+si on modifie localement le fichier test et qu'on lance un run en --noop : aucune modification ne sera appliquée mais on peut examiner les differences et ce qui sera appliqué en cas de reel run :
+
+roott@x61-boogie:~# puppet apply file.pp --noop
+Notice: Compiled catalog for x61-boogie.localdomain in environment production in 0.35 seconds
+Notice: /Stage[main]/Main/File[/root/filetest.txt]/content: current_value {md5}39111aad5be5903c25a39645c24af90f, should be {md5}bd69070cd1de35cf1a37f4bed08a8df6 (noop)
+Notice: Class[Main]: Would have triggered 'refresh' from 1 events
+Notice: Stage[main]: Would have triggered 'refresh' from 1 events
+Notice: Finished catalog run in 0.04 seconds
+
+= types : 
+
+plusieurs types sont gérés par puppet : les principaux sont les files , services et packages .
+
+- file :
+
+Les fichiers prennent beaucoup de paramètres voir doc puppet.
+
+root@x61-boogie:~# cat file.pp 
+file{"/etc/motd":
+    ensure  => present,  # on force la creation si le fichier n'existe pas
+    content => "Today here is the Motd :) ", # on definie le contenu du fichier
+    owner   => 'root', # on defini le propriétaire
+    mode    => '0755', # on defini le mode sur 4 chiffres (en ajoutant les droits etendus)
+}
+
+root@x61-boogie:~# puppet apply file.pp 
+Notice: Compiled catalog for x61-boogie.localdomain in environment production in 0.31 seconds
+Notice: /Stage[main]/Main/File[/etc/motd]/ensure: created
+Notice: Finished catalog run in 0.04 seconds
+root@x61-boogie:~# cat /etc/motd
+Today here is the Motd :)
+
+- package :
+Les packages et leur gestion sont liés au système et à leur gestion interne de package managment. Cette couche est finalement indépendante de puppet qui lui n'est que garant de la version et de l'etat du package par ex.
+on va vouloir apache sur notre machinne :
+
+root@x61-boogie:~# cat package.pp 
+package{"apache2":
+    ensure => present,
+}
+
+
+root@x61-boogie:~# puppet apply package.pp 
+Notice: Compiled catalog for x61-boogie.localdomain in environment production in 0.76 seconds
+Notice: /Stage[main]/Main/Package[apache2]/ensure: ensure changed 'purged' to 'present'
+Notice: Finished catalog run in 15.65 seconds
+root@x61-boogie:~# ps fauxw |grep apache
+root     18705  0.0  0.0  21732   968 pts/6    S+   17:28   0:00          |   |               \_ grep --color=auto apache
+root     18580  0.0  0.1  71568  4328 ?        Ss   17:28   0:00 /usr/sbin/apache2 -k start
+www-data 18583  0.0  0.1 360724  6084 ?        Sl   17:28   0:00  \_ /usr/sbin/apache2 -k start
+www-data 18584  0.0  0.1 360724  6084 ?        Sl   17:28   0:00  \_ /usr/sbin/apache2 -k start
+
+On a donc l'installation faite si on arrete le service apache et qu'on relance le run le service n'est pas lancé ( il ne se lance en auto qu'après l'installation :
+
+root@x61-boogie:~# puppet apply package.pp 
+Notice: Compiled catalog for x61-boogie.localdomain in environment production in 0.76 seconds
+Notice: Finished catalog run in 0.14 seconds
+root@x61-boogie:~# ps fauxw |grep apache
+root     19010  0.0  0.0  21732   944 pts/6    S+   17:30   0:00          |   |               \_ grep --color=auto apache
+
+On va donc passer par une ressource dédiée aux services :
+-services :
+
+root@x61-boogie:~# cat service.pp 
+service{"apache2":
+    ensure => running,
+}
+On force donc le lancement du serveur si celui ci est stoppé grace à l'attribut ensure => running, 
+
+root@x61-boogie:~# puppet apply service.pp 
+Notice: Compiled catalog for x61-boogie.localdomain in environment production in 0.35 seconds
+Notice: /Stage[main]/Main/Service[apache2]/ensure: ensure changed 'stopped' to 'running'
+Notice: Finished catalog run in 1.53 seconds
+root@x61-boogie:~# ps fauxw |grep apache
+root     19311  0.0  0.0  21732  1028 pts/6    S+   17:34   0:00          |   |               \_ grep --color=auto apache
+root     19245  0.0  0.1  71568  4284 ?        Ss   17:34   0:00 /usr/sbin/apache2 -k start
+www-data 19248  0.0  0.1 360724  6256 ?        Sl   17:34   0:00  \_ /usr/sbin/apache2 -k start
+www-data 19249  0.0  0.1 360724  6256 ?        Sl   17:34   0:00  \_ /usr/sbin/apache2 -k start
+
+En debutant puppet il est assez courant de regrouper les trois ressources file, package et service dans un manifest :
+On crée donc un manifest dedié : 
+root@x61-boogie:~# cat apache.pp 
+package{"apache2":
+    ensure => present,
+}
+
+file{"/etc/apache2/sites-enabled/000-default.conf":
+    ensure => file,
+    content => "<VirtualHost: *:80>
+	ServerAdmin webmaster@localhost
+	DocumentRoot /var/www/html
+	ErrorLog ${APACHE_LOG_DIR}/error.log
+	CustomLog ${APACHE_LOG_DIR}/access.log combined
+        </VirtualHost>",
+}
+service{"apache2":
+    ensure => running,
+}
+
+
+t@x61-boogie:~# puppet apply apache.pp 
+Notice: Compiled catalog for x61-boogie.localdomain in environment production in 1.49 seconds
+Notice: /Stage[main]/Main/Service[apache2]/ensure: ensure changed 'stopped' to 'running'
+Notice: /Stage[main]/Main/File[/etc/apache2/sites-enabled/000-default.conf]/ensure: defined content as '{md5}16ff9df1c28f0fa7bd28525a9fb37138'
+Notice: Finished catalog run in 1.66 seconds
+root@x61-boogie:~# ps fauxw |grep apache.pp 
+root     19744  0.0  0.0  21732  1012 pts/6    S+   17:44   0:00          |   |               \_ grep --color=auto apache.pp
+
+On s'appercoit que notre service ne tourne pas : c'est lié au fait que puppet ne lit pas sequentiellement les manifests : il traite les instructions dans un ordre a lui : on peut donc avoir la section service lu avant l'install pour remedier a ce probleme on va fixer des regles de lecture et des dependances.
+
+root@x61-boogie:~# cat apache.pp 
+package{"apache2":
+    ensure => present,
+}
+
+file{"/etc/apache2/sites-enabled/000-default.conf":
+    ensure => file,
+    content => "<VirtualHost: *:80>
+	ServerAdmin webmaster@localhost
+	DocumentRoot /var/www/html
+	ErrorLog ${APACHE_LOG_DIR}/error.log
+	CustomLog ${APACHE_LOG_DIR}/access.log combined
+        </VirtualHost>",
+}
+service{"apache2":
+    ensure => running,
+    require => Package["apache2"],
+}
+
+
+Pour les dependances on utilise toujours la ressource nécéssaire avec une majuscule ( Package dans notre ex )
+Si on veut s'assurer du redemmarage du service après une modif dans notre fichier de conf on peut ajouter une dependance au service :
+notify => Service["apache2"],
+
+root@x61-boogie:~# ps fauxw |grep apache
+root     20568  0.0  0.0  21732   924 pts/6    S+   18:04   0:00          |   |               \_ grep --color=auto apache
+root     19674  0.0  0.1  71568  4196 ?        Ss   17:44   0:00 /usr/sbin/apache2 -k start
+www-data 19677  0.0  0.1 360724  6164 ?        Sl   17:44   0:00  \_ /usr/sbin/apache2 -k start
+www-data 19678  0.0  0.1 360724  6164 ?        Sl   17:44   0:00  \_ /usr/sbin/apache2 -k start
+
+root@x61-boogie:~# cat apache.pp 
+package{"apache2":
+    ensure => present,
+}
+
+file{"/etc/apache2/sites-enabled/000-default.conf":
+    ensure => file,
+    content => "<VirtualHost *:80>
+	ServerAdmin webmaster@localhost
+	DocumentRoot /var/www/html
+	ErrorLog /var/log/apache2/error.log
+	CustomLog /var/log/apache2/access.log combined
+        </VirtualHost>",
+    notify => Service["apache2"],
+}
+service{"apache2":
+    ensure => running,
+    require => Package["apache2"],
+}
+root@x61-boogie:~# puppet apply apache.pp 
+Notice: Compiled catalog for x61-boogie.localdomain in environment production in 1.40 seconds
+Notice: /Stage[main]/Main/File[/etc/apache2/sites-enabled/000-default.conf]/content: content changed '{md5}eba99f3d94c3a7bb3a57304a1c8d0ed0' to '{md5}57709411f24925e3240a5f7d533edf94'
+Notice: /Stage[main]/Main/Service[apache2]/ensure: ensure changed 'stopped' to 'running'
+Notice: Finished catalog run in 1.69 seconds
+root@x61-boogie:~# ps fauxw |grep apache
+root     21485  0.0  0.0  21732   932 pts/6    S+   18:14   0:00          |   |               \_ grep --color=auto apache
+root     21419  0.0  0.1  71568  4592 ?        Ss   18:14   0:00 /usr/sbin/apache2 -k start
+www-data 21422  0.0  0.1 360724  6008 ?        Sl   18:14   0:00  \_ /usr/sbin/apache2 -k start
+www-data 21430  0.0  0.1 360724  6004 ?        Sl   18:14   0:00  \_ /usr/sbin/apache2 -k start
+
+= conditional logic :
+
+comme dans les language de programmation puppet gère les  conditions.
+Dans puppet toutes les variables commencent avec un $
+
+On peut definir les charactères entre ' par ex :
+$my_variable = 'one'
+Si on utilise les " on peut avoir une interprétation d'une seconde variable par exemple ...
+Il faut consulter la doc puppet pour voir les différents types de variables.
+On ne doit pas coller le signe = à la valeur de la variable pour plus de lisibilité.
+/|\Attention à bien encadrer chaque bloc de code par des { } 
+
+
+- if statement exemple : 
+
+
+root@x61-boogie:~/puppet_test# cat conditionnal.pp 
+$my_variable = 'lapin'
+
+if $my_variable == 'one' {
+    notify{"the value of the variable is one":}
+}
+elsif $my_variable == 'two' {
+    notify{"the value of the variable is two":}
+}
+else { 
+    notify{"the value of my var was not one nor two but .... ${my_variable}": } 
+    }
+
+root@x61-boogie:~/puppet_test# puppet apply conditionnal.pp 
+Notice: Compiled catalog for x61-boogie.localdomain in environment production in 0.04 seconds
+Notice: the value of my var was not one nor two but .... lapin
+Notice: /Stage[main]/Main/Notify[the value of my var was not one nor two but .... lapin]/message: defined 'message' as 'the value of my var was not one nor two but .... lapin'
+Notice: Finished catalog run in 0.05 seconds
+
+
+- case statement :
+
+$my_variable = 'lapin'
+
+case $my_variable {
+    'one':{
+        notify{"hey the value of the var is one in case statement...": }
+        }
+    default:{
+        notify{"what'news doc ..the value of var is ${my_variable} in case statement ...": }
+        } 
+}
+
+Bien respecter la syntaxe ...
+
+
