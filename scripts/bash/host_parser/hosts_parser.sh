@@ -1,14 +1,14 @@
 #!/bin/bash
 
 ## this script aims to do some test in order to ensure unicity of records in "/etc/hosts" file record.
-
-#
 host_file="/etc/hosts"
-#
 
-result=$(cat ${host_file} |grep -viE "^#|test|:|eof|\[temp]|temporaires|spare" \
+## in order to capitalized pattern to exclude 2 files have been created each one contains text parsed by grep 
+# file number one called filter1 - file number2 called filter2 
+
+result=$(cat ${host_file} |grep -viE --file filter1 \
 |tr '\t' ' ' |tr ' ' '\n' |sed '/^$/d' \
-|sort -g |uniq -c |grep -Evi "      1|#|switch|san|irac|bessiere|ulis"|sort -rn)
+|sort -g |uniq -c |grep -Evi --file filter2 |sort -rn)
 
 
 if [ -n "$result" ]; then 
@@ -19,4 +19,3 @@ if [ -n "$result" ]; then
 else
     exit 0 
 fi
-
