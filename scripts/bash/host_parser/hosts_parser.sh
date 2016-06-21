@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ## this script aims to do some test in order to ensure unicity of records in "/etc/hosts" file record.
-host_file="/etc/hosts"
+host_file="hosts"
 
 ## in order to capitalized pattern to exclude 2 files have been created each one contains text parsed by grep 
 # file number one called filter1 - file number2 called filter2 
