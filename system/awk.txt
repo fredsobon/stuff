@@ -209,3 +209,36 @@ ou pour connaitre la place en Ko prise par tous les fichiers PNG du repertoire :
     ls -l *.png | awk '{SUM += $5} END {print SUM/1024}'
 
 
+== Calcul d'une volumetrie :
+
+
+du -sk * | sort -g | awk '{ 
+
+    numBytes = $1 * 1024; 
+    numUnits = split("B K M G T P", unit); 
+    num = numBytes; 
+    iUnit = 0; 
+
+    while(num >= 1024 && iUnit + 1 < numUnits) { 
+        num = num / 1024; 
+        iUnit++; 
+    } 
+
+    $1 = sprintf( ((num == 0) ? "%6d%s " : "%6.1f%s "), num, unit[iUnit + 1]);
+    print $0; 
+
+}'
+
+
+nous donne par exemple :
+   7,4G  xml-data/build-dir/90374147
+   7,7G  xml-data/build-dir/90374146
+   8,5G  artifacts/XFR-DEPLOYTOPROD/shared
+   8,6G  artifacts/AXL-DEPLOYPROD/shared
+   8,8G  xml-data/build-dir/_git-repositories-cache
+  10,3G  xml-data/build-dir/5046276
+  12,9G  xml-data/build-dir/2949121
+  16,0G  xml-data/build-dir/130547713
+  27,5G  artifacts/DAT-DEPLOYPREPROD/shared
+
+
