@@ -429,4 +429,267 @@ case $my_variable {
 
 Bien respecter la syntaxe ...
 
+- facter :
+c'est un element tres important dans la configuration : outil permettant de recuperer enormement d'infos sur notre systeme (hardware, os ...)
+
+root@x61-boogie:~/puppet_test# facter -p operatingsystem
+Ubuntu
+
+On va pouvoir nous interroger notre system dans un manifest et choisir de faire une action en fonction du resultat.
+Les variables que l'on peut definir et / ou interroger sont situées dans le scope global de notre systeme elle ont donc une syntaxe particulière :
+On ecrit toujours une globale avec $::nom_de_la_globale (scope puppet , facter ...)
+
+root@x61-boogie:~/puppet_test# cat facter_conditional.pp 
+
+# facter conditional 
+
+
+if $::operatingsystem == "Ubuntu" {
+    notify {"Install on ubuntu system": }
+
+}
+
+case $::operatingsystem {
+    'Ubuntu':{
+    notify {"Install on ubuntu system in the case statement":}
+  }
+
+    'Redhat':{
+    notify {"Install on redhat system in the case statement":}
+  }
+}
+
+
+on peut avoir lors de l'execution du run une sortie dans le desordre ( la sortie du case affichee avant celle du if ) : c'est lié au fait qu'il n'y ait pas de dependance dans notre manifest et que puppet quand il compile son catalogue ne se souci pas de l'ordre .
+
+
+-Deroulement du run et distribution du run :
+l'arbo de puppet classiquement va être :
+et$ sudo tree  /etc/puppet/
+/etc/puppet/
+├── auth.conf
+├── etckeeper-commit-post
+├── etckeeper-commit-pre
+├── fileserver.conf
+├── manifests
+│   └── site.pp
+├── modules
+└── puppet.conf
+
+le premier fichier qui va être lu sera :
+manifests/site.pp : on pourra au tout debut de notre apprentissage definir les nodes de notre parc dans ce fichier en utilsant des regexps :
+cat /etc/puppet/manifests/site.pp 
+node default {
+  notify{"run for default node": }
+}
+
+node  /^x61/ {
+  notify{"thinkpad dedicated run ohYeah ": }
+	
+}
+
+puppet une fois qu'il a identifie notre machine va lui appliquer les modules .
+
+
+
+= Modules - intro :
+
+On ne va bien evidemment pas tout ecrire dans le fichier site.pp de notre manifest .
+On va definir un endroit dans lequel tout notre code reutilisable va être enregistrer et utiliser.
+Ce code reutilisable est appelle module et est stocke dans une arbo dediée dans puppet.
+
+on va creer notre module dans le repertoire dedié :
+/etc/puppet/modules 
+
+une commande permet de creer le squelette de notre module : larbo , les fichiers de tests , specs etc ..
+
+On rempli des champs d'information générales et on a ensuit enotre arbo deployée : 
+
+root@x61-boogie:/etc/puppet/modules# puppet module generate boogie-module
+We need to create a metadata.json file for this module.  Please answer the
+following questions; if the question is not applicable to this module, feel free
+to leave it blank.
+
+Puppet uses Semantic Versioning (semver.org) to version modules.
+What version is this module?  [0.1.0]
+--> 
+
+Who wrote this module?  [boogie]
+--> 
+
+What license does this module code fall under?  [Apache 2.0]
+--> 
+
+How would you describe this module in a single sentence?
+--> test module just for learning : do nothing special ..
+
+Where is this module's source code repository?
+--> 
+
+Where can others go to learn more about this module?
+--> 
+
+Where can others go to file issues about this module?
+--> 
+
+----------------------------------------
+{
+  "name": "boogie-module",
+  "version": "0.1.0",
+  "author": "boogie",
+  "summary": "test module just for learning : do nothing special ..",
+  "license": "Apache 2.0",
+  "source": "",
+  "project_page": null,
+  "issues_url": null,
+  "dependencies": [
+    {"name":"puppetlabs-stdlib","version_requirement":">= 1.0.0"}
+  ]
+}
+----------------------------------------
+
+About to generate this metadata; continue? [n/Y]
+--> 
+
+Notice: Generating module at /etc/puppet/modules/boogie-module...
+Notice: Populating templates...
+Finished; module generated in boogie-module.
+boogie-module/spec
+boogie-module/spec/classes
+boogie-module/spec/classes/init_spec.rb
+boogie-module/spec/spec_helper.rb
+boogie-module/manifests
+boogie-module/manifests/init.pp
+boogie-module/Gemfile
+boogie-module/README.md
+boogie-module/tests
+boogie-module/tests/init.pp
+boogie-module/metadata.json
+boogie-module/Rakefile
+
+Voila le resultat de notre creation :
+
+root@x61-boogie:/etc/puppet/modules# tree boogie-module/
+boogie-module/
+├── Gemfile
+├── manifests
+│   └── init.pp
+├── metadata.json
+├── Rakefile
+├── README.md
+├── spec
+│   ├── classes
+│   │   └── init_spec.rb
+│   └── spec_helper.rb
+└── tests
+    └── init.pp
+
+NB : la creation du module naturellement demande un nom compose ( pour la distribution eventuelle) : on peut le renommer sans souci quand c'est juste en utilisation locale et personnelle.
+root@x61-boogie:/etc/puppet/modules# ls boogie/*
+boogie/Gemfile  boogie/metadata.json  boogie/Rakefile  boogie/README.md
+
+boogie/manifests:
+init.pp
+
+boogie/spec:
+classes  spec_helper.rb
+
+boogie/tests:
+init.pp
+On voit donc que la génération auto de module nous a creer des fichier de dev specifiques ( Gemfile, Rakefile ; spec folder ..)
+
+On voit qu'on a un repertoire manifests et un fichier init.pp dans notre module : des grandes directive d'exemple sont mentionnées en commentaire : une seule section est importante : la dernière section non commentée ou notre module va être chargée :
+
+# == Class: module
+#
+# Full description of class module here.
+#
+# === Parameters
+#
+# Document parameters here.
+#
+# [*sample_parameter*]
+#   Explanation of what this parameter affects and what it defaults to.
+#   e.g. "Specify one or more upstream ntp servers as an array."
+#
+# === Variables
+#
+# Here you should define a list of variables that this module would require.
+#
+# [*sample_variable*]
+#   Explanation of how this variable affects the funtion of this class and if
+#   it has a default. e.g. "The parameter enc_ntp_servers mus...
+.....
+# Copyright 2016 Your name here, unless otherwise noted.
+#
+class module {
+
+
+}
+
+On va donc modifier cette partie en renseignant le nom de notre module et l'action qu'il va faire ex :
+
+class boogie {
+  notify{"hey this is the boogie module! " :
+  }
+}
+
+
+On a un repertoire tests qui va pouvoir nous servir a tester directement notre module au sein du repertoire de notre module .
+root@x61-boogie:/etc/puppet/modules/boogie# ls tests/
+init.pp
+on va dans le repertoire test et on examine le init.pp : il contient juste un include de notre module ( il faut changer le nom comme dans le fichier init.pp du repertoire manifests denotre module :
+
+root@x61-boogie:/etc/puppet/modules/boogie/tests# cat init.pp 
+# The baseline for module testing used by Puppet Labs is that each manifest
+# should have a corresponding test manifest that declares that class or defined
+# type.
+#
+# Tests are then run by using puppet apply --noop (to check for compilation
+# errors and view a log of events) or by fully applying the test in a virtual
+# environment (to compare the resulting system state to the desired state).
+#
+# Learn more about module testing here:
+# http://docs.puppetlabs.com/guides/tests_smoke.html
+#
+include module
+devient :
+#include module
+include boogie
+ 
+On va lancer le test de notre module en nous placant dans le repertoire tests et en lancant le run :
+
+/etc/puppet/modules/boogie/tests
+root@x61-boogie:/etc/puppet/modules/boogie/tests# puppet apply init.pp 
+Notice: Compiled catalog for x61-boogie.localdomain in environment production in 0.05 seconds
+Notice: hey this is the boogie module! 
+Notice: /Stage[main]/Boogie/Notify[hey this is the boogie module! ]/message: defined 'message' as 'hey this is the boogie module! '
+Notice: Finished catalog run in 0.05 seconds
+
+Quand on voit notre test ok on peut vouloir appliquer notre module de maniere globale ou commune a certaine machines : on va du coup rajouter notre module dans la section de la machine qui nous interesse. ex :
+root@x61-boogie:/etc/puppet/manifests# cat site.pp 
+node default {
+  notify{"run for default node": }
+}
+
+node  /^x61/ {
+  include boogie
+  notify{"thinkpad dedicated run ohYeah ": }
+	
+}
+
+Quand on lance notre run on voit que le module est chargé :
+
+root@x61-boogie:~# puppet agent -t
+Info: Retrieving pluginfacts
+Info: Retrieving plugin
+Info: Caching catalog for x61-boogie.localdomain
+Info: Applying configuration version '1470587819'
+Notice: hey this is the boogie module! 
+Notice: /Stage[main]/Boogie/Notify[hey this is the boogie module! ]/message: defined 'message' as 'hey this is the boogie module! '
+Notice: thinkpad dedicated run ohYeah 
+Notice: /Stage[main]/Main/Node[x61]/Notify[thinkpad dedicated run ohYeah ]/message: defined 'message' as 'thinkpad dedicated run ohYeah '
+Notice: Finished catalog run in 0.05 seconds
+
+
 
