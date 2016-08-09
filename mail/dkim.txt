@@ -1,0 +1,124 @@
+== Authentifier les e-mails DKIM ==
+
+Vous pouvez utiliser la norme DKIM pour lutter contre le spoofing en ajoutant une signature numérique à l'en-tête des messages sortants. Il s'agit d'utiliser une clé de domaine privée pour chiffrer l'en-tête des messages sortants de votre domaine et d'ajouter une version publique de cette clé aux enregistrements DNS de ce dernier. Le serveur de destination peut ensuite récupérer la clé publique pour déchiffrer l'en-tête entrant et vérifier que le message provient bien de votre domaine et n'a pas été modifié entre-temps.
+
+La signature numérique de Google Apps respecte la norme DKIM (DomainKeys Identified Mail).
+
+Fonctionnement de DKIM
+
+
+Vue d'ensemble de la procédure à suivre
+Répétez ces étapes pour chaque domaine associé à votre compte Google Apps.
+
+1/ Générez la clé publique de votre domaine.
+
+- Générer la clé de domaine
+
+Ignorez cette page si vous avez acheté votre domaine auprès de l'un de nos hôtes partenaires lors de votre inscription à Google Apps. Dans ce cas, Google génère la clé de domaine automatiquement.
+Pour générer la clé de domaine permettant de signer les messages :
+Connectez-vous à votre console d'administration Google.
+Connectez-vous avec votre compte administrateur (ce compte ne doit pas se terminer par "@gmail.com").
+
+Cliquez sur Applications > Google Apps > Gmail > Authentifier les e-mails.
+Sélectionnez le domaine pour lequel vous souhaitez générer une clé.
+Le nom de votre domaine principal est affiché par défaut. Si vous souhaitez générer une clé pour un autre domaine, sélectionnez ce dernier dans la liste déroulante.
+
+Cliquez sur Générer un nouvel enregistrement.
+Si votre service d'enregistrement n'autorise pas les clés de 2 048 bits, remplacez la longueur de clé 2 048 par 1 024.
+Vous pouvez également modifier le texte utilisé comme préfixe sélecteur DKIM.
+Le préfixe sélecteur permet de distinguer la clé de domaine associée à Google Apps des autres clés de domaine éventuellement utilisées. Dans la plupart des cas, vous pouvez sélectionner le préfixe par défaut "google". La modification du préfixe est nécessaire uniquement si votre domaine utilise déjà une clé de domaine DKIM dont le préfixe sélecteur est "google".
+
+Cliquez sur Générer.
+Dans la zone de texte figurent les informations permettant de créer l'enregistrement DNS. Les destinataires utilisent cet enregistrement pour récupérer la clé publique du domaine. 
+
+2/  mettre à jour les enregistrements DNS
+
+Ajoutez la clé aux enregistrements DNS de votre domaine, afin que les destinataires puissent la récupérer et déchiffrer l'en-tête DKIM.
+Activez la signature des e-mails pour commencer à ajouter l'en-tête DKIM aux messages sortants.
+Ignorez les deux premières étapes si vous avez acheté votre domaine auprès de l'un de nos hôtes partenaires lors de votre inscription à Google Apps. Google génère automatiquement la clé de domaine et ajoute l'enregistrement DNS requis lorsque vous activez l'authentification.
+
+
+
+Pour ajouter la clé de domaine aux enregistrements DNS de votre domaine :
+Connectez-vous à la console d'administration fournie par votre fournisseur de domaine.
+Trouvez la page permettant de mettre à jour les enregistrements DNS.
+Vous ajoutez une clé de domaine pour un sous-domaine ? Si l'hôte de votre domaine ne permet pas de mettre à jour les enregistrements DNS de sous-domaines, ajoutez l'enregistrement au domaine parent. Pour en savoir plus, consultez l'article Mettre à jour les enregistrements DNS d'un sous-domaine.
+
+Créez un enregistrement TXT avec le nom et la valeur figurant dans la console d'administration Google.
+Les informations dont vous avez besoin pour créer l'enregistrement TXT apparaissent dans une zone de texte sur la page Authentifier les e-mails de la console d'administration Google.
+
+Le nom des champs associés aux enregistrements TXT change selon le service d'enregistrement de domaine utilisé. Par exemple, ces champs s'appellent "TXT Name" (Nom TXT) et "TXT Value" (Valeur TXT) sur le site de GoDaddy, tandis que sur Name.com ils sont intitulés "Record Host" (Hôte de l'enregistrement) et "Record Answer (Réponse de l'enregistrement). Quel que soit votre fournisseur, saisissez le texte du champ Nom d'hôte DNS (nom de l'enregistrement TXT) dans le premier champ et le contenu du champ Valeur de l'enregistrement TXT dans le deuxième.
+
+Si votre hôte de domaine est easyDNS, ajoutez un point suivi de votre nom de domaine à la fin de la valeur Nom d'hôte DNS (nom de l'enregistrement TXT). La valeur à saisir doit prendre la forme google._clédomaine.votre_domaine.fr, où votre_domaine.fr correspond au nom de votre domaine.
+
+Si le fournisseur de votre domaine est compatible avec la clé de domaine de 2018 bits, mais limite la taille de la valeur de l'enregistrement TXT à 255 caractères, vous ne pourrez pas saisir la clé DKIM en une seule fois dans les enregistrements DNS. Vous devrez diviser la clé en plusieurs chaînes, chacune indiquée entre guillemets, puis saisir la chaîne dans son intégralité dans le champ destiné à accueillir la valeur de l'enregistrement TXT. Par exemple, divisez la clé DKIM en deux comme suit :
+
+"v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAraC3pqvqTkAfXhUn7Kn3JUNMwDkZ65ftwXH58anno/bElnTDAd/idk8kWpslrQIMsvVKAe+mvmBEnpXzJL+0LgTNVTQctUujyilWvcONRd/z37I34y6WUIbFn4ytkzkdoVmeTt32f5LxegfYP4P/w7QGN1mOcnE2Qd5SKIZv3Ia1p9d6uCaVGI8brE/7zM5c/"
+
+"zMthVPE2WZKA28+QomQDH7ludLGhXGxpc7kZZCoB5lQiP0o07Ful33fcED73BS9Bt1SNhnrs5v7oq1pIab0LEtHsFHAZmGJDjybPA7OWWaV3L814r/JfU2NK1eNu9xYJwA8YW7WosL45CSkyp4QeQIDAQAB"
+
+Pour obtenir des instructions détaillées sur la création d'enregistrements TXT, notamment les informations spécifiques aux hôtes de domaine les plus connus, consultez l'article Ajouter des enregistrements TXT. Lisez cet article pour connaître les limites associées à certains hôtes de domaine.
+ 
+Enregistrez vos modifications.
+
+
+Étape suivante : générer la clé de domaine
+
+
+3/ Activer la signature des e-mails
+
+SUIVANT: METTRE À JOUR LES ENREGISTREMENTS DNS D'UN SOUS-DOMAINE
+Afin de vous assurer un service de messagerie sécurisé et sûr, la signature DKIM est appliquée à tous les e-mails. Désormais, tous les messages non signés via le système DKIM issus des domaines Google for Work sont signés avec d=*.gappssmtp.com. Ce changement ne devrait pas entraîner de problèmes de distribution. Dans l'éventualité peu probable où votre e-mail serait rejeté, contactez l'administrateur du serveur de réception. Précisez en particulier le fait que les systèmes de réception ne devraient pas rejeter les e-mails en cas de signature DKIM manquante ou non vérifiable. Consultez le document RFC 4871. Afin d'éviter tout problème, nous vous recommandons d'ajouter votre propre signature DKIM à vos e-mails.
+Pour commencer à signer les e-mails à l'aide de la clé de domaine :
+Connectez-vous à votre console d'administration Google.
+Connectez-vous avec votre compte administrateur (ce compte ne doit pas se terminer par "@gmail.com").
+
+Dans le tableau de bord de la console d'administration, accédez à Applications ￼ Google Apps ￼ Gmail.
+Cliquez sur Authentifier les e-mails.
+Sélectionnez le domaine dont vous souhaitez signer les messages à l'aide de la clé de domaine.
+La page indique l'état de la clé pour le domaine sélectionné.
+
+Cliquez sur Lancer l'authentification.
+Pour pouvoir activer l'authentification DKIM, vous devez mettre à jour les enregistrements DNS du domaine. Google Apps tente de vérifier l'existence de la clé de domaine DKIM et affiche un message d'avertissement si l'opération échoue. Un délai peut être nécessaire pour que les mises à jour des enregistrements DNS soient prises en compte (48 heures maximum).
+
+Envoyez un e-mail pour vérifier que la signature DKIM est bien activée.
+Envoyez un e-mail à un utilisateur Gmail ou Google Apps et ouvrez le message dans la boîte de réception du destinataire. Cliquez sur Afficher les détails et vérifiez que votre nom de domaine apparaît sur la ligne "signé par" comme dans l'exemple ci-dessous (vous ne pouvez pas faire ce test en vous envoyant un message à vous-même).
+
+Exemple : DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=mondomaine.com; s=google;
+"d" est le domaine expéditeur et "s" est le domaine émetteur de la signature.
+
+
+
+
+4/ Mise à jour des enregistrements de sous domaines : 
+
+Mettre à jour les enregistrements DNS d'un sous-domaine
+
+Si vous envoyez vos messages à partir d'un sous-domaine, vous ne pouvez peut-être pas ajouter d'enregistrement TXT à ce sous-domaine. Vous devez alors ajouter l'enregistrement TXT requis au domaine parent pour pouvoir utiliser l'authentification DKIM.
+
+Si le bureau d'enregistrement de votre domaine vous permet de créer des enregistrements DNS pour votre sous-domaine, créez l'enregistrement TXT de ce dernier comme vous le feriez pour n'importe quel autre domaine. Suivez les instructions ci-dessous uniquement si vous souhaitez créer l'enregistrement TXT dans le domaine parent.
+Lorsque vous générez une clé de domaine, la console d'administration Google vous indique le nom de l'enregistrement TXT à créer. Ce nom prend la forme sélecteur._clédomaine, où sélecteur correspond au préfixe sélecteur de la clé (par défaut, google). Si vous souhaitez utiliser l'enregistrement TXT pour le courrier envoyé à partir d'un sous-domaine, vous devez ajouter un point suivi du nom du sous-domaine à la fin du nom de l'enregistrement.
+
+Supposons, par exemple, que vous ajoutiez un enregistrement TXT au domaine mondomaine.fr afin d'authentifier le courrier envoyé à partir du sous-domaine mail.mondomaine.fr. Le nom de l'enregistrement serait alors google._clédomaine.mail.
+
+Pour ajouter l'enregistrement TXT aux enregistrements DNS du domaine parent :
+
+Générez la clé de domaine du sous-domaine dans la console d'administration Google.
+Le nom et la valeur de l'enregistrement TXT requis s'affichent.
+
+Connectez-vous à la console d'administration de votre fournisseur de domaine.
+Recherchez la page permettant de mettre à jour les enregistrements DNS du domaine parent.
+Créez un enregistrement TXT avec le nom et la valeur figurant dans la console d'administration Google.
+Le nom des champs associés aux enregistrements TXT change selon le service d'enregistrement de domaine utilisé. Par exemple, ces champs s'appellent TXT Name (Nom TXT) et TXT Value (Valeur TXT) sur le site de GoDaddy, tandis que sur Name.com ils sont intitulés Record Host (Hôte de l'enregistrement) et Record Answer (Réponse de l'enregistrement). Quel que soit votre fournisseur, saisissez le texte du champ Nom d'enregistrement TXT DNS dans le premier champ et le contenu du champ Valeur de l'enregistrement TXT dans le deuxième.
+
+Si le fournisseur de votre domaine est compatible avec la clé de domaine de 2018 bits, mais limite la taille de la valeur de l'enregistrement TXT à 255 caractères, vous ne pourrez pas saisir la clé DKIM en une seule fois dans les enregistrements DNS. Vous devrez diviser la clé en plusieurs chaînes, chacune indiquée entre guillemets, puis saisir la chaîne dans son intégralité dans le champ destiné à accueillir la valeur de l'enregistrement TXT. Par exemple, vous pouvez diviser la clé DKIM en deux enregistrements, comme suit :
+
+"k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAraC3pqvqTkAfXhUn7Kn3JUNMwDkZ65ftwXH58anno/bElnTDAd/idk8kWpslrQIMsvVKAe+mvmBEnpXzJL+0LgTNVTQctUujyilWvcONRd/z37I34y6WUIbFn4ytkzkdoVmeTt32f5LxegfYP4P/"
+
+"w7QGN1mOcnE2Qd5SKIZv3Ia1p9d6uCaVGI8brE/7zM5c/zMthVPE2WZKA28+QomQDH7ludLGhXGxpc7kZZCoB5lQiP0o07Ful33fcED73BS9Bt1SNhnrs5v7oq1pIab0LEtHsFHAZmGJDjybPA7OWWaV3L814r/JfU2NK1eNu9xYJwA8YW7WosL45CSkyp4QeQIDAQAB"
+
+Ajoutez un point (.) suivi du nom du sous-domaine à la fin du nom de l'enregistrement.
+Par exemple, pour authentifier les messages envoyés à partir du sous-domaine mail.mondomaine.fr, utilisez le nom d'enregistrement google._clédomaine.mail.
+
+Enregistrez vos modifications.
+

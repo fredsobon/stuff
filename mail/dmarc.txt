@@ -1,0 +1,75 @@
+DMARC
+Ajouter un enregistrement DMARC
+
+Créer l'enregistrement
+Une fois SPF et DKIM mis en œuvre, vous pouvez configurer DMARC en ajoutant des règles aux enregistrements DNS de votre domaine sous la forme d'enregistrements TXT (comme avec SPF ou ADSP).
+
+Important : Avant de créer un enregistrement DMARC pour votre domaine Google Apps, vous devez configurer l'authentification DKIM. Si vous ne configurez pas DKIM en amont, les e-mails envoyés à partir de services tels que Google Agenda ne seront pas authentifiés et ne seront pas distribués aux utilisateurs.
+Pour créer un enregistrement TXT avec le nom et la valeur appropriés, suivez les instructions spécifiques aux principaux hôtes de domaine. Le nom de l'enregistrement TXT doit être "_dmarc.votre_domaine.fr", où "votre_domaine.fr" est remplacé par le véritable nom de votre domaine. Examinez également les limites établies par certains hôtes de domaine.
+
+Voici la liste des balises couramment utilisées dans les enregistrements TXT DMARC :
+
+Nom de la balise	Obligatoire	Objectif	Exemple
+v
+
+obligatoire	Version du protocole	v=DMARC1
+p
+
+obligatoire	Règle applicable au domaine	p=quarantine
+pct
+
+facultatif	Pourcentage des messages soumis au filtrage	pct=20
+rua
+
+facultatif	URI de création de rapports globaux	rua=mailto:aggrep@example.com
+sp
+
+facultatif	Règle applicable aux sous-domaines du domaine	sp=reject
+aspf
+
+facultatif	Mode d'alignement pour SPF	aspf=r
+Les autres balises disponibles sont répertoriées dans le registre des balises DMARC (en anglais).
+
+Google ne permet pas l'utilisation de la balise DMARC ruf pour la distribution des rapports de contrôle.
+Seules les balises v (version) et p (policy, règle) sont obligatoires. Trois paramètres de règles, ou dispositions relatives aux messages, sont disponibles :
+
+none : pas d'action particulière. Les messages concernés sont consignés uniquement dans le rapport quotidien.
+quarantine : marquage comme spam des messages concernés.
+reject : annulation du message au niveau SMTP.
+Le mode d'application fait référence à la précision avec laquelle les enregistrements des expéditeurs sont comparés aux signatures SPF et DKIM, avec deux valeurs possibles : r (relaxed, souples) et s (strict, stricte). En résumé, la valeur souple (relaxed) autorise des correspondances partielles, telles que les sous-domaines d'un domaine donné, alors que la valeur stricte (strict) exige une correspondance exacte.
+
+Assurez-vous d'inclure votre adresse e-mail avec la balise "rua" facultative pour recevoir les rapports quotidiens.
+
+Exemples d'enregistrements
+
+
+
+
+Exemple de rapport
+
+
+Déploiement progressif
+Nous vous recommandons vivement de mettre en œuvre DMARC de façon progressive en appliquant les règles qui suivent dans l'ordre indiqué. Tout d'abord, surveillez votre trafic et recherchez d'éventuelles anomalies dans les rapports (messages qui ne sont pas encore signés ou pourraient être issus d'un spoofing, par exemple). Lorsque vous êtes familiarisé avec les résultats, remplacez le paramètre "none" par "quarantine" dans les règles de votre enregistrement TXT. Examinez de nouveau les résultats, en étudiant cette fois les spams interceptés et les rapports DMARC quotidiens. Enfin, lorsque vous êtes certain que tous vos messages sont signés, remplacez le paramètre de vos règles par "reject" afin de tirer pleinement parti de DMARC. Continuez à consulter les rapports afin de vérifier que vos résultats sont acceptables.
+
+De la même manière, vous pouvez utiliser la balise facultative "pct" pour mettre en œuvre DMARC progressivement. La valeur par défaut étant 100 %, il est possible d'ajouter le paramètre "pct=20" à votre enregistrement TXT DMARC afin que les règles en vigueur ne soient appliquées qu'à un cinquième des messages, et non à tous. Ce paramètre est particulièrement utile au moment où vous décidez de mettre en quarantaine et de rejeter les messages. Commencez par un faible pourcentage et laissez quelques jours s'écouler entre chaque augmentation.
+
+Exemple de cycle de déploiement prudent :
+
+Surveillance systématique
+Mise en quarantaine de 1 %
+Mise en quarantaine de 5 %
+Mise en quarantaine de 10 %
+Mise en quarantaine de 25 %
+Mise en quarantaine de 50 %
+Mise en quarantaine systématique
+Rejet de 1 %
+Rejet de 5 %
+Rejet de 10 %
+Rejet de 25 %
+Rejet de 50 %
+Rejet systématique
+Essayez de supprimer les pourcentages le plus tôt possible afin de terminer le déploiement.
+
+Par la suite, continuez à examiner vos rapports quotidiens.
+
+
