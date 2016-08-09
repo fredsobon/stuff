@@ -1,0 +1,78 @@
+== munin notes from munin starter kit : =
+
+
+Munin a 3 composants : 
+server -> client -> plugin
+
+Le server appelle le client toutes les 5 minutes et celui-ci interroge le plugin pour renvoyer le status désiré.
+L'installation, l'administration , l'ajout et la création de plugins est simple.
+
+1/ installation :
+L'installation ne va pas charger beaucoup le server , les nodes executent les plugins en local et ne seront eux chargés que si beaucoup de plugins gourmants tournent dessus ( ex : parser des fichiers de logs ).
+
+apt-get install munin-node |yum install munin-node
+apt-get install apache2 ; ln -s /etc/munin/apache.conf /etc/apache2/sites-available/munin : creation du lien symbolique de l'install de munin et conf apache vers le repertoire d'install apache.
+
+Modifier le Allow from en renseignant notre ip dans la conf apache.
+reload apache et c'est bon : http://server/munin
+
+
+Munin master configuration :
+
+/etc/munin/munin.conf
+on a plusieurs directives importantes. NB : noter que munin va stocker les data dans un dbdir et les html dans un autre repertoire (htmldir).Munin-graph va être utiliser pour reproduire les db dans le repertoire des html.
+De base les graphs sont updates via une cron : sur les systems plus importants on va generer les graphs à la demande via cgi
+Il est possible de faire notifier par mail munin et même de passer ses résultats à nagios.
+
+On va pouvoir configurer notre "host tree" et nous fabriquer un dashboard.
+On peut combiner les graphs de de servers sur un seul etc ...
+
+Munin node  :
+
+/etc/munin/munin-node.conf
+host_name : le fqdn de notre server
+allow : l'ip / plage d'ip de notre master qui va interroger le node sur le port 4949
+
+
+Plugins :
+
+tous les plugins sont dans /etc/munin/plugins.
+
+
+[dhcpd3]
+user root
+env.leasefile /var/lib/dhcp3/dhcpd.leases
+env.configfile /etc/dhcp3/dhcpd.conf
+The dhcpd3 plugin should be run as root because, otherwise, it cannot read the information it
+needs. The lease and conig iles are passed as environment variables to the plugin as they can
+be diferent per distribution.
+
+
+It is also possible to use wildcards in the section description. If you scroll further down, you will
+see a section labeled [if_*] . This matches interface plugins such as if_eth0 and if_eth1
+
+
+Monitoring d'autre servers :
+
+apt-get install munin-node
+on va ensuite indiquer la section allow avec une ip ou la section cidr_allow : 10.0.0.0/24 ( nb il faut que le module perl net:cidr soit installé)
+
+on reload ensuite le munin-node
+
+On peut interroger le node en local ou depuis le server :
+
+telnet node 4949
+list
+version
+quit
+
+Pour checker que munin fonctionne correctement : /var/log/munin/munin.log
+
+Il est possible de lancer des scripts d'autodetection lorsque de nouveaux composants ont ete mis a jour sur notre system avec :
+
+munin-node-configure --suggest
+munin-node-configure --shell
+
+
+
+
