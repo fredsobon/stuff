@@ -37,9 +37,9 @@ allow : l'ip / plage d'ip de notre master qui va interroger le node sur le port 
 Plugins :
 
 tous les plugins sont dans /etc/munin/plugins.
+En principe les plugins appartiennent à nobody:munin mais en fonction des droits nécéssaires à la bonne execution du plugin il est necessaire de changer les droits et ou les users .ex avec le plugin dhcpd3 qui doit avoir des access particuliers :
 
-
-[dhcpd3]
+"[dhcpd3]
 user root
 env.leasefile /var/lib/dhcp3/dhcpd.leases
 env.configfile /etc/dhcp3/dhcpd.conf
@@ -47,9 +47,8 @@ The dhcpd3 plugin should be run as root because, otherwise, it cannot read the i
 needs. The lease and conig iles are passed as environment variables to the plugin as they can
 be diferent per distribution.
 
-
 It is also possible to use wildcards in the section description. If you scroll further down, you will
-see a section labeled [if_*] . This matches interface plugins such as if_eth0 and if_eth1
+see a section labeled [if_*] . This matches interface plugins such as if_eth0 and if_eth1"
 
 
 Monitoring d'autre servers :
@@ -71,7 +70,75 @@ Pour checker que munin fonctionne correctement : /var/log/munin/munin.log
 Il est possible de lancer des scripts d'autodetection lorsque de nouveaux composants ont ete mis a jour sur notre system avec :
 
 munin-node-configure --suggest
-munin-node-configure --shell
+munin-node-configure --shell ( nb : tous les plugins ne prennent pas en compte ces options de configuration.)
+
+Ajout de node dans notre munin server :
+
+il faut d'abord s'assurer que notre master concacte bien le node ( telnet node 4949 ) : si ce n'est pas le cas s'assurer que le munin-node est bien démarré et qu'aucune regle de firewall ne bloque le flux.
+
+Une fois ok nous pouvons editer le fichier de conf : /etc/munin/munin.conf, aller dans la section et ajouter notre node dans la section "node tree" ex :
+
+# the host tree of our local network
+[localhost.localdomain]
+address 127.0.0.1
+use_node_name yes
+[muninnode.localdomain]  < exemple de node que nous rajoutons.
+address 10.0.0.200
+use_node_name yes
+
+Au bout d'un certain temps nous devons avoir les graphs qui apparaissent dans l'interface graphique.
+en cas de souci : il est utile de verifier les fichiers de log (/var/log/munin.log etc ...) ; les règles de fw , la syntaxe du fichier de conf ...
+
+
+= Monitoring de devices additionels : =
+
+Tout nos equipements ne peuvent pas heberger un service munin-node ( ex : router, swich , printer etc ..) on doit dans ce cas configurer un munin-node qui va le faire pour nous.
+
+Les devices biensur doivent disposer d'interface réseau et par exemple être configurable via snmp.
+On va pour notre exemple configurer un routeur via snmp :
+
+Munin-node embarque un plugin pratique qui permet de monitorer le traffic via snmp.ex :
+On active le plugin en creant les liens symboliques ( iface et errreur iface : )
+ln -s /usr/share/munin/plugins/snmp__if_      /etc/munin/plugins/snmp_OURrouter_if_1
+ln -s /usr/share/munin/plugins/snmp__if_err_  /etc/munin/plugins/snmp_OURrouter_if_err_1
+
+On teste ensuite nos plugin en nous placant dans le repertoire et en invoquant un munin-run de notre plugin :
+
+"cd /etc/munin/plugins
+munin-run snmp_router_if_1
+This should give you the following output:
+recv.value 2928754283
+send.value 562680241
+
+If you get recv.value noSuchObject , your switch isn't supported by this SNMP plugin and
+you will have to look for a speciic one for your switch or router (see the People and places you
+should get to know section)."
+
+On peut nous connecter en telnet sur le munin-node et recupérer des infos pour verifir nos configs via des commandes :
+
+nodes
+list
+fetch snmp_OURrouter_if_1
+quit
+
+On va maintenant renseigner notre router dans la conf de notre munin-master en rajoutant dans notre  section node notre router.Nb de base le munin-master va chercher dans sa base interne le hostname de notre router : ce qui ne va pas fonctionner : il faut donc bypasser comportement en settant à no cette conf :
+
+[router]
+use_node_name no   <<<<< on by pass la resolution du munin-master
+address 127.0.0.1
+
+
+Il est possible de tester la config de notre plugin snmp sur un equipement en lancant la commande : 
+munin-node-configure --shell --snmp hostname
+
+
+= Config de sondes / sensors : =
+
+Les sondes telles que temperature, ventilateurs, voltage sont configurables via munin.
+
+Un des plugin embarqué va utiliser le package "lm-sensor" lui même utilisé par le kernel (cf doc)
+La plupart des equipement expose leur données via ipmi cependant maintenant.
+
 
 
 
