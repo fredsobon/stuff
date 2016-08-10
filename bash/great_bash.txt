@@ -847,6 +847,101 @@ entier qui indique combien de boucles imbriquées doivent être traversées pour
 début.
 
 
+= select do done : =
+
+C'est construction originale peut aider : 
+Le shell développe et affiche sur la sortie d’erreur la liste de mots qui est fournie, en les
+faisant précéder de numéros d’ordre. Il affiche ensuite le symbole d’invite représenté par
+la variable interne PS3 et lit une ligne depuis son entrée standard. Si elle contient un
+numéro qui représente l’un des mots affichés, ce dernier est placé dans la variable dont le
+nom est précisé après le select . Ensuite, les commandes sont exécutées, puis le processus
+recommence.
+
+La boucle s’arrête lorsque la lecture révèle une fin de fichier (pression sur Contrôle-D
+depuis le clavier par exemple), ou si un break est rencontré au cours des commandes.
+Lorsque la lecture renvoie une ligne vide, l’ensemble des mots est affiché à nouveau et la
+saisie reprend. Si la ligne lue ne correspond à aucun mot affiché, la variable reste vide,
+mais la saisie est transmise dans la variable spéciale REPLY .
+
+Ce mécanisme permet de créer rapidement des menus simples dans des scripts, ou
+d’établir une sélection de fichiers à traiter. L’exemple suivant est un peu complexe, mais
+il illustre plusieurs points intéressants. Il s’agit d’un script qui affiche la liste des fichiers
+du répertoire en cours et propose plusieurs actions sur le fichier sélectionné :
+
+
+boogie@x61-boogie:/tmp$ cat sel.sh 
+#! /bin/sh
+# Cette fonction reçoit en argument le nom d'un fichier, et
+# propose les différentes actions possibles.
+
+function action_fichier ()
+{
+	local reponse
+	local saisie
+	echo "*********************************************"
+	PS3="
+	Action sur $1 : "
+	
+	select reponse in Infos Copier Déplacer Détruire Retour
+	do
+		case $reponse in
+		Infos )
+		echo
+		ls -l $1
+		echo
+		;;
+		Copier )
+		echo -n "Copier $1 vers ? "
+		if ! read saisie ; then continue ; fi
+		cp $1 $saisie
+		;;
+		Déplacer )
+		echo -n "Nouvel emplacement pour $1 ? "
+		if ! read saisie ; then continue ; fi
+		mv $1 $saisie
+		break
+		;;
+		Détruire )
+		if rm -i $1 ; then break; fi
+		;;
+		Retour )
+		break
+		;;
+		* ) if [ "$REPLY" = "0" ] ; then break ; fi
+		echo "$REPLY n'est pas une réponse valide"
+		echo
+		;;
+		esac
+		done
+}
+
+# Cette routine affiche la liste des fichiers présents dans
+# le répertoire, et invoque la fonction action_fichier si la
+# saisie est correcte. Elle se termine si on sélectionne "0"
+
+function liste_fichiers ()
+{
+	echo "*********************************************"
+	PS3="Fichier à traiter : "
+	select fichier in *
+	do
+		if [ ! -z "$fichier" ] ; then
+		action_fichier $fichier
+		return 0
+		fi
+		if [ "$REPLY" = "0" ] ; then
+		return 1
+		fi
+		echo "==> Entrez 0 pour Quitter"
+		echo
+	done
+}		
+
+# Exemple de boucle tant qu'une fonction réussit.
+# Le deux-points dans la boucle signifie "ne rien faire"
+
+while liste_fichiers ; do : ; done
+
 === chapter 5 - shell math and logic : 
 
 De base quand on declare une variable avec des chiffres ou nombres : bash ne les considère que sous forme "string" :
