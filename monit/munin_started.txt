@@ -310,3 +310,45 @@ exit 0;
 esac
 echo -n "testuserdiskusage.value "
 du -s -b /home/testuser | awk '{print $1}' 
+
+
+On cree donc un fichier dans lequel on defini notre graph dans l'arbo /etc/munin/plugins pour tester dans un premier temps 
+ex :
+
+# cat boogie_homy 
+#!/bin/bash
+case $1 in
+config)
+echo "graph_title Diskusage of boogie_homedir"
+echo "graph_args --base 1024 --lower-limit 0"
+echo "graph_vlabel bytes"
+echo "graph_category system"
+echo "boogiediskusage.label Average disk usage."
+echo "boogiediskusage.warning 2147483648"
+echo "boogiediskusage.critical 5368709120"
+echo "graph_info The disk usage of boogie in bytes."
+exit 0;
+esac
+echo -n "boogiediskusage.value "
+du -s -b /home/boogie | awk '{print $1}'
+
+
+On va pouvoir tester notre plugin après avoir setter les droits du plugins ( necassaire ici pour parcourir l'arbo du user boogie car de base les plugins sont lances en nobody .
+On ajoute notre conf dans le fichier :
+
+
+$ sudo cat /etc/munin/plugin-conf.d/munin-node
+...
+[boogie_homy]
+user boogie
+
+On restart  les service munin-node, on test :
+
+root@x61-boogie:/usr/share/munin/plugins# munin-run  boogie_homy 
+boogiediskusage.value 22548811846
+
+
+On peut désormais mettre notre plugin dans le repertoire /usr/share/munin/plugins et faire un lien symbolique de celui ci dans le repertoire /etc/munin/plugins .
+
+Notre premier plugin est fait.
+
