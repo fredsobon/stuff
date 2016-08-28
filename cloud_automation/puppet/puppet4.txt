@@ -1,6 +1,6 @@
 === notes according learning puppet 4 (oreilly book) ===
 
-Introduction :
+== Introduction :
 
 puppet s'occupe de la configuration des ressources d'un systeme : user, package, service, data, process.Puppet s'occupe de la conformité du système en fonction de l'état désiré.Il combine une hierarchie flexible de config de données avec des données particulières pour un node précis.On peut donc s'en servir pour :
 -> déployer des nouvelles applis /composants
@@ -11,7 +11,7 @@ puppet s'occupe de la configuration des ressources d'un systeme : user, package,
 On doit juste utiliser le language déclaratif de puppet qui nous sert à décrire l'état dans le quel on souhaite avoir notre systeme. On veut que le résultat de notre action de config soit systematiquement identique à notre définition.
 La specification doit décrire l'état désiré et laisser la résolution de ces tâches à un interpréteur.
 
-= Fonctionnement de puppet :
+Fonctionnement de puppet :
 
 Tous les nodes qu'ont controle ont un puppet agent : cet agent évalue et et applique les manifests puppet : les fichiers de configuration de puppet qui contienne la description de l'etat désiré du node.
 L'agent evalue l'etat de chaque composant dans le manifest et determine si un changement est à faire ou pas.
@@ -22,5 +22,118 @@ On peut biensur agir finement et ne passer des changements qu'a un certain nombr
 Les agents puppet peuvent être invoqués avec des tag speciaux. Les nodes recoivent leur catalogue individuellement et ne sont pas soumi a des filles d'attente.Un rapport est généré à chaque run .Il est possible d'utiliser un orchestrateur pour piloter un grand nombre de node.
 
 page 35
+
+
+
+
+
+== Part 1 : controlling with puppet apply :
+
+= chapitre 1 : "Pensez déclaratif" 
+En developpant des scripts shell, ruby , python etc ..on utilise un language imperatif : qui va permettre le changement d'état par etapes successives : on dit aussi procedural : succession d'etapes pour le changement.
+Même si cette façon de penser ou faire peut aider : pour utiliser et comprendre le language de puppet, il vaut mieux tout oublier car pour ecrire de bon manifests puppet il faut utiliser un language declaratif.
+
+On peut voir par exemple que si on lance une commande de creation de user : la premiere execution sera ok mais en relancant la même commande on aura une erreur puisque le user existe dejà : une simple tache comme celle ci devient donc comliquée car il faut gérer des tests et conditions ...c'est evidemment difficile à maintenir des que le systeme augment en complexité : c'est pour cela qu'un language déclaratif est adapté à notre gestion de systeme : une commande lancée de multiples fois genere toujours le même resultat.
+On utilise des instructions indempotent ( latin:"idem + potent":"même pouvoir" ) : résultat identique à chaque execution.  
+
+Il est donc important pour la configuration de notre systeme d'utiliser un language pour décrire l'état désiré de notre système et non pas comment arriver à cet état.
+
+user { 'joe':
+  ensure => present,
+  uid => '1001',
+  gid => '1000',
+  comment => 'Joe User',
+  managehome => true,
+}
+
+Comme on le voit le code est très simple à lire et est independant du système d'exploitation.
+Le code sera réexecutable a volonté et sera jouer tant que l'état désiré  ne sera pas atteind : c'est ce que fera le puppet agent quand il evaluera le manifest a appliqué et l'etat actuel du système.
+
+== chapitre 2 : creation de notre environment d'apprentissage :
+
+1/
+Le set up va se faire en utilisant vagrant /virtualbox
+Une fois vagrant installé sur le systeme on va downloader notre "vm" : une centos 7 issue du puppetlabs fait l'affaire.
+puppet est déjà installé dessus.
+
+ex :
+ $ vagrant box add --provider virtualbox puppetlabs/centos-7.2-64-nocm
+ ==> box: Loading metadata for box 'puppetlabs/centos-7.2-64-nocm'
+ box: URL: https://atlas.hashicorp.com/puppetlabs/centos-7.2-64-nocm
+ ==> box: Adding box 'puppetlabs/centos-7.2-64-nocm' (v1.0.2)
+ for provider: virtualbox
+ box: Downloading: https://atlas.hashicorp.com/puppetlabs/boxes/
+ centos-7.2-64-nocm/versions/1.0.2/providers/virtualbox.box
+ ==> box: Successfully added box 'puppetlabs/centos-7.2-64-nocm' (v1.0.2)
+
+2 / clone du repo d'apprentissage :
+
+Il va contenir les outils et l'environmment de dev :
+
+ $ git clone https://github.com/jorhett/learning-puppet4
+ Cloning into 'learning-puppet4'...
+ remote: Counting objects: 64, done.
+ remote: Total 64 (delta 0), reused 0 (delta 0)
+ Unpacking objects: 100% (64/64), done.
+ Checking connectivity... done.
+ $ cd learning-puppet4
+
+
+On installe ensuite le plugin  vagrant-vbguest qui va être utile pour avoir des mises a jour auto de vagrant ( notamment pour les evolutions de noyaux, access au repertoires partagés : vagrant share : qui peut être mal détecté en cas de maj ...)
+
+$ vagrant plugin install vagrant-vbguest
+Installing the 'vagrant-vbguest' plugin. This can take a few minutes...
+Installed the plugin 'vagrant-vbguest (0.11.0)'!
+
+On va initialiser notre set up avec vagrant up (qui va lire un vagrant file présent dans notre "learning repo"
+
+En cas de souci on peut essayer de debugguer : vagrant s'intall dans notre /home et crée un repertoire par vm. Dans chacun il ya un un fichier VBox.log qui va nous aider à débuguer.
+
+
+Attention il est nécessaire d'avoir la Vt d'activer dans le bios : cf manuel vagrant si besoin.
+
+On peut utiliser le  baba de vagrant avec quelques commandes :
+
+$ vagrant suspend client
+==> client: Saving VM state and suspending execution...
+
+$ vagrant resume client
+==> client: Resuming suspended VM...
+==> client: Booting VM...
+==> client: Waiting for machine to boot. This may take a few minutes...
+client: SSH address: 127.0.0.1:2222
+client: SSH username: vagrant
+client: SSH auth method: private key
+client: Warning: Connection refused. Retrying...
+==> client: Machine booted and ready!
+
+$ vagrant destroy client
+client: Are you sure you want to destroy the 'client' VM? [y/N] n
+==> client: The VM 'client' will not be destroyed, since the confirmation
+==> client: was declined.
+
+On reboot notre vm avec un vagrant up 
+
+Pour se connecter à notre client on va faire un :
+$ vagrant ssh client
+[vagrant@client ~]$
+
+Sur notre vm on va installer des utilitaires :
+
+[vagrant@client ~]$ sudo yum install rsync git vim 
+
+On peut installer le plugin de syntaxe puppet pour vim :
+
+qui se place vu que le client puppet est en 1.4 dans /opt/puppetlabs/puppet/share/vim/puppet-vimfiles/.
+
+
+
+
+
+
+
+
+
+
 
 
