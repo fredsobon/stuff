@@ -1,0 +1,46 @@
+= vagrant cmds : =
+
+# vagrant boxes :
+http://www.vagrantbox.es/
+
+ $ vagrant box add {title} {url}
+ $ vagrant init {title}
+ $ vagrant up
+ $ vagrant ssh 
+ $ vagrant halt
+
+
+boogie@boogieland:~$ vagrant box add centos6.7 https://github.com/CommanderK5/packer-centos-template/releases/download/0.6.7/vagrant-centos-6.7.box
+
+
+boogie@boogieland:~$ vagrant init centos6.7
+
+
+boogie@boogieland:~$ vagrant up
+
+boogie@boogieland:~$ vagrant ssh
+
+vagrant halt
+==> default: Attempting graceful shutdown of VM...
+
+- redirection de ports :
+
+On va rediriger les ports 8080 et 8443 de notre machine vers les ports 80 et 443 de la vagrant vm.Pour pouvoir correctement tester depuis notre machine le serveur web de la vagrant vm : http://localhost:8080 and https://localhost:8443.
+On va modifier le fichier Vagrantfile présent dans notre repertoire principal de manière à configurer la redirection de port :
+
+VAGRANTFILE_API_VERSION = "2"
+Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
+  config.vm.box = "ubuntu/trusty64"
+  config.vm.network "forwarded_port", guest: 80, host: 8080
+  config.vm.network "forwarded_port", guest: 443, host: 8443
+end
+
+Apres la modif de conf on reload notre vagrant et on voit la redirection de port se charger :
+
+boogie@x61:~/lab/ansible/playbooks$ vagrant reload
+
+
+vagrant halt
+==> default: Attempting graceful shutdown of VM...
+
+
