@@ -127,8 +127,134 @@ On peut installer le plugin de syntaxe puppet pour vim :
 qui se place vu que le client puppet est en 1.4 dans /opt/puppetlabs/puppet/share/vim/puppet-vimfiles/.
 
 
+== chapitre 3 : installation de puppet :
+
+On a délibérement choisi une distrib sans puppet de pré-installé.On va donc le faire.
+On va installer et activer un repo puppet lab puppet collection. On peut examiner les dernières versions compatibles avec notre os sur le puppet lab. Il est possible sinon de downloader directement le pkg et l'installer :
+[vagrant@client ~]$ sudo yum install -y  http://yum.puppetlabs.com/puppetlabs-release-pc1-el-7.noarch.rpm
+
+Ceci va installer puppet4 et des outils.Ex :
+
+vagrant@client ~]$ sudo yum repolist
+Loaded plugins: fastestmirror
+...snip repository checks...
+puppetlabs-pc1/x86_64  Puppet Labs PC1 Repository el 7 - x86_64  41 
+
+On voit par exemple ici qu'on a 41 packets d'installés.
+On a l'ecosysteme puppet de telecharger : puppet , facter , interpreteur ruby, mcollective.
+puppet agent , puppet server et puppet db sont des applis autonomes mais interdépendantes.
+
+Il est important de faire attention a des potentiels pb : maj de secu, pb de cohabitation de differents interpreteur ruby ...
+On a donc lors des install / maj : puppet core : qui embarque une version dediée de ruby ( sans conflit avec celle du systeme) : toutes les puppet collections sont faites pour eviter d'avoir des pb de compatibilités de version ( client / server ...)
+
+Install client : 
+
+vagrant@client ~]$ sudo yum install -y puppet-agent
+Loaded plugins: fastestmirror
+Loading mirror speeds from cached hos
+...
+...
+Verifying : puppet-agent-1.4.0-1.el7.x86_64
+1/1
+1/1
+Installed:
+puppet-agent.x86_64 0:1.4.0-1.el7
+Complete!
+
+Les versions recentes de puppet4 ont une arbo nouvelle : AIO : "all in one" package . Toutes les dependances sont embarquées et visisble dans :
+[vagrant@client ~]$ ls -la /opt/puppetlabs/bin/
+
+A l'install un shell /etc/profile.d/puppet-agent.sh va sourcer le binaire puppet agent (qui n'est plus dans /usr/bin)  vers /opt/puppetlabs/bin. 
+
+NB : si on ecrase notre $PATH il faudra bien de nouveau sourcer le binaire puppet.
+
+-facter : va evaluer les facts d'un système (hostname, ip ....)
+-hiera : va charger les données utilisées par les manifests puppet et les modules.Hiera permet de configurer des valeurs par defaut ou de les surcharger ou etendre via une hierarchie adaptable.
+-mcollective : est un framework d'orchestration.
+
+Une installation  privée de ruby et des gem est faite dans  /opt/puppetlabs/puppet
+Le $confdir est maintenant dans  /etc/puppetlabs/puppet : tout ce qui est dans /etc/puppet sera ignoré.
+Le $ssldir est maintenant dans le $confdir
+La conf de mcollective est exclusivement dans : /etc/puppetlabs/mcollective
+Le $rundir est exclusivement dans : /var/run/puppetlabs
+Les manifests, modules et hiera sont dans : /etc/puppetlabs/code et sont donc maintenant dans le $codedir
+Ce repertoire contient donc :
+$environmentpath : les différents environments.
+$basemodulepath : l'arbo des modules.
+$hiera_config correspond au hiera.yaml
+
+Pour la facilité d'apprentissage on va change rles droits pour permettre à vagrant d'être utilisé :
+
+[vagrant@client ~]$ sudo chown -R vagrant /etc/puppetlabs
 
 
+/!\ path des commandes puppet : on va utiliser les binaires puppet pour nos tests avec le user vagrant en sudo 
+attention : sudo reset de base la recherche des commandes utilisées par un user et va utiliser des repertoires et path secureles binaires de puppet n'en font pas partie 
+exemple :
+env de notre user : 
+[vagrant@client ~]$ env |grep -i path
+PATH=/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/opt/puppetlabs/bin:/home/vagrant/.local/bin:/home/vagrant/bin
+
+env de notre user via sudo : 
+[vagrant@client ~]$ sudo env |grep -i path
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+
+On va devoir rajouter notre env puppet dans le secure path de sudo :
+
+[vagrant@client ~]$ sudo grep secure_path /etc/sudoers |sed -e 's#$#:/opt/puppetlabs/bin#' |sudo tee /etc/sudoers.d/puppet-securepath
+Defaults    secure_path = /sbin:/bin:/usr/sbin:/usr/bin:/opt/puppetlabs/bin
+
+
+[vagrant@client ~]$ sudo cat /etc/sudoers.d/puppet-securepath
+Defaults    secure_path = /sbin:/bin:/usr/sbin:/usr/bin:/opt/puppetlabs/bin
+
+C'est desormais ok :
+[vagrant@client ~]$ sudo env |grep -i path
+PATH=/sbin:/bin:/usr/sbin:/usr/bin:/opt/puppetlabs/bin
+
+
+== chapitres 4 :  Writing manifests : 
+
+Un manifest est un fichier contenant du code puppet decrivant la configuration desirée de nos ressources.C'est la base de toute la stratégie de config de nos nodes jusqu'a des blocs de config de modules très complexes.
+
+Les ressources sont les plus petits blocs de code puppet qui nous servent à definir, modifier supprimer un element sur un systeme.Puppet embarque des resources de base telles que : users, services, packages, files , groups ...On peut egalement creer nos propres ressources.
+On commence par notify qui va afficher un message :
+
+notify { 'greeting':
+message => 'Hello, world!'
+}
+on declare une ressource notify ayant pour titre greeting , ayant un attribut message auquel on donne une valeur.
+
+#Exemple dans le repos cloné pour la lesson "Learning puppet4" un repertoire manifest contient des exemples de code :
+#boogie@x61-boogie:~/lab/puppetlab/learning-puppet4/manifests$ cat helloworld.pp 
+#notify { 'greeting':
+#  message => 'Hello, world!'
+#}
+
+On creer donc pour tester un repertoire manifest dans le home de notre user vagrant et on y cree le manifest :
+
+/home/vagrant/manifests/helloworld.pp
+On test facilement notre manifest avec la commande puppet apply manifest.pp :
+
+[vagrant@client manifests]$ sudo puppet apply helloworld.pp 
+Notice: Compiled catalog for client in environment production in 0.22 seconds
+Notice: Hello, world!
+Notice: /Stage[main]/Main/Notify[greeting]/message: defined 'message' as 'Hello, world!'
+Notice: Applied catalog in 0.03 seconds
+[vagrant@client manifests]$ pwd
+/home/vagrant/manifests
+
+On voit donc la creation du build du catalogue et differente etapes jusqu'a l'affichage de notre message et du rapport de run.
+
+
+
+
+
+ 
+
+
+
+  
 
 
 
