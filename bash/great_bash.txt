@@ -119,6 +119,28 @@ boogie@x61:~$ trap -l
 58) SIGRTMAX-6  59) SIGRTMAX-5  60) SIGRTMAX-4  61) SIGRTMAX-3  62) SIGRTMAX-2
 63) SIGRTMAX-1  64) SIGRTMAX    
 
+La commande trap va nous permettre de lancer une commande quand un signal est reçu par un script. Exemple : 
+
+#!/bin/bash
+# Filename: my_app_with_trap.sh
+# Description: Reverse a file and perform action on receiving signals
+echo "Enter file to be reversed"
+read filename
+tmpfile="/tmp/tmpfile.txt"
+
+# Delete temporary file on receiving any of signals
+# SIGHUP SIGINT SIGABRT SIGTERM SIGQUIT and then exit from script
+trap "rm $tmpfile; exit" SIGHUP SIGINT SIGABRT SIGTERM SIGQUIT
+
+# tac command is used to print a file in reverse order
+tac $filename > $tmpfile
+cp $tmpfile $filename
+rm $tmpfile
+
+On voit ici que le fichier temporaire sera en priorité supprimé si les signaux : SIGHUP SIGINT SIGABRT SIGTERM SIGQUIT sont reçus : on assume donc qu'en cas de signal d'arret brtal ou non : le fichier temporaire sera en priorité delete avant la fin de l'execution du script.
+
+
+
 === chapter 3 : variables  
 
 -Evaluation :
