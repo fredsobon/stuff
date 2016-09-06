@@ -1850,6 +1850,314 @@ Avec getopts on va avoir deux chaines de caractères :
 -> le nom de la variable qui va contenir le resultat de notre option 
 
 
+= getopts
+
+getopts est une primitive du shell
+
+-Syntaxe :
+getopts listeOptionsAttendues option
+
+La commande interne getopts permet à un script d'anayser les options passées en argument.
+Chaque appel à la commande getopts analyse l'option suivante de la ligne de commande.
+Pour vérifier la validité de chacune des options, il faut appeler getopts à partir d'une boucle.
+
+-Définition d'une option :
+Pour getopts, une option est composée d'un caractère précédé du signe "+" ou "-".
+
+Premier exemple :
+$ ls -l *.sh
+
+Par exemple, pour la commande ls, "-l" est une option et "*.sh" est un argument.
+Une option peut fonctionner seule ou être associée à un argument.
+
+Second exemple :
+
+Le script suivant détail la manière d'utiliser la commande getopts.
+
+$ nl test_getopts_1.sh
+     1  #!/bin/bash
+     2
+     3  while getopts "abcd:e:" option
+     4  do
+     5          echo "getopts a trouvé l'option $option"
+     6          case $option in
+     7                  a)
+     8                          echo "Exécution des commandes de l'option a"
+     9                          echo "Indice de la prochaine option à traiter : $OPTIND"
+    10                          ;;
+    11                  b)
+    12                          echo "Exécution des commandes de l'option b"
+    13                          echo "Indice de la prochaine option à traiter : $OPTIND"
+    14                          ;;
+    15                  c)
+    16                          echo "Exécution des commandes de l'option c"
+    17                          echo "Indice de la prochaine option à traiter : $OPTIND"
+    18                          ;;
+    19                  d)
+    20                          echo "Exécution des commandes de l'option d"
+    21                          echo "Liste des arguments à traiter : $OPTARG"
+    22                          echo "Indice de la prochaine option à traiter : $OPTIND"
+    23                          ;;
+    24                  e)
+    25                          echo "Exécution des commandes de l'option e"
+    26                          echo "Liste des arguments à traiter : $OPTARG"
+    27                          echo "Indice de la prochaine option à traiter : $OPTIND"
+    28                          ;;
+    29          esac
+    30  done
+    31  echo "Analyse des options terminée"
+    32  exit 0
+$
+
+L'appel à la commande getopts récupère l'option suivante et retourne un code vrai tant qu'il reste des options à analyser.
+La liste des options utilisables avec ce script sont définies à la ligne 3 (getopts "abcd:e:" option). Il s'agit des options -a, -b, -c, -d et -e.
+Le caractère ":" inscrit après les options "d" et "e" (getopts "abcd:e:" option) indique que ces options doivent être suivies obligatoirement d'un argument.
+La variable "option" (getopts "abcd:e:" option) permet de récupérer la valeur de l'option en cours de traitement par la boucle while.
+La variable réservée "$OPTIND" contient l'indice de la prochaine option à traiter.
+La variable réservée "$OPTARG" contient l'argument associé à l'option.
+
+Exécution du script avec des options valides :
+
+$ ./test_getopts_1.sh -a -b -c -d toto -e tata,tutu
+getopts a trouvé l'option a
+Exécution des commandes de l'option a
+Indice de la prochaine option à traiter : 2
+getopts a trouvé l'option b
+Exécution des commandes de l'option b
+Indice de la prochaine option à traiter : 3
+getopts a trouvé l'option c
+Exécution des commandes de l'option c
+Indice de la prochaine option à traiter : 4
+getopts a trouvé l'option d
+Exécution des commandes de l'option d
+Liste des arguments à traiter : toto
+Indice de la prochaine option à traiter : 6
+getopts a trouvé l'option e
+Exécution des commandes de l'option e
+Liste des arguments à traiter : tata,tutu
+Indice de la prochaine option à traiter : 8
+Analyse des options terminée
+$
+
+Option invalide : 
+Lorsque la commande getopts détecte une option invalide, la variable option est initialisée avec la caractère "?" et un message d'erreur est affiché à l'écran.
+Les options suivantes sont analysées.
+
+Exemple :
+
+L'option -z ne fait pas partie de la liste des options attendues.
+
+$ ./test_getopts_1.sh -a -z -b -c -d toto -e tata,tutu
+getopts a trouvé l'option a
+Exécution des commandes de l'option a
+Indice de la prochaine option à traiter : 2
+./test_getopts_1.sh : option non permise -- z
+getopts a trouvé l'option ?
+getopts a trouvé l'option b
+Exécution des commandes de l'option b
+Indice de la prochaine option à traiter : 4
+getopts a trouvé l'option c
+Exécution des commandes de l'option c
+Indice de la prochaine option à traiter : 5
+getopts a trouvé l'option d
+Exécution des commandes de l'option d
+Liste des arguments à traiter : toto
+Indice de la prochaine option à traiter : 7
+getopts a trouvé l'option e
+Exécution des commandes de l'option e
+Liste des arguments à traiter : tata,tutu
+Indice de la prochaine option à traiter : 9
+Analyse des options terminée
+$
+
+Gestion des erreurs
+Si le caractère ":" est placé en première position dans la liste des options à traiter (ligne 3), les erreurs sont gérées différemment.
+
+En cas d'option invalide :
+- getopts n'affichera pas de message d'erreur.
+- la variable OPTARG sera initialisée avec la valeur de l'option incorrecte (ligne 29).
+
+Exemple :
+
+$ nl test_getopts_1.sh
+     1  #!/bin/bash
+     2
+     3  while getopts ":abcd:e:" option
+     4  do
+     5          echo "getopts a trouvé l'option $option"
+     6          case $option in
+     7                  a)
+     8                          echo "Exécution des commandes de l'option a"
+     9                          echo "Indice de la prochaine option à traiter : $OPTIND"
+    10                          ;;
+    11                  b)
+    12                          echo "Exécution des commandes de l'option b"
+    13                          echo "Indice de la prochaine option à traiter : $OPTIND"
+    14                          ;;
+    15                  c)
+    16                          echo "Exécution des commandes de l'option c"
+    17                          echo "Indice de la prochaine option à traiter : $OPTIND"
+    18                          ;;
+    19                  d)
+    20                          echo "Exécution des commandes de l'option d"
+    21                          echo "Liste des arguments à traiter : $OPTARG"
+    22                          echo "Indice de la prochaine option à traiter : $OPTIND"
+    23                          ;;
+    24                  e)
+    25                          echo "Exécution des commandes de l'option e"
+    26                          echo "Liste des arguments à traiter : $OPTARG"
+    27                          echo "Indice de la prochaine option à traiter : $OPTIND"
+    28                          ;;
+    29                  \?)
+    30                          echo "$OPTARG : option invalide"
+    31                          exit 1
+    32                          ;;
+    33          esac
+    34  done
+    35  echo "Analyse des options terminée"
+    36  exit 0
+$
+
+Le message d'erreur généré automatiquement par getopts n'apparait plus et la variable $OPTARG a été substituée par la valeur de l'option incorrecte.
+
+Ligne 29, le "?" doit être protégé par un anti-slash pour ne pas être interprété par le shell.
+
+$ ./test_getopts_1.sh -a -z -b -c -d toto -e tata,tutu
+getopts a trouvé l'option a
+Exécution des commandes de l'option a
+Indice de la prochaine option à traiter : 2
+getopts a trouvé l'option ?
+z : option invalide
+$
+
+Option valide avec argument manquant
+
+
+Ajouter un commentaire
+Lorsque l'argument d'une option est absent, la variable option est initialisée avec le caractère ":" et OPTARG contient la valeur de l'option concernée (ligne 29).
+
+Exemple :
+
+$ nl test_getopts_1.sh
+     1  #!/bin/bash
+     2
+     3  while getopts ":abcd:e:" option
+     4  do
+     5          echo "getopts a trouvé l'option $option"
+     6          case $option in
+     7                  a)
+     8                          echo "Exécution des commandes de l'option a"
+     9                          echo "Indice de la prochaine option à traiter : $OPTIND"
+    10                          ;;
+    11                  b)
+    12                          echo "Exécution des commandes de l'option b"
+    13                          echo "Indice de la prochaine option à traiter : $OPTIND"
+    14                          ;;
+    15                  c)
+    16                          echo "Exécution des commandes de l'option c"
+    17                          echo "Indice de la prochaine option à traiter : $OPTIND"
+    18                          ;;
+    19                  d)
+    20                          echo "Exécution des commandes de l'option d"
+    21                          echo "Liste des arguments à traiter : $OPTARG"
+    22                          echo "Indice de la prochaine option à traiter : $OPTIND"
+    23                          ;;
+    24                  e)
+    25                          echo "Exécution des commandes de l'option e"
+    26                          echo "Liste des arguments à traiter : $OPTARG"
+    27                          echo "Indice de la prochaine option à traiter : $OPTIND"
+    28                          ;;
+    29                  :)
+    30                          echo "L'option $OPTARG requiert un argument"
+    31                          exit 1
+    32                          ;;
+    33                  \?)
+    34                          echo "$OPTARG : option invalide"
+    35                          exit 1
+    36                          ;;
+    37          esac
+    38  done
+    39  echo "Analyse des options terminée"
+    40  exit 0
+$
+
+Exécution du script en oubliant l'argument de l'option -e
+
+$ ./test_getopts_1.sh -a -b -c -d toto -e
+getopts a trouvé l'option a
+Exécution des commandes de l'option a
+Indice de la prochaine option à traiter : 2
+getopts a trouvé l'option b
+Exécution des commandes de l'option b
+Indice de la prochaine option à traiter : 3
+getopts a trouvé l'option c
+Exécution des commandes de l'option c
+Indice de la prochaine option à traiter : 4
+getopts a trouvé l'option d
+Exécution des commandes de l'option d
+Liste des arguments à traiter : toto
+Indice de la prochaine option à traiter : 6
+getopts a trouvé l'option :
+L'option e requiert un argument
+$
+
+Gestion d'arguments supplémentaires
+
+
+Les options sont stockées dans les paramètres positionnels $1, $2 ..... $n.
+Une fois que celles ci sont analysées, il est possible de s'en débarasser avec la commande shift.
+Ceci est intéressant s'il reste des arguments à traiter derrière les options.
+
+Exemple :
+
+$ nl test_getopts_1.sh | tail
+    37          esac
+    38  done
+    39  echo "Analyse des options terminée"
+    40  echo "Avant shift : "
+    41  echo "Liste des arguments : $*"
+    42  echo "Indice de la prochaine option à traiter : $OPTIND"
+    43  shift $((OPTIND-1))
+    44  echo "Après shift : "
+    45  echo "Liste des arguments : $*"
+    46  exit 0
+$
+
+L'instruction à la ligne 43 permet de retirer les options de la liste des arguments.
+L'expression OPTIND-1 représente le nombre d'options analysées, donc la valeur du décalage à réaliser.
+
+Exécution du script avec des arguments supplémentaires :
+
+$ ./test_getopts_1.sh -a -b -c -d toto -e tata,tutu arg1 arg2 arg3 arg4
+getopts a trouvé l'option a
+Exécution des commandes de l'option a
+Indice de la prochaine option à traiter : 2
+getopts a trouvé l'option b
+Exécution des commandes de l'option b
+Indice de la prochaine option à traiter : 3
+getopts a trouvé l'option c
+Exécution des commandes de l'option c
+Indice de la prochaine option à traiter : 4
+getopts a trouvé l'option d
+Exécution des commandes de l'option d
+Liste des arguments à traiter : toto
+Indice de la prochaine option à traiter : 6
+getopts a trouvé l'option e
+Exécution des commandes de l'option e
+Liste des arguments à traiter : tata,tutu
+Indice de la prochaine option à traiter : 8
+Analyse des options terminée
+Avant shift :
+Liste des arguments : -a -b -c -d toto -e tata,tutu arg1 arg2 arg3 arg4
+Indice de la prochaine option à traiter : 8
+Après shift :
+Liste des arguments : arg1 arg2 arg3 arg4
+$
+
+La présentation de getops est donc finalisée et nous permettre d'élaborer des scripts avec passage d'arugments.
+
+
+
 boogie@x61:/tmp$ cat i.sh 
 
 #!/bin/bash
