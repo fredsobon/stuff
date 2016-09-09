@@ -1,0 +1,183 @@
+== cheatsheet yum & rpm ==
+
+= rpm : 
+
+rpm -ivh {rpm-file}	Install the package	rpm -ivh mozilla-mail-1.7.5-17.i586.rpm
+rpm -ivh --test mozilla-mail-1.7.5-17.i586.rpm
+
+rpm -Uvh {rpm-file}	Upgrade package	rpm -Uvh mozilla-mail-1.7.6-12.i586.rpm
+rpm -Uvh --test mozilla-mail-1.7.6-12.i586.rpm
+
+rpm -ev {package}	Erase/remove/ an installed package	rpm -ev mozilla-mail
+rpm -ev --nodeps {package}	Erase/remove/ an installed package without checking for dependencies	rpm -ev --nodeps mozilla-mail
+
+rpm -qa	Display list all installed packages	rpm -qa
+rpm -qa | less
+
+rpm -qi {package}	Display installed information along with package version and short description	rpm -qi mozilla-mail
+
+rpm -qf {/path/to/file}	Find out what package a file belongs to i.e. find what package owns the file	rpm -qf /etc/passwd
+rpm -qf /bin/bash
+
+rpm -qc {pacakge-name}	Display list of configuration file(s) for a package	rpm -qc httpd
+rpm -qcf {/path/to/file}	Display list of configuration files for a command	rpm -qcf /usr/X11R6/bin/xeyes
+
+rpm -qa --last	Display list of all recently installed RPMs	rpm -qa --last
+rpm -qa --last | less
+
+rpm -qpR {.rpm-file}
+rpm -qR {package}	Find out what dependencies a rpm file has	rpm -qpR mediawiki-1.4rc1-4.i586.rpm
+rpm -qR bash
+
+= yum :
+
+Useful flags
+- Assume yes for all prompts
+--y
+Assume no for all prompts
+--assumeno
+
+Disable GPG verification
+--nogpgcheck
+
+Skip broken packages
+Skips packages that whose dependencies can’t be resolved.
+--skip-broken
+
+Enable/Disable repository
+You can dynamically enable or disable a repository for a single execution.
+
+--disable-repo=[path]
+--enable-repo=[path]
+
+Package Management
+
+= Installing an RPM package
+Installing an RPM package from remote repositories
+$ sudo yum install [package-name]
+
+Installing a local RPM package
+$ sudo yum install /path/to/vim-1.2.rpm
+
+Installing a specific version of a package
+$ sudo yum install gcc-4.0
+
+= Removing an RPM package and dependencies
+Removes a package and any package it depends on (provided nothing else depends on it).
+$ sudo yum remove [package-name]
+Note: this will only remove the binaries and libraries, any configuration files will stay intact.
+
+= Downgrade a package
+This will install the package’s previous version.
+hp-health-10.00-1688.34.rhel6.x86_64
+$ sudo yum downgrade [package-name]
+
+= View a package’s dependencies
+$ sudo yum deplist [package-name]
+
+= Listing packages
+The yum list command can take different arguments:
+List all available packages from repositories
+$ sudo yum list available
+
+List installed packages
+$ sudo yum list installed
+
+List installed and available packages
+$ sudo yum list all
+
+List all packages (installed or available) that match a given [package-name], can be a glob
+$ sudo yum list [package-name]
+$ sudo yum list mysql*
+
+= Search for package
+This searches for [package-name] across all repositories, also looking inside package descriptions.
+$ sudo yum search [package-name]
+
+= Upgrade all system packages
+
+$ sudo yum upgrade
+This command installs all of the latest versions of each package installed on the system and is, generally, not recommended to be run on production systems.
+
+= Reinstall a single package
+
+Sometimes, it’s necessary to force reinstallation of a package.
+$ sudo yum reinstall [package-name]
+
+= View info for a package
+
+$ sudo yum info [package-name]
+Find which RPM package installs a given file
+
+This command is very handy when it’s not obvious which package needs to be installed to use it.
+
+$ sudo yum provides [file]
+yum provides can also take a glob:
+
+$ sudo yum provides "*/bin/vim"
+List all dependencies for a given package
+
+$ sudo yum provides [package-name]
+Package Groups
+
+Note: yum now has a groups subcommand for group operations, versions before 3.4.x should refer to this document instead.
+
+yum has the concept of “package groups”, groups of related packages that can be installed or uninstalled at once, that don’t necessarily depend on each other.
+
+= List all groups
+
+$ sudo yum group list
+Install all packages for a group
+
+$ sudo yum group install "Basic Web Server"
+Remove all packages for a group
+
+$ sudo yum group remove "Basic Web Server"
+Repository Management
+
+List all repositories
+
+$ sudo yum repolist
+List all packages for a given [repository]
+
+(Note: yum > 3.4.x only)
+
+$ sudo yum repo-pkgs [repository] list
+Install all packages from given [repository]
+
+(Note: yum > 3.4.x only)
+
+$ sudo yum repo-pkgs [repository] install
+Remove all packages from a given [repository]
+
+(Note: yum > 3.4.x only)
+
+$ sudo yum repo-pkgs [repository] remove
+Update local metadata cache
+
+This is run automatically by yum as needed, but can be refreshed manually with yum makecache
+
+$ sudo yum makecache
+When this command is run, all available packages are fetched and re-indexed from the repositories yum knows about.
+
+yum-utils and yumdownloader
+
+In order to download source packages, it’s necessary to install an additional package for yum, called “yum-utils”, which provides a yumdownloader binary, among other things.
+
+= Downloading RPMs
+Downloading RPM from remote repositories
+
+$ sudo yumdownloader [package-name]
+Downloading Source RPMs
+
+$ sudo yumdownloader --source [package-name]
+Downloading all dependencies for an RPM
+
+$ sudo yumdownloader --resolve [package-name]
+Filtering by architecture
+
+$ sudo yumdownloader --archlist=[arch-list]  [package-name]
+More
+
+yum-utils adds other useful commands to yum that are too specific to cover here but are still worth looking over at the YumUtils website.
+
