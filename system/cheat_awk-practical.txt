@@ -1,11 +1,10 @@
-Awk - Reporting Tool - Cheat Sheet
+=== Awk - Reporting Tool - Cheat Sheet ===
 
 Usage:
 
 awk ‘/pattern/ { procedure }’ | PIPE | STDIN
 
 Example file:
-
 file.txt
 
 one
@@ -16,50 +15,103 @@ two10
 three one
 four two
 one two three
-- print entire line:
 
+boogie@x61-boogie:/tmp$cat testo 
+lapin 444 carotte
+zuzu 556 bla bla bla bluvlu
+ziboo  ooo oo ddf 
+
+
+= print  :
+- print entire line:
 awk '{ print }' file.txt
 or
-
 awk '{ print $0 }' file.txt
+
+boogie@x61-boogie:/tmp$ awk '{print $0}' testo 
+lapin 444 carotte
+zuzu 556 bla bla bla bluvlu
+ziboo  ooo oo ddf 
+
+
 - print specific columns ( $1, $2 .. $n):
-
 awk '{ print $1}' file.txt
-- print multiply columns:
+boogie@x61-boogie:/tmp$ awk '{print $1}' testo 
+lapin
+zuzu
+ziboo
 
+- print multiply columns:
 awk '{ print $1; print $2 }' file.txt
 awk '{ print $1, $2 }' file.txt
+
+boogie@x61-boogie:/tmp$ awk '{print $1, $2}' testo 
+lapin 444
+zuzu 556
+ziboo ooo
+
+
 - print columns from lines containing pattern:
-
 awk '/pattern/ { print $1 }' file.txt
+
+boogie@x61-boogie:/tmp$ awk '/carotte/ {print $0}' testo 
+lapin 444 carotte
+boogie@x61-boogie:/tmp$ awk '/carotte/ {print $1}' testo 
+lapin
+
 - print columns from lines containing digits:
-
 awk '/[0-9]/ { print $1 }' file.txt
-Delimiters:
 
+boogie@x61-boogie:/tmp$ awk '/[0-9]/ { print $1 }' testo 
+lapin
+zuzu
+boogie@x61-boogie:/tmp$ awk '/[0-9]/ { print $0 }' testo 
+lapin 444 carotte
+zuzu 556 bla bla bla bluvlu
+
+
+= delimiters:
 Default delimiter: white-space (space, tabs):
-
 awk -F: '{ print $1 }' /etc/passwd
+
 - support for character classes in setting the default delimiter:
-
 awk -F "[:;.\t]"
-Awk scripts:
 
+=Awk scripts:
 Awk scripts consist of 3 parts:
-
 1. Before (denoted using: BEFORE)
-
 2. During (main Awk loop)
-
 3. After (denoted using: END)
 
-awk 'BEGIN { print "exmaple" }'
+awk 'BEGIN { print "exemple" }'
 awk 'BEGIN { FS = ":"; print "Beginning" } $7 ~ /nologin/ { print $1, $7 } END { print "End" }' /etc/passwd
+
+
+boogie@x61-boogie:/tmp$ awk 'BEGIN { FS = ":"; print "Beginning" } $7 ~ /nologin/ { print $1, $7 } END { print "End" }' /etc/passwd
+Beginning
+daemon /usr/sbin/nologin
+bin /usr/sbin/nologin
+sys /usr/sbin/nologin
+games /usr/sbin/nologin
+man /usr/sbin/nologin
+lp /usr/sbin/nologin
+mail /usr/sbin/nologin
+news /usr/sbin/nologin
+uucp /usr/sbin/nologin
+proxy /usr/sbin/nologin
+www-data /usr/sbin/nologin
+backup /usr/sbin/nologin
+list /usr/sbin/nologin
+irc /usr/sbin/nologin
+gnats /usr/sbin/nologin
+nobody /usr/sbin/nologin
+End
+
 Example:
 
 awk -f example.awk /etc/passwd
-example.awk
 
+example.awk
 # Component 1 - BEGIN
 BEGIN { FS = ":"; print "Beginning" }
 
@@ -68,24 +120,63 @@ $7 ~ /false/ { print $1, $7 }
 
 # Component 3 - END
 END { print "End" }
-Awk variables:
+
+=Awk variables:
 
 Types:
 
 1. System - i.e. FILENAME, RS, ORS…
-
 awk '{ print; print "Number of fields on the line: " NF } END { print "Input file: " FILENAME }' file.txt
-awk 'BEGIN { OFS="\t\t\t" }; { print $1, $2 }' file.txt
+awk 'BEGIN { OFS="\t\t\t" }; { print $1, $2 }' testo.txt
+
+cat testo.txt
+lapin 444 carotte
+Number of fields on the line: 3
+zuzu 556 bla bla bla bluvlu
+Number of fields on the line: 6
+ziboo  ooo oo ddf 
+Number of fields on the line: 4
+Input file: testo
+
 2. Scalars - i.e. a = 1
 
 awk 'BEGIN { test_value = 10 } { print } { print test_value }' file.txt
+
+boogie@x61-boogie:/tmp$ awk 'BEGIN { test_value = 10 } { print } { print test_value }' testo
+lapin 444 carotte
+10
+zuzu 556 bla bla bla bluvlu
+10
+ziboo  ooo oo ddf 
+10
+
 - increment scalar variable “test_value” by one:
 
 awk 'BEGIN { test_value = 10 } { print } { print test_value; ++test_value }' file.txt
+
+boogie@x61-boogie:/tmp$ awk 'BEGIN { test_value = 10 } { print } { print test_value; ++test_value }' testo 
+lapin 444 carotte
+10
+zuzu 556 bla bla bla bluvlu
+11
+ziboo  ooo oo ddf 
+12
+
+
 3. Arrays - i.e. (variable_name[n]) test_value[0] = 10
 
 awk '{ print $1, $2; class[NR] = $2 } END { for (i=1; i <= NR; i++) print "Class" i ": "class[i] }' file.txt
-Awk operators:
+
+boogie@x61-boogie:/tmp$ awk '{ print $1, $2; class[NR] = $2 } END { for (i=1; i <= NR; i++) print "Class" i ": "class[i] }' testo 
+lapin 444
+zuzu 556
+ziboo ooo
+Class1: 444
+Class2: 556
+Class3: ooo
+
+
+= Awk operators:
 
 1. Relational - ==, !=, <, >, <=, >=, ~ (RegEx matches), !~ (RegEx does NOT match)
 
