@@ -4,10 +4,24 @@
 ###
 # main goal : push the flash key content on local machine - availability to rsync special data on dedicated folder(s)
 ###
+dry_run ()
+{
+rsync -azvn "${src}/m_job/" "$dst"
+}
+
+run_verbose ()
+{
+rsync -azv "${src}/m_job/" "$dst"
+}
+
+run_quiet () 
+{
+rsync -az "${src}/m_job/" "$dst"
+}
 
 #vars :
-src="/media/boogie/flash" 
-dst="/home/boogie/Documents/"
+src="/media/boogie/flash"
+dst="/home/boogie/Documents/work/m_job/"
 src_chk="$(grep "${src}" /proc/mounts 2>&1)"
 res="$?"
 target="0"
@@ -22,26 +36,18 @@ fi
 
 [ -n "${content}" ] && echo "here are folder present on "${src}" ====:  " ; echo "$content"
 
-read -p "plz select le folder you'd like to dumpdata to local machine : " folder
-echo "========"
-echo "ok : here is your selection ===> $folder .. let's gonna dump it on "$dst" "
-echo "========"
-
-dry_run=$(rsync -azvn "$folder" "$dst")
-run_verbose=$(rsync -azv "$folder" "$dst")
-run_quiet=$(rsync -az "$folder" "$dst")
-
-read -p "plz select your dump mode : <dry_run> <run_verbose> <run_quiet> " mode
+read -p "plz select your dump mode : <dr> <verbose> <silent> ... " mode
 echo "$mode selected :"
 echo " ....."
 
 
 case "$mode" in 
-	dry_run ) "$dry_run" 
+	dr ) dry_run
 	;;
-	run_verbose ) "$run_verbose"
+	verbose ) run_verbose
 	;;
-	run_quiet ) "$run_quiet"
+	silent ) run_quiet
 	;;
 	*) echo "plz look to the three mode and choose one"
+        ;;
 esac 
