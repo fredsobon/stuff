@@ -1,0 +1,30 @@
+== How to mount a Windows file share on Ubuntu ==
+
+
+= connection : 
+    Open the Files file manager.
+    Files » Connect to Server.
+    For the Server Address, enter the following (where HOSTNAME is the server name and SHARE is the share name):
+        smb://HOSTNAME/SHARE
+    Hit the Connect button.
+
+The share will now be available in Files on the left sidebar under the Network section, and it will be available from the command-line interface (CLI) over at /run/user/$USER/gvfs/ where $USER is your local user name. I'd recommend adding softlink to more easily access your mounts:
+
+    ln -s /run/user/$USER/gvfs ~/mounts
+
+For more information, see:
+
+    What's the easiest way to mount Windows share as a local folder in home directory?
+    How do I mount Samba share as non-root user
+
+= Mounting the share system-wide
+
+This needs be done as the superuser, but the share should be readable by everyone. It will add a package to work the target file system, create a local folder to house the files and finally mount the remote share locally.
+
+    sudo apt-get install cifs-utils
+    sudo mkdir /mnt/LOCAL_SHARE_NAME
+    sudo mount -t cifs //REMOTE_HOST_NAME/REMOTE_SHARE_NAME /mnt/LOCAL_SHARE_NAME
+
+# Dans le fstab on peut saisir par exemple ces options : le montage ne sera pas auto , sera en read only et le password demandé au user :
+//hosts_windows/shared /mnt/win cifs ro,noauto,username=lapin,domain=rabbit,uid=0,noforceuid,gid=0,noforcegid,addr=192.168.0.22 0 0
+
