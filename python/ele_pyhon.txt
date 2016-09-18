@@ -279,17 +279,21 @@ girl is older!
 girl is older!
 girl is older!
 
+exemple avec un import du module random pour definir un nombre entier 
+>>> import random
+# on appelle la fonction randint du module random pour générer un nombre aléatoire entre 1 et 100 
 >>> number = random.randint(1, 100)
 >>> number
 90
->>> ans = int(input("guess the correct number!"))
-guess the correct number!23
+>>> ans = None
 >>> while ans != number:
+...     ans = int(input("guess the correct number!"))
 ...     if ans > number:
 ...         print("too high")
-...     else:
+...     elif ans < number:
 ...         print("too low")
-...     ans = int(input("guess the correct number!"))
+...     else:
+...         print("bingo")
 ... 
 too low
 guess the correct number!91
@@ -297,6 +301,229 @@ too high
 guess the correct number!54
 too low
 guess the correct number!90
+bingo
 >>> 
 
+= commentaires en python :
+le commentaire est un "#" 
+= debug et analyse des erreurs :
+il est important de comprendre les messages d'erreur de python : les stacktrace qu'il renvoit sont assez explicites mais des fichiers de scripts assez longs vont nécéssité des outils et l'affichage de messages précis.
+ex :
+si on supprime la fonction de convertion de type dans notre ligne :
+
+ans = input("guess the correct number!") on a en lancant le script :
+ogie@x61-boogie:~/lab/python$ ./ra.py 
+guess the correct number!54
+Traceback (most recent call last):
+  File "./ra.py", line 10, in <module>
+    if ans > number:
+TypeError: unorderable types: str() > int()
+
+== structure de données : collections : list /tuple :
+
+python utilise la philosophie duck typing : on s'interresse aux caracteristiques des objets ( slicable, indexable, iterable )
+-indexer : on peut recup a un index particulier un elemeent de notre objet.
+les caracteres , les listes sont indexables
+- slicable : decoupable en tranche 
+list, caracteres sont slicable 
+- iterable : on peut prendre les elements un par un pour les traiter : les listes, et caracteres sont iterables
+
+= liste collection d'element ordonnée :
+>>> fruit = []
+>>> type(fruit)
+<class 'list'>
+
+methode sur list :
+>>> fruit.append("banane")
+>>> fruit
+['banane']
+>>> fruit.append("ananas")
+>>> fruit
+['banane', 'ananas']
+pour acceder a un element on  utilise l'index. on commence à compter à partir de 0 
+>>> fruit[0]
+'banane'
+>>> fruit[2]
+'citron'
+on peut modifier l'element d'une liste :
+>>> fruit[2] = "pomme"
+>>> fruit[2]
+'pomme'
+>>> fruit
+['banane', 'ananas', 'pomme']
+on peut acceder a un element via un index negatif :
+>>> fruit[-2]
+'ananas'
+si on tente d'acceder a un element de la liste qui n'existe pas python leve une erreur :
+>>> fruit[21]
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+IndexError: list index out of range
+
+on peut acceder a des caracteres par leur index mais on ne peut pas les modifier :
+>>> phrase = "lapin nain"
+>>> phrase[2]
+'p'
+>>> phrase[2] = "Z"
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+TypeError: 'str' object does not support item assignment
+
+- pop :
+va nous servir a supprimer par defaut le dernier element d'une liste :
+>>> fruit.pop()
+'pomme'
+>>> fruit
+['banane', 'ananas']
+on peut supprimer un element en donnant son index : 
+>>> couleur = ['vert' , 'jaune' , 'rouge' ]
+>>> couleur.pop(1)
+'jaune'
+>>> couleur
+['vert', 'rouge']
+
+- insert : va nous permettre de rajouter un element parmi ceux existant dans notre list :
+>>> couleur.insert(1, 'jaune')
+>>> couleur
+['vert', 'jaune', 'rouge']
+
+ les listes sont mutables : modifiables
+les entiers / chaine de caracteres sont non mutable : on prend un element on le supprime et on le recree
+
+les listes sont infinies modulo la memoire du pc.
+
+Elles sont slicables :
+>>> couleur
+['vert', 'jaune', 'rouge', 'purple']
+>>> len(couleur)
+4
+slice intervale : premier element d'index inclu, dernier exclu
+>>> couleur[1:3]
+['jaune', 'rouge']
+
+on peut utiliser des bornes :
+>>> couleur[:3]
+['vert', 'jaune', 'rouge']
+>>> couleur[1:]
+['jaune', 'rouge', 'purple']
+>>> couleur
+['vert', 'jaune', 'rouge', 'purple']
+>>> couleur[1:-1]
+['jaune', 'rouge']
+
+on peut setter un "pas" pour extraire les elements.
+ex  tous les deux elements dans l'intervalle 1 à 6 :
+>>> couleur
+['vert', 'jaune', 'rouge', 'purple', 'pink', 'grey']
+>>> couleur[1:6:2]
+['jaune', 'purple', 'grey']
+on peut donc inverser notre liste :
+>>> couleur
+['vert', 'jaune', 'rouge', 'purple', 'pink', 'grey']
+>>> couleur[::-1]
+['grey', 'pink', 'purple', 'rouge', 'jaune', 'vert']
+ceci est valable pour les chaine de caracteres ( slicables mais non mutables) :
+>>> "hello world!"[::-1]
+'!dlrow olleh'
+les listes peuvent contenir des types differents mais c'est non conseille.
+
+-fonction list :
+>>> list("hello world")
+['h', 'e', 'l', 'l', 'o', ' ', 'w', 'o', 'r', 'l', 'd']
+si on converti cette liste en caractere on a une representation en caractere de la liste :
+>>> str(list("hello world"))
+"['h', 'e', 'l', 'l', 'o', ' ', 'w', 'o', 'r', 'l', 'd']"
+> on voit les guillements qui entourent notre liste.
+
+- tuple : ressemble aux listes (slicable etc ..) : il n'est pas mutable.
+ce qui est utile quand on veut s'assurer qu'aucune modif ne sera faite sur nos entrées. le tuple est un peu plus rapide egalement.
+>>> fix = ("lapin", "coincoin")
+>>> type(fix)
+<class 'tuple'>
+>>> fix[1]
+'coincoin'
+>>> fix[1] = "loup"
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+TypeError: 'tuple' object does not support item assignment
+
+
+== boucle for : ==
+
+caracteres, list et tuples sont iterables 
+L'iteration est le coeur de python 
+>>> lang = "python"
+>>> for lettre in lang:
+...     print(lettre)
+... 
+p
+y
+t
+h
+o
+n
+un iterable est un objet sur lequel  on peut appliquer une boucle "for"
+>>> couleur
+['vert', 'jaune', 'rouge', 'purple', 'pink', 'grey']
+>>> fix
+('lapin', 'coincoin')
+liste et tuple sont iterables :
+>>> for c in couleur:
+...     print(c)
+... 
+vert
+jaune
+rouge
+purple
+pink
+grey
+>>> for animal in fix:
+...     print(animal)
+... 
+lapin
+coincoin
+
+
+== exercice :
+
+#!/usr/bin/env python3
+
+import random
+# on appelle la fonction randint du module random pour générer un nombre aléatoire entre 1 et 100
+number = random.randint(1, 100)
+# on declare une variable vide qui servira à enregistrer les reponses du user :
+ans = None
+# on cree une liste vide qu'on alimentera à chaque saisi du user pour l'afficher à la fin du jeu :
+liste = []
+# notre condition principale qui permettra d'executer la boucle tant que la condition n'est pas réalisée:
+while ans != number:
+# on recupere l'entree saisie par le joueur, on la convertie en entier et on associe la variable ans à la valeur retournee :
+     ans = int(input("guess the correct number!"))
+# on ajoute la reponse dans la liste :
+     liste.append(ans)
+# conditions : pour gagner et sortie de boucle quand le nombre  est trouvé
+     if ans > number:
+         print("too high")
+     elif ans < number:
+         print("too low")
+     else:
+         print("bingo")
+# on recupere le numbre d'element de notre liste
+number = len(liste)
+# on affiche au joueur le nombre de coups qu'il a utilisé pour gagné : 
+print("ok you win in " + str(number) + "hits")
+print("here are the differents hits you played : \n")
+# on affiche les différents coups :
+for hit in liste:
+    print("-" + str(hit))
+
+on peut modifier notre code pour l'alleger :
+la section else: n'est pas nécéssaire car on est sorti de la boucle dès qu'on a trouvé le bon nombre ..on laisse pour la clarté .
+on peut alléger print en supprimant le + en ajoutant comme separateur d'argument le virgule et la conversion en str : que print fait nativement :
+print("ok you win in ", number, "hits")
+print("-",hit)
+
+Certaines fonctions acceptent plusieurs paramètres d'autres non.
+
+=v 94
 
