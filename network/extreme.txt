@@ -1,0 +1,1063 @@
+== cheat sheet extreme : ==
+
+- numerotation de ports : 
+When switches are stacked or for ports in a chassis, ports are identified by module:port, such as
+1:1, 2:24 and so on.
+
+You can use lists of ports separated by commas: 1,17,23 or 1:1,2:27,3:23.
+
+You can use port ranges: 1-12 or 4:4-4:14. In the latter case, this also works:4:4-14. 
+You can also
+mix the lists and ranges: 1-4,23 or 4:4-14,5:7.
+
+- specs :
+
+X460-24p.10 # show switch
+SysName: X460-24p
+SysLocation:
+SysContact: support@extremenetworks.com, +1 888 257 3000
+System MAC: 00:04:96:51:FE:E2
+System Type: X460-24p
+SysHealth check: Enabled (Normal)
+Recovery Mode: All
+System Watchdog: Enabled
+Current Time: Thu Sep 4 00:57:18 2014
+Timezone: [Auto DST Disabled] GMT Offset: 0 minutes, name is UTC.
+Boot Time: Wed Sep 3 20:07:11 2014
+Boot Count: 402
+Next Reboot: None scheduled
+System UpTime: 4 hours 50 minutes 7 seconds
+Current State: OPERATIONAL
+Image Selected: primary
+Image Booted: primary
+Primary ver: 15.7.1.4
+Secondary ver: 15.7.1.5
+Config Selected: ssh-privatekey.cfg
+Config Booted: ssh-privatekey.cfg
+ ssh-privatekey.cfg Created by ExtremeXOS version
+15.7.1.5
+ 219131 bytes saved on Mon Jul 14 23:03:08 2014
+
+-commandes exam hardware :
+show switch Shows the type of system, the current date and time, the timezone, when the
+switch was booted, which configuration file was booted, and which file will be used
+at the next boot.
+
+show power Shows information about your power supplies.
+
+show fans Shows information about your fans.
+
+show version Show the serial numbers of your hardware equipment.
+
+show odometers Shows the total service time (in days) for a piece of hardware.
+
+show license Shows the license level.
+
+ls Lists the files stored in the directory.
+cp Copies a file.
+mv Renames a file.
+rm Deletes a file.
+
+
+
+
+= Using Ports
+
+
+- Configuring Port, Speed, and Duplex
+These commands let you specify the port, speed, and duplex settings.
+
+Examples: Possible configurations of port speed and duplex settings
+
+config port 1 auto off speed 100 duplex half
+config port 1:1-1:5 auto off speed 1000 duplex full
+config port 22 auto on
+
+- Enabling and Disabling Ports
+These commands let you enable and disable ports.
+Examples:
+enable port 1
+disable port 1:1-1:5
+Show Port Configuration Commands
+
+- Command Description
+show port config Shows the port configuration.
+show port config no-refresh The no-refresh keyword shows you the screen once and
+exits. Otherwise, ExtremeXOS continues to update the
+display
+
+Examples:
+
+show port 1:1-1:3 config no-refresh
+show port 3,4,9-12 config no-refresh
+
+-Port Configuration
+Port Virtual Port Link Auto Speed Duplex Flow Load Media
+ router State State Neg Cfg Actual Cfg Actual Cntrl Master Pri Red
+==============================================================================
+3 VR-Default E R ON AUTO AUTO UTP
+4 VR-Default E R ON AUTO AUTO UTP
+9 VR-Default E R ON AUTO AUTO UTP
+10 VR-Default E R ON AUTO AUTO UTP
+11 VR-Default E R ON AUTO AUTO UTP
+12 VR-Default E R ON AUTO AUTO UTP
+==============================================================================
+ > indicates Port Display Name truncated past 8 characters
+ Link State: A-Active R-Ready NP- Port not present L-Loopback
+ Port State: D-Disabled, E-Enabled
+ Media: !-Unsupported Optic Module
+ Media Red: * - use "show port info detail" for redundant media type
+
+
+-Show VLAN/Port Membership
+The show port command lets you view port membership details.
+
+Example:
+show port 1 info detail
+Show Port Utilization
+
+The show port utilization command lets you view a variety of utilization information on a port.
+Examples:
+show port utilization
+show port 1-3 utilization bandwidth
+show port 3:4,3:7 utilization packets
+show port 17 utilization bytes
+
+-Monitoring QoS Behavior
+
+This command lets you view the QoS behavior for a port.
+Example:
+show port 1 qosmonitor no-refresh
+
+= Using VLANs
+
+
+ExtremeXOS is very VLAN-centric. Unlike port-based operating systems, most of the configuration
+takes place at the VLAN level. VLANs are created, then given IP addresses, ports, 802.1Q tag values,
+and QoS settings. In short, the VLAN must be created first and then configured.
+Once the VLAN is created, you refer to it directly by name when you give it an IP address, add ports to
+it, etc. In fact, the VLAN name is mandatory and (in most cases), but the vlan keyword is optional.
+
+-Creating a VLAN
+A newly created VLAN has no member ports, is untagged, and uses protocol filter any until you
+configure it otherwise. In ExtremeXOS, VLANs are usually given descriptive names like “data” or “voice”
+or “wireless” instead of “vlan2100”.
+
+Examples:
+create vlan Data
+create vlan Voice
+Port Tagging and VLAN
+
+In ExtremeXOS, there are tagged ports and untagged ports. A tagged port will send and receive 802.1Q
+tagged packets to or from a specific VLAN. An untagged port will send untagged traffic to or from a
+specific VLAN.
+You can choose from one of the following options:
+• Untagged Ports — Because there’s no way to distinguish between VLANs when using untagged
+traffic, a port can be assigned as an untagged port to only one VLAN at a time. If you want
+untagged traffic to go to a different VLAN, you have to delete the port from the old VLAN before
+you can add it to the new one as an untagged port. If you do not specify whether the port should be
+added as tagged or untagged, untagged is assumed.
+• Tagged Ports — Because traffic can be distinguished based on the 802.1Q tag value, a port can be
+assigned as tagged to multiple VLANs at a time. The 802.1Q tag value assigned to the VLAN
+determines which tag value is used.
+• Mixing Tagged and Untagged Traffic — ExtremeXOS fully supports mixing tagged and untagged
+traffic. A port can be an untagged member of one VLAN and a tagged member of several other
+VLANs simultaneously.
+
+Examples:
+#add untagged ports to a VLAN
+config Data add port 1-12
+#add tagged ports on module 1 to a stacked switch or chassis
+config Data add port 2:45-48 tag
+
+Assigning an IP Address to a VLAN
+You can use dotted decimal subnets or CIDR notation when specifying subnets. If no subnet mask is
+specified, the “natural mask” is assumed.
+
+Example: # dotted decimal subnet notation
+config vlan Data ipaddress 10.1.10.1 255.255.255.0
+Example: # CIDR subnet syntax and abbreviations
+conf Voice ipa 10.1.20.1/24
+
+Assigning an 802.1Q Tag value to the VLAN
+To assign the 802.1Q tag value to the VLAN, follow the syntax of this example:
+config Data tag 10
+
+About Assigning a QoS Profile to a VLAN
+Fully explaining Quality of Service (QoS) is out of scope for this document, but is discussed in depth in
+the ExtremeXOS User Guide. However, one thing to note is that when SummitStack switches are
+actually stacked together, QP7 (802.1p bit value of 6) is reserved by the stack for stacking control
+traffic. You will not be able to use QP7 in your stacks.
+QoS Profiles QP1 and QP8 are always available. QP2 – QP7 must be created before they can be used.
+Example:
+create qos QP6
+config Voice qosprofile QP6
+
+
+= Show VLAN Commands
+
+Command Description
+show vlan Shows you most of what you need to know regarding all of your VLANs,
+including IP addresses, the VLAN ID (802.1Q tag), how many ports are in the
+VLAN, and a wealth of other information shown with a series of flags.
+show vlan vlan name Shows more detailed information on a specific VLAN. Because the vlan
+keyword is usually optional, you can just use show vlan name.
+
+Example:
+This example shows that the “Voice” vlan is configured to route (IP Forwarding Enabled), has OSPF
+enabled, and is protected by an EAPS ring.
+-----------------------------------------------------------------------------
+Name VID Protocol Addr Flags Proto Ports Virtual
+ Active router
+ /Total
+------------------------------------------------------------------------------
+data 11 192.168.11.100 /24 f-----o------P---- ANY 0 /18 VRDefault
+Default 1 -------------------------------------- ANY 0 /0 VRDefault
+ecv 3999 -------------------------------C------ ANY 0 /2 VRDefault
+Mgmt 4095 -------------------------------------- ANY 0 /1 VR-Mgmt
+ridge 31 192.168.31.100 /24 f-----o------P---- ANY 0 /2 VRDefault
+voice 21 192.168.21.100 /24 f-----o------P---- ANY 0 /2 VRDefault
+wireless 41 ---------------------------------P---- ANY 0 /8 VRDefault
+------------------------------------------------------------------------------
+-
+Flags : (B) BFD Enabled, (c) 802.1ad customer VLAN, (C) EAPS Control VLAN,
+ (d) NetLogin Dynamically created VLAN, (D) VLAN Admin Disabled,
+ (E) ESRP Enabled, (f) IP Forwarding Enabled,
+ (F) Learning Disabled, (i) ISIS Enabled, (I) Inter-Switch Connection
+VLAN for MLAG,
+ (L) Loopback Enabled, (l) MPLS Enabled, (m) IPmc Forwarding Enabled,
+ (M) Translation Member VLAN or Subscriber VLAN,
+ (n) IP Multinetting Enabled, (N) Network Login VLAN, (o) OSPF Enabled,
+ (O) Flooding Disabled, (p) PIM Enabled, (P) EAPS protected VLAN,
+ (r) RIP Enabled, (R) Sub-VLAN IP Range Configured,
+ (s) Sub-VLAN, (S) Super-VLAN, (t) Translation VLAN or Network VLAN,
+ (T) Member of STP Domain, (V) VPLS Enabled, (v) VRRP Enabled, (W)
+VPWS Enabled
+Total number of VLAN(s) : 7
+
+
+- Show FDB Commands
+The following commands are commonly used for performing FDB (forwarding database) operations.
+Using VLANs
+Command Description
+
+show fdb Shows information for the entire L2 database.
+show fdb [vlan] vlan name Shows the FDB for one VLAN.
+show fdb ports port list Shows the FDB for a set of ports.
+show fdb mac_address Shows information on a particular MAC.
+clear fdb Clears the forwarding database.
+Note
+You can specify ports, VLANs, and particular MAC addresses when clearing.
+
+
+
+
+
+
+
+
+
+
+
+=============================================================================================================================================================================================================================================
+
+- vlan 
+
+create vlan :
+
+-> Extreme Networks utilizes XOS as their network operating system. It is a Linux-based OS with some pretty handy features. XOS uses a tag and untag syntax similar to the HP's Procurve line :
+
+create vlan finance
+configure "finance" tag 87
+
+-> creation of the VLAN name along with the 802.1q tag of 87 was easy. Next, we want to add a few ports the finance VLAN, and add it to a trunk so we can pass finance VLAN traffic between other switches. First, we will remove some ports from the default VLAN for use in the finance VLAN. XOS will not let you add an untagged port more than 1 VLAN:
+
+* Core_2.11 # configure "Default" delete ports 7:5-7:7
+* Core_2.12 # configure "finance" add ports 7:5-7:7 untagged
+* Core_2.13 # configure "finance" add ports 5:1 tagged
+Make sure finance is protected by EAPS. Adding EAPS ring ports to a VLAN could cause a loop in the network.
+Do you really want to add these ports? (y/N) Yes
+
+As you can see, we removed 3 ports from the default vlan (7:5, 7:6, and 7:7) and added them to the finance VLAN. Notice that I specified untagged at the end of the command. This is not required, as XOS will add ports as untagged by default unless you specify them as tagged ports. However, it's a good habit to specify your tagged and untagged ports. If you have not assigned finance to an EAP ring you will the warning above. It is fine to say yes. 
+
+I assigned port 5:1 as the tagged port (trunk port), but remember to tag the other end of that port as well. You must have the finance VLAN created and tagged on the other device in order for Core_2 to pass vlan 87 network data. 
+
+
+
+
+
+
+
+
+== Extreme Xos quick guide : 
+
+= Port Numbering
+In standalone switches (not stacked, not in a chassis), ports are identified by their number, such as 1,
+2, 3, 4 and so on.
+When switches are stacked or for ports in a chassis, ports are identified by module:port, such as
+1:1, 2:24 and so on.
+You can use lists of ports separated by commas: 1,17,23 or 1:1,2:27,3:23.
+You can use port ranges: 1-12 or 4:4-4:14. In the latter case, this also works:4:4-14. You can also
+mix the lists and ranges: 1-4,23 or 4:4-14,5:7.
+
+= System-Level Components
+ExtremeXOS switches store two versions of code in non-volatile RAM. The two versions are called
+Primary and Secondary, but that does not mean that Primary is tried first and if it fails to work then
+Secondary is tried. Primary and Secondary are just names. The show switch command lets you see
+what versions of software are loaded into the switch, version the switch is running on (Image Booted),
+and what version will be loaded the next time the switch boots (Image Selected).
+
+X460-24p.10 # show switch
+SysName: X460-24p
+SysLocation:
+SysContact: support@extremenetworks.com, +1 888 257 3000
+System MAC: 00:04:96:51:FE:E2
+System Type: X460-24p
+SysHealth check: Enabled (Normal)
+Recovery Mode: All
+System Watchdog: Enabled
+Current Time: Thu Sep 4 00:57:18 2014
+Timezone: [Auto DST Disabled] GMT Offset: 0 minutes, name is UTC.
+Boot Time: Wed Sep 3 20:07:11 2014
+Boot Count: 402
+Next Reboot: None scheduled
+System UpTime: 4 hours 50 minutes 7 seconds
+Current State: OPERATIONAL
+Image Selected: primary
+Image Booted: primary
+Primary ver: 15.7.1.4
+Secondary ver: 15.7.1.5
+Config Selected: ssh-privatekey.cfg
+Config Booted: ssh-privatekey.cfg
+ ssh-privatekey.cfg Created by ExtremeXOS version
+15.7.1.5
+ 219131 bytes saved on Mon Jul 14 23:03:08 2014
+
+Loading New Software
+
+ExtremeXOS does not let you replace your booted version. So if you booted on the secondary image,
+you can only load new code into the primary image slot. ExtremeXOS handles the slot selection for you
+automatically.
+Set up a TFTP server with the new software and then load it onto the switch using this command:
+download image tftp server IP address image name vr vr-default
+
+Example: download image 192.168.0.0 summitX-12.6.1.3.xos vr vr-default
+
+Note
+Unless you are actually using the management port, you must include vr vr-default at
+the end of the command.
+
+Loading New Bootrom Code
+On very rare occasions, you might need to load new bootrom code onto the switch before you run new
+software. Check the Release Notes to see if your current bootrom code is compatible. Only download a
+new bootrom if it is required.
+
+1 To download a new bootrom, run this command:
+download bootrom 192.168.0.0 pmon_summitl-1.0.5.6.xtr vr vr-default
+
+2 Select the next image to be booted using either of these commands, depending on which partition
+you want to boot to:
+use image primary
+use image secondary
+3 Reboot using the reboot command.
+
+
+
+== Common Hardware Commands
+
+=Command Description
+
+show switch Shows the type of system, the current date and time, the timezone, when the
+switch was booted, which configuration file was booted, and which file will be used
+at the next boot.
+show power Shows information about your power supplies.
+show fans Shows information about your fans.
+show version Show the serial numbers of your hardware equipment.
+show odometers Shows the total service time (in days) for a piece of hardware.
+show license Shows the license level.
+ls Lists the files stored in the directory.
+cp Copies a file.
+mv Renames a file.
+rm Deletes a file.
+
+Note
+EXOS runs on a LINUX kernel, and the file system commands are similar to LINUX.
+Example: Serial number for a switch
+Switch : 800190-00-02 0634G-00406 Rev 2.0 BootROM: 1.0.5.5 IMG:
+12.5.2.6
+XGM2-1 : N/A N/A Rev 0.0
+Image : ExtremeXOS version 12.5.2.6 v1252b6 by release-manager
+ on Tue Mar 1 17:38:45 PST 2011
+BootROM : 1.0.5.5
+Example: Total number of days a switch has been in service
+ Service First Recorded
+Field Replaceable Units Days Start Date
+---------------------------------------------------------------
+Switch : X450e-48p 493 Sep-20-2006
+
+=Managing Configurations
+
+Show Configuration Commands
+Changing the CLI Paging
+Save Configuraton Commands
+Backing Up Config Files on a TFTP Server
+Uploading Config Files to a TFTP Server
+Resetting a Switch to the Factory Defaults
+Show Configuration Commands
+These commands let you view configuration settings.
+Command Description
+show config Shows the currently running configuration.
+show config detail The default configuration settings are suppressed. This
+command lets you see these settings.
+show config module Shows the configuration for a particular module, such
+as VLAN, IP, EAPS, OSPF, and so on.
+Example: Show OSPF configuration
+show config ospf
+Changing the CLI Paging
+By default, the CLI shows you a page of 25 lines at a time and then waits for you to press a key to
+continue. You can turn off the page-by-page display when you want to view larger amounts of data, for
+example, when you have set your terminal program to capture the output to a log file.
+
+1 To turn off the page-by-page display, run this command:
+disable clipaging
+
+2 To turn the paging feature back on, run this command:
+enable clipaging
+
+Save Configuraton Commands
+
+Command Description
+save config Writes the current config to whatever file name is specified in “Config
+selected”.
+save config filename Writes the current config to a new file name, and then asks if you want to
+make the new file the default database by returing this message:
+Do you want to select this file for booting?
+Note
+Do not add the .cfg extension to the file name, ExtremeXOS automatically adds the extension
+for you.
+Example: Save the configuration to a new file name
+
+#save config test
+Do you want to save configuration to test.cfg? (y/N) Yes
+Saving configuration on master ............. done!
+Configuration saved to test.cfg successfully.
+
+The current selected default configuration database to boot up the system
+(primary.cfg) is different than the one just saved (test.cfg).
+Do you want to make test.cfg the default database? (y/N) No
+Default configuration database selection cancelled.
+
+Backing Up Config Files on a TFTP Server
+You can back up config files to or from a TFTP server.
+
+Command Description
+tftp put tftp address vr vr-default config file Writes a file to a TFTP server.
+tftp get tftp address vr vr-default config file Copies a file from a TFTP server.
+Example:
+tftp put 192.168.1.1 vr vr-default test.cfg
+Note
+
+You do not specify the .cfg extension when saving files, but you must specify .cfg when
+using TFTP.
+Uploading Config Files to a TFTP Server
+You can copy a configuration from one switch to other switches by uploading the configuration file
+from the TFTP server and letting configuration happen automatically.
+
+ExtremeXOS config files are stored as XML, which can be hard for us humans to read. ExtremeXOS and
+Ridgeline identify normal ASCII files with an extension of .xsf.
+• To upload the config in ASCII format, run this command:
+upload configuration tftp address remote name vr vr-default
+Example:
+upload configuration 192.168.1.1 newscript.xsf vr vr-default
+Note
+Because there is no download configuration command, use tftp get to copy an .xsf file
+back down to the switch.
+
+Resetting a Switch to the Factory Defaults
+You can reset the configuration of a switch to the factory defaults using one of the following
+commands. Neither command affects the license levels or the stacking mode of a switch.
+
+Command Description
+unconfigure switch Resets the configuration back to factory defaults except for the
+odometer, clock, and user accounts and passwords.
+unconfigure switch all Resets the configuration back to factory defaults, including user
+accounts and passwords.
+
+= Using Ports
+
+Configuring Port, Speed, and Duplex
+Enabling and Disabling Ports
+Show Port Configuration Commands
+Show VLAN/Port Membership
+Show Port Utilization
+Monitoring QoS Behavior
+Enabling and Disabling Link Aggregation
+Using LACP with Link Aggregation
+
+- Configuring Port, Speed, and Duplex
+These commands let you specify the port, speed, and duplex settings.
+
+Examples: Possible configurations of port speed and duplex settings
+config port 1 auto off speed 100 duplex half
+config port 1:1-1:5 auto off speed 1000 duplex full
+config port 22 auto on
+
+- Enabling and Disabling Ports
+These commands let you enable and disable ports.
+Examples:
+enable port 1
+disable port 1:1-1:5
+Show Port Configuration Commands
+
+- Command Description
+show port config Shows the port configuration.
+show port config no-refresh The no-refresh keyword shows you the screen once and
+exits. Otherwise, ExtremeXOS continues to update the
+display
+
+Examples:
+
+show port 1:1-1:3 config no-refresh
+show port 3,4,9-12 config no-refresh
+
+-Port Configuration
+Port Virtual Port Link Auto Speed Duplex Flow Load Media
+ router State State Neg Cfg Actual Cfg Actual Cntrl Master Pri Red
+==============================================================================
+3 VR-Default E R ON AUTO AUTO UTP
+4 VR-Default E R ON AUTO AUTO UTP
+9 VR-Default E R ON AUTO AUTO UTP
+10 VR-Default E R ON AUTO AUTO UTP
+11 VR-Default E R ON AUTO AUTO UTP
+12 VR-Default E R ON AUTO AUTO UTP
+==============================================================================
+ > indicates Port Display Name truncated past 8 characters
+ Link State: A-Active R-Ready NP- Port not present L-Loopback
+ Port State: D-Disabled, E-Enabled
+ Media: !-Unsupported Optic Module
+ Media Red: * - use "show port info detail" for redundant media type
+
+
+-Show VLAN/Port Membership
+The show port command lets you view port membership details.
+
+Example:
+show port 1 info detail
+Show Port Utilization
+
+The show port utilization command lets you view a variety of utilization information on a port.
+Examples:
+show port utilization
+show port 1-3 utilization bandwidth
+show port 3:4,3:7 utilization packets
+show port 17 utilization bytes
+
+-Monitoring QoS Behavior
+
+This command lets you view the QoS behavior for a port.
+Example:
+show port 1 qosmonitor no-refresh
+
+Note
+You can only monitor one port from each SummitStack or BD8K module at a time.
+
+
+-Enabling and Disabling Link Aggregation
+These commands let you enable and disable link aggregation. Link Aggregation (LAG) is the standard
+industry term for what Cisco calls EtherChannel and Avaya calls MultiLinkTrunking.
+
+Command Description
+enable sharing master port grouping port list Enables sharing.
+disable sharing master port Disables sharing.
+Examples: Enabling link aggregation sharing
+enable sharing 1 grouping 1-2
+enable sharing 5:3 grouping 5:3-5:4, 6:3-6:4
+enable sharing 1
+
+- Using LACP with Link Aggregation
+The Link Aggregation Control Protocol (LACP) brings several advantages to Link Aggregation, some of
+which include:
+• Much better visibility into the LAG partner switch.
+• Add and delete ports without tearing down the whole LAG.
+• LAGs recover from port failures faster with LACP.
+• Can only be added to a LAG when the LAG is built.
+• If you create a LAG without LACP and later decide you want to add it, you have to tear down the
+LAG and then rebuild it using LACP.
+To use LACP with a LAG, simply add the lacp keyword at the end of the enable sharing command.
+Using Ports
+
+Examples:
+enable sharing 1 grouping 1-2 lacp
+enable sharing 5:3 grouping 5:3-5:4, 6:3-6:4 lacp
+Note
+LACP must be enabled on both ends before the LAG will come up. If LACP is enabled on one
+end and not the other, the ports on the LACP will never be operational. So either both ends
+are enabled or neither are.
+
+
+= Using VLANs
+
+Creating a VLAN
+Port Tagging and VLAN
+Show VLAN Commands
+Show FDB Commands
+
+ExtremeXOS is very VLAN-centric. Unlike port-based operating systems, most of the configuration
+takes place at the VLAN level. VLANs are created, then given IP addresses, ports, 802.1Q tag values,
+and QoS settings. In short, the VLAN must be created first and then configured.
+Once the VLAN is created, you refer to it directly by name when you give it an IP address, add ports to
+it, etc. In fact, the VLAN name is mandatory and (in most cases), but the vlan keyword is optional.
+
+-Creating a VLAN
+A newly created VLAN has no member ports, is untagged, and uses protocol filter any until you
+configure it otherwise. In ExtremeXOS, VLANs are usually given descriptive names like “data” or “voice”
+or “wireless” instead of “vlan2100”.
+
+Examples:
+create vlan Data
+create vlan Voice
+Port Tagging and VLAN
+
+In ExtremeXOS, there are tagged ports and untagged ports. A tagged port will send and receive 802.1Q
+tagged packets to or from a specific VLAN. An untagged port will send untagged traffic to or from a
+specific VLAN.
+You can choose from one of the following options:
+• Untagged Ports — Because there’s no way to distinguish between VLANs when using untagged
+traffic, a port can be assigned as an untagged port to only one VLAN at a time. If you want
+untagged traffic to go to a different VLAN, you have to delete the port from the old VLAN before
+you can add it to the new one as an untagged port. If you do not specify whether the port should be
+added as tagged or untagged, untagged is assumed.
+• Tagged Ports — Because traffic can be distinguished based on the 802.1Q tag value, a port can be
+assigned as tagged to multiple VLANs at a time. The 802.1Q tag value assigned to the VLAN
+determines which tag value is used.
+• Mixing Tagged and Untagged Traffic — ExtremeXOS fully supports mixing tagged and untagged
+traffic. A port can be an untagged member of one VLAN and a tagged member of several other
+VLANs simultaneously.
+
+Examples:
+#add untagged ports to a VLAN
+config Data add port 1-12
+#add tagged ports on module 1 to a stacked switch or chassis
+config Data add port 2:45-48 tag
+
+Assigning an IP Address to a VLAN
+You can use dotted decimal subnets or CIDR notation when specifying subnets. If no subnet mask is
+specified, the “natural mask” is assumed.
+
+Example: # dotted decimal subnet notation
+config vlan Data ipaddress 10.1.10.1 255.255.255.0
+Example: # CIDR subnet syntax and abbreviations
+conf Voice ipa 10.1.20.1/24
+
+Assigning an 802.1Q Tag value to the VLAN
+To assign the 802.1Q tag value to the VLAN, follow the syntax of this example:
+config Data tag 10
+
+About Assigning a QoS Profile to a VLAN
+Fully explaining Quality of Service (QoS) is out of scope for this document, but is discussed in depth in
+the ExtremeXOS User Guide. However, one thing to note is that when SummitStack switches are
+actually stacked together, QP7 (802.1p bit value of 6) is reserved by the stack for stacking control
+traffic. You will not be able to use QP7 in your stacks.
+QoS Profiles QP1 and QP8 are always available. QP2 – QP7 must be created before they can be used.
+Example:
+create qos QP6
+config Voice qosprofile QP6
+
+
+= Show VLAN Commands
+
+Command Description
+show vlan Shows you most of what you need to know regarding all of your VLANs,
+including IP addresses, the VLAN ID (802.1Q tag), how many ports are in the
+VLAN, and a wealth of other information shown with a series of flags.
+show vlan vlan name Shows more detailed information on a specific VLAN. Because the vlan
+keyword is usually optional, you can just use show vlan name.
+
+Example:
+This example shows that the “Voice” vlan is configured to route (IP Forwarding Enabled), has OSPF
+enabled, and is protected by an EAPS ring.
+-----------------------------------------------------------------------------
+Name VID Protocol Addr Flags Proto Ports Virtual
+ Active router
+ /Total
+------------------------------------------------------------------------------
+data 11 192.168.11.100 /24 f-----o------P---- ANY 0 /18 VRDefault
+Default 1 -------------------------------------- ANY 0 /0 VRDefault
+ecv 3999 -------------------------------C------ ANY 0 /2 VRDefault
+Mgmt 4095 -------------------------------------- ANY 0 /1 VR-Mgmt
+ridge 31 192.168.31.100 /24 f-----o------P---- ANY 0 /2 VRDefault
+voice 21 192.168.21.100 /24 f-----o------P---- ANY 0 /2 VRDefault
+wireless 41 ---------------------------------P---- ANY 0 /8 VRDefault
+------------------------------------------------------------------------------
+-
+Flags : (B) BFD Enabled, (c) 802.1ad customer VLAN, (C) EAPS Control VLAN,
+ (d) NetLogin Dynamically created VLAN, (D) VLAN Admin Disabled,
+ (E) ESRP Enabled, (f) IP Forwarding Enabled,
+ (F) Learning Disabled, (i) ISIS Enabled, (I) Inter-Switch Connection
+VLAN for MLAG,
+ (L) Loopback Enabled, (l) MPLS Enabled, (m) IPmc Forwarding Enabled,
+ (M) Translation Member VLAN or Subscriber VLAN,
+ (n) IP Multinetting Enabled, (N) Network Login VLAN, (o) OSPF Enabled,
+ (O) Flooding Disabled, (p) PIM Enabled, (P) EAPS protected VLAN,
+ (r) RIP Enabled, (R) Sub-VLAN IP Range Configured,
+ (s) Sub-VLAN, (S) Super-VLAN, (t) Translation VLAN or Network VLAN,
+ (T) Member of STP Domain, (V) VPLS Enabled, (v) VRRP Enabled, (W)
+VPWS Enabled
+Total number of VLAN(s) : 7
+
+
+- Show FDB Commands
+The following commands are commonly used for performing FDB (forwarding database) operations.
+Using VLANs
+Command Description
+
+show fdb Shows information for the entire L2 database.
+show fdb [vlan] vlan name Shows the FDB for one VLAN.
+show fdb ports port list Shows the FDB for a set of ports.
+show fdb mac_address Shows information on a particular MAC.
+clear fdb Clears the forwarding database.
+Note
+You can specify ports, VLANs, and particular MAC addresses when clearing.
+
+= IP Routing
+
+Show IP Routing Commands
+Enabling Routing
+Configuring Static and Default IP Routes
+Performing OSPF Operations
+Configuring VRRP
+Turning On SNTP
+Enabling Web Access
+Configuring SNMP
+
+
+-Show IP Routing Commands
+The following commands are commonly used for performing IP routing operations.
+Command Description
+show iproute Shows the IP route table. iproute is all one word in
+ExtremeXOS.
+show ipconfig Shows the IP interfaces on the switch. ipconfig is all one
+word in ExtremeXOS.
+
+show iparp
+show iparp vlan name
+show iparp ipaddress
+show iparp macaddress
+Shows the IP ARP cache. iparp is all one word in
+ExtremeXOS.
+clear iparp
+clear iparp vlan name
+clear iparp ipaddress
+Clears the IP ARP cache.
+
+
+-Enabling Routing
+In ExtremeXOS, you must do two things before you route to or from a VLAN:
+• Give the VLAN an IP address.
+• Enable IP forwarding.
+If you only give the VLAN an IP address, you can ping the interface, Telnet to it, point your web browser
+at it, but the switch will not route on that VLAN.
+Just because you can ping a VLAN does not mean that VLAN has IP forwarding enabled. An
+ExtremeXOS switch will respond to a ping to any of its IP addresses regardless of the IP forwarding
+state.
+1 To turn on routing on a VLAN:
+enable ipforwarding [vlan] vlan name
+ExtremeXOS Quick Guide 24
+2 To turn on ipforwarding on all of the VLANs at once:
+enable ipforwarding
+Note
+If you enable IP forwarding and then later add a VLAN, IP forwarding will not be enabled
+on the new VLAN. You must add an IP address and then turn on IP forwarding for the
+VLAN.
+
+-Configuring Static and Default IP Routes
+Command Description
+config iproute add subnet/mask next hop gateway Configures a static IP route.
+config iproute add default next hop gateway Configures a default IP route.
+Example: Configure static IP route:
+config iproute add 10.1.8.x/24 10.1.10.1
+Example: Configure default IP route
+config iproute add default 10.1.1.1
+
+-Performing OSPF Operations
+The following commands are commonly used for performing OSFP operations.
+• To set the OSPF routerid, OSPF must be disabled before you perform these steps:
+
+a Configure the OSPF router ID:
+config ospf routerid router id
+config ospf routerid 1.1.1.1
+
+b Enable OSPF:
+enable ospf
+• To create an OSPF area:
+create ospf area area id
+• To set the OSPF priority:
+config ospf [vlan] vlan name priority 0-255
+The range is 0 through 255, higher numbers win. The default setting is 1. Setting the value to 0
+ensures that the router is never selected as the designated router (DR) or backup designated router
+(BDR).
+Note
+You need a full core license to change the OSPF priority. An edge license does not
+support OSPF and an advanced-edge license is only priority 0.
+
+
+=IP Routing
+
+• To turn on OSPF for a VLAN, perform these steps:
+a Configure the OSPF for a specific VLAN:
+config ospf add Data area 0.0.0.0
+b Enable OSPF:
+enable ospf
+• To turn off OSPF for a VLAN:
+config ospf delete Data
+• To see the status of OSPF:
+show ospf
+• To look at the ODPF neighbors:
+show ospf neighbor
+• To look at the OSPF LSDB:
+show ospf lsdb
+
+= Configuring VRRP
+If the virtual IP address is the same as a VLAN IP address, the switch will preempt and become the
+VRRP master for that VRID, regardless of the priority settings.
+• To configure a VRRP, follow these steps:
+a Create a VRRP:
+create vrrp Data vrid 1
+create vrrp vlan Voice vrid 2
+b Configure the VRRP:
+config vrrp Data vrid 1 add 10.1.10.1
+config vrrp Voice vrid 2 add 2 10.1.20.1
+c Enable the VRRP:
+enable vrrp
+• To view the VRRP configuration:
+show config vrrp
+• To view what is actually happening on the VRRP:
+show vrrp
+Turning On SNTP
+1 Configure the primary SNTP:
+config sntp primary x.x.x.x vr vr-def
+2 Configure the secondary SNTP:
+config sntp secondary x.x.x.x vr vr-def
+3 Enable the SNTP client:
+enable sntp-client
+
+- IP Routing
+Examples:
+configure timezone name EST -300 autodst name EDT
+configure timezone name CST -360 autodst name CDT
+configure timzone name MST -420 autodst name MDT
+configure timzone name PST -480 autodst name PDT
+
+-Enabling Web Access
+To enable web access:
+enable web http
+
+-Configuring SNMP
+To configure SNMP, follow the syntax of these examples:
+Example: Read-only
+configure snmp add community readonly new_ro
+Example: Read-write
+configure snmp add community readwrite new_rw
+Example: Configure system name
+config snmp sysname new name
+Note
+This command will change the CLI prompt to match.
+
+== Advanced Configuration Examples
+
+= Configuring EAPS
+
+Turning on a DHCP Server on a Test VLAN
+Managing BootP Relay
+Mirroring (Span Port)
+
+Configuring EAPS
+To configure EAPS, follow the syntax of this example:
+
+# assume that the Data and Voice vlans already exist
+config Data add ports 49,50 tagged
+config Voice add ports 49,50 tagged
+create vlan EAPS-Control
+config EAPS-Control tag 1000
+config EAPS-Control qosprofile qp8
+config EAPS-Control add port 49-50 tag
+# the VLAN that controls EAPS never ever gets an IP address. Ever.
+# the VLAN that controls EAPS never ever has user ports added to it. Ever.
+
+create eaps EAPS-Ring
+config EAPS-Ring mode master
+# config EAPS-Ring mode transit
+* Only one node on the ring is setup as Master, all others are Transit.
+config EAPS-Ring primary port 49
+config EAPS-Ring secondary port 50
+config EAPS-Ring add control EAPS-Control
+config EAPS-Ring add protect Data
+config EAPS-Ring add protect Voice
+enable eaps
+enable eaps EAPS-Ring
+
+Turning on a DHCP Server on a Test VLAN
+To turn on a DHCP server on a test VLAN, follow the syntax of this example:
+configure vlan test ipaddress 10.1.10.1/24
+configure vlan test dhcp-address-range 10.1.10.100 – 10.1.10.150
+configure vlan test dhcp-options default-gateway 10.1.10.1
+enable dhcp port 1:1-1:12 vlan test
+
+Note
+The DHCP server is not intended for production use. It only supports a couple of options and
+it will not handle a heavy load.
+
+Managing BootP Relay
+To manage BootP Relay, follow the syntax of these examples:
+# enable bootprelay for every VLAN
+enable bootprelay
+#or just for the upstream and downstream VLANs
+enable bootprelay vlan data
+enable bootprelay vlan backbone
+#either way, add the IP address of the DHCP server
+config bootprelay add 10.1.30.254
+To disable BOOTP Relay on one or more VLANs:
+disable bootprelay vlan data
+To see the BOOTP Relay configuration and statistics:
+show bootprelay
+
+Mirroring (Span Port)
+Up to 128 mirroring filters can be configured with the restriction that a maximum of 16 of these can be
+configured as VLAN and/or virtual port (port + VLAN) filters.
+One monitor port or 1 monitor port list can be configured. A monitor port list may contain up to 16
+ports.
+To mirror (span port), follow the syntax of these examples:
+Example: Mirror all traffic received at 6:5 to the monitor port 3:4
+enable mirroring to port 3:4
+configure mirroring add port 6:5 ingress
+Example: Mirror all traffic received at port 5 to the monitor port 22
+enable mirroring to port 22
+configure mirroring add port 5 egress
+Example: Mirror all traffic received on VLAN red to the monitor port 4
+enable mirroring to port 4
+configure mirroring add vlan red
+
+Advanced Configuration Examples
+
+Example: Mirror all traffic received on VLAN red, port 5 to the monitor
+port 4
+enable mirroring to port 4
+configure mirroring add vlan red port 5
+Example: Mirror all traffic received at port 6:5 to the monitor ports
+2:5-2:7
+enable mirroring to port-list 2:5-2:7 loopback-port 3:1
+configure mirroring add port 6:5 ingress
+Note
+Port 3:1 is the loopback port (otherwise unused). A loopback port is required when doing
+1:many mirroring.
+Example: Turn off mirroring
+disable mirroring
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Note
+The no-refresh option is not supported with this command.I reached out to Extreme regarding their documentation (I work for a partner), and it turns out they already have an EXOS cheat sheet, so my channel SE sent it over.  I was not able to find this document anywhere on Extreme's site.  However, an Extreme SE confirmed this document is public, so here it is:  EXOS Quick Guide - Cheat Sheet.  I may still update this page on occasion, but Extreme's document is more complete.
+
+
+
+
+Assign default VLAN IP address.
+configure vlan Default ipaddress 10.222.222.1 255.255.255.0
+
+Update Firmware:
+download image 10.222.222.2 summitX-15.5.2.9-patch1-5.xos VR-Default secondary
+use image secondary
+reboot
+(repeat process for primary)
+
+Install SSH:
+download image 10.222.222.2 summitX-15.5.2.9-patch1-5-ssh.xmod VR-Default secondary
+run update
+
+Enable SSH:
+disable telnet
+enable ssh2
+
+Configure SNMP information:
+configure snmp sysContact "System Contact"
+configure snmp sysLocation "System Location"
+configure snmp sysName "System Name"
+disable snmp access
+
+Configure SNTP:
+configure sntp-client primary 173.255.230.140 vr VR-Default
+configure sntp-client secondary 129.6.15.30 vr VR-Default
+enable sntp-client
+
+Configure timezone:
+configure timezone name EST -300 autodst
+
+Configure admin user:
+configure account admin
+
+Enable Stacking:
+configure stacking easy-setup
+
+Connect stacking cables:
+sw01-port2 -> sw02-port1
+sw02-port2 -> sw03-port1
+sw03-port2 -> sw04-port1
+sw04-port2 -> sw01-port1
+(can have up to eight nodes per stack)
+
+￼
+
+Configure display string:
+conf port 1:48 display-string UplinkToASA
+
+Create and configure VLAN / SVI:
+create vlan vlan10 description "User Access" tag 10
+configure vlan vlan10 ipaddress 10.10.10.10 255.255.255.0
+
+Stop using default VLAN (vlan 1):
+configure vlan "Default" delete ports all
+configure vlan vlan10 add ports 1:1-48,2:2-48
+
+Remove VLAN / SVI
+unconfigure vlan vlan10 ipaddress
+delete vlan vlan10
+
+Configure default route
+config iproute add default 10.10.10.1
+
+Enable IP routing
+enable ipforwarding vlan vlan2
+enable ipforwarding vlan Default
+
+Link Aggregation Group (LAG, etherchannel, port-channel, LACP):
+configure sharing 1:47 add ports 1:48, 2:48
+
+DHCP:
+configure vlan vlan5 dhcp-address-range 172.21.5.51 - 172.21.5.51
+configure vlan vlan5 dhcp-options default-gateway 172.21.5.1
+configure vlan vlan5 dhcp-options dns-server 8.8.8.8
+configure vlan vlan5 dhcp-options dns-server secondary 8.8.4.4
+enable dhcp ports 1:1-46, 2:1-46, 3:1-46, 4:1-16 vlan vlan5
+
+Show commands:
+show config
+show iproute
+show iparp
+show fdb
+show version [images]
+show switch [detail]
+show stack [detail]
+show log
