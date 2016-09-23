@@ -230,10 +230,117 @@ x <= y Returns true if x is less than or equal to y
 x == y Returns true if x is equal to y x > y Returns true if x is greater than y 
 x >= y Returns true if x is greater than or equal to y $1 ~ /saving/
 x != y Returns true if x is not equal to y 
-x ~ y Returns true if string x matches the regular
-expression represented by y
+x ~ y Returns true if string x matches the regular expression represented by y
+x !~ y Returns true if string x doe not match the regular expression represented by y
+
+= while comparing operands with comparison operators,
+if both the operands are numeric, a numeric comparison is
+made, otherwise the operands are compared as strings. =
+
+Ici on va afficher les lignes si le champ de la 5eme colonne vaut "current" 
+
+awk '$5 == "current" ' bank.lst
+101 Aditya 0     14/11/201 current
+103 Naman 0      20/08/2009 current
+108 Chirag 0 15/12/2012 current
+109 Arya 16000 14/12/2010 current
+
+ici on affiche les lignes dont le champ numero 1 est supérrieur à 107  
+
+awk '$1 > 107' bank.lst 
+108 Chirag 0 15/12/2012 current
+109 Arya 16000 14/12/2010 current
+110 Puneet 130 16/11/2009 saving
 
 
+
+= Matching de regexp :
+
+on peut utiliser les caracteres ~ et !~ pour matcher un pattern ou pas :
+
+- toutes  les lignes  qui contiennent le pattern  "current" 
+awk '$5 ~/current/' bank.lst
+101 Aditya 0     14/11/201 current
+103 Naman 0      20/08/2009 current
+106 Mukesh 14000 20/12/2009  current
+108 Chirag 0 15/12/2012 current
+109 Arya 16000 14/12/2010 current
+
+- l'inverse : 
+awk '$5 !~ /current/' bank.lst 
+102 Anil 10000   20/05/2011 saving
+104 Rama 10000   15/08/2010 saving
+105 Jyotsna 5000 16/06/2012 saving
+107 Yashasvi 14500 30/11/2011 saving
+110 Puneet 130 16/11/2009 saving
+
+On peut utiliser les meta caracteres comme ^ et $ ( debut et fin ) pour filtrer nos patterns.
+On doit entourer nos patterns avec des "//"
+
+- affichage des lignes dont le 5eme champ finit par la lettre 't' :
+ awk '$5 ~/t$/' bank.lst
+101 Aditya 0     14/11/201 current
+103 Naman 0      20/08/2009 current
+106 Mukesh 14000 20/12/2009  current
+108 Chirag 0 15/12/2012 current
+109 Arya 16000 14/12/2010 current
+
+On peut utiliser les filtres classiques des regexps ( classe de categories ... )
+
+- affichage des lignes dont le 5eme champ contient Current ou current : 
+boogie@x61-boogie:~/lab/awk$ awk '$5 ~/[cC]urrent/' bank.lst
+101 Aditya 0     14/11/201 current
+103 Naman 0      20/08/2009 current
+106 Mukesh 14000 20/12/2009  current
+108 Chirag 0 15/12/2012 current
+109 Arya 16000 14/12/2010 current
+
+affichage des lignes dont le deuxieme champ contient un "A" suivi de plusieurs caractères puis un "a" : 
+boogie@x61-boogie:~/lab/awk$ awk '$2 ~/A.*a/' bank.lst
+101 Aditya 0     14/11/201 current
+109 Arya 16000 14/12/2010 current
+
+affichage des lignes dont le quatrieme champ commence par un "14" 
+bogie@x61-boogie:~/lab/awk$ awk '$4 ~/^14/' bank.lst 
+101 Aditya 0     14/11/201 current
+109 Arya 16000 14/12/2010 current
+
+
+=operateurs booleens :
+
+"&& And Results true when all the expressions are true
+|| Or Results true when any of the expressions is true
+! Not Reverses (negates) the logical expression"
+
+-ici on affiche les lignes de la numero 3 jusqu'a la 7 en affichant leur numero de ligne :
+
+boogie@x61-boogie:~/lab/awk$ awk 'NR >= 3 && NR <= 7 { print NR, $0}' bank.lst 
+3 103 Naman 0      20/08/2009 current
+4 104 Rama 10000   15/08/2010 saving
+5 105 Jyotsna 5000 16/06/2012 saving
+6 106 Mukesh 14000 20/12/2009  current
+7 107 Yashasvi 14500 30/11/2011 saving
+
+-on affiche de la ligne 3 à 5 en affichant le numero de ligne : 
+
+boogie@x61-boogie:~/lab/awk$ awk 'NR == 3, NR == 5 { print NR,$0 }' bank.lst
+3 103 Naman 0      20/08/2009 current
+4 104 Rama 10000   15/08/2010 saving
+5 105 Jyotsna 5000 16/06/2012 saving
+
+-on affiche la ligne 3 et  la ligne 5 avec leur numero de ligne : 
+
+boogie@x61-boogie:~/lab/awk$ awk 'NR == 3 || NR ==5 { print NR,$0 }' bank.lst
+3 103 Naman 0      20/08/2009 current
+5 105 Jyotsna 5000 16/06/2012 saving
+
+- on filtre les lignes dont les numeros sont inferrieurs à 2 et sup à 7 et on affiche leur numero de ligne et leur ligne :
+
+boogie@x61-boogie:~/lab/awk$ awk 'NR<2 || NR>7 { print NR,$0 }' bank.lst
+1 101 Aditya 0     14/11/201 current
+8 108 Chirag 0 15/12/2012 current
+9 109 Arya 16000 14/12/2010 current
+10 110 Puneet 130 16/11/2009 saving
 
 
 
