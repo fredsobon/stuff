@@ -1,0 +1,151 @@
+== quick memo cheat sheet ==
+
+= port config :
+
+-> pour eviter la sortie verbeuse faite pendant la phase de learning :
+ex :
+config port 1:17 vlan lapin unlimited-learning
+
+->  pour eviter le refresh en continu des infos de port :
+ex :
+show port no 
+show port 1:1-1:3 config no-refresh
+
+-> exam detail de la conf de port :
+show port <num> information details :
+show port 3 info de
+
+-> pour enable /disable un port sur un switch :
+ex :
+enable port 1
+disable port 1:1-1:5
+
+-----
+- extreme ne cumule pas les configs de ports on doit donc tout deconfigurer pour modifier :
+
+1/ deconf :
+Slot-1 SWEE-AAA09.7 # configure vlan lapin delete ports 1:17
+
+2/ reconf (ici on supprime le vlan tagging pour vlan backend : typique pour une install os )
+Slot-1 SWEE-AAA09.11 # configure vlan lapin add ports 1:17 untagged 
+
+3/ une fois l'os deploye on reconfigure le vlan tagging :
+on doit donc de nouveau supprimer la conf :
+Slot-1 SWEE-AAA09.1 # configure vlan lapin delete ports 1:17
+puis la recreer en flaggant le vlan tagging :
+Slot-1 SWEE-AAA09.3 # configure vlan lapin add ports 1:17 tagged
+Slot-1 SWEE-AAA09.4 # save
+--- 
+
+-> description de port :
+
+2 etapes sont à effectuer : 
+
+> la modif du display-string ( utile pour  le sh port no )
+> la modif de la description-string 
+
+On repere nos ports puis on met la description suivant le serveur :
+
+
+--> display-string :
+
+configure port num:num display-string nombreinterfaces( D dual | S single ) node_enIface :
+
+ configure port 1:11 display-string D_node_web151b_en1
+ configure port 2:11 display-string D_node_web151b_en2
+
+pour verifier la conf d'un port ( desc, vlan etc ...) 
+rt: 2:1(D_node_web153b_en2):
+
+    Virtual-router: VR-Default
+    Type:       UTP
+    Random Early drop:  Unsupported
+    Admin state:    Enabled with  auto-speed sensing (1G Advertised),  auto-duplex
+    Link State: Active, 1Gbps, full-duplex
+    Link Counter: Up    15 time(s)
+
+--> description :
+
+Config de la description 
+configure port 3 description-string node_web31
+sh port 3 information detail 
+Port:   3(node_web31):
+    Description String: "node_web31"
+    Virtual-router: VR-Default
+    Type:       UTP 
+    Random Early drop:  Unsupported
+    Admin state:    Enabled with  auto-speed sensing  auto-duplex
+    Link State: Active, 100Mbps, full-duplex
+    Link Ups:       7        Last: Tue Apr 26 15:39:30 2016
+    Link Downs:     6        Last: Tue Apr 26 15:39:28 2016
+
+    VLAN cfg: 
+         Name: lulu, 802.1Q Tag = 40, MAC-limit = No-limit, Virtual router:   VR-Default
+               Port-specific VLAN ID:   40
+         Name: lapin, 802.1Q Tag = 50, MAC-limit = No-limit, Virtual router:   VR-Default
+               Port-specific VLAN ID:   50
+         Name: Sauvegarde-Net, 802.1Q Tag = 1300, MAC-limit = No-limit, Virtual router:   VR-Default
+               Port-specific VLAN ID: 1300
+    STP cfg:
+
+
+= mac address :
+
+pour reperer le port qui heberge une macaddress :
+
+sh fdb 38:ea:a7:30:55:18
+Mac                     Vlan       Age  Flags         Port / Virtual Port List
+------------------------------------------------------------------------------
+38:ea:a7:30:55:18   lulu(0040) 0000 d m           2:26
+38:ea:a7:30:55:18    lapin(0050) 0000 d m           2:26
+38:ea:a7:30:55:18 bck_vlan_net(1300) 0000 d m           2:26
+38:ea:a7:30:55:18 bck_vlan(0300) 0000 d m       P   2:26
+
+ show fdb | i f4:ce:46:b9:cb:b8
+f4:ce:46:b9:cb:b8   lulu(0040) 0000 d m            29
+
+differentes options sur mac adresses :
+
+show fdb Shows information for the entire L2 database.
+show fdb [vlan] vlan name Shows the FDB for one VLAN.
+show fdb ports port list Shows the FDB for a set of ports.
+show fdb mac_address Shows information on a particular MAC.
+clear fdb Clears the forwarding database.
+
+= vlan :
+
+-> listing de vlan presents sur un switch :
+
+# sh vlan
+
+-> creation de vlan :
+
+exemple : 
+on cree le vlan finance :
+create vlan finance
+on definie le vlan number du vlan finance  creee
+configure "finance" tag 87 
+
+
+-> ajout de vlan :
+
+on peut configurer un vlan a un range de port.ex : config vlan Data pour port 1 à 12 :
+config Data add port 1-12
+
+
+== show :
+
+Show commands:
+show config
+show iproute
+show iparp
+show fdb
+show version [images]
+show switch [detail]
+show stack [detail]
+show log
+
+
+on peut rechercher precisement une chaine avec le "|" :
+ex :
+show fdb | i f4:ce:46:b9:cb:b8
