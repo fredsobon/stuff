@@ -1,0 +1,48 @@
+
+== gestion des certificats ssl ==
+
+
+
+- Ajout d'autorité de certif et de perm :
+Il peut suite à une maj qu'un certif ssl ne soit plus reconnu 
+
+https://server_repo:443/clients': Peer certificate cannot be authenticated with known CA certificate
+
+
+= Update the ca-certificates package
+
+Execute:
+
+[root]# yum update ca-certificates
+
+If it is already up-to-date, ensure it is intact and unmodified
+Execute:   rpm -V ca-certificates
+If any output, execute:   yum reinstall ca-certificates
+
+Ensure the /etc/pki/ca-trust/source/ and /etc/pki/ca-trust/source/anchors/ directories together contain only the following 2 files
+Move any other files to the backup directory
+
+[root]# find /etc/pki/ca-trust/source{,/anchors} -maxdepth 1 -not -type d -exec ls -1 {} +
+/etc/pki/ca-trust/source/ca-bundle.legacy.crt
+/etc/pki/ca-trust/source/README
+Ensure the /usr/share/pki/ca-trust-source/ and /usr/share/pki/ca-trust-source/ directories together contain only the following 4 files
+Move any other files to the backup directory
+
+[root]# find /usr/share/pki/ca-trust-source{,/anchors} -maxdepth 1 -not -type d -exec ls -1 {} +
+/usr/share/pki/ca-trust-source/ca-bundle.neutral-trust.crt
+/usr/share/pki/ca-trust-source/ca-bundle.supplement.p11-kit
+/usr/share/pki/ca-trust-source/ca-bundle.trust.crt
+/usr/share/pki/ca-trust-source/README
+Rebuild the CA-trust database with update-ca-trust
+
+Execute:   update-ca-trust extract
+
+RHEL 6: the following warning will very likely be seen
+
+update-ca-trust: Warning: The dynamic CA configuration feature is in the disabled state
+This is normal (default), expected, and not a problem
+Optionally read more about this in the update-ca-trust man page
+
+Note that some applications (like Firefox), keep their own local cert database
+
+See also: Firefox: How to audit & reset the list of trusted servers/CAs
