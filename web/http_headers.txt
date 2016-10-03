@@ -1,8 +1,6 @@
 == tips on http headers : =
 
 
-
-
 = X-Robots-Tag noindex : 
 on va utiliser cette option pour ne pas se faire indexer par les robots type google :
 ici on défini que les fichiers de type txt; log etc ne seront pas indexés :
@@ -10,3 +8,18 @@ ici on défini que les fichiers de type txt; log etc ne seront pas indexés :
 location ~* \.(txt|log|xml|css|js)$ {
     add_header X-Robots-Tag noindex;
 }
+
+
+Choisissez la(les) page(s) sur laquelle ajouter le champ, puis spécifiez les directives demandées. Ce qui donne :
+
+location = /ma_page {
+ add_header X-Robots-Tag "noindex, nofollow";     
+}
+Bien entendu, vous pouvez définir des règles custom en fonction du user-agent. Par exemple, si vous ne voulez envoyer un noindex qu'à Googlebot, il faudra écrire dans votre fichier de configuration :
+
+location = /ma_page {
+ if ($http_user_agent ~* googlebot) {
+  add_header X-Robots-Tag "noindex, nofollow";
+ }
+}
+A noter que le ~* indique que vous souhaitez que le matching soit non sensible à la casse.
