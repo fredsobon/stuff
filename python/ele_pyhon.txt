@@ -524,6 +524,184 @@ print("ok you win in ", number, "hits")
 print("-",hit)
 
 Certaines fonctions acceptent plusieurs paramètres d'autres non.
+Les virgules dans les appels de fonctions servent à séparer les paramètres de ces fonctions.
+Ceci est bien pratique avec le fonction print qui va permettre d'afficher un nombre infini de chaine de caractères.
+Attention certaines fonctions n'acceptent pas plusieurs parametres, tandis que d'autres ont nécéssairement besoin de plusieurs paramètres.
 
-=v 94
+== types avancés :  ==
+
+on va ici parler de "containers" qui vont servir à traiter, trier des éléments
+
+= dictionnaire :
+collection non ordonnée qui utilise des clé pour acceder aux valeurs ( à voir un peu comme une table des matières )
+
+>>> score = {}
+>>> type(score)
+<class 'dict'>
+
+>>> score["jack"] = 10
+>>> score["joe"] = 5
+>>> score["will"] = 7
+>>> score
+{'jack': 10, 'will': 7, 'joe': 5}
+A chaque clé ( ici les prénoms correspondent des valeurs )
+On peut donc récupérer la valeur en utilisant la bonne clé :
+>>> score["will"]
+7
+une clé qui n'existe pas nous renvoie une erreur de type keyError :
+>>> score["bebert"]
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+KeyError: 'bebert'
+On peut vérifier l'existence d'une clé dans un dictionnaire avec l'opérateur "in" :
+>>> "bebert" in score
+False
+>>> "jack" in score
+True
+Les dictionnaires sont très pratiques  pour traiter des collections de valeurs. Les clés doivent être immutable mais les valeurs peuvent être de différents types.
+Les clés ne peuvent pas être en doublons mais les valeurs sans probleme :
+>>> score["joe"] = 7
+>>> score
+{'jack': 10, 'will': 7, 'joe': 7}
+
+Le dictionnaire est itérable mais de manière particulière : si on boucle sur ses élements on aura de base que les clés :
+>>> for elem in score:
+...     print(elem)
+... 
+jack
+will
+joe
+
+Les éléments apparaissent dans une sortie non ordonnée : il n'y a pas de notion d'ordre.
+Pour afficher clé et valeurs dans une boucle on va utiliser une methode items.
+>>> score.items()
+dict_items([('jack', 10), ('will', 7), ('joe', 7)])
+on voit donc ici une sorte de liste qui contient des tuples.
+on peut donc itérer sur la methode items du dictionnaire :
+>>> for elem in score.items():
+...     print(elem)
+... 
+('jack', 10)
+('will', 7)
+('joe', 7)
+On a donc une liste de tuple :
+>>> for elem in score.items():
+...     print(type(elem))
+... 
+<class 'tuple'>
+<class 'tuple'>
+<class 'tuple'>
+
+on va donc pouvoir récupérer via l'indexing la clé ou la valeur :
+>>> for elem in score.items():
+...     print(elem[0])
+... 
+jack
+will
+joe
+>>> for elem in score.items():
+...     print(elem[1])
+... 
+10
+7
+7
+Il existe un raccourci pour ne pas avoir à récuperer manuellement tous les élements : ce raccourci s'appelle l'unpacking.
+on va directement assigner des paramètres dans notre boucle qui seront associés à des éléments :
+>>> for name, result in score.items():
+...     print(name)
+...     print(result)
+... 
+jack
+10
+will
+7
+joe
+7
+
+= imbrication de type : =
+
+on peut mélanger les differents types et utiliser l'indexing pour récupérer les éléments qui nous interressent.
+>>> a = [ "lapin", "quatre" , 4 , ("lulu" , 5 ,"testo") ]
+>>> a[0]
+'lapin'
+>>> a[3]
+('lulu', 5, 'testo')
+on peut chainer l'indexing ex sur notre tuple : 
+>>> a[3][2]
+'testo'
+
+on peut imbriquer différents types dans les listes mais aussi dans les dictionnaires :
+
+>>> matches = {}
+>>> matches["celine"] = [3, 5, 4]
+>>> matches["joe"] = [5, 5, 8]
+>>> matches["jack"] = [7, 4, 8]
+>>> matches
+{'jack': [7, 4, 8], 'joe': [5, 5, 8], 'celine': [3, 5, 4]}
+on peut donc utiliser l'indexing 
+>>> matches["joe"]
+[5, 5, 8]
+>>> matches["joe"][2]
+8
+On peut donc même intégrer le slicing :
+>>> matches["jack"][1:2]
+[4]
+>>> matches["jack"][1:]
+[4, 8]
+On recupére donc des listes : les opérations sur les listes sont donc de fait disponibles :
+>>> matches["jack"].append(2)
+>>> matches["jack"]
+[7, 4, 8, 2]
+>>> matches
+{'jack': [7, 4, 8, 2], 'joe': [5, 5, 8], 'celine': [3, 5, 4]}
+
+Pour parcourir des listes imbriquées : il faudrait le faire de manière imbriquée : on aura dans notre exemple une boucle pour la personne et une boucle pour ses matches.
+on reutilise la méthode items pour récupérer sous forme de liste nos elements , on va egalement utiliser l'unpacking :
+
+>>> matches.items()
+dict_items([('jack', [7, 4, 8, 2]), ('joe', [5, 5, 8]), ('celine', [3, 5, 4])])
+>>> for name, score in matches.items():
+...     print("scores for ", name , ":")
+...     for result in score:
+...         print("-" , result)
+... 
+scores for  jack :
+- 7
+- 4
+- 8
+- 2
+scores for  joe :
+- 5
+- 5
+- 8
+scores for  celine :
+- 3
+- 5
+- 4
+
+== exercice : 
+sondage 
+creer une boucle while qui va demander la couleur préférée.
+Chaque fois que le user saisie une couleur elle sera rajoutée dans un dico
+dans le dico on notera le nombre de fois ou la personne a saisi cette couleur
+la boucle while sera interrompue quand un user saisira "rien du tout"
+il faut donc des cles couleurs et en valeurs un entier qui représente le nombre de fois ou la couleur est choisie.
+a la fin on affiche les resultats.
+
+# on cree une variable vide qui contiendra la couleur saisie 
+color = None
+# on creee un dictionnaire vide :
+stat = {}
+
+# tant que le user ne saisi pas le mot niet on demande au user de saisir sa couleur preferee :
+while color != "niet":
+    color = input("hey what's your favorite's color ? ")
+# on test si la couleur est deja dans le dico : on lui rajoute 1 sinon , on la definie a 1 comme nombre d'occurence :
+    if color in stat: 
+        stat[color] = stat[color] + 1
+    else:
+        stat[color] = 1
+# on affiche ensuite les differentes couleur et leur nombre en parcourant les elements du dico par une boucle :   
+for col, num in stat.items():
+    print("the ", col , "is present :", num)
 
