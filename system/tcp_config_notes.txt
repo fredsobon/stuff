@@ -1,0 +1,32 @@
+===  notes diverse sur ajustements kernel ===
+
+
+https://vincent.bernat.im/fr/blog/2014-tcp-time-wait-state-linux.html
+
+http://lxr.linux.no/#linux+v3.2.8/Documentation/networking/ip-sysctl.txt#L464
+
+== Linux TCP Recycle vs. Reuse ==
+
+
+Attention agit très prudemment avec ces paramètres :
+
+
+
+
+The Linux kernel has two important settings that are useful for high traffic sites that handle thousands of connections per second, tcp_tw_recycle and tcp_tw_reuse. These kernel settings allow us to reuse sockets when a new client connects.
+
+Although they seem similar, they are different; and without careful management the kernel can easily run out of sockets and then start dropping users. TCP/IP as you know, runs through many states as clients connect and disconnect in various ways. These states are most obvious in netstat, such as SYN_SENT, ESTABLISHED, and the ever-popular TIME_WAIT, plus many others that are not as commonly seen.
+Problems
+
+One key problem arises with the TIME_WAIT state as it lasts 120 seconds by default and uses up valuable resources in both iptables and within the TCP stack itself. This was to make sure that any extra or re-transmitted packets still out on the Internet or arriving later over bad networks were not mistakenly attached to a new connection.
+
+However, the main issue is that new connections are not able to use any of these sockets for that two-minute window. Although you can adjust that window down to maybe 15-30 seconds, it is still a major problem on high traffic systems. These systems can see anywhere between 1,000 to 5,000 sockets per second, which would then be placed into a wait state. Here we will look at two important kernel settings.
+tcp_tw_reuse
+
+The tcp_tw_reuse setting allows a socket pair to be reused while in TIME_WAIT, with the kernel working to avoid problems such as duplicate sequence numbers. With timestamps enabled on both ends, it will always avoid any sequence collision. It may also reuse sockets based on certain close flags such as FIN, indicating that no more traffic should arrive.
+tcp_tw_recycle
+
+In contrast, tcp_tw_recycle is less careful and depends on the client’s timestamp. This can cause problems with NAT systems that share sockets and thus timestamps, causing the kernel to discard the SYN packet and ignore the connection attempt. This results in random connect failures from people behind NATs, such as companies or universities, or even failures at home with many wireless devices.
+Key Takeaway
+
+So in essence, use tcp_tw_reuse to free up sockets stuck in TIME_WAIT, but stay away from tcp_tw_recycle as it will cause an unrelenting amount of connection problems for both administrators and end users. Although there are also other key kernel settings to pay attention to for large sites, such as iptables, conntrack settings, and TCP memory settings.
