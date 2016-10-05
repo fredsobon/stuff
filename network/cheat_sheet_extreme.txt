@@ -132,6 +132,53 @@ configure "finance" tag 87
 on peut configurer un vlan a un range de port.ex : config vlan Data pour port 1 à 12 :
 config Data add port 1-12
 
+-> Check de vlan :
+
+on peut examiner les ports taggés dans un vlan :
+
+ex : 
+switch-dc1 # sh vlan "lapin" 
+VLAN Interface with name lapin created by user
+    Admin State:	 Enabled     Tagging:	802.1Q Tag 110
+    Description:	 None
+    Virtual router:	 VR-Default
+    IPv4 Forwarding:	 Disabled
+    IPv4 MC Forwarding:  Disabled
+    IPv6 Forwarding:	 Disabled
+    IPv6 MC Forwarding:  Disabled
+    IPv6:                None
+    STPD:      		 None
+    Protocol:            Match all unfiltered protocols
+    Loopback:            Disabled
+    NetLogin:            Disabled
+    OpenFlow:            Disabled
+    TRILL:               Disabled
+    QosProfile:     	 None configured
+    Egress Rate Limit Designated Port: None configured
+    Flood Rate Limit QosProfile:       None configured
+    Ports:   2. 	  (Number of active ports=2)
+       Tag:        *7,  *53gG
+	Flags:    (*) Active, (!) Disabled, (g) Load Sharing port
+                  (b) Port blocked on the vlan, (m) Mac-Based port
+                  (a) Egress traffic allowed for NetLogin
+                  (u) Egress traffic unallowed for NetLogin
+                  (t) Translate VLAN tag for Private-VLAN
+                  (s) Private-VLAN System Port, (L) Loopback port
+                  (x) VMAN Tag Translated port
+                  (G) Multi-switch LAG Group port
+
+
+on voit ici que les ports  7 et 53gG sont taggués sur ce vlan
+en examinant le switch :
+show ports no on voit que le switch est stacké ex 64 ports ..
+
+notre port  53 ici est linké au switch core qui propage tous les vlans :
+
+53_switch_core (0022)              E     A     40G   FULL 
+
+Il est donc toujours crucial de vérifier que les switchs core ont bien la conf de notre vlan car sinon notre switch edge ne pourra pas envoyer / recevoir les trames.
+
+Il faudra toujours creer le vlan sur le switch core dédié.
 
 == show :
 
@@ -155,4 +202,17 @@ show fdb | i f4:ce:46:b9:cb:b8
 
 sh edp ports  nu:port
 sh edp ports 1:25
+
+
+on peut voir également tous les switchs linkés ensemble :
+
+B-SWPE-AD13.4 # sh edp ports all
+
+Port   Neighbor                       Neighbor-ID         Remote  Age    Num
+                                                           Port         Vlans
+=============================================================================
+53     switch_core               00:00:00:04:96:97:a6:73   1:49   50     20   
+57     switch_edge1              00:00:00:04:96:98:00:c3   1:57   36     19   
+61     switch_edge2              00:00:00:04:96:98:00:c3   1:61   28     19   
+=============================================================================
 
