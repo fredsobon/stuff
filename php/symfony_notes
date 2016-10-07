@@ -1,0 +1,1575 @@
+=====  notes sur doc officielle symfony3 ====
+
+=== partie 1 : ===
+
+1. Introduction
+
+Félicitations ! En voulant apprendre Symfony, vous êtes sur le bon chemin pour être un développeur Web productif, bien équipé et capable d'accroître votre popularité sur Internet.
+
+Symfony est conçu pour revenir aux bases : développer des outils vous permettant de programmer plus vite et construire des applications plus robustes. Tout en restant en arrière-plan, Symfony est conçu avec les meilleurs concepts de plusieurs technologies : les outils et thématiques que vous allez apprendre représentent les efforts de milliers de personnes, depuis de nombreuses années. En d'autres termes, vous n'allez pas juste apprendre « Symfony », vous allez apprendre les fondamentaux du Web, les meilleures pratiques de programmation et utiliser de nombreuses nouvelles bibliothèques incroyables, à l'intérieur ou indépendamment de Symfony. Donc, soyez prêt.
+
+Fidèle à la philosophie de Symfony, ce chapitre va commencer par vous expliquer les concepts fondamentaux communs à la programmation Web : HTTP. Indépendamment de votre expérience ou de votre langage de programmation préféré, ce chapitre est un indispensable pour tout le monde.
+
+2. HTTP est simple
+
+HTTP (Hypertext Transfer Protocol pour les geeks) est un langage texte qui permet à deux machines de communiquer entre elles. Quand vous regardez la dernière illustration vidéo de xkcd, la conversation (approximative) suivante se déroule :
+
+￼
+Et bien que le langage réel utilisé est un peu plus formel, il reste très simple. HTTP est le terme utilisé pour décrire ce langage simple basé sur du texte. Peu importe comment vous programmez sur le Web, l'objectif de votre serveur sera toujours de comprendre de simples requêtes texte, et de retourner de simples réponses texte.
+
+Symfony est conçu à partir de cette réalité. Que vous en soyez conscients ou non, HTTP est quelque chose que vous utilisez tous les jours. Avec Symfony, vous allez apprendre à le maîtriser.
+
+2-1. Étape 1 : le client envoie une requête▲
+
+Toute conversation sur le Web commence par une requête. Une requête est un message texte créé par un client (exemple : un navigateur, une application de Smartphone, etc.) dans un format spécial connu sous le nom de HTTP. Le client envoie cette requête au serveur et en attend la réponse.
+
+Jetez un œil à la première partie de l'interaction (la requête) entre un navigateur et le serveur Web xkbd :
+
+￼
+En langage HTTP, cette requête HTTP devrait ressembler à quelque chose comme suit :
+
+ Sélectionnez
+GET / HTTP/1.1
+Host: xkcd.com
+Accept: text/html
+User-Agent: Mozilla/5.0 (Macintosh)
+Ce message, aussi simple soit-il, communique tout ce qui est nécessaire à propos de la ressource que le client a demandée. La première ligne de la requête HTTP est la plus importante et contient deux éléments : la méthode HTTP (GET) et l'URL (/).
+
+L'URI (par exemple : /, ; /contact ; etc.) est l'adresse unique ou l'emplacement qui identifie la ressource que le client demande. La méthode HTTP (par exemple : GET) définit ce que vous voulez faire avec la ressource. Les méthodes HTTP (aussi connues par le terme verbs) définissent le peu d'actions communes possibles que les clients peuvent effectuer sur les ressources - les méthodes HTTP les plus utilisées sont :
+
+GET
+Récupère la ressource sur le serveur
+POST
+Crée une ressource sur le serveur
+PUT
+Met à jour la ressource sur le serveur
+DELETE
+Supprime la ressource du serveur
+Avec ceci en tête, vous pouvez imaginer à quoi ressemble une requête pour supprimer une entrée spécifique de blog, par exemple :
+
+ Sélectionnez
+1.
+DELETE /blog/15 HTTP/1.1
+Il y a actuellement neuf méthodes définies dans les spécifications HTTP, mais la plupart ne sont pas beaucoup utilisées ou prises en charge. En réalité, la plupart des navigateurs modernes supportent uniquement POST et GET dans les formulaires HTML. Diverses autres sont par contre prises en charge dans XMLHttlpRequets, aussi bien que dans le composant de routage de Symfony.
+
+En supplément à la première ligne, une requête HTTP contient invariablement d'autres lignes d'informations nommées en-têtes de requête. Les en-têtes peuvent fournir plusieurs informations sur l'hôte dont les ressources sont demandées (indiquées par le paramètre Host), les formats de réponse que le client accepte (indiqués par le paramètre Accept) et l'application que le client utilise pour effectuer la requête (indiquée par le paramètre User-Agent). Beaucoup d'autres paramètres d'en-têtes existent et peuvent être trouvés sur la page Wikipédia de la liste des en-têtes HTTP.
+
+2-2. Étape 2 : le serveur retourne une réponse▲
+
+Une fois que le serveur a reçu la requête, il sait exactement quelle ressource le client a souhaitée (via l'URI) et ce qu'il veut en faire (via la méthode). Par exemple, dans le cas d'une requête GET, le serveur prépare la ressource et la retourne dans une réponse HTTP. Considérons la réponse du serveur Web xkcd :
+
+￼
+Traduite en HTTP, la réponse retournée au navigateur sera quelque chose comme ceci :
+
+HTTP/1.1 200 OK
+Date: Sat, 02 Apr 2011 21:05:05 GMT
+Server: lighttpd/1.4.19
+Content-Type: text/html
+
+<html>
+  <!-- ... HTML pour l'illustration video xkcd  -->
+</html>
+La réponse HTTP contient la ressource demandée (le contenu HTML dans ce cas), ainsi que d'autres informations relatives à la réponse. La première ligne est particulièrement importante et contient le code du statut de la réponse HTML (200 dans ce cas). Le code du statut communique le résultat global du retour au client. La requête a-t-elle abouti ? Y a-t-il eu une erreur ? Il existe plusieurs codes de statuts différents pour indiquer un succès, une erreur, ou que le client doit faire quelque chose (par exemple : redirection vers une autre page). Une liste complète des codes de statut HTTP peut être consultée sur Wikipédia.
+
+Comme la requête, une réponse HTTP contient des informations additionnelles connues sous le nom d'en-têtes HTTP. Par exemple, Content-Type est un élément d'en-tête de réponse HTTP important. Le corps d'une même ressource peut être retourné sur plusieurs types de formats tels que HTML, XML ou JSON, et l'en-tête Content-Type utilise les types médias internet tels que text/html pour indiquer au client le format du contenu retourné. Vous pouvez consulter la liste des types de formats médias les plus utilisés sur IANA.
+
+Plusieurs autres en-têtes existent, dont certains sont très puissants. Par exemple, certains en-têtes peuvent être utilisés pour créer un puissant système de cache.
+
+3. Requêtes, réponses, et programmation Web
+
+Ce système de conversation requêtes-réponses est le processus fondamental qui dirige les communications sur le Web. Et aussi important et puissant que soit ce processus, il est inéluctablement simple.
+
+Le fait le plus important est celui-ci : indépendamment du langage que vous utilisez, du type d'applications que vous créez (web, mobile, API JSON) ou la philosophie de programmation que vous suivez, le but final d'une application est toujours de comprendre chaque requête puis de créer et retourner un résultat approprié.
+
+Symfony est architecturé pour correspondre à cette réalité.
+
+Pour en apprendre plus sur les spécifications HTTP, lisez la RFC du HTTP 1.1 (version anglaise originale) ou HTTP Bis, qui est un effort considérable pour clarifier les spécifications originelles. L'extension Firefox Live HTTP Headers est un puissant outil pour contrôler les en-têtes de requêtes et de réponses durant la navigation.
+
+4. Requêtes et réponses en HTTP
+
+Comment interagir avec la « requête » et créer une « réponse » quand on utilise PHP ? En réalité, PHP vous fait un peu abstraction de l'ensemble du processus :
+$uri = $_SERVER['REQUEST_URI'];
+$foo = $_GET['foo'];
+
+header('Content-Type: text/html');
+echo 'L\'URI demandée est : '.$uri;
+echo 'La valeur du paramètre "foo" est : '.$foo;
+Aussi étrange que cela paraisse, cette petite application va prendre des informations depuis la requête HTTP et les utiliser pour créer une réponse HTTP. Au lieu de parser le message de requête HTTP brute, PHP prépare des variables superglobales telles que $_SERVER et $_GET qui contiennent toutes les informations de la requête. De façon similaire, plutôt que de retourner le texte de réponse formatée HTTP, vous pouvez utiliser la fonction header() pour créer les en-têtes de réponse et simplement présenter le contenu courant qui sera une partie du message de réponse. PHP va créer une vraie réponse HTTP et la retourner au client :
+
+HTTP/1.1 200 OK
+Date: Sat, 03 Apr 2011 02:14:33 GMT
+Server: Apache/2.2.17 (Unix)
+Content-Type: text/html
+
+L'URI demandée est : /testing?foo=symfony
+La valeur du paramètre "foo" est : symfony
+
+Symfony fournit une alternative à l'approche brute de PHP via deux classes qui vous permettent d'interagir avec les requêtes et réponses HTTP de façon plus simple.
+
+
+La classe « Request » est une simple représentation orientée objet de la requête message HTTP. Avec elle, vous pouvez récupérer toutes les informations utiles de la requête :
+
+ Sélectionnez
+use Symfony\Component\HttpFoundation\Request;
+
+$request = Request::createFromGlobals();
+
+// L'URI va être demandée (ex. : /about) 
+$request->getPathInfo();
+
+// récupère respectivement les variables GET et POST
+$request->query->get('foo');
+$request->request->get('bar', 'valeur par défaut si bar n\'existe pas');
+
+// récupère les variables SERVER
+$request->server->get('HTTP_HOST');
+
+// récupère une instance de fichier uploadé identifié par foo
+$request->files->get('foo');
+
+// récupère une valeur de COOKIE
+$request->cookies->get('PHPSESSID');
+
+// récupère un en-tête de requête HTTP, avec des clés minuscules normalisées
+$request->headers->get('host');
+$request->headers->get('content_type');
+
+$request->getMethod();    // GET, POST, PUT, DELETE, HEAD
+$request->getLanguages(); // un tableau des langages que le client accepte
+Comme un bonus, la classe « Request » effectue beaucoup de tâches en arrière-plan pour lesquelles vous n'aurez plus à vous préoccuper. Par exemple, la méthode isSecure()  vérifie les trois différentes valeurs dans PHP qui indiquent si l'utilisateur se connecte via une connexion sécurisée (par exemple : HTTPS).
+
+ParametersBags et attributs de requête
+
+Comme vu ci-dessus, les variables $_GET et $_POST sont respectivement accessibles via la requête publique et les propriétés de requête. Chacun de ces objets est un objet ParameterBag, lesquels ont des méthodes comme get(), has(), all() et plus. En fait, chaque propriété publique utilisée dans l'exemple précédent est une instance particulière de ParameterBag.
+
+La classe « Request » a également une propriété publique attributes, laquelle contient des données spéciales relatives au fonctionnement de l'application en interne. Pour le framework Symfony, les attributes contiennent les valeurs retournées par la route correspondante comme _controller, id (si vous avez un {id} wildcard), et même le nom de la route correspondante (_route). La propriété attributes existe entièrement pour être un emplacement où vous pouvez préparer et stocker des informations spécifiques au contexte à propos de la requête.
+
+Symfony fournit également une classe « Response » : une simple représentation PHP d'un message de réponse HTTP. Ceci permet à votre application d'utiliser une interface orientée objet pour construire la réponse qui doit être retournée au client :
+
+use Symfony\Component\HttpFoundation\Response;
+
+$response = new Response();
+
+$response->setContent('<html><body><h1>Hello world!</h1></body></html>');
+$response->setStatusCode(Response::HTTP_OK);
+$response->headers->set('Content-Type', 'text/html');
+
+// affiche les en-têtes HTTP suivis par le contenu
+$response->send();
+Il existe aussi des classes spéciales pour faciliter la création de certains types de réponses :
+
+JsonResponse ;
+BinaryFileResponse (pour les fichiers de streaming et les fichiers en téléchargement) ;
+StreamedResponse (pour le streaming des grosses réponses).
+Les classes « Request » et « Response » sont des éléments du composant standalone appelé « symfony/http-foundation » qui peut être utilisé pour tout projet PHP. C'est un composant qui contient des classes pour gérer des sessions, l'upload des fichiers et plus encore.
+
+Si Symfony n'offrait rien d'autre, vous auriez déjà un toolkit pour facilement accéder aux informations de requête et à une interface orientée objet pour créer les réponses. Alors même que vous apprenez les nombreuses puissantes fonctions dans Symfony, gardez en tête que le but de votre application est toujours d'interpréter une requête et créer la réponse appropriée basée sur la logique de votre application.
+
+6. Le trajet de la requête à la réponse
+
+Comme HTTP lui-même, les objets Request et Response sont assez simples. La partie la plus difficile de l'implémentation d'une application est d'écrire ce qui se passe entre ces deux objets. En d'autres termes, le vrai travail commence à l'écriture du code qui interprète la requête et crée la réponse.
+
+Votre application fait probablement plusieurs choses, comme envoyer des mails, gérer la soumission de formulaires, insérer des informations dans une base de données, faire du rendu de pages HTML et protéger le contenu avec de la sécurité. Comment pouvez-vous gérer tout cela et garder toujours votre code organisé et maintenable ?
+
+Symfony a été créé pour résoudre ces équations pour que vous n'ayez plus à vous en soucier.
+
+6-1. Le contrôleur frontal
+
+Traditionnellement, les applications sont construites pour qu'à chaque « page » du site corresponde un fichier :
+
+ Sélectionnez
+1.
+2.
+3.
+index.php
+contact.php
+blog.php
+Il y a plusieurs problèmes avec cette approche, incluant la non-flexibilité des URL (par exemple, comment changer blog.php en news.php sans casser tous vos liens ?) et le fait que chaque fichier doit inclure manuellement un ensemble de fichiers core pour que la sécurité, les connexions de base de données, et le « look » du site puissent rester consistants.
+
+Une bien meilleure solution est d'utiliser un contrôleur frontal : un seul fichier qui gère toutes les requêtes provenant de votre application. Par exemple :
+
+/index.php
+exécute index.php
+/index.php/contact
+exécute index.php
+/index.php/blog
+exécute index.php
+En utilisant le module Apache mod_rewrite (ou l'équivalent avec un autre serveur Web), les URL peuvent être facilement nettoyées pour être simplement : /, /contact et /blog.
+
+Aujourd'hui, toutes les requêtes sont gérées exactement de la même façon, à la place d'URL individuelles, exécutant différents fichiers PHP, le contrôleur frontal est toujours exécuté, et le routage des différentes URL vers les différentes parties de votre application est fait en interne. Ceci résout les deux problèmes avec l'approche originelle. Pratiquement toutes les applications Web modernes fonctionnent de cette façon, comme WordPress.
+
+6-2. Rester organisé
+
+Dans votre contrôleur frontal, vous devez déterminer quel code devrait être exécuté et quel devrait être le contenu retourné. Pour cela, vous devrez contrôler l'URI entrante et exécuter différentes parties de votre code en fonction de cette valeur. Ceci peut être rapidement laid :
+
+ Sélectionnez
+// index.php
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
+
+$request = Request::createFromGlobals();
+$path = $request->getPathInfo(); // Le chemin de l'URI demandée
+
+if (in_array($path, array('', '/'))) {
+    $response = new Response('Bienvenue sur la homepage.');
+} elseif ('/contact' === $path) {
+    $response = new Response('Contactez-nous');
+} else {
+    $response = new Response('Page non trouvée.', Response::HTTP_NOT_FOUND);
+}
+$response->send();
+Résoudre ce problème peut être difficile. Heureusement, c'est exactement ce pour quoi Symfony a été conçu.
+
+7. Les flux internes dans une application Symfony
+
+Laisser à Symfony la latitude de gérer chaque requête, c'est vous simplifier la vie. Symfony suit le même modèle, très simple, pour chaque requête :
+
+￼
+Les requêtes entrantes sont interprétées par le composant de routage avant de passer aux fonctions PHP (contrôleur) qui retournent les objets Response.
+
+Chaque « page » de votre site est définie dans un fichier de configuration de routage qui mappe les différentes URL aux différentes fonctions PHP. Chaque fonction PHP, appelée contrôleur, a pour action de recueillir les informations de la requête - et de nombreux autres outils fournis par Symfony - pour créer et retourner un objet Response. En d'autres termes, le contrôleur, c'est là où se situe ce que vous programmez : c'est là où vous interprétez la requête et créez la réponse.
+
+C'est très facile ! Pour récapituler :
+
+chaque requête exécute un même fichier (nommé contrôleur frontal) ;
+le contrôleur frontal démarre (boote) sur Symfony et lui transmet toutes les requêtes ;
+le système de routage établit la correspondance entre l'URL entrante et la route spécifique, puis retourne les informations relatives à la route, dont le contrôleur (la fonction PHP) qui devra être exécuté ;
+le contrôleur (la fonction PHP) est exécuté : c'est là que votre code crée et retourne l'objet approprié  Response ;
+les en-têtes HTTP et le contenu de l'objet Response sont retournés au client.
+8. Une requête Symfony en action▲
+
+Sans se noyer dans trop de détails, voici le processus en action. Supposez que vous vouliez ajouter une page /contact à votre application Symfony. Premièrement, commencez par ajouter une entrée pour /contact dans le fichier de configuration de routage :
+
+YAML :
+
+# app/config/routing.yml
+contact:
+    path:     /contact
+    defaults: { _controller: AppBundle:Main:contact }
+XML :
+<!-- app/config/routing.xml -->
+<?xml version="1.0" encoding="UTF-8" ?>
+<routes xmlns="http://symfony.com/schema/routing"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://symfony.com/schema/routing
+        http://symfony.com/schema/routing/routing-1.0.xsd">
+
+    <route id="contact" path="/contact">
+        <default key="_controller">AppBundle:Main:contact</default>
+    </route>
+</routes>
+PHP :
+
+// app/config/routing.php
+use Symfony\Component\Routing\Route;
+use Symfony\Component\Routing\RouteCollection;
+
+$collection = new RouteCollection();
+$collection->add('contact', new Route('/contact', array(
+    '_controller' => 'AppBundle:Main:contact',
+)));
+
+return $collection;
+Quand quelqu'un visite la page /contact, cette route est adaptée et le contrôleur spécifié est exécuté. Comme vous allez l'apprendre dans le chapitre routage, la chaîne AppBundle:Main:contact est une syntaxe courte qui pointe vers une méthode PHP spécifique contactAction dans une classe nommée MainController :
+
+MainControllerSélectionnez
+// src/AppBundle/Controller/MainController.php
+namespace AppBundle\Controller;
+
+use Symfony\Component\HttpFoundation\Response;
+
+class MainController
+{
+    public function contactAction()
+    {
+        return new Response('<h1>Contactez-nous!</h1>');
+    }
+}
+Dans cet exemple, le contrôleur crée simplement un objet Response avec le code HTML
+
+<h1>Contact us!</h1>
+
+Dans le chapitre sur le contrôleur, vous apprendrez comment un contrôleur peut interpréter des templates, autorisant votre code de « présentation » (c'est-à-dire tout ce qui génère du HTML) à résider dans un fichier de template séparé. Ceci libère le contrôleur et lui permet de ne se préoccuper que du noyau dur : interagir avec la base de données, gérer les données soumises, ou envoyer des mails.
+
+9. Symfony : créer votre application, pas vos outils
+
+Vous savez maintenant que le but de toute application est d'interpréter chaque requête entrante et de créer une réponse appropriée. Puisqu'une application croît, il devient plus difficile de garder votre code organisé et maintenable.
+
+Invariablement, les mêmes tâches complexes continuent à venir encore et encore : rendre persistantes les choses dans la base de données, interpréter et réutiliser des templates, gérer des soumissions de formulaire, envoyer des mails, validation utilisateurs (entrées et gestion sécurité).
+
+La bonne nouvelle, c'est qu'aucun de ces problèmes n'est unique. Symfony fournit un framework plein d'outils qui permettent de créer votre application, pas vos outils. Avec Symfony, rien ne vous est imposé ; vous êtes libre d'utiliser le framework complet ou seulement une petite partie de celui-ci.
+
+9-1. Les outils autonomes : les composants de Symfony
+
+Donc qu'est-ce que Symfony ? Tout d'abord Symfony est une collection de plus de vingt bibliothèques indépendantes qui peuvent être utilisées dans tout projet PHP. Ces bibliothèques, appelés les composants Symfony, contiennent quelque chose d'utile pour presque toute situation, indépendamment de comment votre projet est développé. Pour en nommer quelques-uns :
+
+HttpFoundation
+
+Contient les classes Request et Response, tout comme d'autres classes pour gérer les sessions et les uploads de fichiers.
+
+Routing
+
+Puissant et rapide système vous autorisant à mapper une URI spécifique (ex. : /contact) à certaines informations à propos de comment cette requête doit être gérée (par exemple : exécuter la méthode contactAction()).
+
+Form
+
+Un framework complet et flexible pour créer des formulaires et gérer leur soumission.
+
+Validator
+
+Un système pour créer des règles relatives aux données, qui consiste en la validation de ces données selon que les valeurs soumises par l'utilisateur respectent ces règles ou pas.
+
+Templating
+
+Un toolkit pour faire du rendu de template, gérer leur héritage (ex. : un template peut être enrichi avec un layout) et effectuer d'autres tâches standards sur les templates.
+
+Security
+
+Une bibliothèque puissante pour gérer tout type de sécurité dans une application.
+
+Translation
+
+Un framework pour traduire des chaînes dans votre application.
+
+Chacun de ces composants est découplé et peut être utilisé dans n'importe quel projet PHP, indépendamment ou non de l'ensemble du framework Symfony. Chaque partie est faite pour être utilisée si besoin et remplacée quand nécessaire.
+
+9-2. La solution complète : le framework Symfony
+
+Donc qu'est-ce que le framework Symfony ? C'est une bibliothèque PHP qui accomplit deux tâches distinctes :
+
+Fournir un ensemble de composants (exemple : les composants Symfony) et des bibliothèques tierces (ex. : Swift Mailer) pour l'envoi de mails).
+Fournir une configuration modulable et une bibliothèque « à effet glue » qui attache toutes les pièces ensemble.
+Le but du framework est d'intégrer plusieurs outils indépendants de façon à fournir une expérience utilisateur solide pour le développeur. Même le framework lui-même est un paquet Symfony (c'est-à-dire un plugin) qui peut être entièrement configuré ou remplacé.
+
+Symfony fournit un ensemble d'outils puissants pour développer rapidement des applications Web sans s'imposer dans votre application. Les utilisateurs normaux peuvent commencer des développements rapidement en utilisant une distribution Symfony, laquelle fournit un squelette de projet avec des valeurs adaptées. Pour les utilisateurs avancés, seul le ciel est la limite.
+
+
+==== partie 2 ====
+
+1. Un blog simple en PHP à plat▲
+
+Dans ce chapitre, vous allez construire une application de blog en utilisant seulement du PHP à plat. Pour commencer, créez une page qui affiche les données d'entrée du blog qui ont été enregistrées de façon persistante dans la base de données. L'écrire en PHP à plat est rapide et vous donnera ceci :
+
+<?php
+// index.php
+$link = new PDO("mysql:host=localhost;dbname=blog_db", 'myuser', 'mypassword');
+
+$result = $link->query('SELECT id, title FROM post');
+?>
+
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>List of Posts</title>
+    </head>
+    <body>
+        <h1>List of Posts</h1>
+        <ul>
+            <?php while ($row = $result->fetch(PDO::FETCH_ASSOC)): ?>
+            <li>
+                <a href="/show.php?id=<?= $row['id'] ?>">
+                    <?= $row['title'] ?>
+                </a>
+            </li>
+            <?php endwhile ?>
+        </ul>
+    </body>
+</html>
+
+<?php
+$link = null;
+?>
+Ceci est rapide à écrire et à exécuter, et votre application grandissant deviendra impossible à maintenir. Il y a plusieurs problèmes qui nécessitent d'être traités.
+
+Pas de traitement d'erreurs : qu'adviendra-t-il si la connexion à la base de données échoue ?
+Organisation pauvre : si l'application grossit, ce fichier unique deviendra de moins en moins maintenable. Où placer votre code qui va gérer la soumission d'un formulaire ? Comment pouvez-vous valider les données ? Où devrait se trouver le code pour l'envoi d'e-mail ?
+Code difficile à réutiliser : puisque tout est dans un seul fichier, il n'y a aucun moyen de réutiliser une partie de l'application pour les autres « pages » du blog.
+Un autre problème non mentionné ici est le fait que la base de données est liée à MySQL. Bien que non couvert ici, Symfony intègre entièrement Doctrine, une bibliothèque dédiée à l'abstraction et au mappage de bases de données.
+
+2. Isoler la présentation▲
+
+Le code peut immédiatement profiter de la séparation entre la logique de l'application et le code qui prépare la « présentation » HTML :
+
+// index.php
+$link = new PDO("mysql:host=localhost;dbname=blog_db", 'myuser', 'mypassword');
+
+$result = $link->query('SELECT id, title FROM post');
+
+$posts = array();
+while ($row = $result->fetch(PDO::FETCH_ASSOC)) {
+    $posts[] = $row;
+}
+
+$link = null;
+
+// include the HTML presentation code
+require 'templates/list.php';
+Le code HTML est maintenant stocké dans un fichier séparé (templates/list.php), lequel est principalement un fichier HTML qui utilise une syntaxe similaire à PHP  :
+
+<!-- templates/list.php -->
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>List of Posts</title>
+    </head>
+    <body>
+        <h1>List of Posts</h1>
+        <ul>
+            <?php foreach ($posts as $post): ?>
+            <li>
+                <a href="/show.php?id=<?= $post['id'] ?>">
+                    <?= $post['title'] ?>
+                </a>
+            </li>
+            <?php endforeach ?>
+        </ul>
+    </body>
+</html>
+Par convention, le fichier qui contient toute la logique de l'application, index.php, est désigné par « contrôleur ». Le terme contrôleur est un terme que vous entendrez beaucoup, indépendamment du langage ou du Framework que vous utilisez. Il se réfère simplement à la zone de votre code qui traite les entrées utilisateur et prépare les réponses.
+
+Dans l'exemple ci-dessus, le contrôleur prépare les données depuis la base de données et inclut ensuite un template pour présenter ces données. Avec un contrôleur isolé, vous pourriez juste changer le fichier de template pour présenter les entrées du blog dans un autre format (ex. : list.json.php pour le format JSON).
+
+3. Isoler la logique de l'application (Domaine)▲
+
+Jusqu'à maintenant, l'application contient uniquement une page. Mais qu'en sera-t-il si une seconde page est nécessaire pour utiliser la même connexion de base de données, ou encore la même rangée de posts du blog ? Réorganisons le code pour que le comportement principal de celui-ci et des fonctions d'accès aux données de l'application soit isolé dans un nouveau fichier nommé model.php :
+
+// model.php
+function open_database_connection()
+{
+    $link = new PDO("mysql:host=localhost;dbname=blog_db", 'myuser', 'mypassword');
+
+    return $link;
+}
+
+function close_database_connection(&$link)
+{
+    $link = null;
+}
+
+function get_all_posts()
+{
+    $link = open_database_connection();
+
+    $result = $link->query('SELECT id, title FROM post');
+
+    $posts = array();
+    while ($row = $result->fetch(PDO::FETCH_ASSOC)) {
+        $posts[] = $row;
+    }
+    close_database_connection($link);
+
+    return $posts;
+}
+Le nom de fichier model.php est utilisé, car la logique et l'accès aux données d'une application sont traditionnellement connus sous le nom de couche « modèle ». Dans une application bien organisée, la majorité du code représentant votre « logique business » devrait résider dans le modèle (en opposition au placement dans le contrôleur). Et contrairement dans cet exemple, seule une portion (ou aucune) du modèle est actuellement concernée par l'accès à la base de données.
+
+Le contrôleur (index.php) est maintenant très simple :
+
+ Sélectionnez
+// index.php
+
+require_once 'model.php';
+
+$posts = get_all_posts();
+
+require 'templates/list.php';
+Maintenant, la seule tâche du contrôleur est de récupérer les données de la couche modèle de l'application (le modèle) et d'appeler un template pour présenter ces données. Voici un exemple vraiment très simple du modèle-vue-contrôleur.
+
+4. Isoler l'agencement▲
+
+À ce point, l'application a été réagencée en trois parties distinctes offrant de multiples avantages et l'opportunité de réutiliser la plupart des éléments sur différentes pages.
+
+La seule partie du code qui ne peut pas être réutilisée est la couche de l'agencement. Réglons cela en créant un nouveau fichier templates/layout.php :
+
+<!-- templates/layout.php -->
+<!DOCTYPE html>
+<html>
+    <head>
+        <title><?= $title ?></title>
+    </head>
+    <body>
+        <?= $content ?>
+    </body>
+</html>
+Le template (templates/list.php) peut maintenant être simplifié pour « étendre » templates/layout.php :
+
+<!-- templates/list.php -->
+<?php $title = 'List of Posts' ?>
+
+<?php ob_start() ?>
+    <h1>List of Posts</h1>
+    <ul>
+        <?php foreach ($posts as $post): ?>
+        <li>
+            <a href="/show.php?id=<?= $post['id'] ?>">
+                <?= $post['title'] ?>
+            </a>
+        </li>
+        <?php endforeach ?>
+    </ul>
+<?php $content = ob_get_clean() ?>
+
+<?php include 'layout.php' ?>
+Vous avez maintenant une configuration qui vous permettra de réutiliser la disposition. Malheureusement, pour le faire, vous serez obligé d'utiliser quelques fonctions PHP laides (ob_start(), ob_get_clean()) dans le template. Symfony utilise un composant de templating qui permet d'effectuer cela proprement et facilement. Vous allez voir cela en action rapidement.
+
+5. Ajouter au blog la page « afficher »▲
+
+La page « liste » du blog a maintenant été réagencée et le code est donc mieux organisé et réutilisable. Pour le prouver, ajoutez au blog une page « afficher », laquelle affiche un post individuel du blog identifié par un paramètre d'identification (id) dans la requête.
+
+Pour commencer, créez une nouvelle fonction dans le fichier model.php qui récupère un résultat individuel du blog par l'id communiqué :
+
+// model.php
+function get_post_by_id($id)
+{
+    $link = open_database_connection();
+
+    $query = 'SELECT created_at, title, body FROM post WHERE  id=:id';
+    $statement = $link->prepare($query);
+    $statement->bindValue(':id', $id, PDO::PARAM_INT);
+    $statement->execute();
+
+    $row = $statement->fetch(PDO::FETCH_ASSOC);
+
+    close_database_connection($link);
+
+    return $row;
+}
+Ensuite, créez un nouveau fichier nommé show.php - le contrôleur pour cette nouvelle page :
+
+// show.php
+require_once 'model.php';
+
+$post = get_post_by_id($_GET['id']);
+
+require 'templates/show.php';
+Enfin, créez le nouveau fichier de template : templates/show.php, pour interpréter le post individuel du blog :
+
+<!-- templates/show.php -->
+<?php $title = $post['title'] ?>
+
+<?php ob_start() ?>
+    <h1><?= $post['title'] ?></h1>
+
+    <div class="date"><?= $post['created_at'] ?></div>
+    <div class="body">
+        <?= $post['body'] ?>
+    </div>
+<?php $content = ob_get_clean() ?>
+
+<?php include 'layout.php' ?>
+Créer la seconde page est maintenant très simple et aucun code n'est dupliqué. Cette page introduit également des problèmes persistants qu'un framework pourra résoudre pour vous. Par exemple un id de paramètre requête invalide ou manquant peut déclencher un crash de la page. Ce serait mieux si cela causait un rendu de page 404, mais cela ne peut pas vraiment être fait facilement actuellement. Pire, si vous avez oublié de nettoyer le paramètre id via la fonction intval(), votre base de données entière pourrait être exposée à une attaque par injection SQL.
+
+Un autre problème majeur est que chaque fichier de contrôleur individuel doit inclure le fichier model.php. Qu'en sera-t-il si chaque fichier de contrôleur doit soudainement inclure un fichier additionnel pour effectuer d'autres tâches globales (ex. : renforcer la sécurité) ? À l'heure actuelle, ce code devait être ajouté à chaque fichier de contrôleur. Si vous oubliez d'inclure quelque chose dans un fichier, il faut espérer que ça ne se rapporte pas à la sécurité…
+
+6. Un contrôleur frontal à la rescousse▲
+
+La solution est d'utiliser un contrôleur frontal : un unique fichier PHP à travers lequel toutes les requêtes sont traitées. Avec un contrôleur frontal, les URI pour les applications changent légèrement, mais commencent à être plus flexibles.
+
+Sans contrôleur frontal :
+
+/index.php => page de la liste des posts du blog (index.php exécuté) ;
+
+/show.php => page d'affichage d'un post du blog (show.php exécuté).
+
+Avec index.php comme contrôleur frontal :
+
+/index.php => page de la liste des posts du blog (index.php exécuté) ;
+
+/index.php/show => page d'affichage d'un post du blog (index .php exécuté).
+
+En utilisant les règles de réécriture (rewrite) de la configuration du serveur Web, la partie index.php de l'URI n'est plus nécessaire et vous aurez des URL simples et propres (par exemple: /show ).
+
+Lors de l'utilisation d'un contrôleur frontal, un seul fichier PHP (index.php dans ce cas) traite les requêtes. Pour la page d'affichage de post du blog, /index.php/show, c'est le fichier index.php qui sera exécuté, lequel est maintenant responsable des requêtes de routage interne, basé sur l'URI totale. Comme vous allez le voir, un contrôleur frontal est un outil vraiment puissant.
+
+7. Créer le contrôleur frontal▲
+
+Vous êtes sur le point de passer une grande étape avec votre application. Avec un seul fichier gérant les requêtes, vous pouvez centraliser les choses telles que la gestion de la sécurité, le chargement de configuration, et le routage. Dans cette application, index.php doit maintenant être suffisamment intelligent pour traiter la page de liste (list) des posts du blog ou celle d'affichage de post individuel (show), basé sur l'URI demandée :
+
+// index.php
+
+// charge et initialise toutes les bibliothèques globales
+require_once 'model.php';
+require_once 'controllers.php';
+
+// route les requêtes en interne
+$uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+if ('/index.php' === $uri) {
+    list_action();
+} elseif ('/index.php/show' === $uri && isset($_GET['id'])) {
+    show_action($_GET['id']);
+} else {
+    header('HTTP/1.1 404 Not Found');
+    echo '<html><body><h1>Page non trouvée</h1></body></html>';
+}
+Pour un souci d'organisation, les deux contrôleurs ( index.php et show.php) sont maintenant des fonctions PHP, et chacun a été déplacé dans un autre fichier : controllers.php :
+
+// controllers.php
+function list_action()
+{
+    $posts = get_all_posts();
+    require 'templates/list.php';
+}
+
+function show_action($id)
+{
+    $post = get_post_by_id($id);
+    require 'templates/show.php';
+}
+Comme contrôleur frontal, index.php a pris un rôle entièrement nouveau, qui inclut le chargement de bibliothèques de noyau et de routage de l'application, de sorte qu'un contrôleur ou un autre (les fonctions list_action() et show_action()) est appelé. En réalité, le contrôleur frontal commence à ressembler et agir comme le mécanisme de Symfony pour gérer et router les requêtes.
+
+Mais faites attention à ne pas confondre les termes « contrôleur frontal » et « contrôleur ». En temps normal, votre application n'utilisera que seulement le contrôleur frontal pour démarrer votre code. Vous aurez plusieurs fonctions qui serviront de contrôleurs : une pour chaque page.
+
+Un autre avantage d'un contrôleur frontal est la flexibilité des URL. Notez que l'URL de la page d'affichage de post du blog pourrait être changée de /show en /read en modifiant le code à un seul endroit. Auparavant, un fichier entier aurait dû être renommé. Dans Symfony, les URL sont encore plus flexibles.
+
+Maintenant, l'application a évolué depuis un unique fichier PHP vers une structure qui est organisée et permet la réutilisation de code. Vous devriez être plus heureux, mais loin d'être satisfait. Par exemple, le système de « routage » est inconstant, et ne devrait pas reconnaître que la page de liste des posts du blog (index.php) devrait être accessible aussi via « / » (si les règles de rewrite Apache ont été ajoutées). Aussi, plutôt que de développer le blog, beaucoup de ce temps a été passé à travailler sur l'architecture du code (ex. : routage, appel des contrôleurs, templates, etc.). Plus de temps devrait encore être passé pour la soumission des formulaires, la validation des entrées, le logging, et la sécurité. Pourquoi devriez-vous réinventer des solutions à tous ces problèmes routiniers ?
+
+8. Ajouter une touche de Symfony▲
+
+Symfony arrive à la rescousse. Avant d'utiliser Symfony, vous devez le télécharger. Ceci peut être effectué via Composer, qui s'occupe de télécharger la version stable et toutes ses dépendances et fournit un autoloader. Un autoloader est un outil qui permet de démarrer l'utilisation de classes PHP sans inclure explicitement le ou les fichiers les contenant.
+
+Dans votre dossier racine, créez un fichier composer.json avec le contenu suivant :
+
+{
+    "require": {
+        "symfony/symfony": "3.1.*"
+    },
+    "autoload": {
+        "files": ["model.php","controllers.php"]
+    }
+}
+Ensuite, téléchargez Composer et lancez-le avec la commande suivante, laquelle va télécharger Symfony dans un dossier vendor/ :
+
+ Sélectionnez
+1.
+$ composer install
+En plus du téléchargement de vos dépendances, Composer génère un fichier PHP  vendor/autoload.php, qui effectue le chargement automatique de tous les fichiers du framework Symfony aussi bien que les fichiers mentionnés dans la section autoload de votre fichier composer.json.
+
+Le cœur de la philosophie de Symfony est basé sur le principe que le travail principal d'une application est d'interpréter chaque requête et retourner une réponse. À cette fin, Symfony fournit deux classes : une classe Request et une classe Response. Ces classes sont une représentation orientée objet des requêtes et réponses HTTP brutes retournées. Utilisez-les pour améliorer le blog :
+
+// index.php
+require_once 'vendor/autoload.php';
+
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
+
+$request = Request::createFromGlobals();
+
+$uri = $request->getPathInfo();
+if ('/' === $uri) {
+    $response = list_action();
+} elseif ('/show' === $uri && $request->query->has('id')) {
+    $response = show_action($request->query->get('id'));
+} else {
+    $html = '<html><body><h1>Page Not Found</h1></body></html>';
+    $response = new Response($html, Response::HTTP_NOT_FOUND);
+}
+
+// echo the headers and send the response
+$response->send();
+Les contrôleurs sont maintenant capables de retourner un objet Response. Pour rendre cela plus facile, vous pouvez ajouter une nouvelle fonction render_template(), laquelle agit un peu plus rapidement que le moteur de Templating Symfony :
+
+// controllers.php
+use Symfony\Component\HttpFoundation\Response;
+
+function list_action()
+{
+    $posts = get_all_posts();
+    $html = render_template('templates/list.php', array('posts' => $posts));
+
+    return new Response($html);
+}
+
+function show_action($id)
+{
+    $post = get_post_by_id($id);
+    $html = render_template('templates/show.php', array('post' => $post));
+
+    return new Response($html);
+}
+
+// helper function to render templates
+function render_template($path, array $args)
+{
+    extract($args);
+    ob_start();
+    require $path;
+    $html = ob_get_clean();
+
+    return $html;
+}
+En apportant une petite partie de Symfony, l'application est plus flexible et fiable. L'objet Request fournit un moyen sûr pour accéder à des informations sur les requêtes HTTP. La méthode getPathInfo() retourne spécialement une URI nettoyée (retournant toujours /show et jamais /index.php/show). De sorte que même si l'utilisateur se rend sur la page /index.php/show, l'application est suffisamment intelligente pour router la requête via show_action().
+
+L'objet Response donne de la flexibilité lors de la construction de la réponse HTTP, autorisant les headers HTTP et le contenu à être ajoutés via une interface orientée objet. Et bien que la réponse de cette application soit simple, cette flexibilité sera coûteuse quand l'application va commencer à grossir.
+
+9. L'application d'exemple dans Symfony▲
+
+Le blog a parcouru un long chemin, mais il contient encore  beaucoup de code pour une application aussi simple. Le long du chemin, vous avez fait un système simple de routage et une méthode utilisant ob_start() et ob_clean() pour interpréter les templates. Si pour une quelconque raison, vous voulez construire ce « framework » from scratch, vous pouvez au moins utiliser les composants Routing et Templating de Symfony en standalone, lesquelles règlent toujours ces problèmes.
+
+Plutôt que de resolutionner des problèmes communs, vous pouvez laisser Symfony s'en charger pour vous. Voici la même application exemple, construite maintenant avec Symfony :
+
+// src/AppBundle/Controller/BlogController.php
+namespace AppBundle\Controller;
+
+use Symfony\Bundle\FrameworkBundle\Controller\Controller;
+
+class BlogController extends Controller
+{
+    public function listAction()
+    {
+        $posts = $this->get('doctrine')
+            ->getManager()
+            ->createQuery('SELECT p FROM AcmeBlogBundle:Post p')
+            ->execute();
+
+        return $this->render('Blog/list.html.php', array('posts' => $posts));
+    }
+
+    public function showAction($id)
+    {
+        $post = $this->get('doctrine')
+            ->getManager()
+            ->getRepository('AppBundle:Post')
+            ->find($id);
+
+        if (!$post) {
+            // provoque l'affichage la la page 404 page not found
+            throw $this->createNotFoundException();
+        }
+
+        return $this->render('Blog/show.html.php', array('post' => $post));
+    }
+}
+Notez que les deux fonctions contrôleurs sont maintenant dans la « classe contrôleur' ». C'est un excellent moyen de regrouper les pages de même contexte. Les fonctions contrôleurs sont souvent aussi désignées par « actions ».
+
+Les deux contrôleurs (ou actions) sont toujours légers. Ils utilisent chacun la bibliothèque doctrine pour récupérer les objets depuis la base de données et les composants de templating pour interpréter un template et retourner un objet Response. Le template list.php est maintenant plus simple :
+
+<!-- app/Resources/views/Blog/list.html.php -->
+<?php $view->extend('layout.html.php') ?>
+
+<?php $view['slots']->set('title', 'List of Posts') ?>
+
+<h1>Liste des Posts</h1>
+<ul>
+    <?php foreach ($posts as $post): ?>
+    <li>
+        <a href="<?php echo $view['router']->path(
+            'blog_show',
+            array('id' => $post->getId())
+        ) ?>">
+            <?php echo $post->getTitle() ?>
+        </a>
+    </li>
+    <?php endforeach ?>
+</ul>
+Le layout est quasiment identique :
+
+<!-- app/Resources/views/layout.html.php -->
+<!DOCTYPE html>
+<html>
+    <head>
+        <title><?php echo $view['slots']->output(
+            'title',
+            'Default title'
+        ) ?></title>
+    </head>
+    <body>
+        <?php echo $view['slots']->output('_content') ?>
+    </body>
+</html>
+Le template show show.php vous est laissé en exercice. Il devrait être facile à mettre à jour en se basant sur ce qui a été fait pour le template list.php.
+
+Quand le moteur Symfony (appelé le noyau) démarre, il a besoin d'une carte pour savoir quels sont les contrôleurs à exécuter en fonction de l'information demandée. Une carte de configuration de routage - app/config/routing.yml - fournit cette information dans un format lisible :
+
+# app/config/routing.yml
+blog_list:
+    path:     /blog
+    defaults: { _controller: AppBundle:Blog:list }
+
+blog_show:
+    path:     /blog/show/{id}
+    defaults: { _controller: AppBundle:Blog:show }
+Maintenant que Symfony gère toutes les tâches banales, le contrôleur frontal web/app.php devient tout simplement inutile. Et puisqu'il ne fait que peu de chose, vous n'aurez plus besoin de le toucher une fois créé :
+
+// web/app.php
+require_once __DIR__.'/../app/bootstrap.php';
+require_once __DIR__.'/../app/AppKernel.php';
+
+use Symfony\Component\HttpFoundation\Request;
+
+$kernel = new AppKernel('prod', false);
+$kernel->handle(Request::createFromGlobals())->send();
+Le travail du contrôleur frontal consiste uniquement à initialiser le moteur Symfony (appelé aussi le noyau) et lui passer un objet Request à gérer. Le noyau de Symfony demande au routeur d'inspecter la requête. Le routeur établit la correspondance entre l'URL entrant et la route spécifique, et retourne les informations relatives à la route, y inclus le contrôleur qui sera exécuté. Le bon contrôleur correspondant à la route est exécuté et votre code à l'intérieur du contrôleur crée et retourne l'objet Response associé. Les en-têtes HTTP et le contenu de l'objet Response sont envoyés au client.
+
+C'est quelque chose de magnifique.
+
+Image non disponible
+Diagramme des flux entre objets request et objets response
+10. Meilleurs templates▲
+
+Si vous optez pour l'utiliser, Symfony vient de base avec un moteur de templates appelé Twig qui permet de faire des templates très facilement et de les lire plus simplement. Cela signifie que l'application d'exemple pourrait contenir moins de code. Regardez ! Par exemple, réécrire le template list.html.php dans Twig pourrait ressembler à ceci :
+
+{# app/Resources/views/blog/list.html.twig #}
+{% extends "layout.html.twig" %}
+
+{% block title %}List of Posts{% endblock %}
+
+{% block body %}
+    <h1>List of Posts</h1>
+    <ul>
+        {% for post in posts %}
+        <li>
+            <a href="{{ path('blog_show', {'id': post.id}) }}">
+                {{ post.title }}
+            </a>
+        </li>
+        {% endfor %}
+    </ul>
+{% endblock %}
+Et la réécriture du template layout.html.php dans Twig ressemblera à ceci :
+
+{# app/Resources/views/layout.html.twig #}
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>{% block title %}Default title{% endblock %}</title>
+    </head>
+    <body>
+        {% block body %}{% endblock %}
+    </body>
+</html>
+Twig est très bien supporté par Symfony. Et bien que les templates PHP soient supportés dans Symfony, les avantages qu'offrent Twig sont nombreux. Pour plus de détails référez-vous au chapitre sur le Templating.
+
+11. Ce qu'offre Symfony▲
+
+Dans les prochains chapitres, vous allez en apprendre plus sur comment chaque partie de Symfony fonctionne, et l'organisation recommandée d'un projet. Pour le moment, jetez un œil sur comment migrer un blog écrit en PHP à plat vers Symfony vous a amélioré la vie.
+
+Votre application a maintenant du code clair et toujours organisé (à travers Symfony qui ne vous force pas dans ce sens). Ceci favorise la réutilisabilité et permet à des nouveaux développeurs d'être productifs plus rapidement dans votre projet.
+100 % du code que vous avez écrit est pour votre application. Vous n'avez pas à développer ou maintenir des utilitaires de bas niveau comme l'autoloading, le routage, ou le rendu des contrôleurs.
+Symfony vous donne accès à des outils open source comme Doctrine et le templating, la sécurité, les formulaires, la validation et la translation de composants (pour en nommer quelques-uns).
+L'application bénéficie maintenant d'URL complètement flexibles, merci au composant de routage.
+L'architecture centrée HTTP vous donne accès à de puissants outils tels que le caching HTTP, alimenté par le cache HTTP interne de Symfony ou des outils plus puissants tels que Varnish. Cela sera couvert dans un prochain chapitre à propos du cache.
+Et peut-être le meilleur de tout, en utilisant Symfony, vous avez maintenant accès à tout un ensemble d'outils open source de qualité développés par la communauté Symfony. Une bonne sélection de ceux-ci peut être trouvée sur KnpBundles.com.
+
+===  partie 3 ===
+
+
+1. Introduction
+
+Le but de ce tutoriel est de vous appendre plusieurs méthodes d'installation de Symfony, et de vous apprendre à résoudre les problèmes souvent rencontrés pendant le processus d'installation.
+
+2. Installer votre application Symfony
+
+Symfony utilise une application dédiée appelée Symfony Installer pour créer facilement vos applications Symfony. Cet installeur exige que PHP 5.4 ou une version supérieure soit installé sur votre système local. Cette installation se fait comme indiqué dans les sections suivantes, selon votre système d'exploitation.
+
+2-1. Systèmes Linux et Mac OS X
+
+Il suffit d'ouvrir votre terminal, puis d'exécuter les commandes suivantes :
+
+ Sélectionnez
+sudo curl -LsS https://symfony.com/installer -o /usr/local/bin/symfony
+sudo chmod a+x /usr/local/bin/symfony
+Ceci va créer une commande symfony globale dans votre système.
+
+2-2. Systèmes Windows
+
+Sous Windows, ouvrez votre console et exécutez les commandes suivantes :
+
+ Sélectionnez
+php -r "readfile('https://symfony.com/installer');" > symfony
+Déplacez ensuite le fichier symfony téléchargé dans un dossier indiqué dans la variable d'environnement PATH ou dans votre dossier de projets :
+
+ Sélectionnez
+# Par exemple, si WAMP est utilisé...
+c:\> move symfony c:\wamp\bin\php
+# ... alors, exécutez la commande comme ceci :
+c:\> symfony
+
+# Déplacement dans le dossier de vos projets ...
+c:\> move symfony c:\projects
+
+# ...  alors, exécutez la commande comme ceci
+c:\> cd projects
+c:\projects\> php symfony
+3. Créer l'application Symfony
+
+Une fois l'installeur Symfony installé sur votre système local, créez votre première application Symfony avec la nouvelle commande :
+
+ Sélectionnez
+# Linux, Mac OS X
+$ symfony new nom_de_mon_projet
+
+# Windows
+c:\> cd projects/
+c:\projects\> php symfony new nom_de_mon_projet
+Cette commande crée un nouveau dossier nommé nom_de_mon_projet qui contient un tout nouveau projet vide basé sur la version stable la plus récente disponible de Symfony. En plus, l'installeur contrôle si votre système réunit les conditions techniques pour exécuter des applications Symfony. Si ce n'est pas le cas, vous verrez la liste des changements requis.
+
+Si l'installeur ne fonctionne pas chez vous ou n'affiche rien, assurez-vous que l'extension Phar est installée et activée sur votre ordinateur.
+
+Pour des raisons de sécurité, toutes les versions de Symfony sont signées numériquement avant leur distribution. Si vous voulez vérifier l'intégrité d'une version Symfony, suivez les étapes expliquées dans ce post.
+
+3-1. Baser votre projet sur une version spécifique de Symfony▲
+
+Dans le cas où votre projet a besoin d'être basé sur une version spécifique de Symfony, utilisez le second argument optionnel de la commande new :
+
+ Sélectionnez
+# Utiliser une des versions antérieures de Symfony
+$ symfony new my_project_name 2.3
+$ symfony new my_project_name 2.5
+$ symfony new my_project_name 2.6
+$ symfony new my_project_name 2.8
+$ symfony new my_project_name 3.1
+
+# Utiliser une version spécifique d'une version majeure de Symfony
+$ symfony new my_project_name 2.8.3
+$ symfony new my_project_name 3.1.5
+
+# Utiliser une version bêta ou une version RC (utile pour tester une nouvelle version de Symfony)
+$ symfony new my_project 2.7.0-BETA1
+$ symfony new my_project 2.7.0-RC1
+
+# Utiliser la version LTS (Long Term Support la plus récente version 
+$ symfony new my_project_name lts
+Lisez le descriptif des releases de Symfony pour mieux comprendre pourquoi ces différentes versions de Symfony et choisir la meilleure version pour votre projet.
+
+4. Créer une application Symfony avec l'outil Composer▲
+
+Si vous utilisez toujours PHP 5.3, ou que vous ne pouvez pas exécuter l'installeur pour une quelconque raison, vous pouvez créer des applications Symfony en utilisant la méthode d'installation alternative basée sur Composer.
+
+Composer est le manager de dépendances utilisé par les applications PHP modernes et peut aussi être utilisé pour créer de nouvelles applications basées sur le Framework Symfony. Si vous ne l'avez pas, globalement, installé, commencez par lire la section suivante.
+
+4-1. Installer Composer globalement▲
+
+Composer est le gestionnaire de packages utilisé par les applications PHP modernes. Utilisez celui-ci pour gérer les dépendances dans vos applications Symfony et pour en installer ses composants dans vos projets PHP. Il est recommandé d'installer Composer globalement dans votre système comme expliqué ci-dessous.
+
+4-1-1. Installer Composer sur Linux ou Mac OS X▲
+
+Pour installer Composer sous Linux ou Mac OS X, exécutez les deux commandes suivantes :
+
+ Sélectionnez
+$ curl -sS https://getcomposer.org/installer | php
+$ sudo mv composer.phar /usr/local/bin/composer
+Si vous n'avez pas curl installé, vous pouvez télécharger le fichier d'installation manuellement à l'adresse : https://getcomposer.org/installer, puis lancez :
+
+ Sélectionnez
+$ php installer
+$ sudo mv composer.phar /usr/local/bin/composer
+4-1-2. Installer Composer sur Windows▲
+
+Téléchargez l'installeur depuis getcomposer.org/download et exécutez-le puis suivez les instructions.
+
+4-1-3. En apprendre plus▲
+
+Lisez la documentation Composer pour en apprendre plus sur son usage et ses fonctionnalités.
+
+4-2. Créer une application Symfony avec Composer▲
+
+Une fois que Composer a été installé sur votre ordinateur, exécutez la commande create-project pour créer une nouvelle application Symfony basée sur la dernière version stable :
+
+ Sélectionnez
+$ composer create-project symfony/framework-standard-edition nom_de_mon_projet
+Si vous avez besoin de baser votre application sur une version spécifique de Symfony, fournissez cette version en second argument de la commande  :
+
+ Sélectionnez
+$ composer create-project symfony/framework-standard-edition nom_de_mon_projet "2.3.*"
+Si votre connexion Internet est lente, vous pourriez penser que Composer ne fait rien du tout. Si c'est votre cas, ajoutez le drapeau -vvv à la commande précédente pour afficher une sortie détaillée de tout ce que fait Composer.
+
+5. Lancer l'application Symfony▲
+
+Symfony exploite le serveur Web interne fourni par PHP (depuis la version de PHP 5.4) pour exécuter des applications pendant que vous les programmez. Par conséquent, exécuter une application Symfony consiste à parcourir le dossier de projet et d'exécuter ces commandes :
+
+ Sélectionnez
+$ cd my_project_name/
+$ php bin/console server:run
+Ouvrez ensuite votre navigateur et accédez à l'URL http://localhost:8000 pour voir la page de bienvenue de Symfony :
+
+￼
+Au lieu de la page de bienvenue, vous pouvez voir une page vierge ou une page d'erreur. Ceci est dû à un problème de configuration de permission sur un dossier. Il y a plusieurs solutions possibles en fonction de votre système d'exploitation. Elles sont toutes expliquées dans le chapitre : Configurer les permissions.
+
+Le serveur Web interne PHP est disponible à partir de la version 5.4. Si vous utilisez toujours l'ancienne version PHP 5.3, vous aurez à configurer un VirtualHost sur votre serveur Web.
+
+La commande server:run est seulement adaptée au développement d'une application. Afin de lancer une application Symfony sur un serveur en production, vous devez configurer votre serveur Web Apache ou Nginx.
+
+Quand vous avez fini de travailler sur votre application Symfony, vous pouvez stopper le serveur avec la commande :
+
+ Sélectionnez
+$ php bin/console server:stop
+Ou avec la combinaison de touches Ctrl+C depuis le terminal ou la console des commandes.
+
+6. Contrôler l'installation et la configuration d'une application Symfony▲
+
+L'installeur de Symfony vérifie si votre système est prêt à exécuter les applications Symfony. Cependant, la configuration de PHP obtenue de la console des commandes peut être différente de celle issue de la configuration Web du PHP. Pour cette raison, Symfony fournit un outil de vérification visuelle de la configuration. Accédez à l'URL suivante pour vérifier votre configuration :
+
+ Sélectionnez
+1.
+http://localhost:8000/config.php
+S'il y a des problèmes, corrigez-les maintenant avant de passer à la suite.
+
+7. Configurer ou régler les problèmes de permissions sur les fichiers▲
+
+Un des importants prérequis à l'installation de Symfony est que le dossier var doit être en mode lecture/écriture pour le serveur Web et la ligne de commande utilisateur.
+
+Sur un système Linux ou Mac OS, si le compte utilisateur utilisé par votre serveur Web est différent de votre utilisateur de ligne de commande, vous devez bien configurer les permissions pour éviter des erreurs. Pour le faire, vous pouvez utiliser l'une des méthodes ci-dessous.
+
+7-1. Utiliser le même utilisateur pour l'interface ligne de commande et le serveur Web▲
+
+Dans des environnements de développement, il est commun d'utiliser le même utilisateur Unix pour la ligne de commande et le serveur web, car il évite les problèmes de permission lors de la mise en place de nouveaux projets. Ceci peut être fait en éditant la configuration de votre serveur Web (ex. : communément httpd.conf ou apache2.conf pour Apache) et la régler pour être la même que votre interface de ligne de commande (ex. : pour Apache, mettez à jour la valeur User et Group).
+
+Si cette solution est utilisée dans un environnement de production, assurez-vous que ce compte utilisateur a les droits limités à ce qu'il est censé faire (pas d'accès aux données privées ou pas de droits d'exécution de binaires non vérifiés).
+
+7-2. Utiliser les ACL sur un système supportant chmod +a (MacOS)▲
+
+De nombreux systèmes (comme Mac OS) vous permettent d'utiliser la commande chmod +a pour définir un ACL. Utilisez le script ci-dessous pour déterminer le compte utilisateur du serveur Web et lui attribuer les permissions nécessaires:
+
+ Sélectionnez
+$ rm -rf var/cache/*
+$ rm -rf var/logs/*
+
+$ HTTPDUSER=`ps axo user,comm | grep -E '[a]pache|[h]ttpd|[_]www|[w]ww-data|[n]ginx' | grep -v root | head -1 | cut -d\  -f1`
+$ sudo chmod -R +a "$HTTPDUSER allow delete,write,append,file_inherit,directory_inherit" var
+$ sudo chmod -R +a "`whoami` allow delete,write,append,file_inherit,directory_inherit" var
+7-3. Utiliser les ACL sur un système qui supporte setfacl (Linux/BSD)▲
+
+Plusieurs systèmes Linux et BSD ne supportent pas chmod +a, mais supportent un autre utilitaire nommé setfacl. Vous devrez activer le support ACL sur votre partition et installer setfacl avant de l'utiliser (comme dans le cas d'Ubuntu). Ceci utilise une commande pour essayer de déterminer votre utilisateur serveur Web et l'utiliser avec HTTPDUSER :
+
+ Sélectionnez
+$ HTTPDUSER=`ps axo user,comm | grep -E '[a]pache|[h]ttpd|[_]www|[w]ww-data|[n]ginx' | grep -v root | head -1 | cut -d\  -f1`
+# if this doesn't work, try adding `-n` option
+$ sudo setfacl -R -m u:"$HTTPDUSER":rwX -m u:`whoami`:rwX var
+$ sudo setfacl -dR -m u:"$HTTPDUSER":rwX -m u:`whoami`:rwX var
+Si ça ne fonctionne pas, essayez d'ajouter l'option -n.
+
+setfacl n'est pas disponible sur les points de montage NFS. Cependant, stocker le cache et les logs par NFS est fortement déconseillé pour des raisons de performance.
+
+7-4. Sans utiliser les ACL▲
+
+Si aucune des précédentes méthodes ne fonctionne pour vous, changez le umask de façon à ce que les dossiers cache et log aient les droits d'écriture pour le groupe et les « autres » (selon que l'utilisateur du serveur Web et celui de la ligne de commande sont dans le même groupe ou non). Pour accomplir ceci, mettez la ligne suivante au début des fichiers bin/console, web/app.php et web/app_dev.php :
+
+ Sélectionnez
+umask(0002); // Ceci mettra les permissions à 0775
+
+// ou
+
+umask(0000); // Ceci mettra les permissions à 0777
+Notez que l'utilisation des ACL est recommandée quand vous y avez accès sur votre serveur, car changer l'umask n'est pas thread-safe.
+
+8. Mise à jour des applications Symfony▲
+
+À ce point , vous avez créé une application Symfony complètement fonctionnelle dans laquelle vous allez développer votre propre projet.
+
+Chaque application Symfony dépend d'un certain nombre de bibliothèques tierces. Celles-ci sont téléchargées et stockées dans le dossier vendor/ et sont gérées exclusivement par Composer.
+
+Mettre à jour ces bibliothèques tierces fréquemment est une bonne pratique pour éviter les erreurs et les vulnérabilités de sécurité. Exécutez la commande update de Composer pour toutes les mettre à jour en une seule fois (ce processus peut prendre plusieurs minutes selon la complexité de votre projet) :
+
+ Sélectionnez
+$ cd mon_nom_de_projet/
+$ composer update
+Symfony fournit une commande pour vérifier que vos dépendances de projet ne contiennent pas de vulnérabilités de sécurité connues.
+
+ Sélectionnez
+$ php bin/console security:check
+Exécuter cette commande régulièrement est une bonne pratique de sécurité pour pouvoir mettre à jour ou remplacer des dépendances compromises aussi vite que possible.
+
+9. Installer l'application Demo Symfony ou d'autres distributions▲
+
+Vous avez déjà téléchargé l'édition standard de Symfony : le projet de démarrage, par défaut, de toutes les applications Symfony. Vous allez travailler sur ce projet pendant que vous parcourez cette documentation pour construire votre application !
+
+Symfony fournit également d'autres projets et des squelettes que vous pouvez utiliser pour démarrer.
+
+9-1. L'application Demo de Symfony ▲
+
+L'application Demo de Symfony est une application entièrement fonctionnelle qui présente la procédure recommandée pour développer des applications Symfony.
+
+L'application a été conçue comme un outil d'apprentissage pour les débutants et ses codes source contiennent des tonnes de commentaires et de notes pouvant servir.
+
+Afin de télécharger l'application Demo Symfony, exécutez la commande demo de l'installeur Symfony n'importe où dans votre système :
+
+ Sélectionnez
+# Linux, Mac OS X
+$ symfony demo
+
+# Windows
+c:\projects\> php symfony demo
+Une fois téléchargé, entrez dans le dossier symfony_demo/ et lancez le serveur Web interne de PHP en exécutant la commande bin/console server:run.
+
+Accédez à l'URL  http://localhost:8000 dans votre navigateur pour commencer à utiliser l'application.
+
+9-2. Installer une distribution Symfony▲
+
+Les packages de projets Symfony sont des « distributions », lesquelles sont des applications entièrement fonctionnelles qui incluent les bibliothèques noyau de Symfony, une sélection de bundles utiles, une structure relativement stable et une configuration par défaut. En fait, quand vous avez créé une application Symfony dans les paragraphes précédents, vous avez en réalité téléchargé la distribution par défaut fournie par Symfony, qui est appelée « Symfony Standard Edition ».
+
+La « Symfony Standard Edition » est de loin la distribution la plus populaire, et aussi le meilleur choix pour les développeurs démarrant avec Symfony. Cependant, la communauté Symfony a publié d'autres distributions populaires que vous pouvez utiliser dans vos applications :
+
+la « Symfony CMF Standard Edition » est la meilleure distribution pour démarrer avec le projet Symfony CMF, qui est un projet rendant plus facile aux développeurs l'ajout de fonctionnalités CMS aux applications construites avec le framework ;
+la « Symfony REST Edition » montre comment construire une application qui fournit une API REST complète en utilisant le bundle FOSRestBundle et plusieurs autres bundles en relation.
+10. Installer une application Symfony existante▲
+
+En travaillant en collaboration dans une application Symfony, il est rare de créer une nouvelle application Symfony comme expliqué dans les sections précédentes.
+
+Généralement, quelqu'un d'autre l'a déjà créée et soumise dans un référentiel partagé.
+
+Il est recommandé de ne pas soumettre certains fichiers (parameters.yml) et répertoires (vendor/, cache, logs) au référentiel, donc vous devez exécuter ce qui suit pour installer une application Symfony existante :
+
+ Sélectionnez
+# Clone le projet pour télécharger son contenu
+$ cd projects/
+$ git clone ...
+
+# Faites en sorte que Composer installe les dépendances du projet dans le répertoire vendor/
+$ cd my_project_name/
+$ composer install
+
+# Maintenant Composer va vous demander les valeurs pour les paramètres qui ne sont pas définis
+$ ...
+11. Utiliser le contrôle de source▲
+
+Si vous utilisez un gestionnaire de versions tel que Git, vous pouvez de façon sûre effectuer un « commit » de tous vos codes de projet. Les applications Symfony contiennent déjà un fichier  .gitignore spécialement préparé pour Symfony.
+
+Il existe d'autres instructions spécifiques à la façon de configurer votre projet pour être stocké dans Git.
+
+11-1. Vérification d'une application Symfony versionnée▲
+
+En utilisant Composer pour gérer vos dépendances d'application, il est recommandé d'ignorer entièrement le dossier Vendor/ avant d'effectuer un « commit » dans le dépôt. Ceci signifie que si vous vérifiez une application Symfony depuis un dépôt Git, il n'y aura pas de dossier Vendor/ et l'application ne fonctionnera pas hors du dépôt.
+
+De façon à la faire fonctionner, vérifiez votre application Symfony, puis exécutez la commande Composer install de façon à télécharger toutes les dépendances requises :
+
+ Sélectionnez
+$ cd mon_nom_de_projet/
+$ composer install
+Comment Composer sait quelles dépendances spécifiques il doit installer ? Quand une application Symfony est chargée dans le dépôt, les fichiers composer.json et composer.lock sont aussi chargés. Ce sont ces fichiers qui informent Composer des dépendances à installer (avec leur version spécifique).
+
+12. Commencer le développement▲
+
+Maintenant que vous avez une application Symfony entièrement fonctionnelle, vous pouvez commencer le développement. Votre distribution doit contenir du code exemple. Consultez le fichier README.md inclus avec la distribution (ouvrez-le comme un fichier texte) pour en apprendre plus sur le code exemple inclus avec votre distribution.
+
+
+=== partie 4 ===
+
+1. Introduction▲
+
+Créer une nouvelle page, qu'elle soit une page HTML ou un point final JSON, est une opération simple en deux étapes :
+
+Créer une route : une route est l'URL (ex : /a-propos) pour votre page et pointe sur un contrôleur ;
+Créer un contrôleur : un contrôleur est une fonction PHP que vous écrivez pour construire votre page. Vous prenez les requêtes d'information entrantes et les utilisez pour créer un objet Symfony, lequel va prendre en charge le contenu HTML, une chaîne JSON ou autre.
+Tout comme sur le Web, chaque interaction est initiée par une requête HTTP. Votre travail est simple : comprendre une requête et retourner une réponse.
+
+Symfony suit la logique du cycle de vie HTTP : Requête - Réponse. Pour en savoir plus, allez sur la première partie : Symfony et les fondamentaux HTTP.
+
+2. Créer une page : route et contrôleur▲
+
+Avant de continuer, assurez-vous d'avoir bien lu la troisième partie l'installation et la configuration et d'avoir réussi à accéder à votre nouvelle application Symfony depuis le navigateur.
+
+2-1. Présentation globale▲
+
+Supposons que vous voulez créer une page /nombre/magique, qui génère un numéro magique (au hasard) et l'imprime. Pour effectuer cela, créez une « classe contrôleur » et une méthode « contrôleur » dans celle-ci qui sera exécutée quand quelqu'un lancera la page /nombre/magique :
+
+// src/AppBundle/Controller/LuckyController.php
+namespace AppBundle\Controller;
+
+use Sensio\Bundle\FrameworkExtraBundle\Configuration\Route;
+use Symfony\Component\HttpFoundation\Response;
+
+class LuckyController
+{
+    /**
+     * @Route("/lucky/number")
+     */
+    public function numberAction()
+    {
+        $number = mt_rand(0, 100);
+
+        return new Response(
+            '<html><body>Lucky number: '.$number.'</body></html>'
+        );
+    }
+}
+Avant d'aller en profondeur dans la compréhension de ce code, testez-le ! Si vous utilisez le serveur Web interne de PHP, tapez dans votre navigateur, l'URL suivante :
+
+http://localhost:8000/app_dev.php/nombre/magique
+Si vous configurez un VirtualHost dans Apache ou Nginx, remplacez http://localhost:8000 par votre nom d'hôte comme par exemple http://symfony.dev/app_dev.php/nombre/magique.
+
+Si vous utilisez le serveur Web intégré dans la nouvelle version de PHP, vous pouvez enlever la partie app_dev.php.
+
+Si vous voyez un nombre magique apparaître, félicitations ! Mais avant de lancer une loterie, regardons comment ce code fonctionne. Vous souvenez-vous des deux étapes pour créer une page ?
+
+Créer la route. L'élément @Route au-dessus de numberAction(), c'est la route : elle est une annotation et définit le modèle d'URL. Vous pouvez aussi écrire les routes en YAML (ou en d'autres formats). Pour plus de détails, voir le chapitre sur le routage.
+Créer le contrôleur. La méthode en dessous de la route -  numberAction - est appelée le contrôleur. C'est une fonction où vous créez la page qui va retourner un objet Response. La seule règle est que le contrôleur doit retourner un objet Response Symfony. Pour plus de détails, voir le chapitre sur les contrôleurs.
+2-2. Créer une réponse JSON▲
+
+L'objet Response que vous retournez à votre contrôleur peut contenir du HTML, du JSON, ou encore un fichier binaire comme une image ou un PDF. Vous pouvez facilement fixer des headers HTTP ou le code de statut.
+
+Supposez que vous voulez créer un point final JSON qui retourne le nombre magique, ajoutez juste une seconde méthode au  LuckyController :
+
+// src/AppBundle/Controller/LuckyController.php
+
+// ...
+class LuckyController
+{
+    // ...
+
+    /**
+     * @Route("/api/nombre/magique")
+     */
+    public function apiNumberAction()
+    {
+        $data = array(
+            'lucky_number' => rand(0, 100),
+        );
+
+        return new Response(
+            json_encode($data),
+            200,
+            array('Content-Type' => 'application/json')
+        );
+    }
+}
+Essayez cela dans votre navigateur :
+
+http://localhost:8000/app_dev.php/api/nombre/magique
+Vous pouvez encore raccourcir cela avec le pratique JsonResponse :
+
+// src/AppBundle/Controller/LuckyController.php
+
+// ...
+// --> ne pas oublier ce nouvel énoncé de l'utilisation
+use Symfony\Component\HttpFoundation\JsonResponse;
+
+class LuckyController
+{
+    // ...
+
+    /**
+     * @Route("/api/nombre/magique")
+     */
+    public function apiNumberAction()
+    {
+        $data = array(
+            'lucky_number' => rand(0, 100),
+        );
+
+        // appele l'encodeur json fixe le header Content-Type
+        return new JsonResponse($data);
+    }
+}
+3. Modèle d'URL dynamique : /lucky/number/{compteur}▲
+
+Le routage Symfony peut faire encore plus de choses. Supposez que vous voulez maintenant qu'un utilisateur puisse aller à la page /nombre/magique/5 pour générer un numéro magique immédiatement. Mettez à jour la route pour avoir une partie {joker}, à la fin.
+
+Annotation :
+
+// src/AppBundle/Controller/LuckyController.php
+
+// ...
+class LuckyController
+{
+    /**
+     * @Route("/nombre/magique/{count}")
+     */
+    public function numberAction()
+    {
+        // ...
+    }
+
+    // ...
+}
+YAML :
+
+# app/config/routing.yml
+lucky_number:
+    path:     /nombre/magique/{count}
+    defaults: { _controller: AppBundle:Lucky:number }
+XML :
+
+<!-- app/config/routing.xml -->
+<?xml version="1.0" encoding="UTF-8" ?>
+<routes xmlns="http://symfony.com/schema/routing"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://symfony.com/schema/routing
+        http://symfony.com/schema/routing/routing-1.0.xsd">
+
+    <route id="lucky_number" path="/nombre/magique/{count}">
+        <default key="_controller">AppBundle:nombre:magique</default>
+    </route>
+</routes>
+PHP :
+
+// app/config/routing.php
+use Symfony\Component\Routing\RouteCollection;
+use Symfony\Component\Routing\Route;
+
+$collection = new RouteCollection();
+$collection->add('nombre magique', new Route('/nombre/magique/{count}', array(
+    '_controller' => 'AppBundle:nombre:magique',
+)));
+
+return $collection;
+À cause de « l'espace réservé » {compteur}, l'URL de la page est différente et fonctionne maintenant pour l'URL correspondant à /nombre/magique/*, par exemple : /nombre/magique/. La meilleure partie est que vous pouvez accéder à la valeur et l'utiliser dans votre contrôleur :
+
+// src/AppBundle/Controller/LuckyController.php
+// ...
+
+class LuckyController
+{
+
+    /**
+     * @Route("/nombre/magique/{count}")
+     */
+    public function numberAction($count)
+    {
+        $numbers = array();
+        for ($i = 0; $i < $count; $i++) {
+            $numbers[] = rand(0, 100);
+        }
+        $numbersList = implode(', ', $numbers);
+
+        return new Response(
+            '<html><body>nombres magique: '.$numbersList.'</body></html>'
+        );
+    }
+
+    // ...
+}
+Essayez ceci pour aller à l'adresse /nombre/magique/XX en remplaçant XX avec n'importe quel nombre :
+
+http://localhost:8000/app_dev.php/lucky/number/7
+Le système de routage peut faire encore plus, comme supporter les multiples espaces réservés (ex : /blog/{catégorie}/{page}), rendant les espaces réservés optionnels ou obligatoires pour correspondre à une expression régulière (ex. : {compteur} doit être un nombre).
+
+4. Outil de débogage : Web Debug Toolbar▲
+
+Si votre page fonctionne, alors vous pourrez voir une nouvelle barre de menus au milieu de votre navigateur. Cette barre s'appelle le Web Debug Toolbar et c'est votre meilleure amie pour faire le débogage. Vous en aurez davantage sur cet outil en survolant les différents boutons : soyez libres de faire votre propre expérience. N'hésitez pas à parcourir les différentes icônes relatives au routage, à la performance, à la journalisation et bien plus encore.
+
+5. Rendu d'un template (avec le Service Container)▲
+
+Si vous retournez du HTML depuis votre contrôleur, vous allez probablement vouloir interpréter un template. Heureusement, Symfony est fourni avec Twig : un langage de template qui est facile, puissant, et assez amusant.
+
+Premièrement, assurez-vous que  LuckyController n'étend que la classe de base Controller. Le plus simple moyen d'utiliser Twig, ou n'importe quel autre outil de Symfony, est d'étendre la classe Symfony de base Controller :
+
+// src/AppBundle/Controller/LuckyController.php
+
+// ...
+// --> ajoutez cette nouvelle déclaration use
+use Symfony\Bundle\FrameworkBundle\Controller\Controller;
+
+class LuckyController extends Controller
+{
+    // ...
+}
+Maintenant, utiliser la fonction pratique render() pour obtenir le rendu du template. Passez-lui la variable de notre numéro, on peut donc avoir le rendu comme suit :
+
+// src/AppBundle/Controller/LuckyController.php
+
+// ...
+class LuckyController extends Controller
+{
+    /**
+     * @Route("/lucky/number")
+     */
+    public function numberAction()
+    {
+        $number = mt_rand(0, 100);
+
+        return $this->render('lucky/numero.html.twig', array(
+            'number' => $number,
+        ));
+    }
+}
+Et enfin, sachez que les fichiers de template sont localisés dans le répertoire app/Resources/view. Créez un nouveau répertoire app/Resources/views/magique avec un nouveau fichier numero.html.twig à l'intérieur :
+
+{# app/Resources/views/magique/numero.html.twig #}
+
+<h1>Your lucky number is {{ number }}</h1>
+La syntaxe {{ number }} est utilisée pour représenter les variables dans Twig. Actualisez votre page pour obtenir un nouveau numéro magique !
+
+http://localhost:8000/lucky/number
+5-1. Utiliser le service de Templating▲
+
+Cela ne change rien, mais vous donne accès au conteneur Symfony, un objet comme un tableau qui vous donne accès à tout objet utile du système. Ces objets utiles sont appelés services, et Symfony navigue avec un objet service qui peut interpréter des templates Twig, un autre qui peut logger les messages et pleins d'autres.
+
+Pour interpréter un template Twig, utilisez un service nommé templating :
+
+// src/AppBundle/Controller/LuckyController.php
+
+// ...
+class LuckyController extends Controller
+{
+    /**
+     * @Route("/nombre/magique/{count}")
+     */
+    public function numberAction($count)
+    {
+        // ...
+        $numbersList = implode(', ', $numbers);
+
+        $html = $this->container->get('templating')->render(
+            'lucky/numero.html.twig',
+            array('luckyNumberList' => $numbersList)
+        );
+
+        return new Response($html);
+    }
+
+    // ...
+}
+Vous allez en apprendre plus à propos d'un service important : le « service container », au fur et à mesure de votre lecture. Pour l'instant, vous avez juste besoin de savoir qu'il gère beaucoup d'objets, et que vous pouvez accéder à l'un d'eux (get()) en utilisant son surnom, comme templating ou logger. Le service de templating est une instance de TwigEngine et il a une méthode render().
+
+Mais cela peut devenir plus facile. En étendant la classe Controller, vous pouvez aussi obtenir beaucoup de méthodes raccourcies, comme render() :
+
+// src/AppBundle/Controller/LuckyController.php
+
+// ...
+/**
+ * @Route("/nombre/magique/{count}")
+ */
+public function numberAction($count)
+{
+    // ...
+
+    /*
+    $html = $this->container->get('templating')->render(
+        'lucky/numero.html.twig',
+        array('luckyNumberList' => $numbersList)
+    );
+
+    return new Response($html);
+    */
+
+    // render: un raccourci qui fait la même chose qu'au-dessus
+    return $this->render(
+        'lucky/numero.html.twig',
+        array('luckyNumberList' => $numbersList)
+    );
+}
+Apprenez-en plus à propos de ces méthodes raccourcies et comment elles fonctionnent dans le chapitre contrôleur.
+
+5-2. Créer le Template▲
+
+Si vous rafraîchissez maintenant, vous aurez une erreur :
+
+ Sélectionnez
+Impossible de trouver le template "magique/numero.html.twig"
+Corrigez-la en créant un nouveau dossier  app/Resources/views/magique et en mettant un fichier  numero.html.twig dedans.
+
+Twig :
+
+{# app/Resources/views/magique/numero.html.twig #}
+{% extends 'base.html.twig' %}
+
+{% block body %}
+    <h1>Lucky Numbers: {{ luckyNumberList }}</h1>
+{% endblock %}
+PHP :
+
+<!-- app/Resources/views/magique/numero.html.php -->
+<?php $view->extend('base.html.php') ?>
+
+<?php $view['slots']->start('body') ?>
+    <h1>Numéros magiques: <?php echo $view->escape($listeNumeroMagique) ?>
+<?php $view['slots']->stop() ?>
+Bienvenue à Twig ! Ce simple fichier montre déjà les bases : comme comment la syntaxe {{ variableName }} est utilisée pour imprimer quelque chose. La  listeNumeroMagique est une variable que vous passez dans le template depuis l'appel render de votre contrôleur.
+
+{% extends 'base.html.twig' %} pointe sur un fichier de disposition présent dans app/Resources/views/base.html.twig et venu avec votre nouveau projet. C'est vraiment basique (une structure HTML sans style) et c'est à vous de le customiser. La partie {% block body %} utilise un système d'héritage pour placer le contenu au milieu de la présentation  base.html.twig.
+
+Rafraîchissez pour voir votre template en action !
+
+http://localhost:8000/app_dev.php/magique/numero/9
+Si vous regardez votre code source, vous avez maintenant une structure HTML basique. Merci à base.html.twig.
+
+Cela est juste la surface de la puissance de Twig. Quand vous serez prêt à maîtriser sa syntaxe, à boucler sur les tableaux, à interpréter des templates et d'autres choses cool, lisez le chapitre Templating.
+
+6. Explorer la structure du projet▲
+
+Vous avez déjà créé une URL flexible, interprété un template qui utilise l'héritage et créé un point final JSON.
+
+Il est temps d'explorer et de démystifier les fichiers de votre projet. Bonne nouvelle ! Vous avez déjà travaillé dans les deux plus importants dossiers :
+
+app/
+
+Contient les éléments tels que les fichiers de configuration et les templates. Basiquement, tout ce qui n'est pas du code PHP se place ici.
+src/
+
+Votre code PHP est logé ici.
+99 % du temps, vous allez travailler dans le répertoire src/ (les fichiers PHP) ou app/ (tout le reste). Au fur et à mesure que vous serez plus avancé, vous apprendrez ce qui peut être fait dans chacun de ces dossiers.
+
+Le dossier app/ contient aussi d'autres choses, comme app/AppKernel.php, que vous utiliserez pour activer de nouveaux bundles (c'est un des fichiers PHP de la courte liste de ceux présents dans app/).
+
+Le dossier src/ contient seulement un dossier :  src/AppBundle, et tout est dedans. Un bundle est comme un « plug-in » et vous pouvez trouver des bundles open sources et les installer dans votre projet. Mais même votre code est localisé dans un bundle, typiquement AppBundle (bien qu'il n'y ait rien de spécial à propos de AppBundle). Pour en découvrir plus à propos des bundles et pourquoi vous pourriez créer de multiples bundles (ex. : partager du code entre projets), consultez le chapitre sur les Bundles.
+
+Et donc qu'en est-il des autres dossiers dans le projet ?
+
+web/
+
+C'est le « document racine » de votre projet et il contient tous les fichiers accessibles publiquement, comme les fichiers CSS, les images et les contrôleurs frontaux de Symfony qui exécutent l'application (app_dev.php et app.php).
+tests/
+
+Les tests automatiques (ex. : tests unitaires) de votre application sont localisés ici.
+bin/
+
+Les fichiers « binaires » sont logés ici. Le plus important est le fichier console qui est utilisé pour exécuter les commandes Symfony via la console : bin/console.
+var/
+
+C'est ici que sont stockés les fichiers créés automatiquement, comme les fichiers de cache (var/cache/), les logs (var/logs/) et les sessions (var/sessions/).
+vendor/
+
+les bibliothèques tierces, les packages et les bundles sont téléchargés ici par le manager de package Composer. Vous ne devriez jamais éditer un fichier contenu dans ce dossier.
+Symfony est flexible. Si vous avez besoin de le faire, vous pouvez facilement passer outre la structure de dossier par défaut. Consultez Comment surcharger la structure de dossier par défaut de Symfony.
+
+7. Bundles et Configuration▲
+
+Votre application Symfony vient avec une collection de bundles préinstallés, comme FrameworkBundle et TwigBundle. Les bundles sont similaires aux plug-ins avec une différence importante : toutes les fonctionnalités d'une application Symfony viennent des bundles.
+
+Symfony est fourni avec plusieurs bundles intégrés (ouvrez votre fichier app/AppKernel.php) et vous allez probablement en installer plus. Le fichier principal de configuration de bundles est app/config/config.yml :
+
+YAML :
+
+# app/config/config.yml
+
+# ...
+framework:
+    secret: '%secret%'
+    router:
+        resource: '%kernel.root_dir%/config/routing.yml'
+    # ...
+
+twig:
+    debug:            '%kernel.debug%'
+    strict_variables: '%kernel.debug%'
+
+# ...
+PHP :
+
+// app/config/config.php
+// ...
+
+$container->loadFromExtension('framework', array(
+    'secret' => '%secret%',
+    'router' => array(
+        'resource' => '%kernel.root_dir%/config/routing.php',
+    ),
+    // ...
+));
+
+// Twig Configuration
+$container->loadFromExtension('twig', array(
+    'debug'            => '%kernel.debug%',
+    'strict_variables' => '%kernel.debug%',
+));
+
+// ...
+La clé Framework configure le FrameworkBundle, la clé twig configure le TwigBundle, etc. Beaucoup de comportements dans Symfony peuvent être contrôlés juste en changeant une option dans ce fichier de configuration.
+
+Pour obtenir un gros dump d'exemple de toutes les configurations valides sous une clé, utilisez la commande bin/console :
+
+ Sélectionnez
+php bin/console config:dump-reference framework
+Il y a beaucoup plus de puissance derrière le système de configuration de Symfony, incluant les environnements, les imports, et les paramètres. Le chapitre sur la configuration aborde ces points en détail.
+
+8. Et ensuite ?▲
+
+Félicitations ! Vous avez déjà commencé à maîtriser Symfony et à apprendre un ensemble de nouvelles façons de construire de jolies applications, fonctionnelles, rapides, et maintenables.
+
+Les prochaines parties porteront sur les contrôleurs, le routage, la gestion des templates et bien d'autres aspects.
+
+
+
+
+
+
+
