@@ -1,0 +1,75 @@
+==== Curl bench === 
+
+ Check a Website Response Time from the Linux Command Line
+
+￼ 
+Test you website response time from the Linux command line with CURL.
+
+Total website response time
+Use the following command to get a total response time, in seconds.
+$ curl -s -w %{time_total}\\n -o /dev/null http://www.shellhacks.com
+
+Sample output :
+
+0,117
+Brief options description :
+
+Option	Description
+-s	Quiet mode. Don't show progress meter or error messages
+-w	Defines what to display on stdout after a completed and successful operation
+-o	Write output to '/dev/null'
+time_total	The total time, in seconds, that the full operation lasted
+Detailed timing of a website response
+The following command returns lookup, connect, pretransfer, starttransfer time in seconds and the total time that the full operation lasted.
+$ curl -s -w '\nLookup time:\t%{time_namelookup}\nConnect time:\t%{time_connect}\nPreXfer time:\t%{time_pretransfer}\nStartXfer time:\t%{time_starttransfer}\n\nTotal time:\t%{time_total}\n' -o /dev/null http://www.shellhacks.com
+
+Sample output :
+
+Lookup time:    0,004
+Connect time:   0,022
+PreXfer time:   0,022
+StartXfer time: 0,068
+
+Total time:     0,125
+Brief options description :
+
+Option	Description
+Lookup time (time_namelookup)	The time, in seconds, it took from the start until the name resolving was completed
+Connect time (time_connect)	The time, in seconds, it took from the start until the TCP connect to the remote host was completed
+PreXfer time (time_pretransfer)	The time, in seconds, it took from the start until the file transfer was just about to begin. This includes all 'pre-transfer' commands and negotiations that are specific to the particular protocol(s) involved
+StartXfer time (time_starttransfer)	The time, in seconds, it took from the start until the first byte was just about to be transferred. This includes 'time_pretransfer' and also the time the server needed to calculate the result
+More detailed timing of a website response
+The following command adds appconnect and redirect time in seconds, to the previous report. These options are available in a latest versions of CURL.
+
+￼
+ 
+$ curl -s -w '\nLookup time:\t%{time_namelookup}\nConnect time:\t%{time_connect}\nAppCon time:\t%{time_appconnect}\nRedirect time:\t%{time_redirect}\nPreXfer time:\t%{time_pretransfer}\nStartXfer time:\t%{time_starttransfer}\n\nTotal time:\t%{time_total}\n' -o /dev/null http://www.shellhacks.com
+
+Sample output :
+
+Lookup time:    0,003
+Connect time:   0,020
+AppCon time:    0,000
+Redirect time:  0,000
+PreXfer time:   0,020
+StartXfer time: 0,963
+
+Total time:     1,001
+Brief options description :
+
+Option	Description
+AppCon time (time_appconnect)	The time, in seconds, it took from the start until the SSL/SSH/etc connect/handshake to the remote host was completed (Added in 7.19.0)
+Redirect time (time_redirect)	The time, in seconds, it took for all redirection steps include name lookup, connect, pretransfer and transfer before the final transaction was started. 'time_redirect' shows the complete execution time for multiple redirections. (Added in 7.12.3)
+Use --version to see if your CURL supports these options.
+$ curl --version
+
+Response Times : The 3 Important Limits
+Short note for your information.
+
+0.1 second - is about the limit for having the user feel that the system is reacting instantaneously, meaning that no special feedback is necessary except to display the result;
+1.0 second - is about the limit for the user's flow of thought to stay uninterrupted, even though the user will notice the delay. Normally, no special feedback is necessary during delays of more than 0.1 but less than 1.0 second, but the user does lose the feeling of operating directly on the data;
+10 seconds - is about the limit for keeping the user's attention focused on the dialogue. For longer delays, users will want to perform other tasks while waiting for the computer to finish, so they should be given feedback indicating when the computer expects to be done. Feedback during the delay is especially important if the response time is likely to be highly variable, since users will then not know what to expect.
+
+
+ for i in $(seq -w 1 9 ) ; do echo " test number $i == : " ; curl -s -w '\nLookup time:\t%{time_namelookup}\nConnect time:\t%{time_connect}\nPreXfer time:\t%{time_pretransfer}\nStartXfer time:\t%{time_starttransfer}\n\nTotal time:\t%{time_total}\n' -o /dev/null http://picda.ilius.net ; done
+
