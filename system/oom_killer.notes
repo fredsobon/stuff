@@ -1,0 +1,29 @@
+=== notes out of memory killer : ===
+
+
+http://backdrift.org/oom-killer-how-to-create-oom-exclusions-in-linux
+
+When a linux machine runs low on memory the kernel will begin killing processes to free up ram. This is called the OOM Killer. OOM stands for out of memory. Unfortunately, the Linux kernel OOM killer often kills important processes. On numerous occasions my system has become completely hosed once OOM killer rears it’s ugly head. Luckily, you can tell the kernel to never OOM kill certain processes by supplying a list of pid numbers. If you’re running a system with high memory pressure, and want to ensure that important processes (sshd for instance) are never killed, these options may be of use to you.
+
+Telling the OOM killer to ignore a process
+Disabling OOM killer is done on a process by process basis, so you’ll need to know the PID of the running process that you want to protect. This is far from ideal, as process IDs can change frequently, but we can script around it.
+
+As documented by http://linux-mm.org/OOM_Killer: “Any particular process leader may be immunized against the oom killer if the value of its /proc/$pid/oom_score_adj is set to the constant OOM_DISABLE (currently defined as -17).”
+
+This means we can disable OOM killer on an individual process, if we know its PID, using the command below:
+
+# OOM_DISABLE on $PID
+echo -17 > /proc/$PID/oom_score_adj
+Using pgrep we can run this knowing only the name of the process. For example, let’s ensure that the ssh listener doesn’t get OOM killed:
+
+pgrep -f "/usr/sbin/sshd" | while read PID; do echo -17 > /proc/$PID/oom_score_adj; done
+Here we used pgrep to search for the full command line (-f) matching “/usr/sbin/sshd” and then echo -17 into the procfs entry for each matching pid.
+
+In order to automate this, you could run a cron regularly to update the oom_score_adj entry. This is a simple way to ensure that sshd is excluded from OOM killer after restarting the daemon or the server.
+
+#/etc/cron.d/oom_disable
+*/1 * * * * root pgrep -f "/usr/sbin/sshd" | while read PID; do echo -17 > /proc/$PID/oom_score_adj; done
+The above job will run every minute, updating the oom_adj of the current process matching /usr/sbin/sshd. Of course this could be extended to include any other processes you wish to exclude from OOM killer.
+
+I recommend disabling OOM killer at the individual processes level rather than turning it off system-wide. Disabling OOM killer altogether will cause your system to kernel panic under heavy memory pressure. By excluding critical administrative processes you should at least be able to log in to troubleshoot high memory use.
+
