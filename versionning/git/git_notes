@@ -159,9 +159,81 @@ On retrouve nos fichiers et rep de conf versionnés une fois clonés :
 repositories/lapin_legacy$ ls 
 auth.conf  autosign.conf  bin  extdatas  fileserver.conf  manifests  modules  puppet.conf  tagmail.conf
 
+# git branch 
+
+on peut être ammener à faire une modif complexe qu'on peut faire relire par un collegue : pour cela afin de préserver les élements on peut créer une branche ( copie de notre arbo concernée ) :
+
+exemple on modifie un valeur dans un fichier d'un repertoire versionne sur une branche de production :
+
+boogie@boogie:~$ cd appli/
+1/
+on examine les branches dans laquelle on est : 
+boogie@boogie:~appli$ git branch
+* production
+
+2/ on créee une branche que l'on nomme comme on veut : 
+boogie@boogie:appli$ git checkout -b fix_ttl
+Basculement sur la nouvelle branche 'fix_ttl'
+on voit bien la creation de notre nouvelle branche 
+boogie@boogie:~appli$ git branch
+* fix_ttl
+  production
+3/ on push notre conf : 
+boogie@boogie:~appli$ vi manifests/front/install.pp 
+boogie@boogie:~appli$ git add manifests/front/install.pp 
+boogie@boogie:~appli$ git commit -m '[nscd] - change ttl' 
+[fix_ttl_pay 05be74f] [nscd] - change ttl
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+on voit un message d'avertissement : 
+
+boogie@boogie:~appli$ git push 
+warning: push.default n'est pas défini ; sa valeur implicite a changé dans Git 2.0
+de 'matching' vers 'simple'. Pour supprimer ce message et maintenir
+le comportement actuel après la modification de la valeur de défaut, utilisez :
+
+  git config --global push.default matching
+
+Pour supprimer ce message et adopter le nouveau comportement maintenant, utilisez :
+
+  git config --global push.default simple
+
+Quand push.default vaudra 'matching', git poussera les branches locales
+sur les branches distantes qui existent déjà avec le même nom.
+
+Depuis Git 2.0, Git utilise par défaut le comportement plus conservatif 'simple'
+qui ne pousse la branche courante que vers la branche distante correspondante
+que 'git pull' utilise pour mettre à jour la branche courante.
+ 
+Voir 'git help config' et chercher 'push.default' pour plus d'information.
+(le mode 'simple' a été introduit dans Git 1.7.11. Utilisez le mode similaire
+'current' au lieu de 'simple' si vous utilisez de temps en temps d'anciennes versions de Git)
+
+fatal: La branche courante fix_ttl n'a pas de branche amont.
+Pour pousser la branche courante et définir la distante comme amont, utilisez
+
+    git push --set-upstream origin fix_ttl
 
 
+On va donc utiliser la commande suivante : 
 
+boogie@boogie:~appli$ git push --set-upstream origin fix_ttl
+Décompte des objets: 30, fait.
+Delta compression using up to 4 threads.
+Compression des objets: 100% (16/16), fait.
+Écriture des objets: 100% (30/30), 3.34 KiB | 0 bytes/s, fait.
+Total 30 (delta 22), reused 19 (delta 14)
+remote: 
+remote: Create merge request for fix_ttl:
+remote:   https://gitlab.net/puppet/merge_requests/new?merge_request%5Bsource_branch%5D=fix_ttl
+remote: 
+To git@gitlab.meetic.ilius.net:infra-prod/puppet.git
+ * [new branch]      fix_ttl -> fix_ttl
+La branche fix_ttl est paramétrée pour suivre la branche distante fix_ttl depuis origin.
+
+On va donc ensuite cliquer sur le lien qui va ouvrir notre navigateur et remplir notre demande de merge request :
+
+ https://gitlab.net/puppet/merge_requests/new?merge_request%5Bsource_branch%5D=fix_ttl
 
 ### 
 Glossaire Git 
