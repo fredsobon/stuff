@@ -774,5 +774,103 @@ Les sets ne sont ni slicable, ni mutable mais ils sont itérables :
 5
 6
 
+== les fichiers : ==
+
+on peut faire toute une serie d'action sur les fichiers :
+
+- open : la fonction open va nous permettre de mettre en parametres le chemin absolu du fichier que l'on veut lire. On rajoutera les options voulues :
+-> read
+-> write ( ecrase le contenu s'il y en a dejà)
+-> append ( rajoute le contenu à la suite de notre fichier s'il y en a dejà)
+
+
+>>> fichier = open('/tmp/file.txt')
+>>> type(fichier)
+<class '_io.TextIOWrapper'>
+
+
+- read : on va donner le nombre de caractere que l'on veut lire de notre fichier :
+
+>>> texte = fichier.read(4)
+>>> texte
+'boog'
+
+en relancant la commande : on aura les 100 caracteres suivants : c'est comme ci on s'arrêtait de lire puis qu'on reprenait la lecture après le curseur :
+
+>>> texte = fichier.read(4)
+>>> texte
+'ie\nl'
+
+En continuant on va ainsi parcourir le fichier : quand il n'ya plus rien a lire alors le resultat est une chaine vide :
+
+>>> texte = fichier.read(30000)
+>>> texte
+''
+
+Si on veut relire le fichier il faut donc remettre le "curseur" à 0 avec l'option seek :
+
+>>> fichier.seek(0)
+0
+
+cette fois si on recommence on a donc la possibilité de relire notre fichier :
+>>> texte = fichier.read(400)
+>>> texte
+
+'boogie\nlapin\nle kiki de son pepere!\n\n'
+
+Le plus simple pour lire un fichier est de faire une boucle for :
+
+on va utiliser un parametre de print qui va nous permettre de supprimer le saut de ligne typique de print en le remplacant par un espace : 
+
+print(line, end = ' ')
+
+>>> fichier.seek(0)
+0
+>>> for line in fichier:
+...     print(line, end = '')
+... 
+boogie
+ lapin
+ le kiki de son pepere!
+
+-> write :
+on va pouvoir permettre l'edition de notre fichier :
+on "rembobine" notre fichier :
+
+>>> fichier.seek(0)
+0
+On définie un fichier q'on ouvre en mode écriture :
+>>> fichier = open('/tmp/file.txt', 'w')
+on ecrit dans notre fichier :
+>>> fichier.write("hello !!")
+8
+on ferme ensuite notre fichier avec la methode close :
+>>> fichier.close()
+
+Attention le mode write ecrase tout le contenu précédent du texte : 
+>>> fichier = open('/tmp/file.txt')
+>>> texte = fichier.read(400)
+>>> texte
+'hello !!'
+
+Si on veut continuer à alimenter notre fichier il faut passer en mode "append" :
+>>> fichier = open('/tmp/file.txt', 'a')
+>>> fichier.write("hello !!hello !! yes we're polite")
+33
+>>> fichier.close()
+>>> fichier = open('/tmp/file.txt')
+>>> texte = fichier.read(400)
+>>> texte
+"hello !!hello !!hello !! yes we're polite"
+
+Pour lire des fichiers autres que "pur" texte on va ouvrir le fichier en mode binaire b et en lecture :
+
+>>> fichier = open('/tmp/hello.odt', 'rb')
+>>> fichier.read()
+b'PK\x03\x04\x14\x00\x00\x08\x00\x00z\x92PI^\xc62\x0c\'\x00\x00\x00\'\x00\x00\x00\x08\x00\x00\x00mimetypeapplication/vnd.oasis.opendocument.textPK\x03\x04\x14\x00\x00\x08\x00\x00z\x92PIS \x97\x0fv\x01\x00\x00v\x01\x00\x00\x18\x00\x00\x00Thumbnails/thumbnail.png\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\xb5\x00\x00\x01\x00\x08\x03\x00\x00\x00\xc2\xfd\xc7\xe9\x00\x00\x00EPLTE\x8b\x91\x95\x94\x97\x9b\x9e\xa1\xa0\xa4\xa6\xad\xa7\xa8\xa8\xad\xa4\xa2\xaa\xab\xae\xb6\xb2\xb6\xb7\xb3\xb
+...
+.....
+on voit que les fichiers riches (comme ici openoffice ) sont complexes et que l'utilisation de bibliotheques anexes.
+
 
 
