@@ -1,0 +1,61 @@
+=== notes irules bigip : ===
+
+/!\ Nb : notes relatives à la version 11.6.1 de l'os :
+
+== Introduction :
+Les irules utilisent le language tcl et permettent de manager le traffic de notre réseau . On peut par exemple selectionner un pool de servers en examinant les headers de nos données mais également de diriger le traffic en cherchant n'importe quel type de contenu que nous avons defini.
+doc de ref pour le tcl :  http://tmml.sourceforge.net/doc/tcl/index.html
+Une irule est un script qu'on ecrit si on veut diriger des flux vers un pool cible different que le pool par defaut defini dans notre virtual server.
+On peut rediriger les flux vers :
+- des pools
+- des members de pool
+- des ports
+- des uri 
+Les irules peuvent aussi être utilisées pour etablir de la persistance (session ..)
+
+Les irules peuvent être simples ou vraiment compliquées : cela va dépendre de notre besoin particulier de swiching. 
+
+ex :
+ici l'irule va être appliquée si les connexions clientes sont acceptées , que l'ip du client est la 10.10.10.10 : dans ce cas les flux du ltm (local traffic manager) sont dirigés vers le pool my_pool :
+
+when CLIENT_ACCEPTED {
+	if { [IP::addr [IP::client_addr] equals 10.10.10.10] } {
+	pool my_pool
+	}	
+}	
+
+En utilisant le mecanisme de "Universal Inspection Engine" on peut ecrire une irule qui cherche dan le header ou dans le contenu de notre packet.
+On peut egalement utiliser les irules apres le resultat d'une authentification.
+
+Quand on utilise une irule on doit absolument utiliser le path complet de l'objet.
+
+
+= irule commandes :
+
+Une commande d'irule dans une irule va permettre au ltm de faire une action :
+comme rechercher une donnée, manipuler une donnée, definir une redirection de traffic:
+
+- commande de declaration :
+elle vont definir une action comme etablir un pool de destination, assigner une adresse de SNAT ....
+ex :
+on va assigner le traffic a un pool nommé :
+pool <name> 
+
+- commande de recherche ou de manipulation de données :
+Certaines commandes vont rechercher des patterns definis dans les headers, dans le contenu de notre packet.
+D'autres vont insérer du contenu dasn nos packets : exemple ajouter un header 
+
+ex : commande de requette :
+IP::remote_addr : on va chercher et afficher l'ip de notre connection distante.
+ex : commande de manipulation de données :
+HTTP::header remove <name> : on va retirer la derniere occurence de notre header nommé.
+
+- commande utilitaire :
+ces commandes sont des fonctions utilisées pour parser ou manipuler des données 
+ex : commande d'utilitaire 
+decode_uri <string>  : on va decoder le nom de la chaine 
+
+
+
+
+
