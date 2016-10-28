@@ -1,0 +1,91 @@
+
+Le bus d'événement est un système orienté message :
+les messages sont centralisés dans un seul système, facilitant l'intégration de nouveaux systèmes destinataires.
+
+Celui utilise un système de communication où les émetteurs/recepteurs ne doivent pas forcement être au courant les uns des autres : 
+L'émetteur (producer) ne connait que le bus et le nom de la file de message sur lequel envoyé l'événement. 
+Le souscripteur (consumer) s'inscrit à la file de message, ne recevant que ce qu'il n'a pas déjà recu.
+
+Typiquement un système de type publication-souscription.
+
+Le bus permet les consumers au fil de l'eau et en mode batché.
+
+Composants
+Dropwizard-kafka-http
+Dropwizard-kafka-http est une interface REST pour kafka.
+L'intérêt de cette brique est de permettre la production de messages dans Kafka via HTTP. (les libs kafka pour php n'étant pas satisfaisante).
+Ce composant est interne à Meetic, Dropwizard étant un framework pour créer des rest-api.
+L'application écoute sur le port 8080 et présente une interface web de status/statistiques sur le port 8081.
+Son accès se fait par load-balancer en round robin (sans session).
+
+Apache Kafka :
+
+Apache Kafka est un système orienté message de type publication-souscription, créé par LinkedIn, et en java, pour collecter et distribuer de grosses volumétrie de message avec une faible latence.
+Kafka fournit un service de messaging un peu particulier. Il emploie des files de messages appelées topics pour mettre à disposition les données. Ces topics sont sequences ordonnés de messages. Chaque message se voit attribuer un identifiant sequentiel (offset).
+Kafka conserve tous les messages publiés, qu'ils aient été consommés ou pas, jusqu'à une durée de rétention définie (7 jours par défaut dans notre cas). Lors de la consommation d'un message, les consommateurs changent uniquement leurs positions (qui n'est d'une metadata : offset) dans la topic, aucune donnée n'est déplacé, ni dupliquée. Ce mécanisme simple permet à Kafka de n'être que très peu impactés par l'ajout de consommateurs.
+De plus, les consommateurs peuvent appartenir à un groupe de consommateur. Un sein d'un même groupe, le message ne sera consomme qu'une seule fois, par un seul membre du groupe.
+
+Kafka est dit distribué, les files de message pouvant être reparties sur plusieurs serveurs (brokers). Un message donné ne pourra être produit et consommé que sur le broker kafka leader de la topic.
+
+Un topic kakfa peut être partitionnée, c'est-à dire les données d'un topic seront reparties sur des sortes de sous files de messages identifiés par la topic et un numéro de partitions. Ces partitions sont indépendantes entre elles. Elles peuvent être gérées par des brokers différents, permettant la scalabilité de la solution.
+
+La version 0.8 de kafka a introduit la réplication intra-cluster : chaque partition peut se voir synchroniser ses données sur plusieurs brokers dit followers. La bascule d'un broker leader vers un broker réplicant se fait automatiquement si le leader est déclaré hors service.
+
+
+Exemple de production et consommation sur un topic :  exemple d'un topic
+
+Dans cet exemple, on peut voir l'utilisation d'un topic, partitionnées en 3. Il est consommé par 2 groupes de consommateurs :
+le seul membre du groupe X consommera la totalité des événements de ce topic.
+les membres du groupe Y traiteront uniquement 1/3 des messages du même topic.
+
+L'accès au service kafka se fait en contactant au moins un des brokers kafka, qui donnera au client la topologie du cluster.
+Le service kafka est accessible via un protocole binaire sur le port 9092. Et son interface de métrologie jmx est disponible sur le port 9999.
+
+Apache Zookeeper
+Apache Zookeeper est un service de coordination pour les applications distribuées, en java. Il est utilisé par Kafka :
+pour élir les leadership.
+pour partage la topologie du cluster Kafka : (liste des brokers dans le cluster, leadership et réplicant des topics).
+pour stocker les offset de chaque consommateur (ou groupe).
+Dans notre cas, les noeuds Zookeeper forment un seul ensemble (cluster) Zookeeper, réparti sur les 2 datacenters. Or dans le cas de coupure d'interconnexion datacenter, le cluster, avec 2 ensembles isolés de même nombre de serveurs (sans quorum), sera en situation de partitionnement sans pour pouvoir décider quel broker peut passer leader. Nous avons choisi, afin de moins se soucier du nombre pair ou impairs dans le cluster, de mettre un poids plus important sur un ou plusieurs serveurs d'un des datacenters.
+Par exemple: avec 3 serveurs sur chaque site, on pourra mettre un poids de 2 sur le 1er serveur du site de Bessieres. Le cluster Zookeeper aura alors un nombre de votants impair, 7, le serveur 1 comptant pour 2. Alors en cas de coupure d'interco, le site maitre sera Bessieres, avec ses 4 voix, les serveur des Ulis se mettront en maintenance. Si l'on souhaite basculer sur le site des Ulis, la configuration sera manuelle et une relance des services nécessaire (cf proc d'exploitation).
+
+Ce service ouvre le port :
+2181 pour son service
+2182 pour la réplication
+2183 pour l'élection de leader
+9998 pour son interface de métrologie jmx
+
+
+Monitoring :
+
+sitescope / imon4 / eventbus
+Check Service Dropwizard-Kafka-Http : controle l'état du service Dropwizard-Kafka-Http sur chaque serveur, en utilisant l'interface de status, le status doit etre "OK" ni avoir de lock.
+Check Service Zookeeper : controle l'état du service de chaque serveur, en utilisant la commande ruok de zookeeper
+Check Service Kafka : controle l'état du service kafka
+Check Partition Balancing - Kafka : controle que le leader de chaque topic soit bien le noeud déclaré "préféré" (1er replica)
+Check Under Replicated Partitions - Kafka : controle chaque topic ait le nombre de réplica (copie) demandé.
+
+Dropwizard-kafka-http :
+Localisation : Munin / dw-kafka-http
+indicateurs jvm (memory, threads)
+nombre de requetes par seconde
+nombre de requetes par code HTTP par seconde
+temps pris pour faire une requete (max, moyenne , 99th)
+
+
+Kafka
+Localisation : Munin / kafka
+indicateurs jvm complets
+nombre de requetes par type de client (consumer, follower)
+nombre de requetes en échec par type de client (consumer, follower)
+temps des requetes par type de client (consumer, follower) (max, moyenne, 99th)
+débit entrant/sortant
+indicateurs sur la topologie du cluster (nombre de leader, partitions sous repliquées et nombre de partitions)
+
+
+Documentation & Liens
+
+kafka.apache.org : https://kafka.apache.org/
+wiki : https://cwiki.apache.org/confluence/display/KAFKA/Index
+zookeeper.apache.org  : https://zookeeper.apache.org/
+
