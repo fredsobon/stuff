@@ -1,0 +1,133 @@
+votre dépôt local est composé de trois "arbres" gérés par git. le premier est votre espace de travail qui contient réellement vos fichiers. le second est un Index (suite a un add) qui joue un rôle d'espace de transit pour vos fichiers et enfin HEAD (suite a un commit) qui pointe vers la dernière validation que vous ayez fait.
+workingDir   ==add==> Index(Stage) ==commit==> HEAD
+Vos changements sont maintenant dans le HEAD de la copie de votre dépôt local. Pour les envoyer à votre dépôt distant, exécutez la commande
+git push origin master
+ 
+les untrack file:
+quand je suis sur une branche et je crée de fichiers sont dans la categorie untrack files ==> cad je vais voir ces fichiers dans toutes les branches et elle ne sont pas geres par git ==> cad si je les supprime il vont disparaitre de toutes les branches. ==> pour les ajouter a une branche je fais git add, git commit ( et si on veut git push origin branchname) , une fois ajouter aune branche il disparaissent de toutes les autres branches.
+ 
+git help
+git help branch
+ 
+git ls-remote $REPO_URL $BRANCH_NAME: Check if la branche distante dur le repo existe, renvoie nom de branche:
+git ls-remote: renvoie les branch distantes.
+ 
+git config remote.origin.url: affiche l'adresse du repo git
+git tag -l <pattern>:  List tags with names that match the given pattern (or all if no patternis given). Running "git tag" without arguments also lists all tags.
+git tag -- help
+delete tag: git tag -d tag111
+git tag -d tag1 tag2 tag3 tag4
+delete tag from remote and local:
+git tag -d 12345
+git push origin :refs/tags/12345
+ 
+git init :  commencez à suivre un projet existant dans Git,
+git clone: obtenir une copie d'un dépôt Git existant example: git clone git://github.com/schacon/grit.git
+git config: spécifier les paramètres de configuration de Git
+                    git config user.email "releasemanager@meetic-corp.com"
+                git config user.name "Release Manager"
+ 
+to show:
+git config user.name
+or
+git config --list
+ 
+Finally, you can also see your Git username in the Git configuration file in your HOME directory on Unix systems, i.e., this file:
+ 
+~/.gitconfig
+ 
+git remote: liste les noms des différentes references distantes, Si vous avez cloné un dépôt, vous devriez au moins voir l'origine origin — c'est-à-dire le nom par défaut que Git donne au serveur à partir duquel vous avez cloné :
+Pour ajouter un nouveau dépôt distant Git comme nom court auquel il est facile de faire référence, lancez git remote add [nomcourt] [url] :
+git config remote.origin.url: affiche l'url du remote
+git remote -v: afficher les dépôts git avec leur adresses.
+git remote rm origin:
+cloner dating en local et le pusher vers nouveau git
+issam@issam-VirtualBox:~/work/2016/09/15$ git clone --bare i.harrathi@git.dating.dev:/mcorp/data/git/dating.git
+issam@issam-VirtualBox:~/work/2016/09/15/dating.git$ git remote -v
+origin    i.harrathi@git.dating.dev:/mcorp/data/git/dating.git (fetch)
+origin    i.harrathi@git.dating.dev:/mcorp/data/git/dating.git (push)
+issam@issam-VirtualBox:~/work/2016/09/15/dating.git$ git remote rm origin
+issam@issam-VirtualBox:~/work/2016/09/15/dating.git$ git remote -v
+issam@issam-VirtualBox:~/work/2016/09/15/dating.git$ git remote add origin i.harrathi@xinflibdv99uv:infra-prod/dating.git
+issam@issam-VirtualBox:~/work/2016/09/15/dating.git$ git remote -v
+origin    i.harrathi@xinflibdv99uv:infra-prod/dating.git (fetch)
+origin    i.harrathi@xinflibdv99uv:infra-prod/dating.git (push)
+issam@issam-VirtualBox:~/work/2016/09/15/dating.git$
+# on push tous le repo vers dating
+issam@issam-VirtualBox:~/work/2016/09/15/dating.git$ git push --mirror git@xinflibdv99uv:infra-prod/dating.git
+ 
+ 
+supprimer le remote origin: Example:
+git remote -v
+# View current remotes
+origin  https://github.com/OWNER/REPOSITORY.git (fetch)
+origin  https://github.com/OWNER/REPOSITORY.git (push)
+destination  https://github.com/FORKER/REPOSITORY.git (fetch)
+destination  https://github.com/FORKER/REPOSITORY.git (push)
+ 
+git remote rm destination
+# Remove remote
+git remote -v
+# Verify it's gone
+origin  https://github.com/OWNER/REPOSITORY.git (fetch)
+origin  https://github.com/OWNER/REPOSITORY.git (push)
+ 
+git remote add origin git@gitlab.meetic.ilius.net:infra-prod/hiera.git:     ajouter le dépôt origin avec comme source gitlab...
+git config remote.origin.url: affiche l'adresse de depot distant
+issam@issam-VirtualBox:~/work/2016/02/16/ilius-deployer$ git config remote.origin.url
+git@gitlab.meetic.ilius.net:indus-deploy/ilius-deployer.git
+issam@issam-VirtualBox:~/work/2016/02/16/ilius-deployer$
+git reset: git reset --hard: revenir a l'eat du dernier commit (cad ignorer mes modifuication en local) comme ci je supprime le git et je le recrée.
+ 
+git diff
+pour voir la différence entre l'etat actuel (dernier commit ) et un commit en particulier dans le passé: git log pour voir les commit ensuite: git diff 2ef7969ecc083bb2f1c55a3830b2
+git diff permet d’afficher un diff, mais compte tenu des 3 états possibles d’une modification, qui peut être dans le répertoire de travail (working directory), dans l’index (staging area) ou dans le repository, il faut toujours faire attention a ce qu’on compare :
+ 
+* git diff tag1 tag2: difference between 2 tag.
+* git diff tagged_idea: ... and see the diff between your current HEAD and a tag tagged_idea, wherever the latter resides (cad le tag peut etre dans working dir, index , ou HEAD) ou meme pas dans la branche.
+* git diff: donne le diff de ce qui est modifié mais pas encore dans l’index(before add). C’est donc le diff entre le répertoire de travail et l’index. Dès qu’on fait git add sur un fichier modifié, il n’apparait plus dans le diff donné par cette commande.
+* git diff --cached:  donne le diff entre l’index et le repository (?distant?). Ça donne donc le diff de ce qui est prêt à commit.
+* git diff HEAD:  donne le diff de l’état courant par rapport au HEAD, donc inclue tout ce qui est tracked (staged et unstaged). C’est le diff de tout ce qui est versionné, entre le répertoire de travail et le repository.
+* git diff HEAD^: donne le diff entre le HEAD et la révision précédente (. Ce sont les modifications du dernier commit, donc (sauf déplacement du HEAD entre temps).
+Quelques options utiles pour git diff :
+*
+ 
+git diff -b permet d’ignorer les différences d’espaces et d’identation
+git diff -w permet d’ignorer les différences d’espaces et identation au sein de la même ligne, mais indique quand même les lignes vides ajoutées ou supprimées
+git diff --stat donne les statistiques de modification par dossier. git diff --stat HEAD~4 donne les statistiques de modification entre e HEAD et 4 commits avant.
+git diff --dirstat donne les statistiques de modification reparties par dossiers. C’est utile pour avoir un aperçu de l’impact d’un lot de commit, sans entrer dans le détail
+git diff --name-only :Show only names of changed files.
+ 
+git fetch: git-fetch - Download objects and refs from another repository: telecharge les informations sans les ajouter au repo locale: il sont la mais ne font pas partie de mon repo, ni d'aucune branche (!! si j'ai bien compris ils sont dans le working dir, mais pas dans Index ou Head) When you fetch, Git gathers any commits from the target branch that do not exist in your current branch and stores them in your local repository. However, it does not merge them with your current branch. This is particularly useful if you need to keep your repository up to date, but are working on something that might break if you update your files. To integrate the commits into your master branch, you use merge.
+git checkout: créer une  branche nommée "feature_x" et passer dessus pour l'utiliser [git checkout -b feature_x] retourner sur la branche principale git checkout master.
+et supprimer la branche git branch -d feature_x
+git branch:   
+-D           :           Delete a branch irrespective of its merged status.
+-f            :              Reset <branchname> to <startpoint> if <branchname> exists already. Without -f git branch refuses to change an existing branch.
+-a            :              List both remote-tracking branches and local branches.
+ 
+ 
+git pull: pour mettre à jour votre dépôt local vers les dernières validations, exécutez la commande git pull dans votre espace de travail pour récupérer et fusionner les changements distants. ( si j'ai bien compris il modifie mon HEAD, cad merge mon HEAD avec le repo distant)
+git push: 
+ 
+Example:
+git push origin :experimental         ==>           Find a ref that matches experimental in the origin repository (e.g.  refs/heads/experimental), and delete it.
+git push origin master                                    ==>             Find a ref that matches master in the source repository (most likely, it would find refs/heads/master), and update the same ref (e.g.  refs/heads/master)    in origin repository with it. If master did not exist remotely, it would be created.
+git push origin issam ==> la branche issam n'existe que sur le local, après travail et je suis sur la branche issam, je fais un git push pour en voyer cette branche a u depot.
+ 
+git push origin tag1     ==> push le tag tag1
+ 
+ 
+ 
+ 
+git merge:  pour fusionner une autre branche avec la branche active (par exemple master), utilisez git merge <branch>
+dans les deux cas, git tente d'auto-fusionner les changements. Malheureusement, ça n'est pas toujours possible et résulte par des conflits. Vous devez alors régler ces conflits manuellement en éditant les fichiers indiqués par git. Après l'avoir fait, vous devez les marquer comme fusionnés avec
+git add <filename>
+après avoir fusionné les changements, vous pouvez en avoir un aperçu en utilisant
+git diff <source_branch> <target_branch>
+ 
+git rev-list: Lists commit objects in reverse chronological order. ex: git rev-list
+git rev-parse:  One common usage of git rev-parse is to print the SHA1 hashes given a revision specifier. In addition, it has various options to format this output such as --short for printing a shorter unique SHA1.
+!! je crois print hash du dernier commit sur la branche!!
+example git rev-parse master || git rev-parse origin/master
+
