@@ -7,6 +7,63 @@ Celui utilise un système de communication où les émetteurs/recepteurs ne doiv
 L'émetteur (producer) ne connait que le bus et le nom de la file de message sur lequel envoyer l'événement. 
 Le souscripteur (consumer) s'inscrit à la file de message, ne recevant que ce qu'il n'a pas déjà recu.
 
+
+- Publish / Subscribe Messaging : 
+
+est donc une méthode caractérisée par le publisher d'une donnée (message) mais sans l'envoyer directement au receiver.
+A la place le publisher classifie les message d'une certaine manière et le receiver souscrit (subscribe) pour recevoir certain type de message en fonction de ses besoins. 
+Ce systeme pub/sub utilise souvent un broker : un point central ou les messages sont publiés.
+
+Kafka est un system de publication /souscription de message souvent désigné comme un "log de commit distribué"
+Un commit de log distribué de systeme ou bdd est fait pour être potentiellement rejoué. Dela même manière les données dans kafka sont stockées durablement. 
+
+- Message : 
+
+L'unité de base dans kafka est le message (l'analogie avec une bdd serait un enregistrement / record) qui est un tableau de bytes mais il n'y a pas de format particulier mais on peut avoir un parametre additionnel une clé qui est elle même un tableau de bytes sans format particulier.
+Les clés sont utilisées quand les messages doivent être écrit sur différentes partitions.
+
+Pour plus d'efficacité les messages sont rassemblés en batchs : qui sont donc des collections de messages et tout ces batchs sont produits pour le même topic et la même partition.
+Plus les batchs sont grands plus ils peuvent contenir de message mais sont donc plus long à être transférés : les batchs sontcompressés pour réduire la latence de transport.
+ 
+Les messages kafka sont opaques; ils faut cependant imposer une structure au contenu du message afin de le rendre clairement lisible : on peut utiliser json /xml voir un format dédié hadoop : Avro .
+
+- Topics :  
+
+Les messages sont catégorisés dans kafka en topics (l'analogie avec une db serait une table..)
+Les topics sont également splittés en différentes partie : les partitions (à voir comme un log de commit distribué)
+Les messages sont ecrit à la suite et lu dans un ordre partant du début à la fin.
+Un topic a donc très souvent plusieurs partitions.
+Les partitions permettent aussi la redondance et la scalabilité: chaque partition peut être définie sur un server dédié.
+
+
+- Producers and consumers :
+
+Les clients kafka sont les users systèmes et sont de deux types : producers et consumers.
+
+> producers : ils créent des messages (ce sont les publishers /editeurs). Un message va être crée pour un topic donné.
+Par défaut le producer ne se souci pas de la partition sur laquelle le message va être écrit.
+Il existe cependant certains cas ou on va vouloir ecrire notre message sur une partition donnée grâce à l'utilisation de clés et de hash et / ou d'outils partitionners.
+
+> consummers : ils lisent les messages (subscribers / readers). Le consumer s'abonne à un ou des topics et lis les mesages dans leur ordre de leur production.
+Le consumer garde la trace des message lus grâce à l'offset des messages qui est une metadata ( un entier incrémenté) que kafka ajoute à chaque messsage .
+Chaque message sur chaque partition a un offset donné.En gardant la trace de l'offset du message : un consummer peut être redémarrer et donc reprendre la lecture à l'endroit précis ou il le faut.
+Les consumers fonctionnent en groupes de consummers qui travaillent ensemble pour la conso d'un topic.Le group de consumer s'assure que chaque topic est bien consummé par un consummer par partition.
+Le mapping d'un consumer sur une partition est appellé le owner de la partition.
+On a donc une scalabilité possible pour les consummer et en cas de défaillance d'un consummer : une rebalance est faite entre les consummers du group epour continuer les services sur les partitions.
+
+- Brokers et clusters :
+
+un node seul kafka est un broker : il recoit les messages des produceurs , assigne des offsets et commit les messages sur disk.
+Il va aussi servir les consummers  en leur designant les partitions pour lire les messages et récupérer les messages des disques. En fonction des specs techniques un broker peut gérer des milliers de partitions et des millions de messages par secondes.
+Les brokers sont ammenés à travailler en cluster : dans un ensemble de broker un broker aura la fonction de cluster controller et se role se fera via une "election" . Il est responsable des opérations d'administration (assignation de partition,monitoring des pannes de broker)
+Une partition appartient a un seul broker dans un cluster et ce broker est appellé le leader de la partition.
+Une partition peut être assignée à plusieurs brokers : qui est le resultat de la répartition de partition.
+Cependant les consummers et producers ne se connectent qu'au leader du cluster.
+
+
+
+
+
 Typiquement un système de type publication-souscription.
 
 Le bus permet les consumers au fil de l'eau et en mode batché.
