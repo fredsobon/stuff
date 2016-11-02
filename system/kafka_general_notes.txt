@@ -61,6 +61,26 @@ Une partition peut être assignée à plusieurs brokers : qui est le resultat de
 Cependant les consummers et producers ne se connectent qu'au leader du cluster.
 
 
+Les avantages de kafka :
+
+-> il gere facilement plusieurs producers qu'ils utilisent plusieurs topics ou un seul. (ex: un site qui va offrir du contenu via des microservices peut avoir un seul topic pour les pages vues dont les messages seront donc ecrit dans un seul format de sortie.
+L'appli consumer pourra donc recevoir une vue des pages unifiée sna avoir a coordonner les flux de plusieurs producers.
+
+-> Kafka permet egalement d'avoir plusieurs consumers qui vont pouvoir recevoir des flux sans interferer les uns les autres. Kafka s'assure juste que le flux n'a été consommé que par un consumer : ils peuvent donc s'echanger des flux de donnees.
+
+-> Retention : les messages sont ecrits sur disques les consumers n'ont donc pas a faire du temps réel : ils pourront traiter les messages quand ils le pourront : en fonction de la date de retention sur disque des messages.
+ceci pemet don d'être safe en cas de crash de consumer et / ou de burst de traffic. On peut egalement planifier des interventions sur les consumers plus facilement.
+ 
+-> scalabilité : on peut commencer un poc avec un broker puis injecter sans impact des dizaines, centaines de nodes en clusters.
+
+
+Les uses cases :
+originallement kafka sert au tracking des users (pages vues, clicking ..mais aussi update de profil ) : les messages sont publiés en un ou plusieurs topics qui sont consummés par une application de backend.
+Des rapports sont par la suite générés.
+
+
+
+
 
 
 
@@ -72,7 +92,7 @@ Composants
 Dropwizard-kafka-http
 Dropwizard-kafka-http est une interface REST pour kafka.
 L'intérêt de cette brique est de permettre la production de messages dans Kafka via HTTP. (les libs kafka pour php n'étant pas satisfaisante).
-Ce composant est interne à Meetic, Dropwizard étant un framework pour créer des rest-api.
+Ce composant est interne à la societe lapin, Dropwizard étant un framework pour créer des rest-api.
 L'application écoute sur le port 8080 et présente une interface web de status/statistiques sur le port 8081.
 Son accès se fait par load-balancer en round robin (sans session).
 
