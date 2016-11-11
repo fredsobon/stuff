@@ -8,8 +8,11 @@
 src="/home/boogie/Documents/learn"
 dst="/media/boogie/bck_flash"
 
+
+# test de presence du montage dans proc/mounts : nb pas de "/" a la fin du pattern :
 dst_check="$(grep "${dst}" /proc/mounts 2>&1)"
 
+# test du contenu du repertoire ( si vide le retour du test est faux ) :
 [ "$(ls -A $dst)" ] && echo "Not Empty" || echo "Empty"
 
 
@@ -27,10 +30,12 @@ dst_check="$(grep "${dst}" /proc/mounts 2>&1)"
 		read -p "is this the objective ??" ans
 		echo "your answer is $ans .."
 		case "$ans" in 
-			y|Y) rsync -azvn . $dst
+			y|yes|Y|Y..) rsync -azv . $dst
 			;;
-			n|N) echo "alright ..let 's go out .."
+			n|no|N|NO) echo "alright ..let 's go out .."
 			;;
+			*) echo "please the answer should be <y|yes|Y|Y..> or n|no|N|NO ..then try again.."
+			;; 
 		esac
 		
 	fi
