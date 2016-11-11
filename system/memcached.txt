@@ -1,0 +1,355 @@
+== notes memcached =
+
+
+
+
+
+
+http://www.linuxnix.com/memcached-setup-and-tests-on-debian-ubuntu-part-1/
+http://www.linuxnix.com/memcached-setup-tests-debian-ubuntu-part-2
+
+
+
+
+== install et set up : ==
+
+
+
+Memcached is a general-purpose distributed memory caching system. It is often used to speed up dynamic database-driven websites by caching data and objects in RAM to reduce the number of times an external data source (such as a database or API) must be read.
+
+
+WHY?
+To protect user data, sessions are stored in files on the servers themselves. This has several disadvantages:
+
+The user must be sticked to a front to maintain its session
+It generates a lot of disk IO on servers
+Using Memcached to store sessions:
+
+Removes the disk IO related sessions
+Allows not to stick a user to a server (and to complete round robin on a server pool)
+INSTALL & TESTS
+We need Apache running. Let’s say Apache is listening on 192.168.1.10
+
+edit /var/www/php-info.php like below:
+
+<?php
+php phpinfo() ;
+?>
+Memcached and the PHP5 memcache module are available as packages for Debian, so we can install them as follows:
+
+apt-get install memcached php5-memcache
+After the installation, memcached should already be running. You can check that by typing
+
+server1:~# netstat -tap | grep memcached
+tcp        0      0 *:11211                 *:*                     LISTEN     3053/memcached
+As you see, memcached is running on port 11211 (the default memcached port), and it’s listening on all interfaces on the system. As memcached has no built-in authentication mechanisms (in order to not give up on speed), this means that anyone can connect to it from outside and use it. To avoid this, you can either close port 11211 in your firewall, or you configure memcached to listen on localhost only. I will use the latter method here.
+
+To do this, open the memcached configuration which is stored in /etc/memcached.conf:
+
+vi /etc/memcached.conf
+Add -l 127.0.0.1 to the configuration (you can also adjust the other settings if you like – the file contains explanations for each setting):
+[…]
+Specify which IP address to listen on. The default is to listen on all IP addresses.
+This parameter is one of the only security measures that memcached has, so make sure it’s listening on a firewalled interface.
+-l 127.0.0.1
+[…]
+
+Restart memcached and run netstat again:
+
+/etc/init.d/memcached restart
+netstat -tap | grep memcached
+again. As you see, memcached is now listening on localhost only:
+
+server1:~# netstat -tap | grep memcached
+tcp       0         0     localhost.localdo:11211         *:*           LISTEN    3092/memcached
+CLIENT SESSION
+We can use our script /var/www/php-info.php to know which php.ini is loaded
+
+
+= Config : = 
+
+
+Edit the used php.ini and search for the ‘[Session]’ area as displayed below
+
+[Session]
+; Handler used to store/retrieve data.
+; http://www.php.net/manual/en/session.configuration.php#ini.session.save-handler
+session.save_handler = files
+And change it to this:
+
+[Session]
+; Handler used to store/retrieve data.
+; http://www.php.net/manual/en/session.configuration.php#ini.session.save-handler
+session.save_handler = memcached
+session.save_path = "127.0.0.1:11211" 
+As you can see, we’ve changed the session_handler to memcached and the path to our localhost on port 11211 on which Memcached operates.
+
+Or for multiple memcached servers listening on IP1, IP2 and IP3 :
+
+[Session]
+; Handler used to store/retrieve data.
+; http://www.php.net/manual/en/session.configuration.php#ini.session.save-handler
+session.save_handler = memcached
+session.save_path = "tcp://IP1:11211, tcp://IP2:11211, tcp://IP3:11211"
+Afterwards, we restart Apache so that our new PHP configuration takes effect:
+
+/etc/init.d/apache2 restart
+Now, open php-info.php again in a browser: http://192.168.0.10/php-info.php
+
+You should now see memcache mentioned on the page which means it has successfully been integrated and is working as expected.
+
+SIMPLE APPLICATION WITH MEMCACHED
+Let’s use a simple PHP code to use memcached. Edit a new file /var/www/memcached.php
+
+Exemple : 
+
+<?php
+$memcache = new Memcache;
+$memcache->connect('127.0.0.1', 11211) or die ("Could not connect to memcache instance");
+
+$version = $memcache->getVersion();
+echo "Server's version: ".$version."<br/>\n";
+
+$tmp_object1 = new stdClass;
+$tmp_object1->str_attr = 'test';
+$tmp_object1->int_attr = 111;
+
+$tmp_object2 = new stdClass;
+$tmp_object2->str_attr = time();
+$tmp_object2->int_attr = 222;
+
+$tmp_object3 = new stdClass;
+$tmp_object3->str_attr = 'never_expires';
+$tmp_object3->int_attr = 333;
+
+echo "Store data (key1) in the cache (data will expire in 60 seconds)<br/>\n";
+$memcache->set('key1', $tmp_object1, false, 60) or die ("Failed to save data at the server");
+
+echo "Store data (key2) in the cache (data will expire in 7200 seconds)<br/>\n";
+$memcache->set('key2', $tmp_object2, false, 7200) or die ("Failed to save data at the server");
+
+echo "Store data (key3) in the cache (data will never expire)<br/>\n";
+$memcache->set('key3', $tmp_object3, false, 0) or die ("Failed to save data at the server");
+
+$get_result = $memcache->get('key1');
+
+echo "Data from the cache: key1 : <br/>\n";
+var_dump($get_result);
+
+$get_result = $memcache->get('key2');
+
+echo "<br/>Data from the cache: key2 : <br/>\n";
+var_dump($get_result);
+
+$get_result = $memcache->get('key3');
+
+echo "<br/>Data from the cache: key3 : <br/>\n";
+var_dump($get_result);
+
+?>
+
+Call the php file in the browser and if all worked well we see :
+
+
+
+== exam de status / monitoring : == 
+
+In part I of this blog we saw how to install and test Memcached.
+In this part, we will see how to use this amazing software in command line.
+
+MEMCACHED-TOOL
+We can use the default script memcached-tool
+
+/usr/share/memcached/scripts/memcached-tool 
+Usage: memcached-tool <host[:port] | /path/to/socket> [mode]
+       memcached-tool 10.0.0.5:11211 display    # shows slabs
+       memcached-tool 10.0.0.5:11211            # same.  (default is display)
+       memcached-tool 10.0.0.5:11211 stats      # shows general stats
+       memcached-tool 10.0.0.5:11211 dump       # dumps keys and values
+DISPLAY
+/usr/share/memcached/scripts/memcached-tool 127.0.0.1:11211 display
+  #  Item_Size  Max_age   Pages   Count   Full?  Evicted Evict_Time OOM
+  3     152B        11s       1       1      no        0        0    0
+STATS
+/usr/share/memcached/scripts/memcached-tool 127.0.0.1:11211 stats
+#127.0.0.1:11211   Field       Value
+         accepting_conns           1
+               auth_cmds           0
+             auth_errors           0
+                   bytes         146
+              bytes_read        9363
+           bytes_written       22531
+              cas_badval           0
+                cas_hits           0
+              cas_misses           0
+               cmd_flush           0
+                 cmd_get          92
+                 cmd_set          82
+               cmd_touch           0
+             conn_yields           0
+   connection_structures           7
+        curr_connections           5
+              curr_items           1
+               decr_hits           0
+             decr_misses           0
+             delete_hits           1
+           delete_misses           0
+       evicted_unfetched           0
+               evictions           0
+       expired_unfetched           0
+                get_hits          87
+              get_misses           5
+              hash_bytes      524288
+       hash_is_expanding           0
+        hash_power_level          16
+               incr_hits           0
+             incr_misses           0
+                libevent 2.0.19-stable
+          limit_maxbytes    67108864
+     listen_disabled_num           0
+                     pid       23989
+            pointer_size          64
+               reclaimed          17
+            reserved_fds          20
+           rusage_system   74.119732
+             rusage_user   94.034704
+                 threads           4
+                    time  1433928279
+       total_connections          52
+             total_items          82
+              touch_hits           0
+            touch_misses           0
+                  uptime     2940441
+                 version      1.4.13
+DUMP
+/usr/share/memcached/scripts/memcached-tool 127.0.0.1:11211 dump
+Dumping memcache contents
+  Number of buckets: 1
+  Number of items  : 1
+Dumping bucket 3 - 1 total items
+add key3 1 1430987838 76
+O:8:"stdClass":2:{s:8:"str_attr";s:13:"never_expires";s:8:"int_attr";i:333;}
+MAKING A CONNECTION WITH TELNET
+To make a connection to Memcached using Telnet, use the following command:
+
+[user@server]$ telnet localhost 11211
+ Trying 127.0.0.1...
+ Connected to localhost.
+ Escape character is '^]'.
+If at any time you wish to terminate the Telnet session, simply type “quit” and hit return:
+
+quit
+ Connection closed by foreign host.
+ [user@server]$
+ACCESSING STATISTICS
+You can get an overview of the important statistics of your Memcached server by running the stats command once connected:
+
+stats
+ STAT pid 22622
+ STAT uptime 69300
+ STAT time 1296733424
+ STAT version 1.2.5
+ STAT pointer_size 32
+ STAT rusage_user 0.117982
+ STAT rusage_system 0.145977
+ STAT curr_items 3
+ STAT total_items 10
+ STAT bytes 1174
+ STAT curr_connections 2
+ STAT total_connections 13
+ STAT connection_structures 3
+ STAT cmd_get 10
+ STAT cmd_set 10
+ STAT get_hits 9
+ STAT get_misses 1
+ STAT evictions 0
+ STAT bytes_read 4593
+ STAT bytes_written 7388
+ STAT limit_maxbytes 268435456
+ STAT threads 1
+ END
+Some useful information is returned, such as :
+
+the uptime for the server,
+the version of Memcached installed,
+the total number of items in the cache,
+and the amount of client connections to the instance.
+ACCESSING SLABS
+According to the Memcached FAQ:
+
+Memory is allocated in chunks internally and constantly reused. Since memory is broken into different size slabs, you do waste memory if your items do not fit perfectly into the slab the server chooses to put it in.
+
+So Memcached allocates your data into different “slabs” (think of these as partitions) of memory automatically, based on the size of your data, which in turn makes memory allocation more optimal.
+
+To list the slabs in the instance you are connected to, use the stats slab command:
+
+stats slabs
+ STAT 1:chunk_size 88
+ STAT 1:chunks_per_page 11915
+ STAT 1:total_pages 1
+ STAT 1:total_chunks 11915
+ STAT 1:used_chunks 11915
+ STAT 1:free_chunks 0
+ STAT 1:free_chunks_end 11914
+ STAT 6:chunk_size 296
+ STAT 6:chunks_per_page 3542
+ STAT 6:total_pages 1
+ STAT 6:total_chunks 3542
+ STAT 6:used_chunks 3541
+ STAT 6:free_chunks 1
+ STAT 6:free_chunks_end 3541
+ STAT 7:chunk_size 376
+ STAT 7:chunks_per_page 2788
+ STAT 7:total_pages 1
+ STAT 7:total_chunks 2788
+ STAT 7:used_chunks 2788
+ STAT 7:free_chunks 0
+ STAT 7:free_chunks_end 2787
+ STAT 8:chunk_size 472
+ STAT 8:chunks_per_page 2221
+ STAT 8:total_pages 1
+ STAT 8:total_chunks 2221
+ STAT 8:used_chunks 2220
+ STAT 8:free_chunks 1
+ STAT 8:free_chunks_end 2218
+ STAT active_slabs 4
+ STAT total_malloced 4193552
+ END
+A more useful command is the stats items, which will give you a list of slabs which includes a count of the items store within each slab:
+
+stats items
+ STAT items:1:number 1
+ STAT items:1:age 35
+ STAT items:1:evicted 0
+ STAT items:1:outofmemory 0
+ STAT items:7:number 1
+ STAT items:7:age 69596
+ STAT items:7:evicted 0
+ STAT items:7:outofmemory 0
+ STAT items:8:number 2
+ STAT items:8:age 69627
+ STAT items:8:evicted 0
+ STAT items:8:outofmemory 0
+ END
+ACCESSING AND DELETING DATA
+Now that you know how to list slabs, you can browse inside each slab to list the items contained within by using the stats cachedump command, which has the following signature:
+
+stats cachedump [slab ID] [number of items, 0 for all items]
+For example:
+
+stats cachedump 1 0
+ ITEM testkey [9 b; 1296857316 s]
+ END
+tells us that there is one item in the slab 1 with the key testkey. If we want to get the actual value of that item, we can use the get [key] command:
+
+get testkey
+ VALUE testkey 0 9
+ test data
+ END
+Finally, if you want to delete an item from the cache you can use the delete [key] command:
+
+delete testkey
+ DELETED
+CONCLUSION
+Memcached is an amazing software because it has several potential applications to increase web application performance.
+While powerful, it is simple to use and configure, and even its API is very intuitive.
