@@ -31,3 +31,71 @@ dpnctl stop sched - Stop Backup scheduler on Avamar
 watch avmaint hfscheckstatus - Monitor hfscheck process on Avamar
 
 watch avmaint gcstatus - Monitor GC process on Avamar
+
+
+= notes to safely shutdown avamar :
+
+Instructions To Safely Shut Down and Restart An Avamar Grid During Maintenance
+
+Environment:
+Avamar Server 7.x
+Avamar Server 6.x
+Avamar Server 5.x
+All Hardware Generations
+ 
+Description:
+This article describes the procedure to follow when An Avamar system needs to be temporarily powered down.
+Cause:
+The Avamar system will be relocated or some other maintenance activity will occur in the local data center which requires the Avamar system to be physically powered down.
+ 
+Resolution:
+
+1. Use the Avamar Administrator to stop any backups which are in progress.
+ 
+Open Avamar Administrator > Activity screen
+Look for any ‘Running’ backups.
+Right-click and choose ‘Cancel Activity’.
+ 
+2. Ensure the system has a recent checkpoint
+Note: It is important to take a checkpoint before shutting down the Avamar software. This will create a point in which to rollback in case the shutdown does not execute normally.
+ 
+This can be done through the GUI or via the command line (see below)
+ 
+Check the Avamar Administrator > Server screen > Checkpoint Management tab
+ 
+Pay careful attention to ensure that the system has a recent, validated checkpoint.  If a recent checkpoint does not exist, create one by selecting 'Actions > Create checkpoint'
+If the checkpoint operation fails, do not proceed with the shut-down. Contact Avamar support for guidance.
+ 
+3. Halt the Avamar services:
+Log in to the Avamar Utility node as the 'admin' user
+Load the SSH keys as described in KB 95614.
+Run 'status.dpn' and verify that there are no maintenance jobs running using status.dpn
+All should say (OK) at the end of the line.
+
+  e. If not already done, take a checkpoint
+mccli checkpoint create --override_maintenance_scheduler
+  f. Shut down all Avamar services. Use the dpnctl command. Note: Answer ‘yes’ to the EMS question.
+dpnctl stop
+  g. Once the Avamar services are stopped, confirm the status with the dpnctl status command.
+dpnctl status
+dpnctl: INFO: gsan status: down
+dpnctl: INFO: MCS status: down.
+dpnctl: INFO: EMS status: down.
+dpnctl: INFO: Backup scheduler status: down.
+dpnctl: INFO: dtlt status: down.
+dpnctl: INFO: Maintenance windows scheduler status: suspended.
+dpnctl: INFO: Maintenance cron jobs status: suspended.
+  h. Prepare the nodes for shutdown
+mapall --user=root --all 'touch /fastboot'
+mapall --user=root --all 'halt'
+  i. Power down all nodes in the grid.
+If this is Avamar and Data Domain Integrated system please follow KB 181180 to shut down the Data Domain system.
+Note: If not maintenance or work is being performed on the Data Domain server it is not necessary to complete this step.
+4. To bring an Avamar system back online:
+Power on all the nodes. Allow time for the operating system to start.
+Start the Avamar services. Use the command dpnctl start. Answer ‘yes’ for the support question.
+dpnctl start
+  c. If the system reports that gsan did not come down cleanly, select the option to rollback to the last checkpoint.
+Reference:
+EMC Support Solution Number: 115629
+
