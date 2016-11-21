@@ -38,3 +38,44 @@ ffffffffff600000       4       0       0 r-x--    [ anon ]
 total kB          723568   40816   28328
 
 
+
+== gestion swapiness : =
+
+
+HOW TO OPTIMIZE THE USE OF RAM ?
+
+In this blog we will speek about swapiness which is a kernel module that defines when linux has to start to write in the SWAP (an allocated space in the disk) to relieve the RAM.
+It may seem obvious that with access times in milliseconds for Hard Disk and in nanoseconds for RAM, it is better to write in the RAM.
+
+Recap:
+
+vm.swappiness = 0 : Swapping will be activated urgently only to avoid out of memory condition.
+vm.swappiness = 60 : This is the default value and means that from 40% of Ram occupancy, the kernel writes to the swap.
+vm.swappiness = 10 : This what is recommended to improve performance.
+vm.swappiness = 100 : The kernel will swap aggressively.
+
+To see your swappiness setting :
+
+cat /proc/sys/vm/swappiness
+60
+Let’s consider that we have a server having 32G of RAM. fixing the swappiness to 5 is enough since kernel will use swap only when the free RAM space is less or equal to 1.6G.
+
+As root set the swappiness value:
+
+echo 5 > /proc/sys/vm/swappiness
+or alternatively, run:
+sysctl -w vm.swappiness=5
+
+Verify your changes:
+cat /proc/sys/vm/swappiness
+5
+or:
+sysctl vm.swappiness
+vm.swappiness = 5
+
+To change this value permanently edit /etc/sysctl.conf and modify (or add if not exist):
+vm.swappiness = 5
+
+apply modification:
+sysctl -p
+swappoff -a && swapon -a
