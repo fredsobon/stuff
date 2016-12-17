@@ -1,0 +1,70 @@
+==== notes suite formation udemy puppet4 ====
+
+1/ Installation puppetserver : 
+
+Attention puppetserver est en java il faut donc de la ram 3/4Gb ..
+
+- vm vagrant 
+via vagrant on download une image centos7 qui va nous servir à configurer notre puppetmaster :
+
+boogie@x61-boogie:~/lab/vagrant/puppet_udemy$ vagrant init centos/7
+A `Vagrantfile` has been placed in this directory. You are now
+boogie@x61-boogie:~/lab/vagrant/puppet_udemy$ vagrant up
+Bringing machine 'default' up with 'virtualbox' provider...
+
+
+on demarre la vm 
+vagrant ssh && vagrant ssh
+
+- install puppet 
+
+on peut ajouter pour être à jour le repo puppet du puppetlab et lancer l'install :
+
+[root@localhost ~]# sudo rpm -Uvh https://yum.puppetlabs.com/puppetlabs-release-pc1-el-7.noarch.rpm
+[root@localhost ~]# yum update
+[root@localhost ~]# yum install puppet
+[root@localhost ~]# yum install puppetserver
+
+- startup puppetserver 
+
+[root@localhost ~]# systemctl status puppetserver
+● puppetserver.service - puppetserver Service
+   Loaded: loaded (/usr/lib/systemd/system/puppetserver.service; disabled; vendor preset: disabled)
+   Active: inactive (dead)
+[root@localhost ~]# systemctl start puppetserver
+
+Les versions de puppetserver sont maintenant longues à demmarer : elles sont en java.
+
+/!\ Attention il peut être nécéssaire de modifier une valeur dans la conf du boot de puppetserver.En effet un paramètre récent de la jvm n'est plus à renseigner sous peine de crash au boot :
+on va donc supprimer l'argument -XX:MaxPermSize=256m de la conf dans le fichier :
+
+/etc/sysconfig/puppetserver :
+#JAVA_ARGS="-Xms2g -Xmx2g -XX:MaxPermSize=256m"
+JAVA_ARGS="-Xms2g -Xmx2g"
+
+Dec 17 18:01:50 localhost.localdomain systemd[1]: Started puppetserver Service.
+
+Le service demarre bien :
+[root@localhost ~]# systemctl status puppetserver.service -l |tail -1
+Dec 17 18:01:50 localhost.localdomain systemd[1]: Started puppetserver Service.
+et on voit que puppet est lancé dans un process java en examinant le port par defaut du puppetserver : 
+
+[root@localhost ~]# lsof -i :8140
+java     4254  puppet   20u  IPv6  23374      0t0  TCP *:8140 (LISTEN)
+
+
+2/ Configuration de base :
+
+notre premier run crash quand on lance puppet agent -t ( si la commande n'est pas trouvée : c'est qu'un nouveau bash est nécéssaire pour mettre à jour l'env)
+
+On va donc configurer la conf de notre puppet pour definir notre puppetserver :
+On va definir le nom de notre master :
+ex : master.localdomain dans le fichier /etc/hosts et /etc/hostname
+
+On va maintenant rajouter la conf de l'agent  dans la conf globale : 
+/etc/puppetlabs/puppet/puppet.conf
+..
+[agent]
+
+server = master.localdomain
+
