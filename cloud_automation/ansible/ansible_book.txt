@@ -10,3 +10,77 @@ mkdir ansible-book
 cd ansible-book/
 vagrant init ubuntu/trusty64
 
+une fois dwnloadée et installée, on peut controllet l'état de la vm puis s'y connecter :
+
+ansible-book$ vagrant status
+Current machine states:
+
+default                   running (virtualbox)
+
+The VM is running. To stop this VM, you can run `vagrant halt` to
+shut it down forcefully, or you can run `vagrant suspend` to simply
+suspend the virtual machine. In either case, to restart it again,
+simply run `vagrant up`.
+
+$ vagrant ssh
+vagrant@vagrant-ubuntu-trusty-64:~$ w
+ 02:27:36 up 2 min,  1 user,  load average: 0.11, 0.15, 0.06
+USER     TTY      FROM             LOGIN@   IDLE   JCPU   PCPU WHAT
+vagrant  pts/0    10.0.2.2         02:27    0.00s  0.04s  0.00s w
+
+- vagrant config :
+de base la vm vagrant embarque 489m de ram ce qui est un peu juste pour nos tests : on va donc modifier la conf de notre vagrant box 
+en éditant le fichier Vagrantfile : 
+
+config.vm.provider "virtualbox" do |vb|
+vb.memory = "1024"
+end
+
+On va ensuite specifier a vagrant qu'on va utiliser ansible sur notre box et utiliser une arbo présente sur notre server local :
+on dit a vagrant d'utiliser ansible pour executer le fichier playbook.yml présent dans notre arrbo locale provisioning/playbook.yml :
+  config.vm.provision "ansible" do |ansible|
+  ansible.playbook = "provisioning/playbook.yml"
+  end
+
+on va donc creer notre arbo : 
+boogie@apollo:~/Documents/lab/vagrant/ansible-book$ tree
+.
+├── provisioning
+│   └── playbook.yml
+└── Vagrantfile
+
+et on va definir notre premier playbook.
+
+2/ playbooks :
+
+Ce sont des fichiers de conf en YAML qui vont permettre à ansible de savoir quoi faire à l'aide de commandes, arguments, ... specifiques
+
+
+- YAML :
+ce format de description de fichiers commence toujours par afficher les metadata nécéssaires : quand on en a pas on commence le fichier par "---"
+L'indentation est capitale en YAML
+
+On va commencer par secifier sur quel/quelles machine(s) on va lancer notre conf :
+pour commencer on va ajouter tous les hosts et executer un ping dessus : ce qui va nous permettre de voir si notre box est up :
+
+boogie@apollo:~/Documents/lab/vagrant/ansible-book$ cat provisioning/playbook.yml 
+---
+- hosts: all
+  tasks:
+  - ping:
+
+on execute ensuite la commande vagrant provision : ce qui va permettre de faire executer à ansible les commandes du playbook sur notre box :
+boogie@apollo:~/Documents/lab/vagrant/ansible-book$ vagrant provision 
+==> default: Running provisioner: ansible...
+
+PLAY [all] ******************************************************************** 
+
+GATHERING FACTS *************************************************************** 
+ok: [default]
+
+TASK: [ping ] ***************************************************************** 
+ok: [default]
+
+PLAY RECAP ******************************************************************** 
+default                    : ok=2    changed=0    unreachable=0    failed=0   
+
