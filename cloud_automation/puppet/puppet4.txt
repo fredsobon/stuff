@@ -21,10 +21,6 @@ Si puppet est configuré avec un serveur central de managment de config : le ser
 On peut biensur agir finement et ne passer des changements qu'a un certain nombre de machinnes grace à des systemes de clasification. (ex : hostname, os , puppet version etc ...)
 Les agents puppet peuvent être invoqués avec des tag speciaux. Les nodes recoivent leur catalogue individuellement et ne sont pas soumi a des filles d'attente.Un rapport est généré à chaque run .Il est possible d'utiliser un orchestrateur pour piloter un grand nombre de node.
 
-page 35
-
-
-
 
 
 == Part 1 : controlling with puppet apply :
@@ -78,6 +74,13 @@ Il va contenir les outils et l'environmment de dev :
  Checking connectivity... done.
  $ cd learning-puppet4
 
+NB : on doit pouvoir acceder au contenu du repo git learning-puppet4 depuis notre vm vagrant dans le repertoire vagrant :
+A noter que le repo git contient plusieurs conf pour plusieurs vm puppet .
+on lancera tjs notre vm avec le nom qu'il convient :
+ex vagrant up client 
+
+[vagrant@client ~]$ ls /vagrant/
+bin  etc-puppet  LICENSE  manifests  README.md  systemd-puppet  Vagrantfile
 
 On installe ensuite le plugin  vagrant-vbguest qui va être utile pour avoir des mises a jour auto de vagrant ( notamment pour les evolutions de noyaux, access au repertoires partagés : vagrant share : qui peut être mal détecté en cas de maj ...)
 
@@ -218,12 +221,17 @@ PATH=/sbin:/bin:/usr/sbin:/usr/bin:/opt/puppetlabs/bin
 Un manifest est un fichier contenant du code puppet decrivant la configuration desirée de nos ressources.C'est la base de toute la stratégie de config de nos nodes jusqu'a des blocs de config de modules très complexes.
 
 Les ressources sont les plus petits blocs de code puppet qui nous servent à definir, modifier supprimer un element sur un systeme.Puppet embarque des resources de base telles que : users, services, packages, files , groups ...On peut egalement creer nos propres ressources.
+
+- ressources :
+
 On commence par notify qui va afficher un message :
 
-notify { 'greeting':
-message => 'Hello, world!'
+notify (ressource){ 'greeting':
+        message (attribut) => 'Hello, world!' (valeur)
 }
+
 on declare une ressource notify ayant pour titre greeting , ayant un attribut message auquel on donne une valeur.
+les attributs sont séparées de leur valeurs par un "=>" (comme en perl , ruby)
 
 #Exemple dans le repos cloné pour la lesson "Learning puppet4" un repertoire manifest contient des exemples de code :
 #boogie@x61-boogie:~/lab/puppetlab/learning-puppet4/manifests$ cat helloworld.pp 
@@ -246,20 +254,95 @@ Notice: Applied catalog in 0.03 seconds
 
 On voit donc la creation du build du catalogue et differente etapes jusqu'a l'affichage de notre message et du rapport de run.
 
+on peut utiliser les manifests de notre env partages du repo git présent dans le dir /vagrant/manifests depuis la vm :
+
+[vagrant@client ~]$ sudo puppet apply /vagrant/manifests/helloworld.pp 
+Notice: Compiled catalog for client.example.com in environment production in 1.20 seconds
+Notice: Hello, world!
+Notice: /Stage[main]/Main/Notify[greeting]/message: defined 'message' as 'Hello, world!'
+Notice: Applied catalog in 0.02 seconds
+
+-Declaration de ressources : regles :
+quelques regles sont impératives pour la déclaration de ressources puppet :
+
+Les ressources DOIVENT être unique : il ne peut y avoir qu'une seule ressource de même nom / titre par type (file, user etc..)
+
+resource_type { 'resource_title':
+    ensure  => present, # habituellement present ou absent 
+    attribute1 => 1234, # nombre
+    attribute2 => 'value', # string
+    attribute3 => ['red','blue'], # tableau
+    noop       => false, # booleen
+}
 
 
+Plusieurs appels à une ressource du même nom ET du même type génère donc une erreur de déclaration :
+
+exemple : 
+[vagrant@client manifests]$ cat myfile.pp
+file { 'my_file':
+    ensure => present,
+    path => '/tmp/my_file.txt',
+}
+file { 'my_file':
+    ensure => present,
+    path => '/tmp/my_file.yaml',
+}
+file { 'my_file':
+    ensure => present,
+    path => '/tmp/my_file.csv',
+}
+
+nous donne au run :
+[vagrant@client manifests]$ sudo puppet apply myfile.pp 
+Error: Evaluation Error: Error while evaluating a Resource Statement, Duplicate declaration: File[my_file] is already declared in file /home/vagrant/manifests/myfile.pp:1; cannot redeclare at /home/vagrant/manifests/myfile.pp:5 at /home/vagrant/manifests/myfile.pp:5:1 on node client.example.com
+
+NB: on peut avoir des ressources de type differents porant le même nom : pas de souci :
+[vagrant@client manifests]$ cat myfile.pp 
+file { 'my_file':
+    ensure => present,
+    path => '/tmp/my_file.txt',
+}
+notify { 'my_file':
+    message=> 'this is my file !!',
+}
+[vagrant@client manifests]$ sudo puppet apply myfile.pp 
+Notice: Compiled catalog for client.example.com in environment production in 0.06 seconds
+Notice: this is my file !!
+Notice: /Stage[main]/Main/Notify[my_file]/message: defined 'message' as 'this is my file !!'
+Notice: Applied catalog in 0.02 seconds
+
+-Examen de ressources :
+
+puppet peut nous permettre d'analyser le découpage d'une ressource externe a la config puppet : cela va nous permettre de construire plus facilement notre code 
+grace a la commande puppet ressource 
+Ce mecanisme est le même qu'utilise puppet pour analyser et modifier les config systemes 
 
 
- 
+[vagrant@client manifests]$ sudo puppet resource mailalias postmaster
+mailalias { 'postmaster':
+  ensure    => 'present',
+  recipient => ['root'],
+  target    => '/etc/aliases',
+}
 
 
+exemple on voit que puppet interprete notre ressource user vagrant de cette façon :
+[vagrant@client manifests]$ sudo puppet resource user vagrant
+user { 'vagrant':
+  ensure           => 'present',
+  gid              => '1000',
+  groups           => ['vagrant'],
+  home             => '/home/vagrant',
+  password         => '!!',
+  password_max_age => '99999',
+  password_min_age => '0',
+  shell            => '/bin/bash',
+  uid              => '1000',
+}
+on peut donc s'inspirer de ces retours pour creeer du code et le tester avec un puppet apply 
 
-  
-
-
-
-
-
+Attention certain attribut ne peuvent pas etre sette tel quel et génere une erreur en cas d'utilisation c'est le cas de readonly qui ne peut être sette dans une ressources : voir doc sur les ressources.
 
 
 
