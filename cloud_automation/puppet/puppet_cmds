@@ -14,3 +14,37 @@ Pour examiner le commentaire du disable :
 = puppet node | cert clean : sur le master pour delete la presence d'un node et de son certif ssl 
 
 
+= puppet apply manifest.pp :
+va nous permettre de tester un manifest directement sur un node 
+
+= puppet resource type nom
+
+l'utilisation de la commande puppet resource va nous permettre de pouvoir creeer du code facilement en examinant le retour d'analyse que puppet fait sur une ressourcedonnée .
+ex : pour l'analyse du user vagrant vu coté puppet : 
+$ sudo puppet resource user vagrant
+user { 'vagrant':
+  ensure           => 'present',
+  gid              => '1000',
+  groups           => ['vagrant'],
+  home             => '/home/vagrant',
+  password         => '!!',
+  password_max_age => '99999',
+  password_min_age => '0',
+  shell            => '/bin/bash',
+  uid              => '1000',
+}
+
+= puppet gestion de backup de fichiers :
+
+- on peut backuper un fichier :
+sudo puppet filebucket --local backup /tmp/testfile.txt
+
+- on peut lister les fichiers backupés:
+[vagrant@client manifests]$ sudo puppet filebucket --local list
+0eb429526e5e170cd9ed4f84c24e442b 2017-01-09 20:43:14 /tmp/testfile.txt
+3d508c856685853ed8a168a290dd709c 2017-01-09 20:43:49 /tmp/testfile.txt
+
+- on peut restaurer une version de fichier backupé :
+vagrant@client manifests]$ sudo puppet filebucket --local restore /tmp/testfile.txt 2421d24b7d984ed88425f56feb2b5201
+
+

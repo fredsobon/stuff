@@ -216,13 +216,13 @@ C'est desormais ok :
 PATH=/sbin:/bin:/usr/sbin:/usr/bin:/opt/puppetlabs/bin
 
 
-== chapitres 4 :  Writing manifests : 
+== chapitres 4 : manifests : 
 
 Un manifest est un fichier contenant du code puppet decrivant la configuration desirée de nos ressources.C'est la base de toute la stratégie de config de nos nodes jusqu'a des blocs de config de modules très complexes.
 
 Les ressources sont les plus petits blocs de code puppet qui nous servent à definir, modifier supprimer un element sur un systeme.Puppet embarque des resources de base telles que : users, services, packages, files , groups ...On peut egalement creer nos propres ressources.
 
-- ressources :
+= ressources :
 
 On commence par notify qui va afficher un message :
 
@@ -344,5 +344,318 @@ on peut donc s'inspirer de ces retours pour creeer du code et le tester avec un 
 
 Attention certain attribut ne peuvent pas etre sette tel quel et génere une erreur en cas d'utilisation c'est le cas de readonly qui ne peut être sette dans une ressources : voir doc sur les ressources.
 
+
+- execution de commande :
+
+la ressource exec permet de lancer une commande au sein de notre manifest.
+ex : 
+exec { 'echo-holy-cow':
+    path  => ['/bin'],
+    cwd   => '/tmp',
+    command   => 'echo "holy cow!" > testfile.txt',
+    creates   => '/tmp/testfile.txt',
+    returns   => [0],
+    logoutput => on_failure,
+}
+
+A noter qu'en puppet on utlise toujours les simples quotes quand aucune variable n'est présente : on ne veut pas d'interpolation. Ce qui n'est pas le cas des doubles quotes quisont utilisées lors de passage de variable en param.
+
+on a ici l'utiisation de l'attribut creates qui va donc definir le resulat de l'execution de la commande .
+Si le fichier existe la commande NE sera pas executer : il faut donc être tres prudent avec cerre utilisation d'attribut de ressource et se référer à la doc puppet.
+
+Il est clair que cette resource est importante MAIS est à utiliser le moins possible : car on est plus dans le déclaratif mais dans du procedural et qu'une modification du contenu du fichier ne sera pas corrigée car si ce fichier existe ..la commande exec ne le recrera pas.
+
+On evite la ressource exec et souvent la présence de cette ressource peut être evitée par l'ecriture de manifest plus propre.
+
+- gestion de fichiers :
+
+la ressource file nous permet de gerer correctement le contenu du fichier ( le contenu est flaggué en dur et chaque changement sera efface avec replace sette a true)et sa présence
+
+file { '/tmp/testfile.txt':
+    ensure => present,
+    mode   => '0644',
+    replace => true,
+    content => 'holy cow!',
+}
+[vagrant@client manifests]$ sudo cat /tmp/testfile.txt 
+holy cow![vagrant@client manifests]$
+
+A noter que si on veut rajouter un retour chariot dans du texte il faut le faire en rajoutant un \n et entourer notre texte entre " " car le \n est interprété.
+
+file { '/tmp/testfile.txt':
+    ensure => present,
+    mode   => '0644',
+    replace => true,
+    content => "holy cow!\n",
+}
+nous donne :
+[vagrant@client manifests]$ sudo cat /tmp/testfile.txt 
+holy cow!
+
+- backup de fichiers :
+
+tous les fichiers passés sous puppet sont backupés et index sous forme de hash dans la directive  clientbucketdir
+
+On peut donc backuper un fichier 
+sudo puppet filebucket --local backup /tmp/testfile.txt
+
+voir la liste des fichiers backupés :
+
+[vagrant@client manifests]$ sudo puppet filebucket --local list
+0eb429526e5e170cd9ed4f84c24e442b 2017-01-09 20:43:14 /tmp/testfile.txt
+3d508c856685853ed8a168a290dd709c 2017-01-09 20:43:49 /tmp/testfile.txt
+2421d24b7d984ed88425f56feb2b5201 2017-01-09 20:49:23 /tmp/testfile.txt
+
+
+- restorer les fichiers :
+on peut examiner le contenu d'un fichier backupé en saisissant son hash 
+
+[vagrant@client manifests]$ sudo puppet filebucket --local get 2421d24b7d984ed88425f56feb2b5201
+holy cowbow![vagrant@client manifests]$ 
+
+On peut voir le diff entre deux fichier : le courant et un ancien backupé avec son hash 
+
+holy cowbow![vagrant@client manifests]$ sudo puppet filebucket --local diff  2421d24b7d984ed88425f56feb2b5201  /tmp/testfile.txt 
+--- /tmp/diff20170109-5248-820397   2017-01-09 21:00:35.960114772 +0000
++++ /tmp/testfile.txt   2017-01-09 20:50:56.364225000 +0000
+@@ -1 +1 @@
+-holy cowbow!
+\ No newline at end of file
++holy cow!
+\ No newline at end of file
+
+pour restaurer :
+ex notre fichier d'origine 
+[vagrant@client manifests]$ sudo cat /tmp/testfile.txt 
+holy cow![vagrant@client manifests]$ 
+
+qu'on va changer et restaurer :
+[vagrant@client manifests]$ sudo puppet filebucket --local restore /tmp/testfile.txt 2421d24b7d984ed88425f56feb2b5201
+[vagrant@client manifests]$ sudo cat /tmp/testfile.txt 
+holy cowbow![vagrant@client manifests]$ 
+
+- Proscrire l'imperatif dans les manifests :
+comme avec la commande exec 
+Si le code demande a l'interpréteur quoi faire , quand le faire et comment le faire : alors on fait de l'imperatif
+Si notre code decrit a l'interpreteur comment le resulat doit être alors on fait du déclaratif
+
+La raison pour ne pas utiliser exec est simple : la commande est executée et peut faire des dégats sur le systeme sans que puppet ne puisse être au courant puisque le seul code retour de l'execution d'exec est un status normal :quelle que soit les changements sur le systeme.
+Il est donc toujours possible de suivre les changements , de restaurer comaprer avec les md5 des hash de fichiers quand on utilise la ressource file.
+
+On ne doit utiliser exec quand vraiment nous n'avons pas d'autres choix.
+
+== chapitre 5 : language de configuration puppet :
+
+La bonne ecriture de manifests est la chose la plus importante dans puppet : il faut donc toujours s'y attacher et s'y améliorer.
+
+= les variables :
+toutes les variables dans puppet commencent avec un $ et sont en minuscule ; composées de lettres, underscore ou chiffres. Elles ne commencent pas par des majuscules, des chiffres et ne comportent pas de tiret.
+Attention : les variables qui commencent par un _ sont uniquement dédiées au scope local : $_myvar : sera uniquement interprete dans notre manifest local.
+
+Les types sont classiques :
+$my_name  = 'joe'  < string 
+$my_token = 115    < number
+$not_true = false  < booleen
+
+une variable non initialisee sera considérée comme undef on peut creer une variable avec une valeur indefinie :
+
+$my_var = undef
+
+Le module stlib de puppetlabs peut nous permettre de voir de quel type est notre variable :
+include stdlib
+$myname = 'joe'
+$mytype = typeof($myname)
+
+
+- Numbers :
+les nombres non entourés par des " ou des '  sont de type numeric
+Les nombres commencant par un 0 sont des octals et sceux commencant par 0x des hexa
+
+- Tableaux et hash :
+
+$mylist = [1,3,5,7]
+$mytab = ['yes',5,'lapin',5.3]
+$mymy =['yop',['lala',5]]
+
+on peut definir des variables a des valeurs dans des tableaux si le nombre de variables et de valeur sont identiques :
+
+[$myvar, $yourvar , $var] = ['lapin', 3, true]   <<<< GGOD
+[$myvar, $yourvar , $var] = ['lapin', 3]         <<<<< ERROR
+
+Certaines fonctions demandent une liste de valeur en arguments a la place d'element de tableau.On peut utiliser '*' pour convertir les elements d'un tableau en éléments séparés par une virgule avec la syntaxe de type :
+$myfonction(* $array_of_args) { ..}
+
+- table de hash key/ valeur :
+on peut utiliser une table de hash avec la représentation clé / valeur 
+
+# monoligne :
+$homes = { 'joe' => '/home/joe', 'jack' => '/home/jack', }
+
+# muliligne :
+
+$user = {
+    'username' => 'joe',
+    'uid'      => 1000,
+    'home'     => '/home/joe',
+}
+Attention les  hash doivent être soient entiers soient strings . Les valeurs peuvent prendre toutes les types  possibles.
+
+- Variables et strings :
+on encadre toujours les strings avec des simple quote sauf quand il y a interpolation : on utilise dans ce cas des "
+$myvar = 'hey mec !'
+$my = "hey ${username} happy to see you"
+
+-HEREDOC : pour les grands blocs de texte on utilise les commentaires heredoc :
+on place une balise @(END) a la fin de notre déclaration de variable et on cloture le texte par END :
+
+$message_text = @(END)
+This is a very long message,
+which will be composed over
+many lines of text.
+END
+
+Idem en cas d'interpolation de variable on va entourer notre heredoc de " :
+
+$message_text = @("END")
+Dear ${user},
+Your password is ${password}.
+Please login at ${site_url} to continue.
+END
+
+Il est toujours conseille d'utiliser les {} pour entourer une variable de chaine de caractere :
+
+$the_greeting = "Hello ${myname}, you have received ${num_tokens} tokens!"
+
+- Protection : on va pouvoir proteger d'interpolation certains de nos carateres speciaux en les faisant précéder de \ ou alors en entourant le texte en entier par des ' ''
+
+
+- Namespace / scope : AUCUNE variable puppet ne peut être REdeclarée au sein d'un même NAMESPACE / SCOPE 
+
+C'est clairement pour continuer a penser en déclaratif : puppet nous jette donc une erreur si on declare plusieurs fois une variable avec des valeurs differentes.
+
+- Mots réservés : on a comme dans beaucoup de language des mots clés réservés qu'on ne peut utiliser pour déclarer nos variables ou qu'on l'on doit encadrer de ' ou " si on veut utiliser leur valeur en tant que mot :
+
+and elsif node
+attr false private
+case function or
+class if
+true
+default in
+type
+define import
+undef
+else inherits unless
+
+
+= Facter : va nous fournir des variables systemes : 
+
+vagrant@client manifests]$ facter |grep mb
+    vendor => "innotek GmbH",
+  manufacturer => "innotek GmbH",
+[vagrant@client manifests]$ facter |grep free
+[vagrant@client manifests]$ facter |grep version
+aio_agent_version => 1.8.2
+  version => "1.4.0"
+    version => "VirtualBox"
+facterversion => 3.5.0
+kernelmajversion => 3.10
+kernelversion => 3.10.0
+  version => "2.1.9"
+
+
+certaines varibles facter vont être directement utilisée par puppet et ses modules :
+
+facter --puppet 
+
+io_agent_version => 1.8.2
+augeas => {
+  version => "1.4.0"
+}
+disks => {
+  sda => {
+    model => "VBOX HARDDISK",
+    size => "20.00 GiB",
+    size_bytes => 21474836480,
+    vendor => "ATA"
+  }
+...
+...
+ystem_uptime => {
+  days => 0,
+  hours => 1,
+  seconds => 7004,
+  uptime => "1:56 hours"
+}
+timezone => UTC
+virtual => virtualbox
+
+
+Certains facters puppet sont poussés parmi les facter system de base
+
+
+une liste de fact en json est directement trouvable via la commande :
+puppet facts find 
+
+On peut sortir la liste des facts sous differents formats :
+-yaml :
+[vagrant@client manifests]$ facter --yaml
+[vagrant@client manifests]$ puppet facts render-as-yaml
+- json :
+[vagrant@client manifests]$ facter --json
+[vagrant@client manifests]$ puppet facts render-as-json
+
+= Appel de fonction dans les manifests :
+
+une fonction est du code executable qui peut prendre des entrées en paramètres et peut afficher des valeurs en sortie.
+une fonction qui retourne une valeur peut être utiliser pour devenir la veleur d'une variable :
+
+$zero_or_one = bool2num( $facts['is_virtual'] );
+
+une fonction peut aussi être utilisée a la place d'une valeur ou interpolée dans une chaine de caracteres :
+# md5() function provides the value for the message attribute
+notify { 'md5_hash':
+     message => md5( $facts['fqdn'] )
+}
+# Include the MD5 hash in the result string
+$result = "The MD5 hash for the node name is ${md5( $facts['fqdn'] )}"
+
+Puppet execute des fonctions lors de la génération du catalogue : examine les donnees de sources externes , ajoute modifie des entrees dans le catalogue ,execute du code ....
+
+on peut ecrire les fonctions en mode prefix ou en mode ruby 'chainé' :
+# Common prefix format
+notice( 'this' )
+# Ruby-style chained format
+'this'.notice()
+
+- Utilisation de variables dans les ressources :
+rappel on ne quote que les strings simples avec des ' et les interpolées avec des " . on ne quote pas les autres variables :
+
+notice('Beginning the program.' )
+notice("Hello, ${username}" )
+notice(1000000 )
+notice(true )
+
+on peut acceder à une valeur d'un tableau et on peut specifier un range : 
+$first_item = $my_list[1]
+$four_items = $my_list[3,6]
+
+You can access specific items within a Hash by using the hash key within square
+brackets as follows: 
+$username = $my_hash['username']
+
+Toutes les variables de tableau doivent être entourées de {} pour l'interpolation :
+notice( "The user's name is ${username}" )
+notice( "The second value in my list is ${my_list[1]}" )
+notice( "The login username is ${my_hash['username']}" )
+
+Best pratice : on ne doit pas entourer une variable en stadalone de {} :
+
+file { $filename:
+ensure => present,
+mode
+=> '0644',
+replace => $replace_bool,
+content => $file['content'],
+}
 
 
