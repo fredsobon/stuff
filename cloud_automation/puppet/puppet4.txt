@@ -658,4 +658,435 @@ replace => $replace_bool,
 content => $file['content'],
 }
 
+Exemple de test de variable dans un manifest :
+
+on recupére pour l'exemple des données via facter et on affiche un message en mode multiligne qu'on aura au prealable enregistre dans une variable 
+
+[vagrant@client manifests]$ cat testvar.pp 
+$myname = $facts['hostname']
+$kind = $facts['is_virtual']
+$living = $facts['uptime']
+
+$resume = @("END")
+for sure here is 
+a multiline text
+we claim the node is $myname
+and it is a $kind server
+with $living time
+END
+
+
+notify { 'message':
+    message => "yop $resume"
+    }
+
+ici on affiche la premiere valeur du tableau qu'on aura resneigné dans une variable :
+[vagrant@client manifests]$ cat hash.pp 
+$joe =['lapin', 3, true]
+
+notify {'hash':
+    message => "hey this is the first index record : ${joe[0]}"
+    }
+
+[vagrant@client manifests]$ puppet apply hash.pp 
+Notice: Compiled catalog for client.example.com in environment production in 0.06 seconds
+Notice: hey this is the first index record : lapin
+Notice: /Stage[main]/Main/Notify[hash]/message: defined 'message' as 'hey this is the first index record : lapin'
+Notice: Applied catalog in 0.01 seconds
+
+
+A noter que c'est une bonne pratique de toujours travailler avec la valeur désirée du fact en utilisant la forme $fact['valeur]
+
+Il est toujours préférable de travailler avec la conf suivante de settée :
+
+[main]
+strict_variables = true
+
+On aura toujours dans ce cas des erreurs de type : " Evaluation error" en cas d'appels de variables non définies.
+NB: que nous n'aurons pas d'erreur si nous déclarons une variable de type "undef".
+
+_- Definition d'attribut avec les hash :
+il est tout a fait possible de recupérer les noms et valeurs d'un hash pour définir les attributs d'une ressource avec "*" :
+
+$resource_attributes = {
+ensure => present,
+owner => 'root',
+group => 'root',
+'mode' => '0644',
+'replace' => true,
+}
+
+file { '/etc/config/first.cfg':
+source => 'first.cfg',
+* => $resource_attributes,
+}
+
+file { '/etc/config/second.cfg':
+source => 'config.cfg',
+* => $resource_attributes,
+
+
+on voit que des patterns sont donc réutilisés plusieurs fois : cela fait parti du DRY dont repeat yourself
+
+- Declaration multiple de resources :
+il est possible de déclarer au sein du même type plusieurs resources en déclarant plusieurs noms à la suite ( cela est possible quand les attributs ne mettent pas de conflits :) 
+
+file { ['/tmp/file_one.txt','/tmp/file_two.txt']:
+ensure => present,
+owner => 'vagrant',
+}
+
+ on peut déclarer plusieurs body de ressources en les separant par des ";" :
+
+ file {
+ 'file_one':
+ ensure => present,
+ owner => 'vagrant',
+ path
+ => 'file_one.txt',
+ ;
+ 'file_two':
+ ensure => present,
+ owner => 'vagrant',
+ path => 'file_two.txt',
+ ;
+ }
+
+ A noter que cette ecriture n'est pas conseillé. une definition de ressource par type est ce qui est recommandé.
+ on peut a la rigeur utiliser cette forme si une valeur par défaut est déclarée :
+
+file {
+ default:
+  ensure => present,
+  owner => 'vagrant',
+;
+ 'file_one': path => 'file_one.txt';
+ 'file_two': path => 'file_two.txt';
+}
+
+
+- Operations :
+
+$added = 10 + 5
+$subtracted = 10 - 5
+$multiplied = 10 * 5
+$divided = 10 / 5
+$remainder = 10 % 5
+
+- Ajout dans les tableaux et hash :
+$my_list = [1,4,7]
+$bigger_list = $my_list + [14,17]
+# equals [1,4,7,14,17]
+
+$key_pairs = {name => 'Joe', uid => 1001}
+$user_definition = $key_pairs + { gid => 500 }
+
+ex : 
+[vagrant@client manifests]$ cat re.pp 
+$my_list = [1,4,7]
+$bigger_list = $my_list + [14,17]
+
+
+notify { 'yop':
+    message => "here it is ${bigger_list}"
+    }
+
+[vagrant@client manifests]$ puppet apply re.pp 
+Notice: Compiled catalog for client.example.com in environment production in 0.06 seconds
+Notice: here it is [1, 4, 7, 14, 17]
+Notice: /Stage[main]/Main/Notify[yop]/message: defined 'message' as 'here it is [1, 4, 7, 14, 17]'
+
+- ajout de valeur :
+on peut ajouter des  éléments dans un tableau avec la commande <<
+
+ex : 
+ $longer_list = $my_list << 33
+ $unintended = $my_list << [33,35]
+
+ [vagrant@client manifests]$ cat re.pp 
+ $my_list = [1,4,7]
+ $bigger_list = $my_list + [14,17]
+ $longer = $bigger_list << 'lapin'
+
+ notify { 'yop':
+     message => "here it is ${bigger_list}"
+     }
+
+     notify {'yy':
+         message => "now this is a longer list $longer"
+         }
+
+[vagrant@client manifests]$ puppet apply re.pp 
+Notice: Compiled catalog for client.example.com in environment production in 0.07 seconds
+Notice: here it is [1, 4, 7, 14, 17]
+Notice: /Stage[main]/Main/Notify[yop]/message: defined 'message' as 'here it is [1, 4, 7, 14, 17]'
+Notice: now this is a longer list [1, 4, 7, 14, 17, lapin]
+Notice: /Stage[main]/Main/Notify[yy]/message: defined 'message' as 'now this is a longer list [1, 4, 7, 14, 17, lapin]'
+Notice: Applied catalog in 0.01 seconds
+
+ - Suppression d'éléments dans les listes et tableaux avec "-" :
+
+ # Remove a single value
+ $names = ['jill','james','sally','sam','tigger']
+ $no_tigger = $names - 'tigger'
+ # Remove multiple values
+ $no_boys = $names - ['james','sam']
+ex :
+[vagrant@client manifests]$ cat re.pp 
+$my_list = [1,4,7]
+$cut = $my_list - 4
+notify { 'yop':
+    message => "here it cut list $cut"
+}
+
+[vagrant@client manifests]$ puppet apply re.pp 
+Notice: Compiled catalog for client.example.com in environment production in 0.07 seconds
+Notice: here it cut list [1, 7]
+Notice: /Stage[main]/Main/Notify[yop]/message: defined 'message' as 'here it cut list [1, 7]'
+Notice: Applied catalog in 0.01 seconds
+
+ - L'ordre d'evaluation des opérations suit les regles mathématiques  de base : il faut toujours encadrer correctement avec des parentheses.
+
+- Operateurs de comparaisons :
+ce sont les mêmes que ceux utilisés classiquement en programmation.
+4 != 4.1
+$how_many_cups < 4
+$how_many_cups >= 3
+
+Le test sur les chaine de caracteres sont insensibles a la casse 
+coffee == 'coffee'
+'Coffee' == 'coffee'
+tea' !in 'coffee'
+mais les sous chaines de caracteres sont sensibles a la casse :
+'Fee' !in 'coffee'
+'fee' in 'coffee'
+
+[1,2,5] != [1,2]
+5 in [1,2,5]
+{name => 'Joe'} != {name => 'Jo'} # hashes aren't identical
+'Jo' !in {fname => 'Jo', lname => 'Rhett'}   is a value and doesn't match
+$not_true =~ Boolean
+$num_tokens =~ Integer
+$my_name !~ String
+
+true and true
+true and false
+true or false
+true and !false
+true and !true
+
+= Evaluations conditionnelles :
+
+if / elsif / else statements
+unless / else statements
+case statements
+Selectors
+
+- if : 
+
+if ($coffee != 'drunk') {
+notify { 'best-to-avoid': }
+}
+elsif ('scotch' == 'drunk') {
+notify { 'party-time': }
+}
+else {
+notify { 'party-time': }
+}
+
+- unless :
+
+unless $facts['kernel'] == Linux {
+notify { 'You are on an older machine.': }
+}
+else {
+notify { 'We got you covered.': }
+}
+
+A noter que la forme else dans unless existe depuis puppet 4 . 
+La forme unless n'est pas très conseillée ..car moins facile à lire.
+
+- case :
+cette forme nous permet d'eviter le rajout de condition avec else : on gagne en lisibilité.
+ATTENTION : il faut toujours rajouter une clause default avec case même si elle est vide et ne sert à rien.
+
+case $what_she_drank {
+    'wine': { include state::california }
+     $stumptown: { include state::portland }
+     /(scotch|whisky)/: { include state::scotland }
+     is_tea( $drink ): { include state::england }
+     default: {}
+}
+
+- selectors :
+leur usage est a peur pres identique a case mais ils retournent une valeur plutôt que d'executer un bloc de code .
+C'est tres utile quand on doit definir des variables.
+Comme une valeur doit être retournée lors de l'assignation il faut toujours un 'mot' même pour le default :
+
+$native_of = $what_he_drinks ? {
+'wine'            => 'california',
+$stumptown        => 'portland',
+/(scotch|whisky)/ => 'scotland',
+is_tea( $drink )  => 'england',
+default           => 'unknown',
+}
+
+exemples :
+
+if /else /elsif 
+
+# Explicit comparison
+if( $facts['osfamily'] == 'redhat' ) {
+include yum
+}
+# Do a substring match
+elsif( $facts['osfamily'] in 'debian-ubuntu' ) {
+include apt
+}
+# New package manager available with FreeBSD 9 and above
+elsif( $facts['operatingsystem'] =~ /?i:freebsd/ )
+and ( $facts['os']['release']['major'] >= 9 ) {
+include pkgng
+}
+
+case : 
+
+case $facts['osfamily'] {
+    'redhat': { include yum }
+    'debian', 'ubuntu': { include apt }
+    'freebsd' and ($facts['os']['release']['major'] >= 9) { include pkgng }
+    default: {}
+}
+
+selectors : 
+$libdir = $facts['osfamily'] ? {
+/(?i-mx:centos|fedora|redhat)/ => '/usr/libexec/mcollective',
+/(?i-mx:ubuntu|debian)/        => '/usr/share/mcollective/plugins',
+/(?i-mx:freebsd)/              => '/usr/local/share',
+}
+
+On peut aussi utiliser "*" qui transforme les elements de tableau en liste 
+
+$redhat_based = ['RedHat','Fedora','CentOS','Scientific','Oracle','Amazon']
+$libdir = $facts['osfamily'] ? {
+*$redhat_based => '/usr/libexec/mcollective',
+}
+
+
+- REGEXPS : regexps / regular expressions :
+
+puppet supporte les regexps de ruby 
+string a gauche =~ regexp a droite entourée par des / / ou par des " " :
+
+$what_did_you_drink =~ /tea/
+$what_did_you_drink !~ /coffee/
+$what_did_you_drink !~ "^coffee$"
+
+
+unless $facts['operatingsystem'] !~ /(?i-mx:centos|fedora|redhat)/ {
+include yum
+}
+
+case $facts['hostname'] {
+/^web\d/: { include role::webserver }
+/^mail/ : { include role::mailserver }
+default : { include role::base}
+}
+
+$package_name = $facts['operatingsystem'] ? {
+/(?i-mx:centos|fedora|redhat)/ => 'mcollective',
+/(?i-mx:ubuntu|debian)/        => 'mcollective',
+/(?i-mx:freebsd)/              => 'sysutils/mcollective',
+}
+
+
+- Lambda : block de code comme une fonction sans nom qui permet de passer des arguments.
+elles sont utilisées avec les boucles :
+
+elles sont des variables entourées de | :
+
+| $firstvalue, $secondvalue | {
+block of code that operates on these values.
+}
+
+ex : ici on recupere toutes les partitions grace a facter : chacune des entrees va etre decoupées par son nom et son point de montage . on fait ensuite une boucle qui va nous afficher le nom du serveur le nom de lz partition et la taille de cette partition qui sera recupérée par le hash fourni par facter et enregistre dans la variable device
+
+
+[vagrant@client manifests]$ cat /vagrant/manifests/mountpoints.pp 
+each( $facts['partitions'] ) |$name, $device| {
+  notice( "${facts['hostname']} has device ${name} with size ${device['size']}" )
+  }
+  [vagrant@client manifests]$ sudo puppet apply /vagrant/manifests/mountpoints.pp 
+  Notice: Scope(Class[main]): client has device /dev/mapper/centos-root with size 18.46 GiB
+  Notice: Scope(Class[main]): client has device /dev/mapper/centos-swap with size 1.00 GiB
+  Notice: Scope(Class[main]): client has device /dev/sda1 with size 500.00 MiB
+  Notice: Scope(Class[main]): client has device /dev/sda2 with size 19.51 GiB
+  Notice: Compiled catalog for client.example.com in environment production in 1.70 seconds
+  Notice: Applied catalog in 0.01 seconds
+
+
+
+- Looping :
+
+ces fonctioosn puissantes vont nous permettre de parcourir des set de données dans des tableaux , hash etc..
+il y a 5 fonctions qui vont nous servir a itérer et vont être passées à la fonction lambda qui renverra une valeur pour chaque entree.
+
+each() acts on each entry in an array, or each key/value pair in a hash.
+filter() returns a subset of the array or hash that were matched by the lambda.
+map() returns a new array or hash from the results of the lambda.
+reduce() combines array or hash values using code in the lambda.
+slice() creates small chunks of an array or hash and passes it to the lambda.
+
+each appelle lambda a chaque passage de valeur dans un tableau ou d'un hash dans une serie clé valeur 
+C'est la fonction la plus utilisée pour lister des éléments.
+
+[vagrant@client manifests]$ cat /vagrant/manifests/interface_ips.pp 
+# Output a list of interfaces which have IPs
+split( $facts['interfaces'], ',' ).each |$interface| { 
+
+if( $facts["ipaddress_${interface}"] != '' ) {
+      notice( sprintf( "Interface %s has IPv4 address %s", $interface, $facts["ipaddress_${interface}"] ) )
+        }
+        
+if( $facts["ipaddress6_${interface}"] != '' ) {
+              notice( sprintf( "Interface %s has IPv6 address %s", $interface, $facts["ipaddress6_${interface}"] ) )
+                }
+}
+
+[vagrant@client manifests]$ puppet apply /vagrant/manifests/interface_ips.pp 
+Notice: Scope(Class[main]): Interface enp0s3 has IPv4 address 10.0.2.15
+Notice: Scope(Class[main]): Interface enp0s3 has IPv6 address fe80::a00:27ff:feb7:f3af
+Notice: Scope(Class[main]): Interface enp0s8 has IPv4 address 192.168.250.10
+Notice: Scope(Class[main]): Interface enp0s8 has IPv6 address fe80::a00:27ff:fe5e:d9ac
+Notice: Scope(Class[main]): Interface lo has IPv4 address 127.0.0.1
+Notice: Scope(Class[main]): Interface lo has IPv6 address ::1
+Notice: Compiled catalog for client.example.com in environment production in 1.73 seconds
+Notice: Applied catalog in 0.01 seconds
+
+
+on peut recupérer les valeurs d'un tableau et renseigner le numéro d'index :
+
+$ cat /vagrant/manifests/interfaces.pp
+split( $facts['interfaces'], ',' ).each |$index, $interface| {
+notice( "Interface #${index} is ${interface}" )
+}
+$ puppet apply /vagrant/manifests/interfaces.pp
+Notice: Scope(Class[main]): Interface #0 is enp0s3
+Notice: Scope(Class[main]): Interface #1 is enp0s8
+Notice: Scope(Class[main]): Interface #2 is lo
+
+on peut aussi utiliser each avec un hash 
+
+si on met deux variables on aura une sortie avec le nom et la seconde avec la valeur 
+
+[vagrant@client manifests]$ cat /vagrant/manifests/uptime.pp 
+each( $facts['system_uptime'] ) |$type, $value| {
+   notice( "System has been up ${value} ${type}" )
+   }
+
+ici on ne met q'une variable et on aura le même resultat : 
+each( $facts['system_uptime'] ) |$uptime| {
+notice( "System has been up $uptime[1] $uptime[0]" )
+}
+
 
