@@ -1089,4 +1089,117 @@ each( $facts['system_uptime'] ) |$uptime| {
 notice( "System has been up $uptime[1] $uptime[0]" )
 }
 
+- La methode reverse_each() : nous renvoie la liste inversée de each()
+[vagrant@client manifests]$ cat l.pp 
+$my_list = "lapin"
+
+
+reverse_each("$my_list") |$elem| {
+notice("$elem")
+
+}
+
+[vagrant@client manifests]$ puppet apply l.pp
+Notice: Scope(Class[main]): n
+Notice: Scope(Class[main]): i
+Notice: Scope(Class[main]): p
+Notice: Scope(Class[main]): a
+Notice: Scope(Class[main]): l
+Notice: Compiled catalog for client.example.com in environment production in 0.06 seconds
+Notice: Applied catalog in 0.01 seconds
+
+- filter() : 
+cette fonction va boucler et ne sortir que les éléments définis de tableaux ou de hash  recupérer par  lambda  après le passage de filtre définis .
+ici on va définir une variable $ips dans laquelle on va injecter toutes les valeurs trouvées après le passage de notre filtre que l'on set dans la variable $key et qui contient le pattern ipaddress6 
+
+On boucle sur les résultats $key et $value que l'on affiche :
+
+[vagrant@client manifests]$ cat ip.pp 
+$ips = $facts.filter |$key,$value| { 
+  $key =~ /^ipaddress6?_/
+  }
+
+  notice("here it is ..version 6 ip proctocol : $ips")
+[vagrant@client manifests]$ puppet apply ip.pp
+Notice: Scope(Class[main]): here it is ..version 6 ip proctocol : {ipaddress6_enp0s3 => fe80::a00:27ff:feb7:f3af, ipaddress6_enp0s8 => fe80::a00:27ff:fe5e:d9ac, ipaddress6_lo => ::1, ipaddress_enp0s3 => 10.0.2.15, ipaddress_enp0s8 => 192.168.250.10, ipaddress_lo => 127.0.0.1}
+Notice: Compiled catalog for client.example.com in environment production in 0.08 seconds
+
+
+
+- map() :
+cette fonction nous sort un tableau après le passage de lambda et peut recevoir en entrées tableau ou hash
+
+
+[vagrant@client manifests]$ cat m.pp 
+$ips = split( $facts['interfaces'], ',' ).map |$interface| {
+$facts["ipaddress_${interface}"]
+}
+notice("here it is ..; $ips")
+
+[vagrant@client manifests]$ puppet apply m.pp 
+Notice: Scope(Class[main]): here it is ..; [10.0.2.15, 192.168.250.10, 127.0.0.1]
+Notice: Compiled catalog for client.example.com in environment production in 0.07 seconds
+Notice: Applied catalog in 0.01 seconds
+
+
+- slice() :
+nous permet de sortir des petits morceaux de tableaux ou de hash avec un taille déterminée.
+Attention à l'usage : touchy.
+
+on va donc decouper notre entrée en petits morceaux de tailles spécifiques :
+
+[1,2,3,4,5,6].slice(2) |$item| {
+notice( "\$item[0] = ${item[0]}" )
+notice( "\$item[1] = ${item[1]}" )
+}
+
+on decoupe en bloc de deux unités notre tableau : chaque fois qu'on atteint deux on recommence à 0 :
+
+[vagrant@client manifests]$ puppet apply s.pp
+Notice: Scope(Class[main]): $item[0] = 1
+Notice: Scope(Class[main]): $item[1] = 2
+Notice: Scope(Class[main]): $item[0] = 3
+Notice: Scope(Class[main]): $item[1] = 4
+Notice: Scope(Class[main]): $item[0] = 5
+Notice: Scope(Class[main]): $item[1] = 6
+Notice: Compiled catalog for client.example.com in environment production in 0.07 seconds
+Notice: Applied catalog in 0.01 seconds
+
+
+- with() :
+cette fonction va permettre de passer les arguments à la fonction lambda qui va chacun les assigner a des variables :
+
+[vagrant@client manifests]$ cat w.pp 
+with( 'austin', 'powers', 'secret agent' ) |$first,$last,$title| {
+notice( "A person named ${first} ${last}, ${title} is here to see you." )
+}
+
+[vagrant@client manifests]$ puppet apply w.pp 
+Notice: Scope(Class[main]): A person named austin powers, secret agent is here to see you.
+Notice: Compiled catalog for client.example.com in environment production in 0.06 seconds
+Notice: Applied catalog in 0.01 seconds
+
+cette fonction sert principalement à isoler les variables dans des scopes privés.
+
+- Capture des extra parameters : 
+habituellement les variables récupérées par lambda sont au nombre de 1 ou 2.
+Bien qu'avec split() et with() ont puisse passer un nombre plus importants : on peut utiliser le "*" qui va donc récupérer les arguments qui restent pour les assigner à une variable.
+on récupère tout le reste des args et on l'insere dans une variable dont le contenu sera systematiquement un tableau.
+
+[vagrant@client manifests]$ cat star.pp 
+$hosts_line = '192.168.250.6 puppetserver.example.com puppet.example.com puppetserver'
+$host = $hosts_line.split(' ')
+with( *$host ) |$ipaddr, $hostname, *$aliases| {
+  notice( "Host ${hostname} has IP ${ipaddr} and aliases ${aliases}" )
+  }
+
+[vagrant@client manifests]$ puppet apply star.pp 
+Notice: Scope(Class[main]): Host puppetserver.example.com has IP 192.168.250.6 and aliases [puppet.example.com, puppetserver]
+Notice: Compiled catalog for client.example.com in environment production in 0.07 seconds
+Notice: Applied catalog in 0.01 seconds
+
+
+
+== Chapitre 6 : Controle ressource processing : =
+
 
