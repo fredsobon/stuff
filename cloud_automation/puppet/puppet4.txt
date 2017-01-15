@@ -1202,4 +1202,50 @@ Notice: Applied catalog in 0.01 seconds
 
 == Chapitre 6 : Controle ressource processing : =
 
+https://docs.puppet.com/puppet/latest/metaparameter.html
+
+on peut controller comment puppet gere ses ressources en utilisant certains metacharacteres: qui sont des attributs communs que l'on peut utiliser avec les ressources built-in et celles que l'on customize soit même.
+
+- aliases : 
+comme on le sait chaque ressource du même type doit être unique.
+Chaque ressource a un attribut que l'on nomme namevar qui sert à l'identifier de manière unique.Si la namevar n'est pas définie elle prend par défault le titre de la ressource
+On a un namevar dedié par type de resource.
+https://docs.puppet.com/puppet/latest/type.html
+
+Pour simplifier la gestion des ressources on peut utiliser des alias qui peuvent simplifier certaines ressourses dont le comportement peut changer (ex : emplacement sur un fichier disque )
+on peut mettre en place un alias soit en indiquant un 'nom' dans le 'titre' de notre ressource :
+
+file { 'the-testfile':
+ensure  => present,
+path    => '/tmp/testfile.txt',
+content => "holy cow!\n",
+}
+on peut de manière plus claire pour les personnes non habituées à puppet , rajouter à un alias en tant que metacaractere : 
+
+file { '/tmp/testfile.txt':
+ensure  => present,
+alias   => 'the-testfile'
+content => "holy cow!\n",
+}
+
+- noop : no operation :
+
+on peut utiliser le metacaractere noop pour permettre de tester le fonctionnement d'une modification sans l'application du changement : cela nous permet de voir pendant le run le dérouler de ce qui se passera : 
+
+package { 'puppet-agent':
+ensure => latest,
+noop   => true,
+}
+
+C'est le meme comportement que le dry run que l'on passe avec le --noop qu'on met en argument sur la ligne de commande : 
+attention on ne peut pas overrider en cli ce qui est defini dans les params des ressources  : les fichiers de conf sont prioritaires.
+
+
+[vagrant@client ~]$ puppet apply --noop  manifests/helloworld.pp 
+Notice: Compiled catalog for client.example.com in environment production in 0.06 seconds
+Notice: /Stage[main]/Main/Notify[greeting]/message: current_value absent, should be hello, world ! (noop)
+Notice: Class[Main]: Would have triggered 'refresh' from 1 events
+Notice: Stage[main]: Would have triggered 'refresh' from 1 events
+Notice: Applied catalog in 0.01 seconds
+
 
