@@ -1296,25 +1296,35 @@ package { 'puppet-agent':
 On peut les utiliser pour renforcer la gestion des ressources: par exemple ajouter des packages sans redémarrer les services.
 On peut les ajouter sous forme de strings ou de tableaux de strings.
 
-Ici on va ajouter un tag 'packages' sur la ressource package :
+Ici on va ajouter un tag 'packages' sur la ressource package : on va donc pouvoir dans notre cas pouvoir installer le package mais ne pas lancer le service tout de suitebien qu'il soit configurer pour dans notre manifest . On invoque notre run avec le tag en argument :
 
 vagrant@client manifests]$ cat /vagrant/manifests/packagetag.pp 
-package { 'puppet':
+package { 'ntpdate':
   ensure => present,
   tag    => 'packages',
 }
 
-service { 'puppet':
-  ensure  => stopped,
-  enable  => false,
+service { 'ntpdate':
+  ensure  => running,
+  enable  => true,
 }
+
 
 [vagrant@client manifests]$ sudo puppet apply /vagrant/manifests/packagetag.pp --tags packages
 Notice: Compiled catalog for client.example.com in environment production in 2.40 seconds
 Notice: Applied catalog in 0.13 seconds
 
 
-[vagrant@client manifests]$ sudo puppet apply /vagrant/manifests/packagetag.pp --tags packages
-Notice: Compiled catalog for client.example.com in environment production in 1.80 seconds
-Notice: Applied catalog in 0.13 seconds
+si on examie individuellement nos ressources : package et service -> on a bien notre package ntpdate d'installé comme configuré mais le service est stoppé : alors que le manifest decrit le service running : c'est uniquement lié au fait qu'on passe le run avec le tag du package  
+
+grant@client ~]$ sudo puppet resource package ntpdate
+package { 'ntpdate':
+  ensure => '4.2.6p5-25.el7.centos',
+}
+
+[vagrant@client ~]$ sudo puppet resource service ntpdate
+service { 'ntpdate':
+  ensure => 'stopped',
+  enable => 'false',
+}
 
