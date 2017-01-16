@@ -1247,5 +1247,74 @@ Notice: /Stage[main]/Main/Notify[greeting]/message: current_value absent, should
 Notice: Class[Main]: Would have triggered 'refresh' from 1 events
 Notice: Stage[main]: Would have triggered 'refresh' from 1 events
 Notice: Applied catalog in 0.01 seconds
+- audit : auditer le changement.
+cet attribut permet de suivre / tracker une liste de changement que l'on veut suivre en définissant une liste de pattern d'une ressource à suivre ou tous les  paramtres  si on definit la valeur à "all" 
+ex : 
 
+vagrant@client manifests]$ cat /vagrant/manifests/audit.pp 
+file { '/etc/hosts':
+  audit  => ['content','owner','group'],
+  backup => 'puppet',
+  noop   => true,
+}
+
+[vagrant@client manifests]$ sudo puppet apply /vagrant/manifests/audit.pp 
+Notice: Compiled catalog for client.example.com in environment production in 1.69 seconds
+Notice: /Stage[main]/Main/File[/etc/hosts]/content: audit change: newly-recorded value {md5}0350f101b01cdcd219ecb3bfd3a28cc0
+Notice: /Stage[main]/Main/File[/etc/hosts]/owner: audit change: newly-recorded value 0
+Notice: /Stage[main]/Main/File[/etc/hosts]/group: audit change: newly-recorded value 0
+
+On fait une petite modif en rajoutant du texte et le run nous sort bien une diff : 
+
+[vagrant@client manifests]$ echo "## dust ## " |sudo tee -a /etc/hosts
+## dust ## 
+[vagrant@client manifests]$ sudo puppet apply /vagrant/manifests/audit.pp 
+Notice: Compiled catalog for client.example.com in environment production in 1.70 seconds
+Notice: /Stage[main]/Main/File[/etc/hosts]/content: audit change: previously recorded value {md5}0350f101b01cdcd219ecb3bfd3a28cc0 has been changed to {md5}a424861f14c6bb8b00f15eb695e9eb40
+Notice: Applied catalog in 0.02 seconds
+
+- Log level :
+
+on peut définir le log level que l'on désire dans l'idée de syslog :
+
+debug
+info (nommé aussi verbose )
+notice
+warning
+err
+alert
+emerg
+crit
+ex : on peut set un warning quand on a une maj de packet par exemple :
+package { 'puppet-agent':
+    ensure => latest,
+    loglevel => warning,
+}
+
+- Filtrage avec les tags :
+
+On peut les utiliser pour renforcer la gestion des ressources: par exemple ajouter des packages sans redémarrer les services.
+On peut les ajouter sous forme de strings ou de tableaux de strings.
+
+Ici on va ajouter un tag 'packages' sur la ressource package :
+
+vagrant@client manifests]$ cat /vagrant/manifests/packagetag.pp 
+package { 'puppet':
+  ensure => present,
+  tag    => 'packages',
+}
+
+service { 'puppet':
+  ensure  => stopped,
+  enable  => false,
+}
+
+[vagrant@client manifests]$ sudo puppet apply /vagrant/manifests/packagetag.pp --tags packages
+Notice: Compiled catalog for client.example.com in environment production in 2.40 seconds
+Notice: Applied catalog in 0.13 seconds
+
+
+[vagrant@client manifests]$ sudo puppet apply /vagrant/manifests/packagetag.pp --tags packages
+Notice: Compiled catalog for client.example.com in environment production in 1.80 seconds
+Notice: Applied catalog in 0.13 seconds
 
