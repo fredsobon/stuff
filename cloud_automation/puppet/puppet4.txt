@@ -1329,5 +1329,66 @@ service { 'ntpdate':
 }
 NB: puppet ajoute 'automatiquement' le tag associé à chaque ressource : on peut donc imaginer qu'on tag service, package ... est crée et donc invocable.
 
-L'options tags peut prendre plusieurs arguments à la suite : --atgs service,puppet, package ....
+L'options tags peut prendre plusieurs arguments à la suite : --tags service,puppet, package ....
+
+
+- skip_tags :
+
+a l'inverse l'option skip_tags peut nous permettre d'ignorer specifiquement certaines parties de nos manifests :
+on peut par exemple vouloir se passer du redemarrage d'un service particulier malgré la conf dans notre manifest :
+
+[vagrant@client ~]$ cat /vagrant/manifests/packagetag.pp 
+package { 'puppet':
+  ensure => present,
+  tag    => 'packages',
+}
+
+service { 'puppet':
+  ensure  => running,
+  enable  => true,
+  tag    => 'pkg',
+}
+on voit apres notre run avec l'option skip_tags et l'exam avec la commande puppet resource que le service est bien stoppé :
+
+[vagrant@client ~]$ sudo puppet apply /vagrant/manifests/packagetag.pp --skip_tags service
+Notice: Compiled catalog for client.example.com in environment production in 2.22 seconds
+Notice: Applied catalog in 0.13 seconds
+[vagrant@client ~]$ sudo puppet resource service puppet
+service { 'puppet':
+  ensure => 'stopped',
+  enable => 'true',
+
+NB: on  peut utiliser conjointement l'option --skip_tags et --tags mais skip_tags est prioritaire et doit être placée avant tags.
+
+- schedule :
+
+on peut definir la frequence de modif des run avec le meta parametre schedule : 
+
+schedule { 'twice-daily':
+  period => daily,
+  repeat => 2,  # apply twice within the period
+}
+
+on a la possibilité d'affiner nos paramètres en choissant le nombre de fois ou la modif a lieu pendant notre période avec l'attribut repeat et on peut définir les plages horaires 
+ex : 
+
+schedule { 'business-hours':
+  period   => hourly,
+  repeat   => 1, # apply once per hour
+  range    => '08:00 - 17:00', # between 8 a.m. and 5 p.m.
+  weekday  => ['Mon','Tue','Wed','Thu','Fri'], # on weekdays
+} 
+
+schedule { 'after-working-hours':
+  period   => daily,
+  range    => '17:00 - 08:00',
+}
+
+on peut exprimer le temps et la durée comme tel : 
+• hourly
+• daily  # between 5 p.m. and 8 a.m.
+• weekly
+• monthly
+• never
+
 
