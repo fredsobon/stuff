@@ -1406,4 +1406,89 @@ schedule { 'after-working-hours':
 }
 
 
+- periodmatch :
+attenyion ce metaparametre n'est pas simple à comprendre.
+Il peut prendre deux valeurs :
+-distance (default) : le run ne sera pas lancé tant que la valeur de distance (hour, day, week ...) ne sera pas passée.
+On peut avoir une valeur repeat 
+si elle est setté le run ne pourra être passé tant que la valeur de repeat distance ne sera pas ecoulée. ex 4 fois par jour
+
+Attention quand periodmatch est donné sous forme numérique (plutôt que mot (day, hour ...;) la valeur ne peut être sup à 1.
+
+Exemples : 
+vagrant@client ~]$ cat /vagrant/manifests/schedule.pp 
+schedule { 'once-every-hour':
+  period      => hourly,
+  periodmatch => number,
+  repeat      => 1,
+}
+
+file { '/tmp/test-number.txt':
+  ensure   => file,
+  schedule => 'once-every-hour',
+}
+
+schedule { 'sixty-minutes-apart':
+  period      => hourly,
+  periodmatch => distance,
+  repeat      => 1,
+}
+
+file { '/tmp/test-distance.txt':
+  ensure   => file,
+  schedule => 'sixty-minutes-apart',
+}
+
+schedule { 'every-four-minutes':
+  period      => hourly,
+  periodmatch => distance,
+  repeat      => 15,
+}
+
+file { '/tmp/test-four.txt':
+  ensure   => file,
+  schedule => 'every-four-minutes',
+}
+
+exec { 'remove files':
+  path    => '/bin:/usr/bin',
+  command => 'rm -f /tmp/test-number.txt /tmp/test-distance.txt /tmp/test-myrepeat.txt',
+  onlyif  => ['test -f /tmp/test-number.txt', 'test -f /tmp/test-distance.txt', 'test -f /tmp/test-repeat.txt'],
+}
+
+
+
+- Interdiction de dependance :
+
+Si une resource n'est pas cree car elle tombe hors période de schedule : elle sera quand même considérée dans un process d'analyse  de dependance.
+On peut dans ce cas passer une option pour bypasser le schedule en cas de dependance detectée ..et donc d'erreur de run si la dependance echous :
+exmple :  on set un schedule : on creee un fichier dans ce laps de temps  . Si on veut editer le fichier pour faire une modif de conf alors qu'on est hors schedule : c'est un echec : on peut donc utiliser : 
+en option :
+--ignoreschedules
+
+
+- Resources par default :
+
+on peut creer des valeurs de resources par type de ressources.
+Si une ressource n'a pas de valeurs définie alors elle utilisera celle defini pour son type par défaut.
+
+Attention on doit toujours définir la ressource avec une Majuscule dans ce cas : 
+
+Package {
+ schedule => 'after-working-hours',
+}
+
+Best Practice
+Declare resource defaults at the top of the manifest for easy reading
+purposes.
+
+-> en effet la declaration d'un type par default dans un manifest s'appliquera à toutes les ressources même si elles sont au dessus : c'est donc à eviter /!\ 
+
+voir section sur le scope de variable.
+
+
+== chapitre 7 : Relations : 
+
+
+
 
