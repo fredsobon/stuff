@@ -1488,7 +1488,83 @@ voir section sur le scope de variable.
 
 
 == chapitre 7 : Relations : 
+L'accent va être ici mis sur les metaparametres qui vont gérer les dependances entre les resources.
+Des que puppet a parsé les modifications a faire un graph de dépendance est établi.
+puppet utilise des metaparametres pour définir les dependances entre les ressources.
 
+- Gestion des dependances :
+
+-> reference de resource :
+
+ex :
+ici on s'assure que le packet est bien installé sur le systeme.
+package { 'puppet-agent':
+    ensure => present,
+}
+une fois qu'on a nommé la ressource on peut l'utiliser par son nom : c'est la référence de resource 
+pour creer une reference on l'appelle par son type de resource avec une majuscule et entre [] :
+
+service {'puppet':
+ensure   => running,
+enabled  => true,
+require  => Package['puppet-agent'],
+}
+
+On cree une ressource en minuscule et on s'y refere en l'appellant par son type avec une maj suivi de son nom.
+
+-> ordre des ressources : 
+on va biensur devoir définir un ordre : difficile de redemarrer un service si le packet n'est pas installé ..
+on peut se servir de keyword : before , require ..
+
+package { 'puppet':
+ensure => present,
+before => Service['puppet'],
+}
+
+service {'puppet':
+ensure    => running,
+enable    => true,
+require   => Package['puppet'],
+}
+
+- Dependance implicite :
+certaines resources sont implicitement dépendantes d'autre : puppet rajoute automatiquement un flag autorequire: 
+
+file { '/var/log':
+ensure => directory,
+}
+
+file { '/var/log/puppet':
+ensure => directory,
+autorequire => File['/var/log'],  # implicit dependencies
+autorequire => File['/var'],      # added by Puppet
+}
+Les tags autorequire n'apparaissent pas dans les manifests : puppet les gere de maniere autonome 
+
+On a le même systeme pour les resources de type file : ici un repertoire appartient a un user si celui-ci existe : 
+user { 'jill':
+ensure => present,
+shell => '/bin/bash',
+}
+
+file { '/home/jill':
+  ensure => directory,
+  owner  => 'jill',
+  require => User['jill'], # implicit dependency added by Puppet
+}
+
+- Declenchement d'evenements :
+notify and subscribe metaparameters vont faire une action lors d'une modif de resource.
+ex : redemarrage de services apres la modif de conf.
+package { 'puppet-agent':
+  ensure => latest,
+  notify => Service['puppet'],
+}
+service { 'puppet':
+  ensure => running,
+  enable => true,
+  subscribe => Package['puppet-agent'],
+}
 
 
 
