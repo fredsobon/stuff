@@ -1555,7 +1555,10 @@ file { '/home/jill':
 
 - Declenchement d'evenements :
 notify and subscribe metaparameters vont faire une action lors d'une modif de resource.
-ex : redemarrage de services apres la modif de conf.
+ex : redemarrage de services apres la modif de conf. 
+ici des  qu'une mise à jour de puppet-agent est dispo : le package est uploadé : à ce moment le param notify va donc envoyer une notif à la ressource Service et donc faire redémarrer le service . Ceci est possible car le service utilise le param subscribe : qui recoit donc les infos de la resource Package.
+
+Les deux params ne sont pas nécéssaires : un seul est nécéssaire car les infos sont redondantes : notify ou subscribe seul sont suffisants : c'est juste une méthode secure d'utiliser les deux.
 package { 'puppet-agent':
   ensure => latest,
   notify => Service['puppet'],
@@ -1565,6 +1568,102 @@ service { 'puppet':
   enable => true,
   subscribe => Package['puppet-agent'],
 }
+
+
+Refresh : cet evenement à dans le cas d'une commande exec un param refreshonly setté à true un sens particulier : la notif  d'une ressource vers une commande exec va se faire uniquement si le param refreshonly à true est posé :
+Ici un upgrade de puppet-agent va envoyé un notify à  la resource Exec['update-facts'] qui va executer la commande facter grace à la présence de refreshonly :
+
+Package { 'puppet-agent':
+ensure => latest,
+notify => Exec['update-facts'],
+}
+exec { 'update-facts':
+path      => ['/bin','/usr/bin'],
+command   => 'facter --puppet --yaml > /etc/mcollective/facts.yaml',
+refreshonly => true,
+}
+
+- Chaining de ressources avec les "->" / arrows :
+
+on peut facilement chainer les ressources : ex installer un package puis agir sur  le service :
+Package['puppet-agent'] -> Service['puppet']
+on peut envoyer un refresh entre deux resources avec ~>
+Package['puppet'] ~> Service['puppet']
+
+Ces utilisations ne sont pas conseillées.
+
+- Collectors : on peut assembler plusieurs ressources entre elles pour en piloter d'autres.
+On declare un collector avec le nom d'une ressource commencant par une maj suivie de <| , puis d'un param optrionnel et |>
+ex :
+User <||>
+User <| groups == 'wheel' |>
+Package <||>
+Package <| tag == 'yum' |>
+Service <||>
+ervice <| enabled == true |>
+on peut combiner des elements :
+Service <| ( ensure == running ) or ( enabled == true ) |>
+# Services other than Puppet set to be running
+Service <| ( ensure == running ) and ( title != 'puppet' ) |>
+
+on peut aussi combiner  les collectors et les arrows :
+# Regenerate the facts whenever a package is added, upgraded, or removed
+Package <||> ~> Exec['update-facts']
+
+Il est important de n'utiliser les collectors que pour les ressources de même manifest : afin d'eviter des  effets de bords sur les differents scope puppet
+
+- Comprehension de l'ordre de processing de puppet :
+
+Pendant la compilation du catalogue et donc avant d'appliquer les modifs : puppet crée un graph de dependance avec DAG ( direct acyclic graph ) pour eviter les boucles 
+L'ordre de gestion a été introduit en version 3.3 
+
+L'ordre se fait de plusieurs manières : 
+manifest (default in Puppet 4)
+Orders unrelated resources by the order they are declared in the manifest.
+random
+Orders resources randomly and changes the order on each run. This is useful for
+identifying missing dependencies in a manifest.
+
+Il faut toujours definir toutes les dependances explicitement : surtout quand on upgrade un manifest ou un module .
+
+On peut tester les dépendances manquantes avec l'option --ordering=random 
+puppet apply --ordering=random testmanifest.pp
+
+- Debug des cycles de dependances :
+il est tres important de na pas creer de boucles dans les appels au ressources.
+
+vagrant@client ~]$ cat /vagrant/manifests/depcycle.pp
+file { '/tmp/file-exists.txt':
+  ensure  => file,
+  require => Cron['check-exists'],
+}
+
+cron { 'check-exists':
+  user    => 'vagrant',
+  command => 'cat /tmp/file-exists.txt',
+  minute  => '*/5',
+  require => File['/tmp/file-exists.txt'],
+}
+
+
+On peut donc utiliser un graph crée par puppet pour generer un graph 
+[vagrant@client ~]$ puppet apply /vagrant/manifests/depcycle.pp --graph
+Notice: Compiled catalog for client.example.com in environment production
+Error: Failed to apply catalog: Found 1 dependency cycle:
+(Cron[check-exists] => File[/tmp/file-exists.txt] => Cron[check-exists])
+Cycle graph written to
+/home/vagrant/.puppetlabs/opt/puppet/cache/state/graphs/cycles.dot.
+
+Une fois qu'on recupere le graph on va utiliser un viewer :
+ex : graphiz , omnigraffle , webgraphiz
+
+C'est une bonne maniere de visualiser les dependances.
+
+apt-get install graphviz 
+ensuite on peut exporter avec l'outil dot notre fichier .dot (créee avant  avec l'option --graph) 
+ex : 
+dot -Tpng cycles.dot -o cycles.png 
+ensuite on peut ouvrir ule fichier avec un editeur d'image classique sur notre pc .
 
 
 
