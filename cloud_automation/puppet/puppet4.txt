@@ -1665,5 +1665,50 @@ ex :
 dot -Tpng cycles.dot -o cycles.png 
 ensuite on peut ouvrir ule fichier avec un editeur d'image classique sur notre pc .
 
+- Prevention des problemes avec root :
+beaucoup de ressources vont dépendre de conf appartenant à root et devant être crées au préalable.
+on peut devoir creer des dependances dont le owner sera root . pas de souci jusqu'à la creation d'un vrai user root dans ce cas le run peut casser car il faudra eventuellement devoir toucher au mdp ....
+
+
+
+'home':
+ensure => directory,
+owner => 'root',
+}
+mount { '/home':
+ensure => 'mounted',
+fstype => 'nfs',
+device => 'netapp:/home',
+require => File['/home'],
+}
+$users.each |$user,$config| {
+user { $user:
+uid      => $config['uid'],
+password => $config['passwd'],  <<< ici notre manifest prend en compte le mdp ...celui de root ne pourra donc pas être gérer dans le cas de l'ajout du user root dans notre manifest.
+home    => $config['home'],
+shell   => $config['shell'],
+require => Mount['/home'],
+ }
+}
+
+Il est toujours important de créer le user root au debut de l'install puppet et de gérer ses ressources également au début du build.
+
+- Utilisation des stages :
+les ressources stages permettent de tester que tout nos runs se passent dans l'ordre désiré
+on creee donc un stage pour gérer l'ordre .
+stage { 'initialize':
+	before => Stage['main'],
+}
+stage { 'finalize': }
+	after => Stage['main'],
+}
+
+on peut donc assigner a des classes (blocs de code ) des stages.
+En pratique c'est quasiment inutilisable pour des structures moyennes : immintenable.
+
+
+== chapitre 8 : puppet 3 -> 4 migration ==
+
+== chapitre 9 : Recap puppet basics = 
 
 
