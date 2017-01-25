@@ -1711,4 +1711,82 @@ En pratique c'est quasiment inutilisable pour des structures moyennes : imminten
 
 == chapitre 9 : Recap puppet basics = 
 
+"Best practices for writting Puppet manifests:
 
+-> Quote all unquoted string values.
+-> ensure should be the first attribute in a resource block.
+-> Align the arrows for attributes within a resource block.
+-> Enable the strict_variables configuration setting to catch errors while testing.
+-> Group resources by their relationship with each other.
+-> Don’t use conditionals within resource declarations.
+-> Provide defaults for case and select statements.
+-> When something can be done multiple ways, always use the most readable
+option.
+You can find the Puppet Style Guide at https://docs.puppetlabs.com/guides/
+style_guide.html. All of the examples in this book have been compliant with the style
+guide.
+
+=== Part 2 : puppet modules : ===
+
+les modules sont des ensembles de code, fichier, template, data puppet : leur écriture doit être très lisible
+Ils ont plusieurs avantages :
+-> rassembler code et data au sein d'un même namespace 
+-> contenir du code qui fait quelque chose (installer, supprimer ....)
+-> fournir des fichiers, templates , fonctions , plugins utilisables pour d'autres modules.
+Il est important d'utiliser des modules qui pourront être utiliser sans modifier le code mais juste en adaptant nos d
+onnées à ces modules.
+ 
+= chaptitre 10 : creation d'un environment de test : 
+puppet permet de fournir diferentes version de modules et de data via l'utilisation d'environment.Un des premiers  usage est d'utiliser puppet sans perturber la productoion.
+On va donc creer un environment de production et de test avant d'installer nos modules.
+
+A l'installation puppet créee de base un environnment de production : 
+
+[vagrant@client ~]$ ls  /etc/puppetlabs/code/environments/production/ -l
+total 4
+-rw-r--r-- 1 root root 879  6 déc.  00:17 environment.conf
+drwxr-xr-x 2 root root   6  6 déc.  00:18 hieradata
+drwxr-xr-x 2 root root   6  6 déc.  00:18 manifests
+drwxr-xr-x 2 root root   6  6 déc.  00:18 modules
+
+on va donc creer un environment pour tester nos modules. On créee une arbo et un fichier de base site.pp 
+  mkdir -p /etc/puppetlabs/code/environments/test/modules
+  cd /etc/puppetlabs/code/environments/test
+  mkdir hieradata
+  mkdir manifests
+  vi manifests/site.pp
+  notify { 'UsingTest':
+    message => "Processing catalog from the Test environment.",
+ } 
+on va donc avoir un message s'afficher pour memo des qu'on utilise cet environmment.
+
+Changement du path des modules : 
+on peut utiliser une conf qui rend dispo nos modules quelques soit l'environment :
+
+[vagrant@client test]$ sudo vi /etc/puppetlabs/puppet/puppet.conf
+[main]
+# these are both default values
+environmentpath = /etc/puppetlabs/code/environments
+basemodulepath = /etc/puppetlabs/code/modules
+ 
+la variable environementpath va contenir une arbo dans laquelle un repertoire pour chaque env sera créee
+la variable basemodulepath va contenir un repertoire modules qui servira de fallback si le repertoire module d'un env n'est pas trouvé : on pourra stocker ici tous nos modules correctement testé pour ne pas avoir à les dupliquer.
+Chacun des ces repertoires sont ceux par defaut et n'auront donc  pas à être saisis dans le fichier de conf sauf si on veut specifiquement les changer
+
+
+== chapitre 11 : Separation du code et des data : 
+il est fondamental de separer le code des data : ce qui fonctionne en embarquant des données pour un node précis ne sera plus fonctionnel des qu'on augmente le nombre de machinnes.
+En incluant des data dans le code on fera systematiquement des if / else qui rendront inevitablement le code non maintenable.
+Il est impératif de séparer les data : values du code : manifests.
+
+= hiera : 
+hiera est un outil cle / valeur de configuration de data pour puppet.Puppet utilise dynamiquement hiera pour les confs de data .
+Il est possible d'utiliser hiera selon nos besoins: d'un node specifique qui utilisera une conf particuliere dédiée puppet ou alors des découpages liés à notre infrastructure.
+Les differents niveaux de hiearachie peuvent donc permettre de mutualiser des données communes aux nodes specifiques ou à des env dédies : on peut donc partager le code facilement.
+
+- creation de backend hiera : 
+
+on peut ecrire nativement de la conf hiera en json ou yaml . Les types suivants sont supportés : string, number, booleen, array, hash
+
+- hiera en yaml : 
+c'est le plus simple il suffit d'avoir un fichier au format yaml et de le definir son extension en ".yaml" 
