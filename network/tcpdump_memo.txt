@@ -1,0 +1,123 @@
+==== tcpdump mémento d'options ===
+
+= Les options :
+
+- Afficher les interfaces disponibles en écoute :
+ $ tcpdump -D
+ 1.en0
+ 2.bridge0
+ 3.awdl0
+ 4.en1
+ 5.en2
+ 6.p2p0
+ 7.lo0
+
+- Sniffer sans filtre :
+Une interface spécificque :
+ $ tcpdump -i eth0
+Note : il y a la possibilité de mettre plusieurs -i.
+Sur toutes les interfaces :
+ $ tcpdump -i any
+Niveau de verbosité :
+ $ tcpdump -i eth0 -v
+Note : On peut mettre jusqu'à 3 v pour avoir le plus verbeux possible.
+Afficher le contenu du packet en Hex et ASCII :
+ $ tcpdump -i eth0 -X
+
+-Afficher le contenu du packet en Hex :
+ $ tcpdump -i eth0 -x
+
+-Afficher les MAC dans la trace
+$ tcpdump -i eth0 -e
+
+-Le moins verbeux possible :
+
+$ tcpdump -i eth0 -q
+
+Pas de flags TCP, le strict minimum.
+limité le nombre de packets capturé :
+ $ tcpdump -i eth0 -c 2
+
+- Envoyer la capture dans un fichier :
+
+ $ tcpdump -i eth0 -w /tmp/capture.pcap
+Note : s'il n'y a aucune option qui arrète la capture (comme -c par exemple) il faudra faire un Ctrl+C pour stopper ka capture.
+
+- Lire une capture :
+ $ tcpdump -r /tmp/pp.pcap
+Fixer la taille que l'on enregistre de chaque packet :
+$ tcpdump -i eth0 -s 500
+
+Note : Valeur en octets, 0 = toute la taille du packet.
+Ne pas faire la résolution de nom et de port :
+ $ tcpdump -i eth0 -n
+
+Ne pas afficher le timestamp
+ $ tcpdump -i eth0 -t
+Les filtres :
+Sur une machine
+ $ tcpdump -i eth0 host 1.1.1.1
+    host : machine en source ou destination
+    src host : machine en source
+    dst host : machine en destination
+
+Sur le réseau
+ $ tcpdump -i eth0 net 1.1.1.0/24
+    net : réseau en source ou destination
+    src net : réseau en source
+    dst net : réseau en destination
+Sur le port :
+ $ tcpdump -i eth0 port 22
+    port : port en source ou destination
+    src port : port en source
+    dst port : port en destination
+Sur un range de ports :
+ $ tcpdump -i eth0 portrange 1-10000
+
+    portrange : portrange en source ou destination
+    src portrange : portrange en source
+    dst portrange : portrange en destination
+
+Sur un vlan :
+ $ tcpdump -i eth0 vlan 666
+
+Note : Sur certains équipement il est necessaire de mettre le filtre vlan en premier si l'on fait plusieurs filtres.
+Taille de packet
+ $ tcpdump -i eth0 less 20
+
+    less NN : packet inférieur ou égal à NN octets
+    greater NN : packet supérieur ou égal à NN octets
+
+MAC
+ $ tcpdump -i eth0 ether host f4:ca:e5:49:4b:22
+
+ICMP
+ $ tcpdump -i eth0 icmp
+
+ARP
+ $ tcpdump -i eth0 arp
+
+TCP
+ $ tcpdump -i eth0 tcp
+
+UDP
+ $ tcpdump -i eth0 udp
+
+Concaténation de filtres :
+ET
+ $ tcpdump -i eth0 dst host 1.1.1.1 and port 22
+OR
+ $ tcpdump -i eth0 broadcast or multicast
+
+Complexes
+host 1.1.1.1 et port 80 ou 23
+
+ $ tcpdump -i eth0 dst host 1.1.1.1 and (port 80 or port 23)
+
+Afficher les packets avec le flag TCP SYN ou FIN
+
+ $ tcpdump -i eth0 'tcp[tcpflags] & (tcp-syn|tcp-fin) != 0'
+
+Afficher les packets ICMP sauf echo request/reply
+
+ $ tcpdump -i eth0 'icmp[icmptype] != icmp-echo and icmp[icmptype] != icmp-echoreply'
