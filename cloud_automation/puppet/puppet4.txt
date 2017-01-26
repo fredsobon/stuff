@@ -1789,4 +1789,108 @@ Les differents niveaux de hiearachie peuvent donc permettre de mutualiser des do
 on peut ecrire nativement de la conf hiera en json ou yaml . Les types suivants sont supportés : string, number, booleen, array, hash
 
 - hiera en yaml : 
-c'est le plus simple il suffit d'avoir un fichier au format yaml et de le definir son extension en ".yaml" 
+c'est le plus simple et le plus utilisé .il suffit d'avoir un fichier au format yaml et de le definir son extension en ".yaml" 
+
+Un fichier yaml commence toujours par '---' et doit TOUJOURS utiliser les espaces pour la tabulation.
+On utilise deux espaces en identation.
+ex 
+# string
+agent_running: 'running'
+# boolean
+agent_atboot: true
+# array
+puppet_components:
+  - facter
+  - puppet
+# a hash of values
+puppet:
+  ensure: 'present'
+version: '4.4.0'
+# A variable lookup
+hostname: %{facts.hostname}
+
+Il est tout a fait possible de regrouper cette conf qui concerne un agent puppet dans un seul hash : 
+puppet:
+  ensure: 'present'
+  version: '4.4.0'
+  agent:
+    running: 'running'
+    atboot: true
+  components:
+    - 'facter'
+    - 'puppet'
+syntaxe yaml pour ruby : 
+http://bit.ly/1XAD1Yd
+
+
+- Hiera en json :
+.json en extention de fichier.La racine de chaque bloc de data doit être en hash . chaque key dans un hash nomme une partie de config 
+ex precedent formatté en json :
+
+{
+"puppet": {
+  "ensure": "present",
+  "version": "4.4.0",
+  "agent": {
+    "running": "running",
+    "atboot": true
+  },
+  "components": [
+    "facter",
+    "puppet"
+    ]
+  }
+}
+Attention la fin d'un bloc json ne doit pas contenir de virgule , contrairement à puppet dont le dernier bloc doit contenir une virgule.
+
+- Variables puppet et fonction lookup : 
+on peut recupérer les variables puppet ou executer une fonction d'interpolation de données dans hiera en utilisant une valeur préfixée par % et entourée de {} 
+Ex :
+pour récupérer une variable puppet :
+%{facts.hostname}
+pour executer une fonction d'interpolation 
+%{ split([1,2,3]) }
+
+-> Configuration de hiera :
+
+de base puppet examine la conf hiera par la variable : hiera_config . par defaut dans ${codedir}/hiera.yaml ou /etc/puppetlabs/code/hiera.yaml
+La config de base du hiera est un hash en yaml.Les items en haut sont des globales. chaque globale commence par un symbole ruby debutant par un ":" . Tous les paramétrages  sont optionnels et on tombe dans les valeurs par défaut s'il manque une conf.
+
+---paramètres hiera  :
+
+-backends : comme vu il s'agit de la conf de notre hiera : 
+:backends:
+  - yaml
+  - json
+- configuration de backends : pour chacun des backends on a un parametrage global du backend sous forme de hash . Il faut le faire pour tous les backends
+On doit utiliser la clé  ":datadir" qui identifie l'endroit ou on place nos confs
+ex : conf  par défaut si elle n'est pas overridée dans le fichier de conf : 
+:yaml:
+  :datadir: /etc/puppetlabs/code/environments/%{::environment}/hieradata
+:json:
+  :datadir: /etc/puppetlabs/code/environments/%{::environment}/hieradata
+Comme chaque fichier doit porter une extention particuliere : on peut définir les datadir au même endroit. 
+
+
+Cette config utilise le top scope "::environment" variable : defini par puppet (server ou agent) pour permettre l'utilisation de differentes  données par environment. Ce qui nous permet d'utiliser le rerpertoire hieradata défini pour notre env de test 
+
+
+exemple de conf : 
+vagrant@client ~]$ sudo cat /etc/puppetlabs/puppet/hiera.yaml 
+---
+:backends:
+  - yaml
+:hierarchy:
+  - "nodes/%{::trusted.certname}"
+  - common
+
+:yaml:
+# datadir is empty here, so hiera uses its defaults:
+# - /etc/puppetlabs/code/environments/%{environment}/hieradata on *nix
+# - %CommonAppData%\PuppetLabs\code\environments\%{environment}\hieradata on Windows
+# When specifying a datadir, make sure the directory exists.
+  :datadir:
+
+
+
+
