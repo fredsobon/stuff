@@ -2144,6 +2144,94 @@ jane:
 Il est toujours important d'utiliser la strategy de merge deep pour eviter d'avoir a se repéter et dupliquer des confs
 
 == chapitre 12 : Modules 
+Il est tout a fait possible de creer un module en entier. Cependant il y a de grande chances que quelqu'un ait dejà developper quelque chose de similaire.Il va donc être possible d'utiliser ded manière "intacte" le module et de l'utiliser comme point de départ de notre dveloppement.
+Ou trouver des modules ?
 
+-La forge puppet : 
+https://forge.puppetlabs.com/.
+Il est possible d'interet la forge via cli :
+puppet module search apache
+Notice: Searching https://forgeapi.puppetlabs.com ...
+NAME
+DESCRIPTION
+puppetlabs-apache Installs, configures, and manages ... example42-apache
+Puppet module for apache
+...
+On a cependant plus d'informations en browsant directement via http la forge.
 
- 
+- repos github public : 
+Il est possible de trouver beaucoup de modules sur github (ceux ci peuvent aussi être présents sur la forge .ou pas licence, doc , mainteneur ...)
+
+- Repo interne :
+Il est tout a fait possible d'avoir un repo privé de module 
+Dans ce cas on recherche notre module via cli : 
+puppet module search --module_repository=http://forge.example.org/ apache
+On peut si on utilise uniquement des modules internes configurés puppet pour qu'il selectionne toujours  cette source : 
+puppet.conf 
+[main]
+module_repository = http://forge.example.org/
+
+Evaluation des modules : sur la forge une note de la qualité du module (test de code etc..) est présente sur les modules : c'est un bon indicateur de la valeur du code.
+On a aussi les modules supportés par la société puppet labs entreprise : ces modules sont de tres bonnes qualités mais ne s'adapte pas tres facilement et concernent des besoins basiques.
+Modules puppet approved sont de tres bonne qualité et maintenus.
+Community modules peuvent être egalement interressant.
+
+- Installation de module :
+
+On peut interroger la forgen notre repo interne ou recupérer le code directement du dev.
+
+- forge : 
+
+[vagrant@client ~]$ puppet module install puppetlabs-stdlib
+Notice: Preparing to install into
+/etc/puppetlabs/code/environments/production/modules ...
+Notice: Downloading from https://forgeapi.puppetlabs.com ...
+Notice: Installing -- do not interrupt ...
+/etc/puppetlabs/code/environments/production/modules
+└── puppetlabs-stdlib (v4.8.0).
+ On voit ici que notre module est installé pour l'environment de production.
+ Il est tout a fait possible pour le test de changer cet env.
+ Ex: 
+ [vagrant@client ~]$ puppet module install puppetlabs-stdlib --environment test
+ Notice: Preparing to install into
+ /etc/puppetlabs/code/environments/test/modules ...
+ Notice: Downloading from https://forgeapi.puppetlabs.com ...
+ Notice: Installing -- do not interrupt ...
+ /etc/puppetlabs/code/environments/test/modules
+ └── puppetlabs-stdlib (v4.8.0)
+
+L'installation de module dans un env de test est la meilleure facon de le tester sans casser la production. Une fois qu'on veut l'utiliser en production, on peut
+soit recommencer la manip avec un puppet module install soit copier notre module dans l'env de production:
+
+$ cd /etc/puppetlabs/code/environments
+$ mv test/modules/stdlib production/modules/
+
+- Installation depuis github :
+
+On doit installer git sur notre serveur :
+[vagrant@client ~]$ sudo yum install -y git
+...snip...
+Installed:
+git.x86_64 0:1.8.3.1-4.el7
+Dependency Installed:
+libgnome-keyring.x86_64 0:3.8.0-3.el7
+perl-Git.noarch 0:1.8.3.1-4.el7
+rsync.x86_64 0:3.0.9-15.el7
+Complete!
+
+puis faire un git clone dans  notre env :
+
+$ cd /etc/puppetlabs/code/environments/test/modules
+$ git clone https://github.com/jorhett/puppet-mcollective mcollective
+Initialized empty Git repository in
+/etc/puppetlabs/code/environments/test/modules/mcollective/.git/
+remote: Counting objects: 183, done.
+Receiving objects: 100% (183/183), 51.13 KiB, done.
+remote: Total 183 (delta 0), reused 0 (delta 0), pack-reused 183
+Resolving deltas: 100% (98/98), done.
+
+- Test de module :
+on devra suivre les instructions fournies sur le site du module.Souvent il faut :
+-> déclarer la classe du module dans la definition du node
+-> definir les clé de données de hiera dans le nom du module.
+
