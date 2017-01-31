@@ -2235,6 +2235,7 @@ on devra suivre les instructions fournies sur le site du module.Souvent il faut 
 -> déclarer la classe du module dans la definition du node
 -> definir les clé de données de hiera dans le nom du module.
 
+Exemple d'installation du module ntp en provenancede la forge : 
 cd /etc/puppetlabs/code/environments/test/modules
 [vagrant@client modules]$ sudo puppet module install --modulepath=. puppetlabs-ntp
 Notice: Preparing to install into /etc/puppetlabs/code/environments/test/modules ...
@@ -2244,4 +2245,83 @@ Notice: Installing -- do not interrupt ...
 └─┬ puppetlabs-ntp (v6.0.0)
   └── puppetlabs-stdlib (v4.15.0)
   [vagrant@client modules]$ 
+
+on voit dans notre repertoire modules le module ntp et le stdlib : puppet install les dépendances de notre module en même temps.
+En regardant la doc on voit que ce module peut fonctionner sans données en entrée : on peut donc le tester en appliquant la conf par defaut :
+sudo puppet apply --environment test --execute 'include ntp'
+
+
+
+
+
+TO BE COMPLETED ==> pas le net pour le run.
+
+comme on le voit le module a modifier la configuration et à démarrer le service.
+
+-Definition de config avec hiera :
+imaginons que nous voulions changer la conf de notre ntp et modifier la conf de base qui autorise l'acces au ntp uniquement depuis localhost en l'etendant à notre lan.
+On va pour cela mofifier notre conf dans la partie common de hiera dans notre env de test.
+En regardant la conf /doc du module on voit que la securité du module se fait via les modifications des paramètres restrict  et interfaces.
+
+/!\ Pour fournir des données en entrée à un module on doit toujours nommer ces data : modulename::paramname 
+
+on va donc commencer par définier kes sections restrict et interfaces  dans notre conf hiera :
+[vagrant@client ~]$ sudo cat /etc/puppetlabs/code/hieradata/common.yaml
+---
+ntp::interfaces:
+ntp::restrict:
+
+On voit dans la doc que l'on doit renseigner ces paramètres avec des tableaux de  valeurs
+on utilise donc la syntaxe dediée : 
+
+[vagrant@client ~]$ sudo cat /etc/puppetlabs/code/hieradata/common.yaml
+--
+# Data for the puppetlabs NTP module
+# which interfaces will accept connections
+ntp::interfaces:
+  - '127.0.0.1'
+# which nodes can connect
+ntp::restrict:
+  - 'default kod nomodify notrap nopeer noquery'
+  - '-6 default kod nomodify notrap nopeer noquery'
+  - '127.0.0.1'
+  - '-6 ::1'
+  - '192.168.250.0/24'
+  - '-6 fe80::'
+
+on peut maintenant overrider notre conf pour le hostname dédié :
+
+[vagrant@client ~]$ sudo cat /etc/puppetlabs/code/hieradata/hostname/client.yaml 
+---
+#Data for the puppetlabs NTP module which interfaces will accept connections
+ntp::interfaces:
+  - '127.0.0.1'
+  - '192.168.0.250'
+
+[vagrant@client ~]$ sudo puppet apply --environment test --execute 'include ntp'
+
+== to be completed => net  pb 
+
+On voit que puppet a modifier la conf et restarté le service.
+De plus on voit que la conf uniquement pour notre client a été overrider et que les param globaux sont appliqués :
+
+[vagrant@client ~]$ grep 192.168.250 /etc/ntp.conf
+restrict 192.168.250.0/24
+interface listen 192.168.250.10
+
+[vagrant@client ~]$ grep listen /etc/ntp.conf
+interface listen 127.0.0.1
+interface listen 192.168.250.10
+
+-Assignation de module à nos nodes :
+
+La meilleure best pratice pour assigner une classe de module à notre node est de définir cette classe  dans hiera.
+on peut bénéficier de la hierarchie pour customiser nos listes de classes : comme on a configurer un manifest pour chaque environment pour charger les classes de hiera :
+
+[vagrant@client modules]$ cat ../manifests/site.pp
+# Look up all classes defined in Hiera and other data sources
+lookup('classes', Array[String], 'unique').include
+
+
+
 
