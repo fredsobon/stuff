@@ -1,0 +1,55 @@
+== notes locales==
+
+-introduction
+Sous Linux, les locales sont utilisées pour définir la langue que vous désirez utiliser sur votre système.
+Le nom des locales est construit comme suit:
+
+langage[_pays][.encodage][@modification]
+
+-Activer les locales
+Les locales doivent être générées à l'aide de la commande locale-gen. Cette dernière récupére les locales à générer depuis le fichier /etc/locale.gen.
+Pour configurer un système UTF-8 en français, nous allons activer fr_FR.UTF-8.
+Décommentons les locales suivantes du fichier :
+Fichier: /etc/locale.gen
+fr_FR.UTF-8 UTF-8
+
+Puis générons les locales :
+# locale-gen
+Generating locales...
+  fr_FR.UTF-8... done
+  Generation complete.
+
+Note: Bien que vous n'utilisez souvent qu'une langue sur votre ordinateur, il peut être pratique ou même nécessaire d'activer d'autres locales. Par exemple, pour des utilisateurs ne parlant pas la même langue.
+
+Vous pouvez avoir la liste des locales de votre système avec la commande :
+locale -a
+
+Et celle que vous utilisez avec :
+locale
+
+-Configurer la locale pour tout le système
+La configuration se fait dans le fichier /etc/locale.conf.
+Vous pouvez spécifier une ou plusieurs catégories de locale (man 7 locale pour avoir la liste) :
+
+Fichier: /etc/locale.conf
+# Spécifier fr par défaut
+LANG="fr_FR.UTF-8"
+# Préférer l'anglais à la langue par défaut si la traduction fr n'existe pas
+LANGUAGE="fr_FR:en_US"
+# Mais garder un tri par défaut
+LC_COLLATE=C
+
+Il est aussi possible de définir la locale en passant un paramètre au noyau (pour un live par exemple) :
+
+locale.LANG=fr_FR.UTF-8 locale.LC_COLLATE=C
+
+Configurer la locale par utilisateur
+Pour configurer une locale (qui peut être différente de celle du système) seulement pour votre session, il faut exporter la bonne variable dans votre ~/.bashrc, par exemple, pour avoir le système en anglais, mais les dates en français :
+  export LANG=en_US.UTF-8
+  export LC_TIME=fr_FR
+
+Votre locale sera mis à jour aussitôt que votre ~/.bashrc sera re-sourcé soit, en vous connectant ou si vous lancez la commande :
+
+  source ~/.bashrc
+
+
