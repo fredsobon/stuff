@@ -2334,6 +2334,37 @@ on peut bénéficier de la hierarchie pour customiser nos listes de classes : co
 # Look up all classes defined in Hiera and other data sources
 lookup('classes', Array[String], 'unique').include
 
+on doit configurer tout nos environments pour assigner  les modules puppet à nos nodes.
+pour le faire on doit déclarer un simple manifest portant n'importe quel nom ( auparavant il fallait que ce fichier se nomme site.pp)dans notre repertoire manifest 
+ex : ici on va le faire dans notre env de production :
+
+root@client production]# cat manifests/site.pp 
+notify { 'UsingTest':
+  message => "Processing catalog from the Test environment.",
+  }
+# Look up all classes defined in Hiera and other data sources
+lookup('classes', Array[String], 'unique').include
+
+Maintenant on va pouvoir assigner des classes en utilisant hiera data : 
+
+- Assignation de classes à tous nos nodes :
+
+Afin d'appliquer ce module à tous les nodes on va ajouter une conf dans le fichier common.yaml
+on commence par insérer la clé "classes" puis la liste de nos classes ici notre module ntp ( on retrouve donc ce que parse la fonction lookup('classes'<= notre clé , Array[String], <= ici la liste ( tableau de module représenté en string : uniquement ntp , et unique ( on ne fait qu'une seule fois l'appel)
+
+[root@client code]# cat hieradata/common.yaml
+---
+classes:
+  - 'ntp'
+
+cd /etc/puppetlabs/code/environments/test/modules 
+
+[root@client modules]# sudo puppet apply --environment test ../manifests/
+Notice: Compiled catalog for client.example.com in environment test in 0.07 seconds
+Notice: Processing catalog from the Test environment.
+Notice: /Stage[main]/Main/Notify[UsingTest]/message: defined 'message' as 'Processing catalog from the Test environment.'
+Notice: Applied catalog in 0.02 seconds
+
 
 
 
