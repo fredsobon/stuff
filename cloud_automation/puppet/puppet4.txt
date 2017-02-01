@@ -479,7 +479,7 @@ $mymy =['yop',['lala',5]]
 
 on peut definir des variables a des valeurs dans des tableaux si le nombre de variables et de valeur sont identiques :
 
-[$myvar, $yourvar , $var] = ['lapin', 3, true]   <<<< GGOD
+[$myvar, $yourvar , $var] = ['lapin', 3, true]   <<<< GOOD
 [$myvar, $yourvar , $var] = ['lapin', 3]         <<<<< ERROR
 
 Certaines fonctions demandent une liste de valeur en arguments a la place d'element de tableau.On peut utiliser '*' pour convertir les elements d'un tableau en éléments séparés par une virgule avec la syntaxe de type :
@@ -580,7 +580,7 @@ disks => {
   }
 ...
 ...
-ystem_uptime => {
+system_uptime => {
   days => 0,
   hours => 1,
   seconds => 7004,
@@ -2336,9 +2336,9 @@ lookup('classes', Array[String], 'unique').include
 
 on doit configurer tout nos environments pour assigner  les modules puppet à nos nodes.
 pour le faire on doit déclarer un simple manifest portant n'importe quel nom ( auparavant il fallait que ce fichier se nomme site.pp)dans notre repertoire manifest 
-ex : ici on va le faire dans notre env de production :
+ex : ici on va le faire dans notre env de test :
 
-root@client production]# cat manifests/site.pp 
+root@client test]# cat manifests/site.pp 
 notify { 'UsingTest':
   message => "Processing catalog from the Test environment.",
   }
@@ -2359,12 +2359,15 @@ classes:
 
 cd /etc/puppetlabs/code/environments/test/modules 
 
+on peut tester la bonne prise en compte en arretant le service ntp pour bienvoir que le module est bien appliqué avec la conf hiera
+[root@client manifests]# systemctl stop ntpd 
+
 [root@client modules]# sudo puppet apply --environment test ../manifests/
-Notice: Compiled catalog for client.example.com in environment test in 0.07 seconds
+Notice: Compiled catalog for client.example.com in environment test in 0.36 seconds
 Notice: Processing catalog from the Test environment.
 Notice: /Stage[main]/Main/Notify[UsingTest]/message: defined 'message' as 'Processing catalog from the Test environment.'
-Notice: Applied catalog in 0.02 seconds
-
+Notice: /Stage[main]/Ntp::Service/Service[ntp]/ensure: ensure changed 'stopped' to 'running'
+Notice: Applied catalog in 0.17 seconds
 
 
 
