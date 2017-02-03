@@ -2370,4 +2370,46 @@ Notice: /Stage[main]/Ntp::Service/Service[ntp]/ensure: ensure changed 'stopped' 
 Notice: Applied catalog in 0.17 seconds
 
 
+- Modification de la list des classes par nodes :
+on peut par exemple vouloir installer le ntp sur tout notre parc machinne mais n'installer puppet agent que sur les nodes et puppetserver sur le server puppet.
+/etc/puppetlabs/code/hieradata/common.yaml 
+---
+classes:
+  - 'ntp'
+    - puppet::agent
+on va creer un fichier dedié pour le server qui contiendra notre conf :
+[root@client ~]# cat  /etc/puppetlabs/code/hieradata/puppetserver.yaml
+---
+classes:
+  - ntp
+  - puppet::server
+
+L'assignement de classe se fait toujours dans un ordre de merge de tableau donc toutes les valeurs dans le tableau des classes seront mergées ensemble pour chaque niveau de hierarchie.
+
+La possibilité d'examiner les classes depuis les données est une avancée majeure dans puppet4 via hiera :
+ex : 
+classes:
+- apache
+
+apache::modules:
+- passenger
+
+- Examen de module :
+il est capital de s'assurer de la bonne qualité du module. Certains points sont essentiels :
+-> support de l'os
+-> namespace module : il est possible d'avoir des dependances de noms de modules que le module que nous utilisons.
+-> environments : permettre d'avoir un fonctionnement normal dans differents environments.
+-> code : peut overrider des variables globales.
+-> ressource namespace peut utiliser des noms de ressources en conflit avec certaines que l'on a dejà nommées.
+-> collecteurs gournmands : des collecteurs peuvent traiter accidentellement des données non reliées 
+
+Ces précautions sont aussi à prendre si on veut creer nos propres modules.
+
+
+=== chapitre 13  : customization / design de modules : 
+
+
+
+
+
 
