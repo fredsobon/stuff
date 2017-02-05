@@ -2536,4 +2536,142 @@ facts.d/   Directory containing external facts to be distributed.
 metadata.json  File containing version and module dependencies.
 
 - Installation du module :
+pour tester un module on va devoir le placer dans un endroit ou puppet pourra le trouver :
+quand on developpe un module le plus simple est de le deplacer dans un environment de test : $modulepath de test :
+ [vagrant@client ~]$ cd /etc/puppetlabs/code/environments/test/modules
+ [vagrant@client modules]$ sudo mv ~/boogieland/ .
+Maintenant que notre module est en place on va rajouter une classe dans le server de test pour tester ce nouveau module :
+[vagrant@client code]$ sudo cat hieradata/hostname/client.yaml 
+---
+classes:
+  - boogieland
+maintenant quand on test notre node la classe de notre nouveau module sera inclue : cela nous permet de tester de maniere secu un nouveau module.
 
+
+pour la suite on crée un module puppet 
+[vagrant@client]$ sudo puppet module generate boogie-puppet
+et on le déplace dans l'arbo de notre env de test 
+/etc/puppetlabs/code/environments/test/modules/puppet
+
+on renseigne la classe dans notre node de test : 
+[vagrant@client code]$ head hieradata/hostname/client.yaml
+---
+classes:
+  - puppet
+
+
+
+- creation de la classe manifest :
+on va trouver dans notre module un fichier manifest de type init.pp :
+/etc/puppetlabs/code/environments/test/modules/puppet/manifests
+le présence de ce fichier est impérative et il doit contenir la définition de classe de base 
+cette classe de base est une classe portant le même nom que notre module.
+[vagrant@client manifests]$ cat  init.pp 
+# Class: puppet
+# ===========================
+#
+# Full description of class puppet here.
+#
+# Parameters
+# ----------
+#
+# Document parameters here.
+#
+# * `sample parameter`
+# Explanation of what this parameter affects and what it defaults to.
+# e.g. "Specify one or more upstream ntp servers as an array."
+#
+# Variables
+# ----------
+#
+# Here you should define a list of variables that this module would require.
+#
+# * `sample variable`
+#  Explanation of how this variable affects the function of this class and if
+#  it has a default. e.g. "The parameter enc_ntp_servers must be set by the
+#  External Node Classifier as a comma separated list of hostnames." (Note,
+#  global variables should be avoided in favor of class parameters as
+#  of Puppet 2.6.)
+#
+# Examples
+# --------
+#
+# @example
+#    class { 'puppet':
+#      servers => [ 'pool.ntp.org', 'ntp.local.company.com' ],
+#    }
+#
+# Authors
+# -------
+#
+# Author Name <author@domain.com>
+#
+# Copyright
+# ---------
+#
+# Copyright 2017 Your name here, unless otherwise noted.
+#
+class puppet {
+
+
+}
+
+actuellement cette classe n'a pas de définition : elle est vide mais elle existe et ne fait rien . on voit egalement qu'il y a tout un template de définition de definition de  classe.
+
+- Qu'est ce qu'une classe ?
+
+pour rappel 
+un manifest utilise le language de puppet pour des déclarations de configuration
+un manifest contient des ressources qui décrivent l'etat de la configuration attendue de nodes
+un manifest s'execute toute de suite apres l'execution de la commande puppet apply
+
+une classe :
+est un manifest avec certaines propriétés.on utilise aussi le language puppet pour créer une classe .
+
+A class is a manifest that can be called by name.
+A class has a namespace or variable scope of the same name.
+A class is not used until called by name.
+A class may include or be included by other modules.
+A class may be passed parameters when called.
+
+
+
+
+Declaration de ressources de classes :
+
+class puppet {
+# Install the Puppet agent
+  package { 'puppet-agent':
+    ensure => 'latest',
+    notify => Service['puppet'],
+  }
+# Manage the Puppet service
+  service { 'puppet':
+    ensure  => 'running',
+    enable  => true,
+    subscribe => Package['puppet-agent'],
+  }
+}
+
+on test notre conf :
+[root@client manifests]# puppet apply --environment test ../manifests/
+Notice: Compiled catalog for client.example.com in environment test in 0.03 seconds
+Notice: Applied catalog in 0.02 seconds
+
+- Authoriser les inputs :
+on va maintenant ajuster notre manifest en y ajoutant des paramètres 
+
+
+class puppet {
+
+class puppet(
+    #input parameters and default values for the class
+    $version = 'latest',
+    $status = 'running',
+    $enabled = true, # required parameter
+) {
+    # echo the input provided
+    notice("Install the $version version of Puppet,
+    ensure it's $status, and set boot time start $enabled.")
+
+}
