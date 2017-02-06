@@ -2668,10 +2668,37 @@ class puppet(
     #input parameters and default values for the class
     $version = 'latest',
     $status = 'running',
-    $enabled = true, # required parameter
+    $enabled , # required parameter
 ) {
     # echo the input provided
     notice("Install the $version version of Puppet,
     ensure it's $status, and set boot time start $enabled.")
 
 }
+
+Ici on va passer plusieurs paramètres à notre run : deux ont des valeurs par defaut qui ne seront chargées QUE si aucune entrée ne sera loadée quand la classe est chargée . La troisieme valeur du param n'est pas fournie et on va avoir une erreur lors de notre run.
+
+Puppet à partir de la version 4.3 embargue une fonction très puissante lookup qui va permettre aux classes de recevoir des paramètresi en entrées  de trois façons différentes.
+Si les data ne sont pas disponible dans le premier cas ,puppet passe au suivant etc dans un ordre précis : 
+
+-> les paramètres de classes peuvent être explicitement passés quand la classe est déclarée.
+on peut definir des parametres à passer quand on defini la classe dans le manifest ou la sortie d'un external node classifier.
+Utiliser la déclaration de ressources dans les manifests etait la seule méthode possible avant les data lookup depuis hiera.
+
+
+
+
+
+
+on test et on voit l'erreur : 
+
+
+[root@client code]# puppet apply --environment test environments/test/manifests/
+Notice: Scope(Class[Testo]): Install the lapin version of Puppet,
+    ensure it's yopyop, and set boot time start ohyeah.
+    Error: Evaluation Error: Error while evaluating a Method call, Class[Puppet]: expects a value for parameter 'enabled' at /etc/puppetlabs/code/environments/test/manifests/site.pp:6:43 on node client.example.com
+
+
+
+
+on peut donc lancer notre run 
