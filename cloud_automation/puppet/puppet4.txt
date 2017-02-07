@@ -2684,13 +2684,47 @@ Si les data ne sont pas disponible dans le premier cas ,puppet passe au suivant 
 -> les paramètres de classes peuvent être explicitement passés quand la classe est déclarée.
 on peut definir des parametres à passer quand on defini la classe dans le manifest ou la sortie d'un external node classifier.
 Utiliser la déclaration de ressources dans les manifests etait la seule méthode possible avant les data lookup depuis hiera.
+-> les valeurs de paramètres vont être récupérées des data providers (hiera, environment,module) : c'est la methode la plus pratique pour assigner des valeurs . LA clé va être cherchée dans le provider global de data (hiera) suivi par le provider de data de l'environement puis celui des modules. La valeur de la premiere data source sera retournée.
+-> les valeurs par defaut peuvent être déclarées dans definitions de classe. Les bonnes pratiques puppet encourage l'utilisation de valeur par defaut avec des valeurs fournissant le cas global le plus général.
 
 
+on voit donc que dans le manifest global de notre env de test site.pp , on 
+attends de parser les classes, avec ensuite un tableau contenant des strings , de valeur uniques :
+[root@client environments]# cat test/manifests/site.pp 
+notify { 'UsingTest':
+  message => "Processing catalog from the Test environment.",
+  }
+
+  # Look up all classes defined in Hiera and other data sources
+  lookup('classes', Array[String], 'unique').include
+on voit que notre node dédié possède la conf hiera suivante :
+
+[root@client code]# cat hieradata/hostname/client.yaml 
+---
+classes:
+  - testo
+    - puppet
+
+on retrouve donc les classes , alignées en tableau sous forme de strings
 
 
+on peut pour voir le cheminement definir des Integer attendus dans notre tableau :
+[root@client code]# cat environments/test/manifests/site.pp 
+notify { 'UsingTest':
+  message => "Processing catalog from the Test environment.",
+  }
+
+  # Look up all classes defined in Hiera and other data sources
+  lookup('classes', Array[Integer], 'unique').include
+
+en lancant notre  run on aura une erreur de typage : 
+
+[root@client code]# puppet apply --environment test environments/test/manifests/
+Error: Evaluation Error: Error while evaluating a Function Call,  Found value has wrong type, index 0 expects an Integer value, got String
+  Found value has wrong type, index 1 expects an Integer value, got String at /etc/puppetlabs/code/environments/test/manifests/site.pp:6:1 on node client.example.com
 
 
-on test et on voit l'erreur : 
+on test et on voit l'erreur en invoquant le manifest principal de notre environment site.pp  
 
 
 [root@client code]# puppet apply --environment test environments/test/manifests/
@@ -2698,7 +2732,28 @@ Notice: Scope(Class[Testo]): Install the lapin version of Puppet,
     ensure it's yopyop, and set boot time start ohyeah.
     Error: Evaluation Error: Error while evaluating a Method call, Class[Puppet]: expects a value for parameter 'enabled' at /etc/puppetlabs/code/environments/test/manifests/site.pp:6:43 on node client.example.com
 
+On voit ici que l'on attend une valeur pour le parametre enabled : on va donc modifier notre manifest de sorte que notre param prenne une valeur par défaut : 
+
+class puppet(
+    #input parameters and default values for the class
+    $version = 'latest',
+    $status = 'stopped',
+    $enabled  = true, # required parameter
+                )
 
 
+on peut donc lancer notre run qui se déroule maintenant sans souci avec nos valeurs de parametres interprétées : 
 
-on peut donc lancer notre run 
+[root@client code]# puppet apply --environment test environments/test/manifests/
+Notice: Scope(Class[Puppet]): Install the latest version of Puppet,
+ensure it's stopped, and set boot time start true.
+Notice: Compiled catalog for client.example.com in environment test in 0.37 seconds
+Notice: Processing catalog from the Test environment.
+Notice: /Stage[main]/Main/Notify[UsingTest]/message: defined 'message' as 'Processing catalog from the Test environment.'
+Notice: Applied catalog in 0.11 seconds
+
+
+- Partage de fichiers :
+on va ajouter un fichier car bien souvent l'intallation d'appli et le démarrage de service ne suffit pas.
+Les fichiers de puppet doivent toujours être stocker dans un repertoire files à l'interrieur de  notre module.
+On peut ajouter des sous repertoires pour gérer nos fichiers.
