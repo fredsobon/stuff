@@ -2757,3 +2757,199 @@ Notice: Applied catalog in 0.11 seconds
 on va ajouter un fichier car bien souvent l'intallation d'appli et le démarrage de service ne suffit pas.
 Les fichiers de puppet doivent toujours être stocker dans un repertoire files à l'interrieur de  notre module.
 On peut ajouter des sous repertoires pour gérer nos fichiers.
+Pour le test on va copier le fichier puppet.conf de notre install dans le repertoire files du module puppet de test dans notre env test , en y modifiant le log level :
+[root@client code]# cd environments/test/modules/puppet/
+[root@client puppet]# mkdir files 
+[root@client puppet]# cd files/
+[root@client files]# cp /etc/puppetlabs/puppet/puppet.conf .
+[root@client files]# vi puppet.conf 
+[main]
+log_level = notice
+
+on va maintenant ajouter ce fichier en tant que ressource dans la classe de notre manifest, à la place d'utiliser l'attribut content on utilise cette fois l'attribut source : les fichiers qvec ces attributs sont copiés de manière intacte 
+
+[root@client manifests]# cat init.pp 
+class puppet(
+#input parameters and default values for the class
+  $version = 'latest',
+  $status = 'stopped',
+  $enabled  = true, # required parameter
+  ) {
+    # echo the input provided
+notice("Install the $version version of Puppet,ensure it's $status, and set boot time start $enabled.")
+    }
+
+file { '/etc/puppetlabs/puppet/puppet.conf':
+  ensure => file,
+  owner => 'root',
+  group => 'wheel',
+  mode  => '0644',
+  source => 'puppet:///modules/puppet/puppet.conf',
+}
+
+Il y a  trois uri valides pour spécifier un fichier :
+
+• puppet:///modules/module_name/filename
+• file:///path/to/file/on/local/system
+• http: or https://web-server/filename (new in Puppet 4.4)
+
+Le download de fichier via http/https fonctionne bien si l'on fix cet attribut dans la ressource fichier 
+
+La meilleure paratique est de toujours stocker les  fichiers utilisés par les modules dans les modules eux  même et d'utiliser la syntaxe puppet:/// comme pattern d'uri
+Si on laisse l'url du server vide alors les fichiers seront downloadés depuis le server puppet avec lequel notre client communique.
+
+Il est mieux de na pas specifier le nom d'un server puppet pour recupérer les  fichiers : car en cas de pbs reseau / comm ..les run ne passeront pas .Il est plus judicieux de synchroniser nos fichiers.
+
+NB: on peut utiliser un tableau de fichier : puppet prendra le premier qui match dans la liste.
+Il est possible de sourcer des fichiers qui ne sont pas inclus dans le module mais ce n'est pas recommandé.
+
+
+ on va donc tester notre run :
+on examine notre fichier avant le run .. 
+[root@client puppet]# ll
+total 24
+-rw-r--r-- 1 root    root    4449  6 déc.  00:17 auth.conf
+-rw-r--r-- 1 root    root     371  6 déc.  00:17 hiera.yaml
+-rw-r--r-- 1 root    root     600 25 janv. 18:53 puppet.conf
+-rw-r--r-- 1 vagrant root     463  6 déc.  00:17 puppet.conf.rpmnew
+-rw-r--r-- 1 vagrant vagrant 1109  9 janv. 17:19 puppet.conf.rpmsave
+drwxrwx--x 7 root    root      96  9 janv. 17:31 ssl
+
+on lance le run : 
+
+ [root@client code]# puppet apply --environment test environments/test/manifests/
+ Notice: Scope(Class[Puppet]): Install the latest version of Puppet,
+     ensure it's stopped, and set boot time start true.
+     Notice: Compiled catalog for client.example.com in environment test in 0.40 seconds
+     Notice: Processing catalog from the Test and blabla compagny environment.
+     Notice: /Stage[main]/Main/Notify[UsingTest]/message: defined 'message' as 'Processing catalog from the Test and blabla compagny environment.'
+     Notice: /Stage[main]/Puppet/File[/etc/puppetlabs/puppet/puppet.conf]/content: content changed '{md5}74d8e328cc5b72bb981be26c4c5c1ad1' to '{md5}138206adc14ea6d17dc362d249756d06'
+     Notice: /Stage[main]/Puppet/File[/etc/puppetlabs/puppet/puppet.conf]/group: group changed 'root' to 'wheel'
+     Notice: Applied catalog in 0.30 seconds
+
+on voit ici que le fichier a bien été poussé : les droits ont bien été modifiés :
+[root@client code]# ll /etc/puppetlabs/puppet/puppet.conf
+-rw-r--r-- 1 root wheel 620  8 févr. 18:37 /etc/puppetlabs/puppet/puppet.conf
+
+on peut vouloir changer les droits , modifier notre manifest ou bien même lancer une restauration du fichier avec filebucket :
+
+on peut récupérer la liste des fichiers et chercher le notre 
+[root@client environments]# puppet filebucket -l list |grep puppet.conf
+et lancer la restauration de notre fichier en saisisant le hash cible trouvé dans notre liste.
+sudo puppet restore  /etc/puppetlabs/puppet/puppet.conf c15ae72acdbd8878a6550275bc
+
+
+- synchronisation de fichiers :
+Nous pouvons synchroniser en mode recursif et des attributs permettent egalement une purge :
+
+file { '/tmp/sync/':
+  ensure  => directory,
+  owner   => 'root',
+  group   => 'wheel',
+  mode    => '0444',
+  recurse => true, # go into subdirectories
+  replace => true, # replace any files that already exist
+  purge   => false, # don't remove files that we don't have
+  links   => follow, # follow symbolic links and modify the link target
+  force   => false,
+source    => 'puppet:///modules/puppet/sync/',
+}
+
+on peut donc lancer notre run apres avoir créer une petite arbo cible :
+[root@client code]# mkdir -p environments/test/modules/puppet/files/{sync,lapin}
+
+[root@client code]# puppet apply --environment test environments/test/manifests/
+Notice: Scope(Class[Puppet]): Install the latest version of Puppet,
+    ensure it's stopped, and set boot time start true.
+    Notice: Compiled catalog for client.example.com in environment test in 0.36 seconds
+    Notice: Processing catalog from the Test and blabla compagny environment.
+    Notice: /Stage[main]/Main/Notify[UsingTest]/message: defined 'message' as 'Processing catalog from the Test and blabla compagny environment.'
+    Notice: /Stage[main]/Puppet/File[/tmp/sync/]/ensure: created
+    Notice: Applied catalog in 0.14 seconds
+Attention puppet n'est pas du tout adapté à la synchro de gros fichiers ou de grosses  arbo .
+
+
+- Parsing  de template : 
+
+Comme aucun systeme ne va contenir les memes infos on va pouvoir créer des modeles : des templates  qui pourront être réutilisés.
+Ces  modèles dans puppet doivent être stocker dans un repertoire se nommant template.
+On va créer un template qui va initialiser quatres variables.
+Modifions dans un premier temps le manifest de notre module en y rajoutant nos variables : 
+ 
+environments/test/modules/puppet/manifests/init.pp
+class puppet( 
+    $version = 'latest',
+    $status = 'stopped',
+    $enabled  = true, # required parameter
+    $server = 'puppet.example.com',
+    $common_loglevel = 'warning', 
+    $agent_loglevel = undef,
+    $apply_loglevel = undef,
+) {
+
+Avec cette déclaration on a desormais 7 parametres dans notre classe que l'on va pouvoir mettre dans un template 
+On a setté ici deux parametres avec des valeurs à undef : on ne va utiliser ces valeurs que quand la classe est déclarée : si on ne met aucune valeur alors une valeur sera impérativement à fournir ce qui n'est pas ce que nous souhaitons.
+
+Il y a deux parsers puppet :
+-> EPP : embedded puppet parser : utilise des variables et des fonctions puppet.
+-> ERB : embeded ruby parser : utilise le language ruby et ses fonctions.
+
+- Syntaxe commune :
+
+chacun de ces modeles sont des fichiers textes qui contiennent de la syntaxe commune et des tags de templates.
+A l'exterrieur de ces tags le  texte n'est pas interprété.
+A l'interrieur de ces tags on a du code puppet ou ruby.
+
+<%= variable or code %>   This tag is replaced with the value of the variable, or result of the code.
+<% code block %>          The code is executed. Nothing is returned unless the code prints output.
+<%# a comment %>          This tag is removed from the output.
+<% code block -%>         Immediately trailing newlines or whitespace is removed. Use to prevent blank lines.
+
+<%- code block %>         Leading newlines or whitespace is removed. Use when indenting template tags.
+<%= variable or code -%>  Removes trailing whitespace after the result of the code. (There is no option for trimming leading whitespace.)
+<%%  %%>                  Double percent signs are replaced with a single percent sign. Use to prevent interpolation.                         
+
+- EPP : puppet template :
+
+on va utiliser notre fichier précedent pour alimenter notre fichier de conf puppet.conf :
+
+file { '/etc/puppetlabs/puppet/puppet.conf':
+  ensure => ensure,
+  owner  => 'root',
+  group  => 'wheel',
+  mode   => '0644',
+  content => epp('puppet/puppet.conf.epp'),
+}
+
+la fonction epp() prend deux arguments :
+-> l'uri du template puppet : la syntaxe est toujours la même : puppet:///module/template.epp
+ce fichier doit être placé dans le repertoire templates du module et doit impérativement porter l'extension ".epp"
+-> doit comporter un hash de parametres en entrées.
+
+on va maintenant créer un template après avoir créer un repertoire templates :
+
+[root@client puppet]# cat templates/puppet.conf.epp 
+
+# Generated by Puppet EPP template processor
+[master]
+log_level = <%= $::puppet::common_loglevel %>
+
+# This is used by "puppet agent"
+[agent]
+<% if $puppet::agent_loglevel != undef { -%>
+log_level = <%= $::puppet::agent_loglevel %>
+<% } -%>
+server = <%= $::puppet::server %>
+
+# This is used for "puppet apply"
+[user]
+<% if $puppet::apply_loglevel != undef { -%>
+log_level = <%= $::puppet::apply_loglevel %>
+<% } -%>
+
+
+on a donc 4 déclarations de variables, chaque instance <%= $::class::variable %> est remplacée par la valeur  
+
+
+
+
