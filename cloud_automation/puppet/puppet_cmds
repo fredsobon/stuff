@@ -48,3 +48,916 @@ sudo puppet filebucket --local backup /tmp/testfile.txt
 vagrant@client manifests]$ sudo puppet filebucket --local restore /tmp/testfile.txt 2421d24b7d984ed88425f56feb2b5201
 
 
+ ==  language de configuration puppet :
+  
+ La bonne ecriture de manifests est la chose la plus importante dans puppet : il faut donc toujours s'y attacher et s'y améliorer.
+  
+  = les variables :
+  toutes les variables dans puppet commencent avec un $ et sont en minuscule ; composées de lettres, underscore ou chiffres. Elles ne commencent pas par des majuscules, des chiffres et ne c     omportent pas de tiret.
+ Attention : les variables qui commencent par un _ sont uniquement dédiées au scope local : $_myvar : sera uniquement interprete dans notre manifest local.
+ 
+Les types sont classiques :
+ $my_name  = 'joe'  < string
+ $my_token = 115    < number
+ $not_true = false  < booleen
+ 
+ une variable non initialisee sera considérée comme undef on peut creer une variable avec une valeur indefinie :
+ 
+ $my_var = undef
+ 
+  - Numbers :
+  les nombres non entourés par des " ou des '  sont de type numeric
+ Les nombres commencant par un 0 sont des octals et sceux commencant par 0x des hexa
+ 
+ - Tableaux et hash :
+
+-tableaux  
+ $mylist = [1,3,5,7]
+ $mytab = ['yes',5,'lapin',5.3]
+ $mymy =['yop',['lala',5]]
+ 
+ on peut definir des variables a des valeurs dans des tableaux si le nombre de variables et de valeur sont identiques :
+  
+  [$myvar, $yourvar , $var] = ['lapin', 3, true]   <<<< GOOD
+  [$myvar, $yourvar , $var] = ['lapin', 3]         <<<<< ERROR
+
+- table de hash key/ valeur :
+on peut utiliser une table de hash avec la représentation clé / valeur
+
+# monoligne :
+$homes = { 'joe' => '/home/joe', 'jack' => '/home/jack', }
+
+# muliligne :
+
+$user = {
+    'username' => 'joe',
+    'uid'      => 1000,
+    'home'     => '/home/joe',
+}
+Attention les  hash doivent être soient entiers soient strings . Les valeurs peuvent prendre toutes les types  possibles.
+
+- Variables et strings :
+on encadre toujours les strings avec des simple quote sauf quand il y a interpolation : on utilise dans ce cas des "
+$myvar = 'hey mec !'
+$my = "hey ${username} happy to see you"
+
+-HEREDOC : pour les grands blocs de texte on utilise les commentaires heredoc :
+on place une balise @(END) a la fin de notre déclaration de variable et on cloture le texte par END :
+
+$message_text = @(END)
+This is a very long message,
+which will be composed over
+many lines of text.
+END
+
+Il est toujours conseille d'utiliser les {} pour entourer une variable de chaine de caractere :
+
+$the_greeting = "Hello ${myname}, you have received ${num_tokens} tokens!"
+
+- Protection : on va pouvoir proteger d'interpolation certains de nos carateres speciaux en les faisant précéder de \ ou alors en entourant le texte en entier par des ' ''
+
+
+- Namespace / scope : AUCUNE variable puppet ne peut être REdeclarée au sein d'un même NAMESPACE / SCOPE
+
+C'est clairement pour continuer a penser en déclaratif : puppet nous jette donc une erreur si on declare plusieurs fois une variable avec des valeurs differentes.
+
+- Mots réservés : on a comme dans beaucoup de language des mots clés réservés qu'on ne peut utiliser pour déclarer nos variables ou qu'on l'on doit encadrer de ' ou " si on veut utiliser leur valeur en tant que mot :
+
+and elsif node
+attr false private
+case function or
+class if
+true
+default in
+type
+define import
+undef
+else inherits unless
+
+= Facter : va nous fournir des variables systemes :
+
+vagrant@client manifests]$ facter |grep mb
+    vendor => "innotek GmbH",
+  manufacturer => "innotek GmbH",
+[vagrant@client manifests]$ facter |grep free
+[vagrant@client manifests]$ facter |grep version
+aio_agent_version => 1.8.2
+  version => "1.4.0"
+    version => "VirtualBox"
+facterversion => 3.5.0
+kernelmajversion => 3.10
+kernelversion => 3.10.0
+  version => "2.1.9"
+
+
+certaines varibles facter vont être directement utilisée par puppet et ses modules :
+
+facter --puppet
+
+io_agent_version => 1.8.2
+augeas => {
+  version => "1.4.0"
+}
+disks => {
+  sda => {
+    model => "VBOX HARDDISK",
+    size => "20.00 GiB",
+...
+system_uptime => {
+  days => 0,
+  hours => 1,
+  seconds => 7004,
+  uptime => "1:56 hours"
+}
+timezone => UTC
+virtual => virtualbox
+
+
+Certains facters puppet sont poussés parmi les facter system de base
+
+
+une liste de fact en json est directement trouvable via la commande :
+puppet facts find
+
+On peut sortir la liste des facts sous differents formats :
+-yaml :
+[vagrant@client manifests]$ facter --yaml
+[vagrant@client manifests]$ puppet facts render-as-yaml
+- json :
+[vagrant@client manifests]$ facter --json
+[vagrant@client manifests]$ puppet facts render-as-json
+= Appel de fonction dans les manifests :
+
+une fonction est du code executable qui peut prendre des entrées en paramètres et peut afficher des valeurs en sortie.
+une fonction qui retourne une valeur peut être utiliser pour devenir la veleur d'une variable :
+
+$zero_or_one = bool2num( $facts['is_virtual'] );
+
+une fonction peut aussi être utilisée a la place d'une valeur ou interpolée dans une chaine de caracteres :
+# md5() function provides the value for the message attribute
+notify { 'md5_hash':
+     message => md5( $facts['fqdn'] )
+}
+# Include the MD5 hash in the result string
+$result = "The MD5 hash for the node name is ${md5( $facts['fqdn'] )}"
+
+Puppet execute des fonctions lors de la génération du catalogue : examine les donnees de sources externes , ajoute modifie des entrees dans le catalogue ,execute du code ....
+
+on peut ecrire les fonctions en mode prefix ou en mode ruby 'chainé' :
+# Common prefix format
+notice( 'this' )
+# Ruby-style chained format
+'this'.notice()
+
+- Utilisation de variables dans les ressources :
+rappel on ne quote que les strings simples avec des ' et les interpolées avec des " . on ne quote pas les autres variables :
+
+notice('Beginning the program.' )
+notice("Hello, ${username}" )
+notice(1000000 )
+notice(true )
+
+on peut acceder à une valeur d'un tableau et on peut specifier un range :
+$first_item = $my_list[1]
+$four_items = $my_list[3,6]
+
+You can access specific items within a Hash by using the hash key within square
+brackets as follows:
+$username = $my_hash['username']
+
+Toutes les variables de tableau doivent être entourées de {} pour l'interpolation :
+notice( "The user's name is ${username}" )
+notice( "The second value in my list is ${my_list[1]}" )
+notice( "The login username is ${my_hash['username']}" )
+
+Best pratice : on ne doit pas entourer une variable en stadalone de {} :
+
+file { $filename:
+ensure => present,
+mode
+=> '0644',
+replace => $replace_bool,
+content => $file['content'],
+}
+
+Exemple de test de variable dans un manifest :
+
+on recupére pour l'exemple des données via facter et on affiche un message en mode multiligne qu'on aura au prealable enregistre dans une variable
+
+[vagrant@client manifests]$ cat testvar.pp
+$myname = $facts['hostname']
+$kind = $facts['is_virtual']
+$living = $facts['uptime']
+$resume = @("END")
+for sure here is
+a multiline text
+we claim the node is $myname
+and it is a $kind server
+with $living time
+END
+
+
+notify { 'message':
+    message => "yop $resume"
+    }
+ici on affiche la premiere valeur du tableau qu'on aura resneigné dans une variable :
+[vagrant@client manifests]$ cat hash.pp
+$joe =['lapin', 3, true]
+
+notify {'hash':
+    message => "hey this is the first index record : ${joe[0]}"
+    }
+A noter que c'est une bonne pratique de toujours travailler avec la valeur désirée du fact en utilisant la forme $fact['valeur]
+
+Il est toujours préférable de travailler avec la conf suivante de settée :
+
+[main]
+strict_variables = true
+
+
+- Tests conditionnels : 
+
+exemples :
+
+if /else /elsif
+
+# Explicit comparison
+if( $facts['osfamily'] == 'redhat' ) {
+include yum
+}
+# Do a substring match
+elsif( $facts['osfamily'] in 'debian-ubuntu' ) {
+include apt
+}
+# New package manager available with FreeBSD 9 and above
+elsif( $facts['operatingsystem'] =~ /?i:freebsd/ )
+and ( $facts['os']['release']['major'] >= 9 ) {
+include pkgng
+}
+
+case :
+
+case $facts['osfamily'] {
+    'redhat': { include yum }
+    'debian', 'ubuntu': { include apt }
+    'freebsd' and ($facts['os']['release']['major'] >= 9) { include pkgng }
+    default: {}
+}
+
+- selectors :
+leur usage est a peur pres identique a case mais ils retournent une valeur plutôt que d'executer un bloc de code .
+C'est tres utile quand on doit definir des variables.
+Comme une valeur doit être retournée lors de l'assignation il faut toujours un 'mot' même pour le default :
+
+$native_of = $what_he_drinks ? {
+'wine'            => 'california',
+$stumptown        => 'portland',
+/(scotch|whisky)/ => 'scotland',
+is_tea( $drink )  => 'england',
+default           => 'unknown',
+}
+
+
+- REGEXP
+
+puppet supporte les regexps de ruby
+string a gauche =~ regexp a droite entourée par des / / ou par des " " :
+
+$what_did_you_drink =~ /tea/
+$what_did_you_drink !~ /coffee/
+$what_did_you_drink !~ "^coffee$"
+
+
+unless $facts['operatingsystem'] !~ /(?i-mx:centos|fedora|redhat)/ {
+include yum
+}
+
+case $facts['hostname'] {
+/^web\d/: { include role::webserver }
+/^mail/ : { include role::mailserver }
+default : { include role::base}
+}
+
+$package_name = $facts['operatingsystem'] ? {
+/(?i-mx:centos|fedora|redhat)/ => 'mcollective',
+/(?i-mx:ubuntu|debian)/        => 'mcollective',
+/(?i-mx:freebsd)/              => 'sysutils/mcollective',
+}
+
+
+
+- Lambda : block de code comme une fonction sans nom qui permet de passer des arguments.
+elles sont utilisées avec les boucles :
+
+elles sont des variables entourées de | :
+
+| $firstvalue, $secondvalue | {
+block of code that operates on these values.
+}
+
+ex : ici on recupere toutes les partitions grace a facter : chacune des entrees va etre decoupées par son nom et son point de montage . on fait ensuite une boucle qui va nous afficher le nom du serveur le nom de lz partition et la taille de cette partition qui sera recupérée par le hash fourni par facter et enregistre dans la variable device
+
+
+[vagrant@client manifests]$ cat /vagrant/manifests/mountpoints.pp
+each( $facts['partitions'] ) |$name, $device| {
+  notice( "${facts['hostname']} has device ${name} with size ${device['size']}" )
+  }
+  [vagrant@client manifests]$ sudo puppet apply /vagrant/manifests/mountpoints.pp
+  Notice: Scope(Class[main]): client has device /dev/mapper/centos-root with size 18.46 GiB
+  Notice: Scope(Class[main]): client has device /dev/mapper/centos-swap with size 1.00 GiB
+  Notice: Scope(Class[main]): client has device /dev/sda1 with size 500.00 MiB
+  Notice: Scope(Class[main]): client has device /dev/sda2 with size 19.51 GiB
+  Notice: Compiled catalog for client.example.com in environment production in 1.70 seconds
+  Notice: Applied catalog in 0.01 seconds
+
+
+- Looping :
+
+ces fonctioosn puissantes vont nous permettre de parcourir des set de données dans des tableaux , hash etc..
+il y a 5 fonctions qui vont nous servir a itérer et vont être passées à la fonction lambda qui renverra une valeur pour chaque entree.
+
+each() acts on each entry in an array, or each key/value pair in a hash.
+filter() returns a subset of the array or hash that were matched by the lambda.
+map() returns a new array or hash from the results of the lambda.
+reduce() combines array or hash values using code in the lambda.
+slice() creates small chunks of an array or hash and passes it to the lambda.
+
+each appelle lambda a chaque passage de valeur dans un tableau ou d'un hash dans une serie clé valeur
+C'est la fonction la plus utilisée pour lister des éléments.
+
+on peut utiliser les deux modes d'appel pour les fonctions ex each(x) ou x.each (methode ruby)  
+
+$tab = [ "lapin" , "youk" ]
+
+each($tab) | $ind | {
+
+notify { $ind :
+  message => "hello ${ind}",
+  }
+}
+
+$h = [ "4", "3", "2", "1" ]
+
+$h.each | $ind | {
+
+notify { $ind :
+  message => "hello ${ind}",
+  }
+}
+
+
+- Resources par default :
+
+on peut creer des valeurs de resources par type de ressources.
+Si une ressource n'a pas de valeurs définie alors elle utilisera celle defini pour son type par défaut.
+
+Attention on doit toujours définir la ressource avec une Majuscule dans ce cas :
+
+Package {
+ schedule => 'after-working-hours',
+}
+
+Best Practice
+Declare resource defaults at the top of the manifest for easy reading
+purposes.
+
+-> en effet la declaration d'un type par default dans un manifest s'appliquera à toutes les ressources même si elles sont au dessus : c'est donc à eviter /!\
+
+
+- Gestion des dependances :
+
+-> reference de resource :
+
+ex :
+ici on s'assure que le packet est bien installé sur le systeme.
+package { 'puppet-agent':
+    ensure => present,
+}
+une fois qu'on a nommé la ressource on peut l'utiliser par son nom : c'est la référence de resource 
+pour creer une reference on l'appelle par son type de resource avec une majuscule et entre [] :
+
+service {'puppet':
+ensure   => running,
+enabled  => true,
+require  => Package['puppet-agent'],
+}
+
+On cree une ressource en minuscule et on s'y refere en l'appellant par son type avec une maj suivi de son nom.
+-> ordre des ressources :
+on va biensur devoir définir un ordre : difficile de redemarrer un service si le packet n'est pas installé ..
+on peut se servir de keyword : before , require ..
+
+package { 'puppet':
+ensure => present,
+before => Service['puppet'],
+}
+
+service {'puppet':
+ensure    => running,
+enable    => true,
+require   => Package['puppet'],
+}
+
+- Dependance implicite :
+certaines resources sont implicitement dépendantes d'autre : puppet rajoute automatiquement un flag autorequire:
+file { '/var/log':
+ensure => directory,
+}
+
+file { '/var/log/puppet':
+ensure => directory,
+autorequire => File['/var/log'],  # implicit dependencies
+autorequire => File['/var'],      # added by Puppet
+}
+Les tags autorequire n'apparaissent pas dans les manifests : puppet les gere de maniere autonome
+
+- Declenchement d'evenements :
+notify and subscribe metaparameters vont faire une action lors d'une modif de resource.
+ex : redemarrage de services apres la modif de conf.
+ici des  qu'une mise à jour de puppet-agent est dispo : le package est uploadé : à ce moment le param notify va donc envoyer une notif à la ressource Service et donc faire redémarrer le service . Ceci est possible car le service utilise le param subscribe : qui recoit donc les infos de la resource Package.
+
+Les deux params ne sont pas nécéssaires : un seul est nécéssaire car les infos sont redondantes : notify ou subscribe seul sont suffisants : c'est juste une méthode secure d'utiliser les deux.
+package { 'puppet-agent':
+  ensure => latest,
+  notify => Service['puppet'],
+}
+service { 'puppet':
+  ensure => running,
+  enable => true,
+  subscribe => Package['puppet-agent'],
+}
+- Comprehension de l'ordre de processing de puppet :
+
+Pendant la compilation du catalogue et donc avant d'appliquer les modifs : puppet crée un graph de dependance avec DAG ( direct acyclic graph ) pour eviter les boucles
+L'ordre de gestion a été introduit en version 3.3
+
+L'ordre se fait de plusieurs manières :
+manifest (default in Puppet 4)
+Orders unrelated resources by the order they are declared in the manifest.
+random
+Orders resources randomly and changes the order on each run. This is useful for
+identifying missing dependencies in a manifest.
+
+Il faut toujours definir toutes les dependances explicitement : surtout quand on upgrade un manifest ou un module .
+
+On peut tester les dépendances manquantes avec l'option --ordering=random
+puppet apply --ordering=random testmanifest.pp
+
+- Debug des cycles de dependances :
+il est tres important de na pas creer de boucles dans les appels au ressources.
+
+vagrant@client ~]$ cat /vagrant/manifests/depcycle.pp
+file { '/tmp/file-exists.txt':
+  ensure  => file,
+  require => Cron['check-exists'],
+}
+
+cron { 'check-exists':
+  user    => 'vagrant',
+  command => 'cat /tmp/file-exists.txt',
+  minute  => '*/5',
+  require => File['/tmp/file-exists.txt'],
+}
+
+
+On peut donc utiliser un graph crée par puppet pour generer un graph
+[vagrant@client ~]$ puppet apply /vagrant/manifests/depcycle.pp --graph
+Notice: Compiled catalog for client.example.com in environment production
+Error: Failed to apply catalog: Found 1 dependency cycle:
+(Cron[check-exists] => File[/tmp/file-exists.txt] => Cron[check-exists])
+Cycle graph written to
+/home/vagrant/.puppetlabs/opt/puppet/cache/state/graphs/cycles.dot.
+
+Une fois qu'on recupere le graph on va utiliser un viewer :
+ex : graphiz , omnigraffle , webgraphiz
+
+C'est une bonne maniere de visualiser les dependances.
+apt-get install graphviz
+ensuite on peut exporter avec l'outil dot notre fichier .dot (créee avant  avec l'option --graph)
+ex :
+dot -Tpng cycles.dot -o cycles.png
+ensuite on peut ouvrir ule fichier avec un editeur d'image classique sur notre pc .
+
+
+- Hiera / Modules 
+
+A l'installation puppet créee de base un environnment de production :
+
+[vagrant@client ~]$ ls  /etc/puppetlabs/code/environments/production/ -l
+total 4
+-rw-r--r-- 1 root root 879  6 déc.  00:17 environment.conf
+drwxr-xr-x 2 root root   6  6 déc.  00:18 hieradata
+drwxr-xr-x 2 root root   6  6 déc.  00:18 manifests
+drwxr-xr-x 2 root root   6  6 déc.  00:18 modules
+
+on va donc creer un environment pour tester nos modules. On créee une arbo et un fichier de base site.pp
+  mkdir -p /etc/puppetlabs/code/environments/test/modules
+  cd /etc/puppetlabs/code/environments/test
+  mkdir hieradata
+  mkdir manifests
+  vi manifests/site.pp
+  notify { 'UsingTest':
+    message => "Processing catalog from the Test environment.",
+ }
+on va donc avoir un message s'afficher pour memo des qu'on utilise cet environmment.
+
+Changement du path des modules :
+on peut utiliser une conf qui rend dispo nos modules quelques soit l'environment :
+
+[vagrant@client test]$ sudo vi /etc/puppetlabs/puppet/puppet.conf
+[main]
+# these are both default values
+environmentpath = /etc/puppetlabs/code/environments
+basemodulepath = /etc/puppetlabs/code/modules
+
+la variable environementpath va contenir une arbo dans laquelle un repertoire pour chaque env sera créee
+la variable basemodulepath va contenir un repertoire modules qui servira de fallback si le repertoire module d'un env n'est pas trouvé : on pourra stocker ici tous nos modules correctement testé pour ne pas avoir à les dupliquer.
+Chacun des ces repertoires sont ceux par defaut et n'auront donc  pas à être saisis dans le fichier de conf sauf si on veut specifiquement les changer
+
+
+
+- Separation du code et des data :
+il est fondamental de separer le code des data : ce qui fonctionne en embarquant des données pour un node précis ne sera plus fonctionnel des qu'on augmente le nombre de machinnes.
+En incluant des data dans le code on fera systematiquement des if / else qui rendront inevitablement le code non maintenable.
+Il est impératif de séparer les data : values du code : manifests.
+
+= hiera :
+hiera est un outil cle / valeur de configuration de data pour puppet.Puppet utilise dynamiquement hiera pour les confs de data .
+Il est possible d'utiliser hiera selon nos besoins: d'un node specifique qui utilisera une conf particuliere dédiée puppet ou alors des découpages liés à notre infrastructure.
+Les differents niveaux de hiearachie peuvent donc permettre de mutualiser des données communes aux nodes specifiques ou à des env dédies : on peut donc partager le code facilement.
+
+- creation de backend hiera :
+
+on peut ecrire nativement de la conf hiera en json ou yaml . Les types suivants sont supportés : string, number, booleen, array, hash
+
+
+- creation de backend hiera :
+
+on peut ecrire nativement de la conf hiera en json ou yaml . Les types suivants sont supportés : string, number, booleen, array, hash
+
+- hiera en yaml :
+c'est le plus simple et le plus utilisé .il suffit d'avoir un fichier au format yaml et de le definir son extension en ".yaml"
+
+Un fichier yaml commence toujours par '---' et doit TOUJOURS utiliser les espaces pour la tabulation.
+On utilise deux espaces en identation.
+ex
+# string
+agent_running: 'running'
+# boolean
+agent_atboot: true
+# array
+puppet_components:
+  - facter
+  - puppet
+# a hash of values
+puppet:
+  ensure: 'present'
+version: '4.4.0'
+# A variable lookup
+hostname: %{facts.hostname}
+
+Il est tout a fait possible de regrouper cette conf qui concerne un agent puppet dans un seul hash :
+puppet:
+  ensure: 'present'
+  version: '4.4.0'
+  agent:
+    running: 'running'
+    atboot: true
+  components:
+    - 'facter'
+    - 'puppet'
+syntaxe yaml pour ruby :
+http://bit.ly/1XAD1Yd
+
+
+
+- Variables puppet et fonction lookup :
+on peut recupérer les variables puppet ou executer une fonction d'interpolation de données dans hiera en utilisant une valeur préfixée par % et entourée de {}
+Ex :
+pour récupérer une variable puppet :
+%{facts.hostname}
+pour executer une fonction d'interpolation
+%{ split([1,2,3]) }
+
+-> Configuration de hiera :
+
+de base puppet examine la conf hiera par la variable : hiera_config . par defaut dans ${codedir}/hiera.yaml ou /etc/puppetlabs/code/hiera.yaml
+La config de base du hiera est un hash en yaml.Les items en haut sont des globales. chaque globale commence par un symbole ruby debutant par un ":" . Tous les paramétrages  sont optionnels et on tombe dans les valeurs par défaut s'il manque une conf.
+---paramètres hiera  :
+
+-backends : comme vu il s'agit de la conf de notre hiera :
+:backends:
+  - yaml
+  - json
+- configuration de backends : pour chacun des backends on a un parametrage global du backend sous forme de hash . Il faut le faire pour tous les backends
+On doit utiliser la clé  ":datadir" qui identifie l'endroit ou on place nos confs
+ex : conf  par défaut si elle n'est pas overridée dans le fichier de conf :
+:yaml:
+  :datadir: /etc/puppetlabs/code/environments/%{::environment}/hieradata
+:json:
+  :datadir: /etc/puppetlabs/code/environments/%{::environment}/hieradata
+Comme chaque fichier doit porter une extention particuliere : on peut définir les datadir au même endroit.
+
+
+Cette config utilise le top scope "::environment" variable : defini par puppet (server ou agent) pour permettre l'utilisation de differentes  données par environment. Ce qui nous permet d'utiliser le rerpertoire hieradata défini pour notre env de test
+vagrant@client ~]$ sudo cat /etc/puppetlabs/puppet/hiera.yaml
+---
+:backends:
+  - yaml
+:hierarchy:
+  - "nodes/%{::trusted.certname}"
+  - common
+
+:yaml:
+# datadir is empty here, so hiera uses its defaults:
+# - /etc/puppetlabs/code/environments/%{environment}/hieradata on *nix
+# - %CommonAppData%\PuppetLabs\code\environments\%{environment}\hieradata on Windows
+# When specifying a datadir, make sure the directory exists.
+  :datadir:
+-hierarchy :
+le dernier parametre obligatoire est :hierarchy qui va servir à definir l'ordre d'examen des data
+-> pour des valeur simple hiera parse l'arbo jusqu'a ce qu'il trouve la valeur désirée et il stop
+-> pour les tableaux et les hash : hiera va merger les data de chaque niveau de hierarchie comme defini dans la stratégie de la clé de merge (?).
+
+Il y a deux types de data sources : static et dynamics.
+Les sources statiques de data  sont des fichiers explicitement nommé dans la hierarchie contenant des  data
+Les sources dynamiques de data sont des fichiers nommé en utilisant l'interpolation de la conf des data locales ( ex le hostname ou l'os d'un node)
+On peut avoir des hierachies complexes dans certaines grosses entreprises.
+
+Comme bon point de départ on peut établir des regles simples :
+-> mettre les valeurs par defaut dans un fichier common.yaml
+-> rassembler toutes les infos specifiques à un os dans des fichiers de familles d'os ex : debian.yaml, redhat.yaml ..
+-> definir les informations specifiques à un node dans un fichier de type fqdn.yaml
+on peut donc utiliser par exemple ce type de conf qui utilise l'interpolation des données fournies par facter :
+:hierarchy:
+  - "fqdn/%{facts.fqdn}"
+  - "os/%{facts.osfamily}"
+  - common
+on peut biensur faire evoluer cette hierarchie
+ex ici on va definir notre hierarchie en recupérant le "short name de notre node" pour le ranger dans un sous dossier du repertoire hostname :
+:hierarchy:
+  - "hostname/%{facts.hostname}"
+  - "os/%{facts.osfamily}"
+  - common
+NB : si on a plusieurs backend ( yaml, json ou autres) hiera evalue la hierarchie complete du backend defini en premier dans la conf puis le second etc ...
+
+- Strategy de merge :
+Il y en a plusieurs :
+-> first ( strategy par defaut) : auparavant nommé priorité : dans ce cas il n'y a pas de merge ni de recursion : des la premiere occurence de data trouvée on s'arrête.
+Les clés trouvées avec la priorité la plus haute retournent les valeurs de la même priorité ( definies donc en premier dans la conf hiera )
+-> hash : auparavant nommé native : on a un merge des clés uniquement. Les correspondances des valeurs des priorité hautes seront exclusivement  utilisées.
+-> deep : auparavant deeper : merge recursif des clés et valeurs : si une clé existe à differents niveaux de priorité : la valeur de priorité basse qui ne rentre pas en conflit sera utilisée.
+-> unique : auparavant array : ecrase les valeurs des tableaux et valeurs scalaires toutes priorité confondues : les doublons sont supprimés.. Les hashes provoquent des erreurs.
+-> les options fournies par la fonction lookup() : toutes les options utilisées dans la fonction de lookup() peuvent overrider les lookup_options des data
+
+Exemple complet qui servira de base pour la suite de nos tests de code . On va utiliser le yaml de notre conf /etc/puppetlabs/code/hieradata ( ce qui va nous permettre de partager notre conf hiera pour tous les environments.) . Il est conseillé de partager la conf hiera quand on veut juste tester notre code : c'est plus simple à maintenir.
+
+on definie une priorité de conf pour nos hosts, puis par os puis dans la partie common :
+
+vagrant@client ~]$ sudo cp /vagrant/etc-puppet/hiera.yaml /etc/puppetlabs/code/
+[vagrant@client ~]$ cat /etc/puppetlabs/code/hiera.yaml
+---
+:backends:
+  - yaml
+:hierarchy:
+  - "hostname/%{facts.hostname}"
+  - "os/%{facts.osfamily}"
+  - common
+:yaml:
+  :datadir: /etc/puppetlabs/code/hieradata
+
+
+- Test de configuration hiera :
+Il est important de tester les vaeurs en utilisant la fonction lookup() pour recupérer les valeurs de hiera :
+
+[vagrant@client ~]$ puppet apply -e "notice(lookup('puppet::enabled'))"
+
+On peut tester le retour de la fonction sans evaluer tout le code :
+[vagrant@client ~]$ puppet lookup puppet::status
+--- stopped
+on va creer un manifest qui va donc utiliser la conf hiera :
+on fait un lookup de certaine valeur dans hiera : le resulat est assigné à une variable. On definie ensuite le status de notre service avec la valeur de notre variable
+
+vagrant@client ~]$ cat /vagrant/manifests/hierasample.pp
+# Always set a default value when performing a Hiera lookup
+$status  = lookup({ name => 'puppet::status',  default_value => 'running' })
+$enabled = lookup({ name => 'puppet::enabled', default_value => true })
+
+notify { 'puppet-settings':
+  message => "Status should be ${status}, start at boot ${enabled}.",
+}
+
+# Now the same code can be used regardless of the value
+service { 'puppet':
+  ensure => $status,
+  enable => $enabled,
+}
+
+
+- Modules repo / creation /conf :
+
+On peut si on utilise uniquement des modules internes configurés puppet pour qu'il selectionne toujours  cette source :
+puppet.conf
+[main]
+module_repository = http://forge.example.org/
+
+- Installation de module :
+
+On peut interroger la forgen notre repo interne ou recupérer le code directement du dev.
+
+- forge :
+
+[vagrant@client ~]$ puppet module install puppetlabs-stdlib
+Notice: Preparing to install into
+/etc/puppetlabs/code/environments/production/modules ...
+Notice: Downloading from https://forgeapi.puppetlabs.com ...
+Notice: Installing -- do not interrupt ...
+/etc/puppetlabs/code/environments/production/modules
+└── puppetlabs-stdlib (v4.8.0).
+L'installation de module dans un env de test est la meilleure facon de le tester sans casser la production. Une fois qu'on veut l'utiliser en production, on peut
+soit recommencer la manip avec un puppet module install soit copier notre module dans l'env de production:
+
+ on peut tester un environement precis 
+[vagrant@client ~]$ sudo puppet apply --environment test
+
+/!\ Pour fournir des données en entrée à un module on doit toujours nommer ces data : modulename::paramname
+-Assignation de module à nos nodes :
+
+La meilleure best pratice pour assigner une classe de module à notre node est de définir cette classe  dans hiera.
+on peut bénéficier de la hierarchie pour customiser nos listes de classes : comme on a configurer un manifest pour chaque environment pour charger les classes de hiera :
+
+[vagrant@client modules]$ cat ../manifests/site.pp
+# Look up all classes defined in Hiera and other data sources
+lookup('classes', Array[String], 'unique').include
+- Assignation de classes à tous nos nodes :
+
+Afin d'appliquer ce module à tous les nodes on va ajouter une conf dans le fichier common.yaml
+on commence par insérer la clé "classes" puis la liste de nos classes ici notre module ntp ( on retrouve donc ce que parse la fonction lookup('classes'<= notre clé , Array[String], <= ici la liste ( tableau de module représenté en string : uniquement ntp , et unique ( on ne fait qu'une seule fois l'appel)
+
+[root@client code]# cat hieradata/common.yaml
+---
+classes:
+  - 'ntp'
+
+L'assignement de classe se fait toujours dans un ordre de merge de tableau donc toutes les valeurs dans le tableau des classes seront mergées ensemble pour chaque niveau de hierarchie.
+On ne peut donc JAMAIS utiliser deux modules du même nom.
+Il peut être judicieux de regarder d'abord le noms des modules de laforge puppet pour ne pas créer de module dont le nom existe déjà chez puppet pour eviter de potentiel probleme de dépendance .
+- generation du squelette de module :
+une commande se charge de cette opération : module generate.on doit préciser dans un premier temps le user qui crée le module suivi d'un tiret et le nom du module
+ex :  on peut laisser les reponses par défaut :
+
+[vagrant@client ~]$ puppet module generate boogie-boogieland
+We need to create a metadata.json file for this module.  Please answer the
+following questions; if the question is not applicable to this module, feel free
+to leave it blank.
+
+Puppet uses Semantic Versioning (semver.org) to version modules.
+What version is this module?  [0.1.0]
+-->
+..
+...
+
+- creation de la classe manifest :
+on va trouver dans notre module un fichier manifest de type init.pp :
+/etc/puppetlabs/code/environments/test/modules/puppet/manifests
+le présence de ce fichier est impérative et il doit contenir la définition de classe de base
+cette classe de base est une classe portant le même nom que notre module.
+
+- Qu'est ce qu'une classe ?
+
+pour rappel
+un manifest utilise le language de puppet pour des déclarations de configuration
+un manifest contient des ressources qui décrivent l'etat de la configuration attendue de nodes
+un manifest s'execute toute de suite apres l'execution de la commande puppet apply
+
+une classe :
+est un manifest avec certaines propriétés.on utilise aussi le language puppet pour créer une classe .
+
+A class is a manifest that can be called by name.
+A class has a namespace or variable scope of the same name.
+A class is not used until called by name.
+A class may include or be included by other modules.
+A class may be passed parameters when called.
+
+Declaration de ressources de classes :
+
+class puppet {
+# Install the Puppet agent
+  package { 'puppet-agent':
+    ensure => 'latest',
+    notify => Service['puppet'],
+  }
+# Manage the Puppet service
+  service { 'puppet':
+    ensure  => 'running',
+    enable  => true,
+    subscribe => Package['puppet-agent'],
+  }
+}
+
+
+- Authoriser les inputs :
+on va maintenant ajuster notre manifest en y ajoutant des paramètres
+
+
+class puppet {
+
+class puppet(
+    #input parameters and default values for the class
+    $version = 'latest',
+    $status = 'running',
+    $enabled = true,
+) {
+    # echo the input provided
+    notice("Install the $version version of Puppet,
+    ensure it's $status, and set boot time start $enabled.")
+
+		}
+Les paramètres de classes peuvent être explicitement passés quand la classe est déclarée.
+on peut definir des parametres à passer quand on defini la classe dans le manifest ou la sortie d'un external node classifier.
+Utiliser la déclaration de ressources dans les manifests etait la seule méthode possible avant les data lookup depuis hiera.
+-> les valeurs de paramètres vont être récupérées des data providers (hiera, environment,module) : c'est la methode la plus pratique pour assigner des valeurs . LA clé va être cherchée dans le provider global de data (hiera) suivi par le provider de data de l'environement puis celui des modules. La valeur de la premiere data source sera retournée.
+-> les valeurs par defaut peuvent être déclarées dans definitions de classe. Les bonnes pratiques puppet encourage l'utilisation de valeur par defaut avec des valeurs fournissant le cas global le plus général.
+
+- partage fichier :
+[root@client manifests]# cat init.pp
+class puppet(
+#input parameters and default values for the class
+  $version = 'latest',
+  $status = 'stopped',
+  $enabled  = true, # required parameter
+  ) {
+    # echo the input provided
+notice("Install the $version version of Puppet,ensure it's $status, and set boot time start $enabled.")
+    }
+
+file { '/etc/puppetlabs/puppet/puppet.conf':
+  ensure => file,
+  owner => 'root',
+  group => 'wheel',
+  mode  => '0644',
+  source => 'puppet:///modules/puppet/puppet.conf',
+}
+
+Il y a  trois uri valides pour spécifier un fichier :
+
+• puppet:///modules/module_name/filename
+• file:///path/to/file/on/local/system
+• http: or https://web-server/filename (new in Puppet 4.4)
+
+NB: on peut utiliser un tableau de fichier : puppet prendra le premier qui match dans la liste.
+Il est possible de sourcer des fichiers qui ne sont pas inclus dans le module mais ce n'est pas recommandé.
+
+- synchronisation de fichiers :
+Nous pouvons synchroniser en mode recursif et des attributs permettent egalement une purge :
+
+file { '/tmp/sync/':
+  ensure  => directory,
+  owner   => 'root',
+  group   => 'wheel',
+  mode    => '0444',
+  recurse => true, # go into subdirectories
+  replace => true, # replace any files that already exist
+  purge   => false, # don't remove files that we don't have
+  links   => follow, # follow symbolic links and modify the link target
+  force   => false,
+source    => 'puppet:///modules/puppet/sync/',
+}
+
+- - Parsing  de template :
+
+Comme aucun systeme ne va contenir les memes infos on va pouvoir créer des modeles : des templates  qui pourront être réutilisés.
+Ces  modèles dans puppet doivent être stocker dans un repertoire se nommant template.
+On va créer un template qui va initialiser quatres variables.
+Modifions dans un premier temps le manifest de notre module en y rajoutant nos variables :
+
+environments/test/modules/puppet/manifests/init.pp
+class puppet(
+    $version = 'latest',
+    $status = 'stopped',
+    $enabled  = true, # required parameter
+    $server = 'puppet.example.com',
+    $common_loglevel = 'warning',
+    $agent_loglevel = undef,
+    $apply_loglevel = undef,
+) {
+On a setté ici deux parametres avec des valeurs à undef : on ne va utiliser ces valeurs que quand la classe est déclarée : si on ne met aucune valeur alors une valeur sera impérativement à fournir ce qui n'est pas ce que nous souhaitons.
+
+Il y a deux parsers puppet :
+-> EPP : embedded puppet parser : utilise des variables et des fonctions puppet.
+-> ERB : embeded ruby parser : utilise le language ruby et ses fonctions.
+
+- Syntaxe commune :
+
+chacun de ces modeles sont des fichiers textes qui contiennent de la syntaxe commune et des tags de templates.
+A l'exterrieur de ces tags le  texte n'est pas interprété.
+A l'interrieur de ces tags on a du code puppet ou ruby.
+
+<%= variable or code %>   This tag is replaced with the value of the variable, or result of the code.
+<% code block %>          The code is executed. Nothing is returned unless the code prints output.
+<%# a comment %>          This tag is removed from the output.
+<% code block -%>         Immediately trailing newlines or whitespace is removed. Use to prevent blank lines.
+<%- code block %>         Leading newlines or whitespace is removed. Use when indenting template tags.
+<%= variable or code -%>  Removes trailing whitespace after the result of the code. (There is no option for trimming leading whitespace.)
+<%%  %%>                  Double percent signs are replaced with a single percent sign. Use to prevent interpolation.
+
