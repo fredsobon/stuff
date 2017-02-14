@@ -3200,4 +3200,63 @@ Il est possible d'utiliser des fonctions puppet grace à la fonction scope.funct
 exemple générer un numéro depuis le fqdn de notre serveur : 
 server = <%= scope.function_fqdn_rand( 3600 ) -%>
 
+Attention il est possible de devoir saisir les param passés à notre fonction entre crochet comme pour un tableau :
+
+this is it  <%= scope.function_fqdn_rand( [3600] ) -%>
+
+Il est tout a fait possible de passer du code ruby entre les balises de templates : <%= Code %> . l'utilisation du signe "=" n'est pas obligatoire.
+
+- Iteration dans un template ERB :
+on va utiliser la fonction ruby each() pour itérer.
+ex : on defini une liste dans notre manifest et on affiche les elements de celle ci dans notre template : attention exemple sans aucun interet excepter voir un mottif de boucle :
+
+class testo (
+    $yop = 'lapin',
+    $yap = 'yopyop',
+    $yup = 'allo?',
+    $lst= [0, 1, 2, 3, 4, 5],
+)
+
+"environments/test/modules/testo/templates/testo.erb
+
+<%= @lst.each do |i|
+  puts(i)
+end
+%>
+
+On note qu'il n'y a pas ici l'utilisation de @ pour la variable puisqu'on ne boucle qu'en local dans notre bloc de code et ce n'est pas un appel d'une variable du code puppet.
+
+exemple de template erb :
+appel de variable defini dans manifest
+appel de variable issue d'un autre scope module
+appel de variable apres passage de fonction
+boucle sur un element passé dans manifest :
+
+lulu =  <%= @yop %>
+server = <%= scope['::puppet::server']-%>
+this is it  <%= scope.function_fqdn_rand( [3600] ) -%>
+
+<%= @lst.each do |i|
+  sprintf( "%i", i)
+end
+%>
+doc sur template ERB :
+
+http://bit.ly/1SYDfct
+
+
+- Ecriture de templates lisibles :
+
+On note que par moment les blocs de templates utilisent : <%= %> ou <%= -%> : cette derniere ecriture supprime le retour chariot de notre code 
+c'est regulierement utilisé pour ne pas ajouter de ligne blanche automatiquement ou concatener du code.
+
+Best practice : il est important d'utiliser le code puppet dans les templates epp et dans les manifesets. Il est important de specifier les param pour être clair.
+
+
+= Test de module :
+
+
+
+
+
 
