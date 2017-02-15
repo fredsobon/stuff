@@ -3255,8 +3255,43 @@ Best practice : il est important d'utiliser le code puppet dans les templates ep
 
 = Test de module :
 
+- examun de variables et ressources d'autres classes
+Nb: ces techniques sont à utiliser juste à des fins de debug ( à proscrire en production.)
+
+Les environmments sont strcits et cloisonnées : on ne peut pas voir les données et le code différentes à notre environment loadé.
+Par contre au sein du même environment on peut examiner les ressources et variables d'autres classes.
+
+exemple pour illuster le fait que l'on récupere bien les variables d'autres classes : 
+
+[root@client code]# cat /vagrant/manifests/peek.pp 
+class other_class( String $idea ) {
+  $sentence = "an idea: ${idea}"
+  notify { 'announcement': message => "I have ${sentence}" }
+}
+
+class my_class {
+  # I can see the other class parameter
+  notice( "The idea was: ${Class['other_class']['idea']}" )
+
+  # I can see the other class variables
+  notice( "The sentence was: ${::other_class::sentence}" )
+
+  # I can see parameters of resources in another class
+  notice( "The entire message was: ${Notify['announcement']['message']}" )
+}
+
+class { 'other_class':
+  idea => 'games!',
+}
+include my_class
 
 
-
-
+[root@client code]# puppet apply /vagrant/manifests/peek.pp
+Notice: Scope(Class[My_class]): The idea was: games!
+Notice: Scope(Class[My_class]): The sentence was: an idea: games!
+Notice: Scope(Class[My_class]): The entire message was: I have an idea: games!
+Notice: Compiled catalog for client.example.com in environment production in 1.32 seconds
+Notice: I have an idea: games!
+Notice: /Stage[main]/Other_class/Notify[announcement]/message: defined 'message' as 'I have an idea: games!'
+Notice: Applied catalog in 0.02 seconds
 
