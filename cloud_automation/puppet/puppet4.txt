@@ -3295,3 +3295,56 @@ Notice: I have an idea: games!
 Notice: /Stage[main]/Other_class/Notify[announcement]/message: defined 'message' as 'I have an idea: games!'
 Notice: Applied catalog in 0.02 seconds
 
+
+- Best practice  pour le design d'un module :
+
+-> creer un squelette qui correspond a l'organisation de la societé
+-> declarer dans le module une classe se nommant init.pp
+-> utiliser les parametres par defaut qui sont les cas les plus usuelles.
+-> utiliser les templates EPP avec des parametres additionnels permettant une  meilleure lisibilité.
+-> ne pas acceder a des data exterrieures au module mais assigner ces data a des variables dans des manifests dans lequels ont peut voir les dependances de code.
+
+
+
+== chapitre 14 : Ameliorations de module : ==
+
+- Validation des données d'entrée avec controle de typage :
+
+
+Avant puppet4 il y avait deux phases : une creation et une verification ;
+ex :
+class puppet(
+# input parameters and default values for the class
+$version = 'latest',
+$status = 'running',
+$enabled,
+) {
+validate_string( $version )
+validate_string( $status )
+validate_bool( $enabled )
+...resources defined below...
+
+
+il est possible depuis puppet4 de déclarer le type des parametres à la creation de la variable.
+ceci permet de creeer la variable et son controle de type en une seule passe : 
+
+Exemple : 
+class puppet(
+# input parameters and default values for the class
+String $version = 'latest',
+Enum['running','stopped'] $status = 'running',
+Boolean $enabled = true,
+) {
+...class resources...
+}
+
+il est possible de creer des type pour les blocs lambda egalement.
+ex :
+split( $facts['interfaces'] ).each |String $interface| {
+...lambda block...
+}
+
+
+
+
+
