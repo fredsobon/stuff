@@ -3345,6 +3345,123 @@ split( $facts['interfaces'] ).each |String $interface| {
 }
 
 
+- Types valid :
 
+la classification des type valides se fait sous formes d'arborescence :
 
+• Data accepts any of:
+— Scalar accepts any of:
+	— Boolean ( true or false )
+	— String (ASCII and UTF8 characters)
+	— Enum (a specified list of String values)
+	— Pattern (a subset of strings that match a given Regexp )
+— Numeric accepts either:
+	— Float (numbers with periods; fractions)
+	— Integer (whole numbers without periods)
+— Regexp (a regular expression)
+— Undef (a special type that only accepts undefined values)
 
+• Collection accepts any of:
+— Array (list containing Data data types)
+— Hash ( Scalar keys associated with Data values)
+
+• Catalogentry accepts any of:
+— Resource (built-in, custom, and defined resources)
+— Class (named manifests that are not executed until called)
+
+- Validateur de data :
+
+le systeme de validation permet à la fois d'evaluer les data en param mais aussi les data structurées.
+ex :
+Integer[13,19] # teenage years
+Array[Float]   # an array containing only Float numbers
+Array[ Array[String] ] # an array containing only Arrays of String values
+Array[ Numeric[-10,10] ] # an array of Integer or Float values between -10 and 10
+
+Pur des données de type strcuturées le param range indique la taille de l'intervalle et ce pour les tableau et hash : 
+Array[String,0,10]    # an array of 0 to 10 string values
+Hash[String,Any,2,4] ] # a hash with 2 to 4 pairs of string keys with any value
+
+pour des structures vraiment très controllées on peut utiliser exactement le type désiré pour les clés et les valeurs : 
+
+# This is a Hash with short string keys and floating-point values
+Struct[{
+  day => String[1,8],    # keys are 1-8 characters in length
+temp => Float[-100,100], # values are floating-point Celsius
+}]
+
+# This is a hash that accepts only three well-known ducks as key names
+Struct[{
+	duck => enum['Huey','Dewey','Louie'],
+	loved => Boolean,
+}]
+
+comme struct agit pour les hash , on peut utiliser Tuple pour agir sur les checks de tableau :
+on va pouvoir déterminer le type de data donné à tel type de position avec un nombre minimum déterminer et un max optionnel. 
+
+# an array with three integers followed by one string (explicit) : 
+Tuple[Integer,Integer,Integer,String]
+
+# an array with two integers followed by 0-2 strings (length 2-4) :
+Tuple[Integer,Integer,String,2,4]
+
+# an array with 1-3 integers, and 0-5 strings : 
+Tuple[Integer,Integer,Integer,String,1,8]
+
+explication su dernier exemple : 
+Integer in position 1 (required minimum).
+Integers in positions 2–3 are optional (above minimum length).
+String in position 4 is optional (above minimum length).
+The final type (String) may be added 4 times up to the maximum 8 entries.
+
+on peut utiliser deux autres types qui peuvent permettre ue alternative : 
+
+Variant[Integer,Float] #the same as Numeric type
+Variant[String,Array[String]] #a string or an array of strings
+Variant[String,undef] # a string or nothing
+Optional[String] #same as the previous line 
+Optional[String,Integer]
+
+You can also check the size of the value of a given type:
+String[12] # a string at least 12 characters long
+String[1,40] # an string  between 1 and 40 characters long
+Array[Integer,3] # an array of at least 3 integers
+Array[String,1,5] # an Array with 1 to 5 strings
+
+You can use all of these together in combination:
+# An array of thumbs up or thumbs down values
+Array[ Enum['thumbsup','thumbsdown'] ]
+# An array of thumbs up, thumbs down, or integer from 1 to 5 values
+Array[ Variant[ Integer[1,5], Enum['thumbsup','thumbsdown'] ] ]
+
+- Test de valeurs : 
+
+comme on peut definir des types de parametres passés dans une classe , un type ou une iteration lambda ; on peut passer des tests de valeurs sur nos manifestes en utilisant l'operateur :
+" =~ "
+exemple si  notre donnée peut prendre plusieurs valeurs alors on peut tester :
+
+if( $input_value =~ String ) {
+	notice( "Received string ${input_value}" )
+}
+elsif( $input_value  =~ Integer ) {
+	notice( "Received integer ${input_value}" )
+}
+
+On peut aussi determiner si notre valeur est iterable : 
+if( $variable =~ Iterable ) {
+	$variable.each() |$value| {
+		notice( $value )
+		}
+}
+else {
+	notice( $variable )
+}
+
+on peut aussi determniner si un type est disponible dans une collection avec l'opérateur in :
+
+if( String in $array_of_values ) {
+notice('Found a string in the list of values.')
+}
+else {
+notice('No strings found in the list of values.')
+}
