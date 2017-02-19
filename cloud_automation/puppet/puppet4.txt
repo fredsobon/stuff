@@ -3465,3 +3465,42 @@ notice('Found a string in the list of values.')
 else {
 notice('No strings found in the list of values.')
 }
+
+La fonction with() permet aussi de checker les types également :
+
+with($password) |String[12] $secret| {
+	notice( "The secret '${secret}' is a sufficiently long password." )
+}
+
+il est egalement possible de tester le type avec case :
+case $input_value: {
+	Integer: { notice('Input plus ten equals ' + ($input_value+10) ) }
+		String: { notice('Input was a string, unable to add ten.') }
+} 
+il est tout a fait possible d'utiliser variant et optionnal dans le test des type :
+
+if( $input =~ Variant[ String, Array[String] ] ) {
+	notice( 'Values are strings.' )
+}
+
+if( $input =~ Optional[Integer] ) {
+	notice( 'Values is a whole number or undefined.' )
+}
+
+Un test de comparaison avec "=~" sera toujours exact quand le type trouvé est exact ou alors hérite de type parent.
+
+'text' =~ String  # exact
+'text' =~ Scalar  # Strings are children of Scalar type
+'text' =~ Data    # Scalars are a valid Data type
+'text'  =~ Any    # all types are children of Any
+
+Si on veut eviter de voir la sortie d'un message d'erreur si un type est trouvé en erreur lors du catalogue :
+on peut configurer le message afficher lors de la sortie du run ex :
+
+assert_type(String[12], $password) |$expected, $actual| {
+	fail "Passwords less than 12 chars are easily cracked. (provided: ${actual})"
+}
+
+- Comparaison de strings avec les regex :
+
+
