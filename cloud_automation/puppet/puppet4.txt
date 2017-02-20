@@ -3503,4 +3503,92 @@ assert_type(String[12], $password) |$expected, $actual| {
 
 - Comparaison de strings avec les regex :
 
+ on peut utiliser les regexp pour voir si le test de comparaison "=~" .
+ex on peut utiliser les regex pour tester si un fichier est un manifest : 
+
+$manifests = ${filenames}.filter |$filename| {
+$filename =~ /\.pp$/
+}
+
+
+Puppet utilise les regexp ruby : http://ruby-doc.org/core-2.1.8/Regexp.html
+
+i (case insensitive)  Ignore upper/lowercase when matching strings.
+m (multiline mode)    Allow matching newlines with the . wildcard.
+x (free spacing)      Ignore whitespace and comments in the pattern.
+
+puppet ne supporte pas les options après le / final à la place on utilise : (?<options>:<patern>)
+
+ex :
+$input =~ /(?i:food)/ 			# match Food, FOOD, etc.
+$input =~ /(?m:fire.flood)/ 	# match "fire\nflood"
+$input =~ /(?x:fo \w $)/ 		# match fog but not food or "fo g"
+$input =~ /(?imx:fire . flood)/ # match "Fire\nFlood"
+
+
+On peut matcher exactement le pattern multiple que l'on veut avec les regexp :
+
+$placeholder_names = $victims.filter |$name| {
+	$name =~ Pattern['alice','bob','eve','^(?i:j.* doe)',/^(?i:j.* roe)/]
+}
+on peut utiliser l'interpolation en indiquant le pattern de droite en string :
+
+ex : 
+$drink_du_jour = 'coffee'
+$you_drank =~ "^${drink_du_jour}$"   # true if they drank coffee
+
+- MAtching de regexp :
+
+on peut aussi faire des tests pour savoir si ce que l'on saisi est une regexp :
+
+/foo/ =~ Regexp    # true
+'foo' =~ Regexp    # false
+Ce qui peut nous permettre de faire des tests de validation : 
+if $input =~ Regexp {
+notify { 'Input was a regular expression': }
+}
+
+On peut aussi tester la correspondance de notre pattern :
+/foo/ =~ Regexp[/foo/]   # true
+/foo/ =~ Regexp[/foo$/]  # false
+
+Le type regexep peut permettre l'utilisation d'une iterpolation de variable , en placant une autre variable dans une chaine de caractere convertie en regexp 
+Comme les chaines de caracteres doivent être interpolées , les backslashes doivent être protégés :
+
+ex :
+$nameregexp =~ Regexp["${first_name} [\\w\\-]+"]
+
+l'exemple precedant sort vrai si $nameregexp est une regexp qui va suivre first_name suivi d'un mot.
+
+- Revision de module  :
+
+pour recapituler on peut tester ici que tous nos parametres contiennent bien les types attendus : 
+ex : ici dans notre manifest on test que nos params sont bien corrects : 
+
+
+[root@client environments]# cat  test/modules/puppet/manifests/init.pp 
+class puppet(
+
+    #input parameters and default values for the class
+    String $server = 'puppet.example.com',
+    String $version = 'latest',
+    Enum['running','stopped'] $status = 'running',
+    Boolean $enabled = true,
+    String $common_loglevel = 'warning', 
+    Optional[String] $agent_loglevel = undef,
+    Optional[String] $apply_loglevel = undef, 
+)   
+	{
+     		       
+               notice("Install the $version version of Puppet on === $server === ensure it's $status, and set boot time start $enabled. \n") 
+
+    file { '/etc/puppetlabs/puppet/puppet.conf':
+    ensure => file,
+    owner => 'root',
+    group => 'wheel',
+    mode  => '0644',
+    content  => template('puppet/puppet.conf.erb'),
+   }
+}
+
 
