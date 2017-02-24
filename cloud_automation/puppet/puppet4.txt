@@ -3675,3 +3675,44 @@ Notice: /Stage[main]/Testo/Notify[aloa]/message: defined 'message' as 'pronto yu
 Notice: /Stage[main]/Testo/File[/etc/testo]/content: content changed '{md5}5504930a52018862f0cf83e77a5b89db' to '{md5}c6142179d54345e1a408305bb6a745da'
 Notice: Applied catalog in 0.04 seconds
 
+
+/!\ On ne peut pas définir de parametres sous forme de hash sous le nom de la classe de notre module !!
+ex: CECI n'est pas possible .
+puppet:
+version = 'latest'
+status = 'stopped'
+enabled = false
+
+on doit impérativement passer par l'appel "::"
+
+
+
+- Utilisation des merge de hash et de tableaux :
+
+le parametrage du lookup automatique de hiera va remonter la premiere données trouvée dans la hierachie lors du lookup.
+On a plusieurs maniere de retrouver les résultats des hash et table	aux de  données mergées dans la hierarchie de données hiera :
+
+1/ definir une strategie de merge par defaut pour les valeurs avec la conf lookup_option des données du module .
+2/ utilisation du parametre merge de la fonction lookup() pour overrider notre startegie par defaut.
+
+l'utilisation explicite de lookup() va overrider la conf  definie dans notre conf de données de module.
+ 
+Pour recupérer les données mergées de nos hash et tableaux avec la fonction lookup() il faut utiliser le parametre merge :
+
+ex : 
+$userlist = lookup({
+    name  => 'users::users2add',
+    value_type  => Array[String],
+    default_value => [],
+    merge    => 'unique',
+})
+
+Les differentes options  du parametre sont :
+
+-> first : recupere la premiere données trouvées ( ancienement nommé priority )
+-> unique : retourne un tableau plat de  toutes les données unique trouvées ( anciennement appellée array )
+-> hash :   retourne un hash contenant la clé de priorité la plus haute ainsi que ses valeurs ( anciennement native ) . Attention : ignore les données uniques des clés de priorité basses.
+-> deep : retourne un hash de toutes les données .
+
+
+ 
