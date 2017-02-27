@@ -3,3 +3,192 @@
 
 = api sensu : ==
 https://sensuapp.org/docs/latest/api/overview.html
+
+
+
+= notes v_oreilly =
+
+1 /install ( vm test ubuntu 16/04 lts : 
+
+
+On install rabbitmq-server qui va nous servir a gerer les filles  de messages.
+une "webapp" est dispo des l'install avec l'install des plugins 
+
+root@ubuntu-xenial:~# apt-get install rabbitmq-server
+root@ubuntu-xenial:~# rabbitmq-plugins enable  rabbitmq_management
+The following plugins have been enabled:
+  mochiweb
+  webmachine
+  rabbitmq_web_dispatch
+  amqp_client
+  rabbitmq_management_agent
+  rabbitmq_management
+
+Applying plugin configuration to rabbit@ubuntu-xenial... started 6 plugins.
+
+on va redemmarer le service et checker :
+
+root@ubuntu-xenial:~# service rabbitmq-server restart
+
+on va tester notre appli :
+
+en cli :
+
+root@ubuntu-xenial:~# curl -I http://localhost:15672
+HTTP/1.1 200 OK
+Server: MochiWeb/1.0 (Any of you quaids got a smint?)
+last-modified: Sat, 25 Feb 2017 17:24:03 GMT
+Date: Sat, 25 Feb 2017 17:25:23 GMT
+Content-Type: text/html
+Content-Length: 1353
+
+on va aussi tester depuis un browser :
+pour cela on va faire une redirection de port de notre rabbitmqsur la vm vers le navigo de notre machine dans la conf vagrant :
+
+VAGRANTFILE_API_VERSION = "2"
+Vdministratoragrant.configure(VAGRANTFILE_API_VERSION) do |config|
+  config.vm.box = "ubuntu/trusty64"
+  config.vm.network "forwarded_port", guest: 15672, host: 15672
+
+
+on va ajouter un user test avec tous les droits pour acceder 
+rabbitmqctl add_user test test
+rabbitmqctl set_user_tags test administrator
+rabbitmqctl set_permissions -p / test ".*" ".*" ".*"
+
+on va ajouter un virtual host dans notre webapp rabbit mq 
+> a droite virtual host > new virtual host 
+on rentre : /sensu 
+on ajoute un nouveau user :
+sensu / mdp secret 
+
+on ajoute ensuite un user sensu avec un password secret au vhost sensu 
+root@SensuServer:/etc/rabbitmq# rabbitmqctl add_user sensu secret
+root@SensuServer:/etc/rabbitmq# rabbitmqctl set_user_tags sensu administrator
+root@SensuServer:/etc/rabbitmq# rabbitmqctl set_permissions -p / ".*" ".*" ".*"
+on rajoute le user sensu et on le grant au vhost /sensu : 
+root@SensuServer:/etc/rabbitmq# rabbitmqctl set_permissions -p / ".*" ".*" ".*"
+
+
+
+
+on va ensuite cliquer sur notre nouveau user et lui donner tous les droits (*) sur notre vhost /sensu en selectionnant les menus deroulant.
+on sauve et c'est ok .
+
+On install mintenant redis-server :
+
+root@ubuntu-xenial:~# apt-get install redis-server
+pour tester notre install on lance l'utilitaire :
+root@ubuntu-xenial:~# redis-cli ping
+PONG
+
+On va  maintenant passé à l'install de  sensu :
+-> on recupere la cle pub du repo :
+wget -q https://sensu.global.ssl.fastly.net/apt/pubkey.gpg -O- | sudo apt-key add -
+on va ensuite monter le repo dédié à notre distrib apres l'avoir identifiée :
+. /etc/os-release && echo $VERSION
+16.04.2 LTS (Xenial Xerus)
+
+on  rajoute un source list dedié a sensu concernant notre repo
+root@ubuntu-xenial:~# cat /etc/apt/sources.list.d/sensu.list
+deb     https://sensu.global.ssl.fastly.net/apt xenial main
+puis on update notre db :
+apt-get update
+
+on install sensu 
+apt-get install sensu
+
+on creee maintenant notre fichier de conf :
+qui va repertorier les infos de conf settee : rabbitmq ,redis et le port de notre api sensu . La conf sous format json doit toujours avoir les sections entourées de { } 
+root@ubuntu-xenial:~# vi /etc/sensu/config.json
+
+root@ubuntu-xenial:~# cat  /etc/sensu/config.json
+{
+  "rabbitmq": {
+    "host": "localhost",
+    "vhost": "/sensu",
+    "user": "sensu",
+    "password": "secret"
+  },
+  "redis": {
+    "host": "localhost" 
+  },
+  "api": {
+    "port": 4567
+  }  
+}
+
+on demarre maintenant notre sensu-server et api :
+root@ubuntu-xenial:~# systemctl start sensu-server
+root@ubuntu-xenial:~# systemctl start sensu-api
+
+on peut consulter les logs de notre appli dans /var/log/sensu : on a les logs server et api
+
+on va maintenant configurer la partie client :
+comme tout se passe sur la même machinne pas de conf particuliere 
+on rentre un nom pour identifier notre client , son ip et la liste des subscriptions ( ensemble de checks)  auquels il va s'inscrire
+
+t@ubuntu-xenial:~# cat /etc/sensu/conf.d/client.json
+{
+  "client": {
+    "name": "SensuServer",
+    "address": "10.0.2.15",
+    "subscriptions": [
+     "Production" 
+    ] 
+  }
+}
+puison demarre notre service : 
+root@ubuntu-xenial:~# service sensu-client start
+root@ubuntu-xenial:~# systemctl status sensu-client
+● sensu-client.service - sensu client
+   Loaded: loaded (/etc/systemd/system/sensu-client.service; disabled; vendor preset: enabled)
+   Active: active (running) since Sun 2017-02-26 12:35:58 UTC; 12s ago
+ Main PID: 9987 (sensu-client)
+    Tasks: 24
+   Memory: 16.7M
+      CPU: 229ms
+   CGroup: /system.slice/sensu-client.service
+           └─9987 /opt/sensu/embedded/bin/ruby /opt/sensu/bin/sensu-client -c /etc/sensu/config.json -d /etc/sensu/conf.d -e /etc/sensu/extensions -p /var/run/sensu/sensu-client.pid -l /var/lo
+
+on installe maintenant uchiwa (directement via notre distrib : ubuntu et le repo qu'on a setté font le job ou alors sur uchiwa.io : le site du projet )
+root@ubuntu-xenial:~# apt-get install uchiwa
+on va modifier le ficher de conf de base d'uchiwa en renseignant les infos de notre conf : 
+
+root@ubuntu-xenial:~# cat /etc/sensu/uchiwa.json 
+{
+  "sensu": [
+    {
+      "name": "SensuServer",
+      "host": "localhost",
+      "port": 4567,
+      "ssl": false,
+      "path": "",
+      "user": "sensu",
+      "pass": "secret",
+      "timeout": 10
+    }
+  ],
+  "uchiwa": {
+    "host": "0.0.0.0",
+    "port": 3000,
+    "refresh": 10
+  }
+}
+
+on redemmare notre stack 
+root@SensuServer:/etc/sensu# service sensu-server restart && service sensu-api restart && sleep 2 && service uchiwa restart
+
+on peut desormais acceder a uchiwa en http://lcoalhost:3000
+
+root@SensuServer:/etc/sensu# curl -i http://localhost:3000/clients
+HTTP/1.1 200 OK
+Accept-Charset: utf-8
+Content-Type: application/json
+Date: Sun, 26 Feb 2017 19:25:07 GMT
+Content-Length: 297
+
+[{"_id":"SensuServer/SensuServer","address":"10.0.2.15","dc":"SensuServer","name":"SensuServer","output":"No keepalive sent from client for 23862 seconds (\u003e=180)","silenced":false,"status":2,"subscriptions":["Production","client:SensuServer"],"timestamp":1.488113238e+09,"version":"0.27.1"}]
+
+
+
