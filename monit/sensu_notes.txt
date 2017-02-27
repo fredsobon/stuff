@@ -6,9 +6,10 @@ https://sensuapp.org/docs/latest/api/overview.html
 
 
 
-= notes v_oreilly =
+=== notes v_oreilly et book ===
 
-1 /install ( vm test ubuntu 16/04 lts : 
+
+== Install ( vm test ubuntu 16/04 lts : == 
 
 
 On install rabbitmq-server qui va nous servir a gerer les filles  de messages.
@@ -189,6 +190,59 @@ Date: Sun, 26 Feb 2017 19:25:07 GMT
 Content-Length: 297
 
 [{"_id":"SensuServer/SensuServer","address":"10.0.2.15","dc":"SensuServer","name":"SensuServer","output":"No keepalive sent from client for 23862 seconds (\u003e=180)","silenced":false,"status":2,"subscriptions":["Production","client:SensuServer"],"timestamp":1.488113238e+09,"version":"0.27.1"}]
+
+
+En recap on a donc une appli découpée en plusieurs briques : 
+
+Service 	  Runs On 	Description
+sensu-client  client 	Runs checks; reports results
+sensu-api     server 	API for programmatic interaction
+sensu-server  server 	Schedules checks; routes results
+redis         server 	Persistent key-value storage
+sensu-dashboard server  Visualizes results
+rabbitmq-server amq server  AMQP server
+
+On a tous les logs de splités : 
+tail –f /var/log/sensu/sensu-server.log
+tail –f /var/log/sensu/sensu-client.log
+
+on peut setter le log level de sensu dans /etc/defaut/sensu
+
+LOG_LEVEL=debug
+les autres valeurs sont warning et fatal 
+
+
+On peut redammer les services aussi de plusieurs manieres :
+cd /etc/systemd/system && systemctl restart sensu-*
+
+
+Validation de json :
+
+quand on edite un fichier json on peut toujours lui passer un tester de syntax comme ceci :
+
+exemple on rajoute une virgule a la fin de notre derniere valeur de hash : ce qui n'en prends pas normalement : en lancant le check on a donc une erreur :
+
+roo@SensuServer:/tmp# cat uchiwa.json |python3 -m json.tool
+Expecting property name enclosed in double quotes: line 12 column 5 (char 207)
+
+
+== Architecture : == 
+
+- rabbitmq :
+est central a sensu et est un message broker : il recoit les messages à un point d'echange, les met en queues et les passe à un consummer.
+Il recoit les instructions du server sensu sur les differents checks a executer , il place ces instructions dans une queue dans laquelle le client peut venir chercher ces infos.
+Le broker recoit aussi les resultats des checks envoyés par les clients, les place en queue et les met donc a dispostion du sensu server 
+
+La capacité d'envoyer les checks à une queue de soubscription est vraiment un avantage pour le deploiment de nouveaux clients.
+Un nouveau server doit juste s'accrocher à une queue qui va ainsi lui fournir les checks a executer.
+
+- sensu server : 
+c'est le cerveau: il sait quel type de checks doivent être executer en lisant les fichiers de configuration et est en charge du sheduling des checks.
+sensu server ecoute aussi la queue rabbitmq pour recuperer les resultats et les diriger vers les handlers corrects.
+ex : un hdd full à 80% va envoyer un mail , un hdd full  90% va envoyer un sms ...
+
+- sensu client :
+Le client est à l'ecoute de rabbimq et execute les checks quand il doit le faire . Il execute donc des scripts et renvoie le resultat à rabbitmq 
 
 
 
