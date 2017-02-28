@@ -102,8 +102,6 @@ apt-get install sensu
 on creee maintenant notre fichier de conf :
 qui va repertorier les infos de conf settee : rabbitmq ,redis et le port de notre api sensu . La conf sous format json doit toujours avoir les sections entourées de { } 
 root@ubuntu-xenial:~# vi /etc/sensu/config.json
-
-root@ubuntu-xenial:~# cat  /etc/sensu/config.json
 {
   "rabbitmq": {
     "host": "localhost",
@@ -243,6 +241,71 @@ ex : un hdd full à 80% va envoyer un mail , un hdd full  90% va envoyer un sms 
 
 - sensu client :
 Le client est à l'ecoute de rabbimq et execute les checks quand il doit le faire . Il execute donc des scripts et renvoie le resultat à rabbitmq 
+On a aussi des scripts périodiques qui sont executés periodiquement sur le client sans ordre demandé par rabbitmq 
+Le resultat de ces checks est envoyé à rabbitmq exactement comme les autres checks.
+Le  resultat envoyé peut être le status du code retour ou d'autres info complementaires.
+
+NB sensu peut être packagé et embarquer toutes les applis (server , client , api , dashboard  .) mais seul le client devra être installer sur notre server client.
+
+- sensi api : api qui fourni un acess REST ( Representative State Transfer )
+
+-Redi : systeme de clé / valeur : sensu a la notion de stashes qui sont des données persistantes sous format json . Sensu utilise redis comme stockage d'informations sur les checks et les clients.
 
 
+= notes de configuration =
 
+Attention une configuration de ntp est utile pour nos applications.
+
+
+- rabbitmq : les commandes principales ont été vues dans l'installation en utilisadant l'utilitaire en cli :
+
+rabitmqctl 
+
+- sensu-client :
+
+toutes les arbo server et client sont identiques mais le client n'a juste besoin que de savoir comment contacter le rabbitmq , l'acces aux diffrents check qu'il devra executer  : ceci se passe dans le repertoire plugin ou sous forme de gem ruby 
+Quand sensu client demarre il examine d'abord le repertoire /etc/sensu/conf.d ..on peut donc organiser nos arbo comme on veut ..les fichiers primordiaux sont client.json et rabbitmq.json
+ 
+La cle de subscription visible dans notre conf client, defini quelle queue rabbitmq notre client va ecouter .
+ex :
+"client": {
+"subscriptions": [
+"os"
+],
+..
+ex ici quand le sensu server va demander à tous les clients abonnés à la queue "os" de checker leur espace disque, ils vont le faire.
+si notre server héberge un nginx alors il pourra egalement s'abonner a la queue webserver qui aura des check http a faire executer sur les clients.
+
+"client": {
+"subscriptions": [
+"os" "webserver" 
+],
+
+
+Les checks en standalone (sans schedling par le sensu server ) devront être dans /etc/sensu/conf.d/
+
+Le nom des queues est tout à fait personnel et on les creee quand on defini nos definitions de checks sur le sensu-server.
+mais avant cela il va falloir définir un élément important :
+
+EMBEDDED_RUBY :
+
+La plupart des checks executés sont en ruby 
+l'install de base embarque un ruby : 
+/opt/sensu/embedded/bin/ruby , les checks embarqués sont tous testés.
+ont peut donc execute nos checks ruby de deux manieres :
+1/ avec le rubyembarqué à l'install de sensu 
+2/ en utilisant le ruby dejà installé sur notre systeme .
+
+Il est possible de changer notre setting : utilisation ou nom du ruby embarqué en rajoutant un param dans le fichier de conf /etc/defaut/sensu
+/etc/default/sensu :
+EMBEDDED_RUBY=false
+A partir de la version 0.21 la valeur par defaut est à true
+
+
+- Sensu-server :
+
+sensu-server doit savoir ou trouver rabbitmq et connaitre les checks qu'il schedule, redis et les handlers  pour savoir ou diriger une action à faire.
+les  arbos importantes sont : 
+le repertoire checks /api.json 
+le repertoire handlers / rabbitmq.json redis.json 
+les repertoires extensions / handlers / mutators 
