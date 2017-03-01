@@ -309,3 +309,147 @@ les  arbos importantes sont :
 le repertoire checks /api.json 
 le repertoire handlers / rabbitmq.json redis.json 
 les repertoires extensions / handlers / mutators 
+
+Par defaut sensu-server va recupérer une données à la fois dans rabbitmq en cas de charge on peut augmenter ce nombre en modifiant la conf de notre broker rabbitmq.
+ex : 
+/etc/sensu/rabbitmq.json 
+{
+  "rabbitmq": {
+	"host": "203.0.113.1",
+	"user": "sensu",
+	"port": 5672,
+	"vhost": "/sensu",
+	"password": "secret",
+	"prefetch": 3
+		}
+}
+
+On va creer des checks  et des handlers dans les arbos suivantes  /etc/sensu/conf.d/checks et /etc/sensu/conf.d/handlers 
+
+
+On peut avoir plusieurs server sensu : on a par contre un master ( le premier qui demarre crée un lock dans redis). le master publie les checks, gere les keepalive 
+Le slave va recupérer les checks de rabbitmq en round rubin (avec le master )et va less envoyer vers les handlers.
+
+
+- Configuration de l'api :
+l'api sensu est exposée au dessus du framework leger sinatra : il est possible d'herberger l'api ailleurs que sur le server sensu . comme pour le server et le client on peut avoir plusieurs api deifferentes en place : il duffit des les déclarer 
+/etc/sensu/api.json
+{
+	"api": {
+	"host": "localhost",
+	"port": 4567,
+	}	
+}
+
+ on peut déclarer un user / mdp pour acceder à l'api :
+/etc/sensu/api.json
+
+{
+	"api": {
+		"host": "localhost",
+		"port": 4567,
+		"user": "api_user",
+		"password": "api_secret",
+	}
+}
+
+Attention ci notre api est configurée ailleurs que sur le serveur il faut s'assurer que la communication se fait bien avec rabbitmq et redis.
+Uchiwa est un outil de visualisation qui interreagi avec l'api
+
+- Redis :
+
+la config de redis est tres simple : le port suffit quasiment 
+
+/etc/sensu/conf.d/redis.json
+{
+"redis": {
+  "host": "localhost",
+  "port": 6379,
+  }
+}
+
+
+on peut ajouter de l'authent en configurant /etc/redis.conf
+ex 
+requirepass mysupersecretredispassword
+on pourra ensuite declarer notre appel dans le conf de redis sensu 
+ex :
+{
+"redis": {
+	"host": "localhost",
+	"port": 6379,
+	"password": "mysupersecretredispassword"
+	}
+}
+
+== Checks : ==
+
+Le job le plus important est la gestion des checks.
+Le check est composé en deux partie :
+-> check definition : doc json qui fourni les metadata relatives au check : commande et frequence .
+la commande est typiquement un script . qu'on va stocker dans le repertoire plugins
+Il y a trois types de check :
+-> standalone : les resultat sont envoyés au sensu server 
+-> regulier  : les checks sont planifiés par le sensu server 
+-> keepalive  : check d'etat de vie du node
+
+les codes retour de nos scripts sont standarts 
+
+2 > critical
+1 > warning
+0 > ok
+3 > unknow 
+
+
+= standalone : 
+ce sont les checks les plus simple : les serveurs executent une commande et envoient le resultat au rabbitmq. le serveur sensu ecoute la queue recupere les resultats les envoie au handlers
+Aucune conf n'est nécéssaire sur le server 
+les checks sont uniquement definis dans le rep /etc/sensu/conf.d
+ils se declarent eux même standalone en rajoutant la clé "stadalone"
+
+le client Sensu planifie les checks standalone avec un offset particulier 
+
+Exemple de check :
+
+on cree un check qui va générer un critical si on est lundi et un warning si on est vendredi :
+
+On cree la definition de notre check 
+
+/etc/sensu/conf.d/checks/day_check.json 
+{
+"checks": {
+	"day_check": {
+		"command": "check-day.sh",
+		"standalone": true,
+		"interval": 3600
+		}		
+	}	
+}
+
+on cree notre check 
+
+/etc/sensu/plugins/check-day.sh
+#!/bin/sh
+DAY=$(date '+%A')
+	if [ "$DAY" == "Monday" ]; then
+		echo "CRITICAL - It is Monday"
+		exit 2
+	elif [ "$DAY" == "Friday" ]; then
+		echo "WARNING - It is Friday"
+		exit 1
+	else
+		echo "OK - Just another day"
+		exit 0
+	fi
+
+Les avantages de ces checks :
+> pas de charge sur le server enterme de schedule et publication des requettes : tout est fait sur le serveur .
+on place  les checks de cette façon dont on veut connaitre parfaitement la frequence 
+
+les inconveniants :
+chaque modif de script doit être faite sur les serveurs en  local (il faut donc gérer via puppet ..etc ..)
+On by pass les soubscription et donc les organisations car on en utilise  pas avec les checks de ce type.
+En cas de souci avec le check sensu-server n'a aucune idee du souci .;sauf si le check de keealved ne repond plus 
+on ne peut pas aggreger les checks standalone .
+
+
