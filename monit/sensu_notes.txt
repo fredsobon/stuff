@@ -452,4 +452,80 @@ On by pass les soubscription et donc les organisations car on en utilise  pas av
 En cas de souci avec le check sensu-server n'a aucune idee du souci .;sauf si le check de keealved ne repond plus 
 on ne peut pas aggreger les checks standalone .
 
+= keepalive = 
+sensu check regulierement que les clients sensu s'enregitrent regulierement : on a donc pas besoin de rajputer de check ping.
+les keepalive sont envoyés toutes les 20 secondes par les clients . Si un client ne s'est pas manifesté au bout de 120 secondes : on a un warning. Un crittical est levé a partir de 180 secondes .Ceci sont les configurations par defaut mais on peut les modifier : il faut le faire pour chaque client.
+ex: 
+/etc/sensu/conf.d/client.json 
+{
+"client": {
+	"subscriptions": [
+	"os"
+	]	,
+	"address": "203.0.113.2",
+	"name": "sensuclient.example.com",
+	"keepalive": {
+	"thresholds": {
+	"warning": 120,
+	"critical": 180
+	},
+  "handler": "default"
+  }
+ }
+}
+
+Il est egalement possible de modifier les handlers des checks keepalive si l'on veut.
+ex :
+on rajoute ce type de ligne dans le fichier de conf du client :
+
+"handlers": [ "default", "myhandler" ] 
+
+Rabbitmq  hearthbeat :
+rabbitmq de base à un hearthbeat situé à 600secondes.
+on peut le verifier avec la commande :
+rabbitmqctl environment
+Il est possible de definir une conf particuliere dans :
+ex: 
+/etc/rabbitmq/rabbitmq.config
+[
+	{rabbit, [
+		{heartbeat,119},
+		...
+	]}
+]
+
+= Checks "normaux" = 
+la particularité de sensu est de prermettre aux clients de s'abonner à certains groupes de checks.
+Ces checks ont leur definition de configurés sur le server sensu.
+Il va regulierement publier ces definitions de checks dans le rabbitmq .
+Les clients qui ecoutent la queue vont recevoir la definition du check et ensuite executer en local le check / plugin et renvoyer le resultat du code à rabbitmq 
+
+Quand on definit un check on doit donc se demander :
+-> est ce que les checks / plugins qu'ont va utiliser sur le client existent dejà ( consulter les checks de la communauté sensu ) et les checks nagios.
+-> quel groupe de server vont executer le check : on doit juste definir la conf correcte dans la partie subscriptiuons de /etc/sensu/conf.d/client.json
+-> que va--il se passer à la reception d'une alerte : mail, sms .. c'est la qu'on dva definir nos handlers.
+-> a quelle frequence devra t on executer le script : c'est la session interval 
+
+ex : check de conso memoire :
+
+
+{
+"checks": {
+	"free_ram": {
+		"command": "check-ram.rb",
+		"subscribers": [
+		"webservers"
+		]		,
+		"handlers": [
+			"default"
+		],
+		"interval": 60
+		}
+	}		
+}
+
+
+- Overriding de param / substitutions.
+
+
 
