@@ -495,7 +495,7 @@ ex:
 ]
 
 = Checks "normaux" = 
-la particularité de sensu est de prermettre aux clients de s'abonner à certains groupes de checks.
+la particularité de sensu est de permettre aux clients de s'abonner à certains groupes de checks.
 Ces checks ont leur definition de configurés sur le server sensu.
 Il va regulierement publier ces definitions de checks dans le rabbitmq .
 Les clients qui ecoutent la queue vont recevoir la definition du check et ensuite executer en local le check / plugin et renvoyer le resultat du code à rabbitmq 
@@ -526,6 +526,204 @@ ex : check de conso memoire :
 
 
 - Overriding de param / substitutions.
+
+Il est bien entendu classique de recevoir une alerte quand on depasse un certain seuil. Il est cependant possible de fixer des seuils particulier pour certains nodes en overridant la config
+grace à des tokens de commandes de substitution 
+La  definition du check fourni des valeurs par  defaut mais on peut les overrider.
+ex: 
+/etc/sensu/conf.d/checks/free_ram.json
+
+{
+"checks": {
+	"free_ram": {
+		"command": "check-ram.rb",
+		"subscribers": [ "os" ],
+		"interval": 60
+		}	
+	}
+}
+
+Quand on examine le check-ram.rb on voit les seuils settes :
+ici on voit qu'on a un warning quand il reste 10% de ram dispo et un critical a 5%
+/etc/sensu/conf.d/checks/free_ram.json
+{
+"checks": {
+    "free_ram": {
+        "command": "check-ram.rb -w 10 -c 5",
+        "subscribers": [ "os" ],
+        "interval": 60
+    }
+}
+
+Pour pouvoir overrider la conf dans le client on va modifier la syntaxe :
+on rajoute ":::" ce  qui va correspondre à quelque chose dans la conf client 
+et va recuperer la valeur par defaut si rien n'est recupérer dans la conf client :
+
+/etc/sensu/conf.d/checks/free_ram.json
+{
+"checks": {
+	"free_ram": {
+		"command": "check-ram.rb -w :::params.ram.warning|10::: -c :::params.ram.critical|5:::",
+		"subscribers": [ "os" ],
+		"interval": 60
+			}
+	}
+}
+
+Pour overrider la conf dans le client on va donc setter des param qui corespondront à la definition du check 
+/etc/sensu/conf.d/client.json 
+
+{
+"client": {
+		"name": "sensuclient.example.com",
+		"subscriptions": [
+		"os", "webservers"
+		],
+		"address": "203.0.113.2",
+		"params": {
+			"ram": {
+				"warning": 20,
+				"critical": 10
+				}
+			}
+		}		
+}
+
+Quand le client sensu parcoure le check il voit params.ram.warning et prend donc la valeur défini au lieu de celle par defaut définie dans  le check. idem pour la valeur critical.
+Le check va donc être : check-ram.rb -w 20 -c 10
+
+Il faut garder à l'eprit que sensu est malleable et que les  param de substitution sont tres pratiques . On peut mettre le nom que l'on veut ici params mais ce n'est pas une obligation : il est important de garder du sens cependant.
+
+On peut également definir des commandes par défaut : ex si on a une commande particuliere pour notre ram on peut la définir sinon fallbacker sur une de base.
+
+ex :
+/etc/sensu/conf.d/checks/free_ram.json
+{
+"checks": {
+	"free_ram": {
+		"command": ":::ramcheck|check-ram.rb:::",
+		"subscribers": [ "os" ],
+		"interval": 60
+		}
+	}
+}
+
+/etc/sensu/conf.d/client.json
+{
+"client": {
+	"name": "sensuclient.example.com",
+	"subscriptions": [
+	"os", "webservers"
+	],
+	"address": "203.0.113.2",
+	"ramcheck": "other-ram-check.sh"
+	}
+}
+
+-  Password et données sensibles :
+
+On a une obligation de ne pas faire transiter de données sensibles.
+Sensu a un mecanisme de protection de "redaction" (suppression ) des infos sensibles.Ceci se fait de base pour :
+
+access_key
+api_key
+api_token
+pass
+passwd
+password
+private_key
+secret
+secret_key
+
+Des clés additionnelles peuvent être ajoutées dans notre client.json 
+L'instruction redact est obligatoire . Ex on ajoute des données sensible entre la clé redact 
+{
+"client": {
+	"name": "sensuclient.example.com",
+	"subscriptions": [
+	"os", "webservers"
+	],
+	"address": "203.0.113.2",
+	"redact": [
+		"secret_banana",
+		"passcode"
+		]
+	}
+}
+
+Dans les logs les infos supprimées seront flagguées "REDACTED"
+
+- Safe mode :
+
+sensu permet de setter un param de safe mode qui prend en valeur un booleen 
+
+/etc/sensu/conf.d/client.json
+{
+"client": {
+	"name": "sensuclient.example.com",
+	"safe_mode" : true,
+	"subscriptions": [
+	"os", "webservers"
+	],
+	"address": "203.0.113.2",
+	}
+}
+
+Si on set un safe-mode a false : le check s'execute .Si on le set a true : le chec kne s'execute que si la definition du check est présente sur le server ET sur le client.
+Si ce n'est pas le cas sensu renvoi un code d'erreur 3 et une sortie de type : "Check is not locally defined (safe mode)."
+
+Cette option permet de s'assurer que les checks correctement declarés sont correctement executés.
+NB que cette option n'est pas prise en compte sur un serveur et un client présent sur la même machinne.
+Idem pour les checks en standalone : ceci n'est pas pri en compte.
+*
+
+- Aggregation de checks :
+
+Il est possible de vouloir recevoir une multitude d'infos pour un check afin par exemple d'assurer le provisionning correct.
+ex : si on veut connaitre la charge de nos dbs et qu'on voit qu'elles sont toutes à 90% de cpu on va pouvoir planifier de l'ajout 
+
+etc/sensu/conf.d/checks/load_check.json
+
+{
+"checks": {
+	"load_check": {
+		"command": "check-load.rb -w 10,20,30 -c 25, 50, 75",
+		"subscribers": [ "databases" ],
+		"interval": 60,
+		"aggregate": true,
+		"handle": false
+		}
+	}
+}
+
+
+On voit ici  qu'on a à la fois l'option handle à false : on ne veut pas faire executer d'actions supplementaires 
+L'option aggregate est elle à true : on va dans ce cas enregistrer de maniere persistante dans redis le resultat pour une consultation future.
+NB : les checks en stadalone ne fonctionnent pas en aggregate : en effet les checks fait par les clients ont tous des timestamp differents
+
+Les  aggregés eux se stockent dans le redis en fonction du nom du check et d'un timestamp unique.
+voir aggregate_check_result() dans process.rb
+
+Les resultats stockés  dans redis vont ensuite être executés par un autre check 
+
+sensu/check-aggregate.rb
+
+
+/etc/sensu/cond.d/checks/aggregate_load_check.json
+{
+"checks": {
+	"aggregate_load_check": {
+		"command": "check-aggregate.rb -c load_check -W 75 -C 90",
+		"subscribers": [ "decisionmaker" ],
+		"interval": 300,
+		"handlers": [
+		"irc", "database_spinner_upper"
+		]
+	}
+}
+}
+
+
 
 
 
