@@ -1,0 +1,157 @@
+==== notes ldap-utils ===
+
+
+The ldapsearch, ldapadd, ldapmodify, and ldapdelete commands are used to managing your directory server, be it 389 Directory / Red Hat Directory Server, OpenLDAP, iPlanet, or even Active Directory.  Here are examples of some commands I’ve found useful, with explanations, and search options.
+
+Contents [hide]
+
+    1 Commonly Used ldapsearch Options
+    2 Examples
+        2.1 Dump the Directory
+        2.2 Add user
+        2.3 Modify a User’s Password
+        2.4 Delete a User
+        2.5 User ldapsearch against Windows Active Directory
+        2.6 Sample SSL / TLS Query:
+        2.7 Change a DN using ldapmodify
+        2.8 Change a DN using ldapmodrdn
+        2.9 Get Vendor Version / Monitor LDAP
+        2.10 Find all groups a user belongs to
+        2.11 Other Helpful Search Filters
+
+Commonly Used ldapsearch Options
+-x 	use simple authentication (as opposed to SASL)
+-H <ldapuri> 	Used to specify a URI or list of URI’s to of ldap servers.  This can also be used to specify the protocol, server, and port for queries using SSL/TLS, ie: -H “ldaps://myserver.mydomain.com:636″.
+-h <ldaphost> 	specify host to query
+-p <port> 	specify port to connect to; 389 is the default (optional)
+-b <search base> 	The starting point for the search.  It often looks like “dc=mydomain,dc=com”
+-D <binddn> 	The DN to bind to the directory.  In other words, the user you are authenticating with.  The bind DN may look like “uid=myuser,dc=mydomain,dc=com” or “cn=Directory Manager”.  The Directory Manager is the directory’s superuser account.
+-W 	Prompt for the password.  The password should match what is in your directory for the the binddn (-D).  Mutually exclusive from -w.
+-w <password> 	Specify your password on the command line.
+-s <scope> 	speicfy the scope as <base|one|sub|children>.  Base searches just the base object, sub searches all subtrees, one searches one level, and children searches just child nodes.  The default is sub.
+-z 0 	Set the sizelimit for a search in the event the server enforces a limit that’s cutting off your results.  Only the super user account (Directory Manager) can do this.
+-ZZ 	Force use of StartTLS.
+
+ 
+Examples
+Dump the Directory
+
+No authentication, give us everything.
+
+$ ldapsearch -x -h ldapserver.mydomain.com -b "dc=mydomain,dc=com"
+
+Authentication and a wildcard object class filter.
+
+$ ldapsearch -x -h intranet.mydomain.com -D "uid=myuser,dc=mydomain,dc=com" -W -b "dc=mydomain,dc=com"
+
+Add user
+
+$ ldapadd -x -h ldapserver.mydomain.com -D "cn=Directory Manager" -W -f /tmp/new_user
+
+Where “user” is a regularly formatted LDAP entry such as:
+
+dn: uid=mynewuser,dc=mydomain,dc=com
+objectClass: top
+objectClass: person
+objectClass: organizationalPerson
+objectClass: inetOrgPerson
+givenName: John
+cn: jsmith
+sn: Smith
+uid: jsmith
+
+ 
+Modify a User’s Password
+
+Entries can also be specified from the command line.  This requires the superuser account, or a user with sufficient privileges.  ldappasswd can also be used to change a password, but it will only work over encrypted (SSL/TLS) connections.
+
+$ ldapmodify -D "cn=Directory Manager" -W
+    dn:uid=jsmith,dc=mydomain,dc=com
+    changetype:modify
+    replace:userpassword
+    userpassword:new_password
+    ^Z
+  modifying entry uid=jsmith,dc=mydomain,dc=com 
+
+To test the new password, try a simple query with authentication:
+
+$ ldapsearch -x -h ldapserver.mydomain.com -D "uid=jsmith,dc=mydomain,dc=com" -W
+
+ 
+Delete a User
+
+$ ldapdelete -h 127.0.0.1 -D "cn=Directory Manager" -W -f delete_user.txt
+
+Where the file resembles:
+
+cn=group1,dc=mydomain,dc=com
+cn=group2,dc=mydomain,dc=com
+uid=usertoremove,dc=mydomain,dc=com
+
+ 
+User ldapsearch against Windows Active Directory
+
+Note the additional “-E” argument.  This search also includes a filter, which will return only “cn” objects.  The “cn mail sn” are attribute specifiers.  The command will only return these attributes for each user.  The -LLL specifies LDAPv1 output.
+
+$ ldapsearch -x -LLL -E pr=200/noprompt -h ldapserver.mydomain.com -D "mywindowsuser@mydomain.com" -W -b "cn=users,dc=mydomain,dc=com" -s sub "(cn=*)" cn mail sn
+
+Get AD schema version.  Helpful for Active Directory migrations!
+
+$ ldapsearch -x -LLL -E pr=200/noprompt -h myhost.mydomain.com -D "mywindowsuser@mydomain.com" -W -b "cn=schema,cn=configuration,dc=mydomain,dc=com" -s base
+
+ 
+Sample SSL / TLS Query:
+
+The “” filter results in the directory being dumped, but only the distinguished names are printed.  This first search uses StartTLS on port 389:
+
+$ ldapsearch  -h la1-ldap01.w.mydomain.com -p 389 -ZZZ -b "dc=mydomain,dc=com" -D "cn=Directory Manager" -w - ""
+
+This second search uses port 636 SSL / TLS.
+
+$ ldapsearch -x -H "ldaps://server.com:636"
+
+Change a DN using ldapmodify
+
+Rename a DN.  The -r removes the old object.
+
+$ ldapmodify -x -r -h <server>
+dn: uid=user,dc=example,dc=com
+changetype: modrdn
+newrdn: uid=newuser
+deleteoldrdn: 1
+
+Change a DN using ldapmodrdn
+
+An alternative to using ldapmodify.  The “-r” removes the old RDN.
+
+$ ldapmodrdn -r -h <server> "cn=Directory Manager"
+cn=oldrdn,dc=example,dc=com
+uid=newrdn
+
+Get Vendor Version / Monitor LDAP
+
+This is a sample query that could be used to monitor an LDAP server in something like Nagios.  It simply queries for the vendor version.
+
+ $ ldapsearch -x -H "ldaps://la1-ldap01.w.mydomain.com:636" -s base -b "" "objectclass=*" vendorVersion
+
+ 
+Find all groups a user belongs to
+
+This query has a more complicated search filter which looks for all groups (groupOfUniqueNames objects) and all members of those groups (uniqueMember attribute) which match the uid of “myuser”.  The “*” and “+” are attribute specifiers, and specify that all user and operational attributes should be returned for each entry.
+
+ ldapsearch -xLL -h localhost -b "dc=mydomain,dc=com" -z 0 -D "cn=directory manager" -W -ZZ "(&(objectclass=groupOfUniqueNames)(uniqueMember=uid=myuser,dc=mydomain,dc=com))" \* \+
+
+ 
+Other Helpful Search Filters
+
+Find specific attributes:
+
+$ ldapsearch -xLL -h ldapserver.mydomain.com -b "dc=mydomain,dc=com" -D "uid=myuser,dc=mydomain,dc=com" -W -ZZ "(&(objectclass=groupofuniquenames)(cn:dn:=administrator))"
+
+Search entries for the existence of an attribute.  If attribute is populated, return.  This queries the cn=config tree of the directory server, which stores the server’s configuration parameters.
+
+$ ldapsearch -x -h localhost -b "cn=config" -D "cn=Directory Manager"  -ZZ -W "(nsslapd-sizelimit=*)"
+
+Search for entries that do not have a given attribute.
+
+$ ldapsearch -x -h localhost -b "cn=config" -D "cn=Directory Manager"  -ZZ -W "(!(nsslapd-sizelimit=*))"
