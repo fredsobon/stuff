@@ -656,3 +656,123 @@ Une fois ceci fait, vous pouvez redémarrer l’agent SNMP et faire quelques tes
 
 /etc/snmp/snmpd restart
 snmpwalk -v 2c -c macommunaute <ip>
+
+
+
+
+
+= SNMPTRANLATE == 
+
+
+The SNMP protocol tends to work with numeric OIDs and raw values. One of the main roles of the MIB files is to convert these into more meaningful textual names and sensibly formatted values.
+
+While most of the Net-SNMP command-line applications can control how the results of an SNMP query are displayed, there is one tool (snmptranslate) which can be used standalone, simply displays information drawn from the MIB files themselves.
+
+
+OID Conversion
+
+In its simplest form, snmptranslate takes a numeric OID and displays the corresponding textual MIB name:
+
+     % snmptranslate .1.3.6.1.2.1.1.3.0
+     SNMPv2-MIB::sysUpTime.0
+
+It can also perform the reverse translation, taking the textual MIB name and displaying the numeric OID. This uses the -On flag:
+
+     % snmptranslate -On SNMPv2-MIB::sysUpTime.0
+     .1.3.6.1.2.1.1.3.0
+
+There are several other ways of displaying an OID, which are described in TUT:Customized_Output_Formats. One of these is to show the full list of MIB subidentifier names, using the -Of flag:
+
+     % snmptranslate -Of SNMPv2-MIB::sysUpTime.0
+     .iso.org.dod.internet.mib-2.system.sysUpTime.0
+
+Note that these flags determine how the OID should be displayed, regardless of how it was originally specified:
+
+ % snmptranslate .iso.3.6.1.private.enterprises.2021.2.1.prNames.0
+ NET-SNMP-MIB::prNames.0
+ % snmptranslate -On .iso.3.6.1.private.enterprises.2021.2.1.prNames.0
+ .1.3.6.1.4.1.2021.2.1.2.0
+ % snmptranslate -Of .iso.3.6.1.private.enterprises.2021.2.1.prNames.0
+ .iso.org.dod.internet.private.enterprises.ucdavis.procTable.prEntry.prNames.0
+
+
+Specifying a MIB object
+
+The examples above identified a particular object, either by providing the full list of MIB subidentifiers (numeric, textual or a mixture), or by specifying the relevant MIB module containing the desired MIB object. However MIB objects are guaranteed to be unique within IETF standard MIBs (and are rarely duplicated across vendor-supplied MIBs either). So it would usually be sufficient to simply give the bare MIB object name, with no further qualifications. Snmptranslate uses the -IR flag to do this "random-access" lookup:
+
+   % snmptranslate sysUpTime.0
+   Invalid object identifier: sysUpTime.0
+   % snmptranslate -IR sysUpTime.0
+   SNMPv2-MIB::sysUpTime.0
+
+(The other commands do this by default - only snmptranslate needs it to be explicitly turned on).
+
+It's even possible to provide a regex pattern, and have snmptranslate (or the other command-line tools) do a "best-match" search to find the appropriate MIB object. This uses the -Ib flag:
+
+   % snmptranslate -Ib 'sys.*ime'
+   system.sysUpTime
+
+However these approaches do run the risk (however slight) of selecting the wrong MIB object. It's safest to use one of the earlier forms.
+
+To get a list of all the nodes that match a given pattern, use the -TB flag:
+
+   % snmptranslate -TB 'sys.*ime'
+   SNMPv2-MIB::sysORUpTime
+   SNMPv2-MIB::sysUpTime
+   HOST-RESOURCES-MIB::hrSystemUptime
+
+Further Information
+
+To get extended information about a particular MIB node, use the -Td flag to display the full description from the MIB file:
+
+  % snmptranslate -On -Td SNMPv2-MIB::sysUpTime
+  .1.3.6.1.2.1.1.3
+  sysUpTime OBJECT-TYPE
+    -- FROM       SNMPv2-MIB, RFC1213-MIB
+    SYNTAX        TimeTicks
+    MAX-ACCESS    read-only
+    STATUS        current
+    DESCRIPTION   "The time (in hundredths of a second) since the network
+              management portion of the system was last re-initialized."
+  ::= { iso(1) org(3) dod(6) internet(1) mgmt(2) mib-2(1) system(1) 3 }
+
+This can be combined with the other flags described earlier:
+
+  % snmptranslate -On -Td -IR sysUpTime
+  % snmptranslate -On -Td -Ib 'sys.*ime'
+
+to give the same results.
+
+Finally, it's possible to display a formatted diagram of a selected subset of the MIB tree, using the -Tp flag:
+
+   % snmptranslate -Tp -IR system
+   +--system(1)
+      |
+      +-- -R-- String    sysDescr(1)
+      |        Textual Convention: DisplayString
+      +-- -R-- ObjID     sysObjectID(2)
+      +-- -R-- TimeTicks sysUpTime(3)
+      +-- -RW- String    sysContact(4)
+      |        Textual Convention: DisplayString
+      +-- -RW- String    sysName(5)
+      |        Textual Convention: DisplayString
+      +-- -RW- String    sysLocation(6)
+      |        Textual Convention: DisplayString
+      +-- -R-- Integer   sysServices(7)
+      +-- -R-- TimeTicks sysORLastChange(8)
+      |        Textual Convention: TimeStamp
+      |
+      +--sysORTable(9)
+         |
+         +--sysOREntry(1)
+            |
+            +-- ---- Integer   sysORIndex(1)
+            +-- -R-- ObjID     sysORID(2)
+            +-- -R-- String    sysORDescr(3)
+            |        Textual Convention: DisplayString
+            +-- -R-- TimeTicks sysORUpTime(4)
+                     Textual Convention: TimeStamp
+
+This shows the accessibility (read-only, or read-write), syntax, name and subidentifier of each MIB object within the specified subtree, together with the internal structure of those MIB objects.
+
+Running snmptranslate -Tp without an OID argument will display this information for the known MIB tree in its entirety. This is left as an exercise for the student! 
