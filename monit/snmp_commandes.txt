@@ -1,0 +1,658 @@
+=== notes diverses sur cmds snmp ==
+
+https://blog.cedrictemple.net/239-faire-des-requetes-snmp-en-ligne-de-commande-sous-linux
+
+
+
+
+= DIFFÉRENCE ENTRE SNMPGET ET SNMPWALK
+
+Aujourd’hui, nous allons voir comme faire des requêtes SNMP en ligne de commande sur un système Linux. L’idée n’est pas simplement de comprendre l’utilisation des commandes standards snmpget et snmpwalk mais d’aller un peu plus loin. En effet, comme vous pouvez le remarquer, je suis un vieux con : j’adore la ligne de commande. Les commandes recèlent tant et tant d’options qu’il est difficile de faire plus efficace et puissant. Nous verrons donc les options que vous n’utilisez peut-être pas mais aussi nous verrons d’autres commandes. L’idée est de vous montrer que vous avez un vrai intérêt, tant dans l’utilisation des options complémentaires que des autres commandes. Nous allons voir dans un premier temps les deux commandes standards : snmget et snmpwalk. Tout d’abord, quelle est la différence entre snmget et snmpwalk?
+
+En fait c’est simple : snmpget permet de récupérer la valeur d’un OID feuille alors que snmpwalk permet de récupérer toutes les valeurs d’un OID « noeud ». Avec snmpget, vous récupérez une et une seule valeur : la valeur de l’OID demandé. Si cet OID n’est pas une feuille, vous n’aurez pas de réponse. snmpwalk permet de récupérer toutes les valeurs d’un sous-arbre : vous récupérerez toutes les valeurs disponibles en dessous de l’arbre.
+
+ATTENTION : ne faites JAMAIS une requête snmpwalk sur la racine de l’arbre SNMP ou sur un noeud de haut niveau. Si vous faites cela, vous allez saturer l’agent SNMP interrogé, le réseau et votre poste. Dans le passé, vous pouviez saturer certains agents SNMP et il était nécessaire de les redémarrer voire de redémarrer l’équipement. Ce pourrait être très gênant si vous deviez demander à l’équipe réseau de redémarrer un routeur.
+
+L’utilisation des commandes snmpget et snmpwalk est exactement la même, leur syntaxe est identique. Seul l’OID interrogé va différer, selon que vous souhaitez interroger un sous-arbre ou un OID feuille. Pour faire une requête, il vous suffit de taper pour snmpwalk:
+
+snmpwalk -v <laversion> -c <lacommunaute> <adresseip> <oid>
+
+Exemple :
+
+snmpwalk -v 2c -c public 192.168.1.13 1.3.6.1.2.1.2.2.1.10
+
+Si vous savez utiliser la commande snmpwalk, vous saurez utiliser snmpget. C’est exactement la même syntaxe :
+
+snmpget -v <laversion> -c <lacommunaute> <adresseip> <oid>
+snmpget -v 2c -c public 192.168.1.13 1.3.6.1.2.1.2.2.1.10.1
+
+La différence de résultat entre snmpwalk et snmpget est flagrante. Avec snmpwalk, vous obtenez plusieurs réponses. Avec snmpget, pour le même OID, vous n’obtenez aucune réponse mais vous obtenez une réponse avec un oid feuille.
+Options de sortie
+
+snmpget et snmpwalk disposent d’options complémentaires. Peu de personnes les utilisent, ce qui est dommage car certaines sont très utiles et vous apportent des informations complémentaires. Parfois même, certains ne savent pas qu’elles existent car ils n’ont pas identifié la bonne documentation. Généralement, sur Linux, pour avoir de la documentation sur une commande, on tape
+
+man <nomdelacommande>
+
+C’est pareil pour ces commandes mais avec une subtilité : les options communes de toutes les commandes snmpget, snmpwalk mais aussi toutes les autres snmptable, snmpbulk, snmpdelta, … sont regroupées dans une seule et même page de man. Cette page de man est :
+
+man snmpcmd
+
+snmpcmd : cmd comme « commande »
+
+Nous n’allons pas détailler toutes les options possibles mais noter celles qui sont intéressantes. Toutes les options dont je vais parler sont celles liées à l’affichage des résultats. Une commande snmpwalk sans option de sortie particulière affiche ses résultats en format raccourcit. C’est à dire que la commande n’affiche pas le début de l’OID mais le nom de la MIB dans laquelle se trouve cet OID. Ceci est fait pour simplifier la lecture et raccourcir l’affichage. Cependant, il peut être intéressant d’avoir l’OID complet. Pour cela, c’est très simple, il suffit d’ajouter l’option O (en majuscule), O comme output suivi d’un f (minuscule), f comme « full ». La ligne de commande devient donc:
+
+snmpwalk -v 2c -c public -Of 192.168.1.13 1.3.6.1.2.1.2.2.1.10
+
+Vous avez alors l’OID complètement affiché.
+
+Les commandes font de la traduction automatiquement. Cette traduction est faite en entrée, c’est à dire lorsque vous saisissez un OID au format alphanumérique sur la ligne de commande puis en sortie, lors de l’affichage. Cette traduction n’est possible que si la MIB est présente sur le système et que le système est configuré pour lire ces MIBs. Cependant, pour améliorer les performances, il est toujours préférable d’éviter cette traduction. Notamment, dans les scripts, il est toujours préférable de saisir les OID au format numérique et de demander aux commandes de ne sortir les résultats qu’au format numérique.
+
+L’option permettant d’afficher les OIDs au format numérique est O (majuscule), O comme « output », suivi de n (minuscule), n comme « numeric ». La ligne de commande devient donc:
+
+snmpwalk -v 2c -c public -On 192.168.1.13 1.3.6.1.2.1.2.2.1.1
+
+L’option suivante vous permet d’afficher la valeur de l’OID sans rappeler l’OID. J’utilise personnellement cette option lorsque j’interroge un agent snmp depuis un script afin de simplifier le développement du script. En effet, il est désagréable (et peu performant) de devoir parser le résultat de la commande à coup de grep/awk/sed ou autre alors qu’on peut l’éviter. Cette option est « Ov », O majuscule comme Output et v (minuscule) comme value only
+
+snmpwalk -v 2c -c public -Ov 192.168.1.13 1.3.6.1.2.1.2.2.1.1
+
+Une autre option que j’utilise dans les scripts, est le e minuscule. Cette option permet d’éviter une traduction de la valeur de l’OID. La valeur d’un OID est généralement un entier et cet entier correspond à un code d’erreur. La MIB SNMP définit cette traduction et la commande l’interprète. Par exemple, l’OID correspondant à IP Forwarding dispose du code suivant:
+
+1 ==> Forwarding
+2 ==> not forwarding.
+
+Pour éviter que la commande ne traduise automatiquement cette valeur et remplace 1 par « forwarding », ce qui serait plus complexe à parser pour un script, il vous suffit d’utiliser l’option Oe. Enfin, pour disposer d’un résultat totalement pur, il faut ajouter un Q pour ne pas afficher le type de la réponse.
+
+Au final, la commande devient:
+
+snmpwalk -v 2c -c public -OevQ 192.168.1.13 ipForwarding.0
+
+=== SNMPTABLE
+
+Ce que beaucoup ignorent, c’est que les OIDs sont organisés sous forme d’un tableau. Prenons un exemple : les connexions TCP sur un serveur. Une connexion TCP dispose de plusieurs informations : son statut, l’adresse IP locale, le port TCP local, l’adresse IP distante et le port TCP distant. Chaque information correspond à 1 OID. Et il faut ajouter à chacun des OIDs le numéro de la connexion. Si on utilise la commande SNMPWALK, le résultat est très peu lisible. Le résultat est organisé par OID et non par connexion. Par contre, en utilisant la commande snmptable, la présentation des résultats va être améliorée par la commande. Plutôt que de présenter les OIDs les uns à la suite des autres, elle va les présenter sous forme de tableau : chaque connexion TCP sera sur une ligne et ses caractéristiques sur les colonnes. Beaucoup plus simple à lire pour un humain normal.
+
+snmptable -v 2c -c public localhost 1.3.6.1.2.1.6.13
+
+C’est à dire, tout humain dont le nom n’est pas Sheldon Cooper ;-). Quelques options peuvent être passées à la commande snmptable. Deux options que je vous recommande. La première est -Ci et affiche l’index. Cela peut être intéressant pour l’utiliser dans la suite d’un script.
+
+snmptable -v 2c -c public -Ci localhost 1.3.6.1.2.1.6.13
+
+La seconde est -Cb et elle affiche les entêtes de colonne sous forme courte. Les entêtes sont alors plus lisibles.
+
+snmptable -v 2c -c public -Cb localhost 1.3.6.1.2.1.6.13
+
+De nombreux OIDs sont organisés sous forme de tableau : les partitions, les interfaces réseaux, la charge des processeurs, la liste des processus, les filesystèmes, les métriques de performances des processus, … Cependant, attention : vous ne pourrez obtenir une présentation sous forme de table que pour les OIDs qui … sont organisés sous forme de table. Cela apparaît évident mais ça va mieux en le disant.
+
+
+
+== Configuration avancée de SNMP sur Linux : redémarrer un service à distance en utilisant le protocole SNMP
+
+ 
+
+Le démon SNMP fourni par Net-SNMP vous permet de redémarrer des services à distance en utilisant le protocole SNMP. Nous allons voir comment le configurer pour:
+
+    connaître l’état d’un service
+    obtenir un détail de statut
+    redémarrer le service concerné.
+
+Le terme « service » est utilisé mais il est, en réalité, mal employé. Sur Linux, un service peut lancer plusieurs processus. C’est le cas du service postfix par exemple ou MySQL qui lance un script shell mysqld_safe et un processus mysqld. Avec Net-SNMP, nous allons pouvoir visualiser le nombre de processus correspondant à un nom donné. En fonction de cela, nous allons redémarrer un service donné.
+
+Pourquoi permettre de redémarrer un service à l’aide du protocole SNMP? Il est généralement préférable de réaliser cette action en se connectant en SSH sur le serveur et en redémarrant directement le service concerné. Cela apporte une plus grande souplesse et un meilleur contrôle : on obtient le code de retour mais aussi un affichage textuel qui fournit de plus amples détails permettant de comprendre le code de retour. En SNMP, avec Net-SNMP, seul le code de retour sera fourni. Pourquoi alors utiliser SNMP? En réalité, ce n’est pas mis en place. Pas avec l’aide du protocole SNMP. Sauf dans un cas précis : lorsque les administrateurs ne donnent aucun « accès direct » (comprendre : pas de compte Unix) aux serveurs pour toute personne extérieure. L’équipe supervision est parfois extérieure à l’équipe des administrateurs. Ce qui a des avantages comme des inconvénients (tiens… il faudrait que j’écrive un article sur ce sujet…..). Dès lors, il est possible de s’entendre avec l’équipe d’administrateurs pour redémarrer certains services clairement identifiés, en utilisant le protocole SNMP. La configuration de ces services doit être réalisée sur les serveurs : elle peut être totalement contrôlée par l’équipe d’administration. L’équipe d’administration est donc rassurée sur les actions réalisées par l’équipe de supervision car c’est elle qui les contrôle totalement. Maintenant, nous allons voir comment configurer le démon Net-SNMP pour lui faire redémarrer un service à l’aide du protocole SNMP.
+
+Nous reprenons le fichier de configuration de Net-SNMP précédent:
+
+syscontact cedrictemple@cedrictemple.info
+syslocation Europe/France/Paris/6 rue Beaubourg
+load 16 8 4
+includeAllDisks 10%
+rouser ctemple
+informsink 192.168.1.1 secrete
+authtrapenable 1
+agentSecName ctemple
+defaultMonitors yes
+linkUpDownNotifications yes
+
+Nous pouvons ajouter une ligne indiquant quel est le processus qui sera automatiquement supervisé par Net-SNMP:
+
+proc apache2 100 2
+
+Cette ligne indique qu’il doit y avoir au moins deux processus nommé apache2 et pas plus de 100. Si tel est le cas, une trap SNMP sera envoyée automatiquement à notre récepteur précédemment configuré. Après avoir redémarré le service snmpd, les informations sur le statut sont disponibles dans la MIB Net-SNMP (branche « enterprises–>ucdavis » pour être précis) et accessibles avec un snmptable en interrogeant l’OID .1.3.6.1.4.1.2021.2 :
+
+cedric@monserveur:$ snmptable -v 3 -u ctemple -a SHA -A 'MonMot2Passe!!' -x AES -X '!!MaPhrase2PasseAE' -l authPriv localhost 1.3.6.1.4.1.2021.2
+SNMP table: UCD-SNMP-MIB::prTable
+
+ prIndex prNames prMin prMax prCount prErrorFlag prErrMessage prErrFix prErrFixCmd
+       1 apache2     2   100       4     noError               noError
+
+Le tableau présenté indique:
+
+    l’index du processus supervisé (valeur : 1)
+    le nom du processus supervisé : apache2
+    le nombre minimum de processus devant être présent : 2
+    le nombre maximum de processus devant être présent : 100
+    le nombre minimum de processus présents actuellement : 4
+    un drapeau d’erreur : noError (pas d’erreur donc!)
+    un message d’erreur : pas d’erreur donc le message est vide
+    un drapeau de correction d’erreur : noError (pas d’erreur donc!)
+    la commande lancée pour corriger l’erreur : aucune commande configurée
+
+Après avoir arrêté Apache, voici le résultat de la commande:
+
+SNMP table: UCD-SNMP-MIB::prTable
+
+ prIndex prNames prMin prMax prCount prErrorFlag                    prErrMessage prErrFix prErrFixCmd
+       1 apache2     2   100       0       error Too few apache2 running (# = 0)  noError
+
+Là, nous pouvons observer que le nombre de processus mesuré est de 0, qu’il y a un drapeau d’erreur (« error« ) et un message d’erreur (« Too few apache2 running (# = 0)« ). Maintenant, voyons comment faire en sorte de redémarrer le service Apache à distance. Tout d’abord, nous devons ajouter une ligne dans le fichier /etc/snmp/snmpd.conf qui va corriger le problème :
+
+procfix apache2 /etc/init.d/apache2 restart
+
+Nous avons une ligne « procfix » avec deux arguments:
+
+    le nom du processus qui est supervisé. Attention : ce nom doit être exactement identique à la ligne « proc » précédente.
+    la commande de correction de l’erreur. Dans notre cas, nous avons fait très simple : nous redémarrons tout simplement le service apache2.
+
+Voyons dorénavant le résultat de l'appel à snmptable après avoir redémarré le service snmpd :
+
+SNMP table: UCD-SNMP-MIB::prTable
+
+ prIndex prNames prMin prMax prCount prErrorFlag                    prErrMessage prErrFix                 prErrFixCmd
+       1 apache2     2   100       0       error Too few apache2 running (# = 0)  noError /etc/init.d/apache2 restart
+
+Nous pouvons voir que prErrFixCmd contient la commande configurée, que nous pourrons utiliser pour redémarrer apache. Pour donner l’ordre à snmpd d’exécuter cette commande, il faut utiliser la commande snmpset. La commande snmpset permet de mettre à jour un OID. Le démon snmpd de Net-SNMP fournit pour chaque ligne procfix (correctement configurée) un OID à mettre à jour : il s’agit de prErrFix. prErrFix est un drapeau dont la valeur est toujours 0 mais que l’on peut passer à 1 à l’aide d’une commande snmpset. Lorsque cette valeur est passé à 1, la commande configurée est exécutée.
+
+Dans SNMPb, il est possible de faire un snmpset. Pour cela, il faut se rendre dans la MIB dédiée, OID .1.3.6.1.4.1.2021.2.1.102 puis faire un clic droit et cliquer sur « Set… » (cliquer sur l’image pour l’agrandir) :
+snmpb : snmpset dans prtable de Net-SNMP
+snmpb : snmpset dans prtable de Net-SNMP
+
+SNMPb vous indique alors la liste des index disponibles. Dans notre cas, nous n’avons qu’un seul valeur : 1. Nous pouvons donc choisir 1 (cliquer sur l’image pour l’agrandir):
+snmpb : snmpset dans prtable pour Net-SNMP: choisir index
+snmpb : snmpset dans prtable pour Net-SNMP: choisir index
+
+Une fois ceci fait, une nouvelle fenêtre apparaît nous permettant de saisir la valeur qui sera envoyée. Là encore, SNMPb nous facilite le travail et nous indique l'on peut choisir la valeur 0 pour "noError" et la valeur 1 pour "runFix". Nous choisissons donc la valeur 1 et nous validons. Voici le résultat après avoir de nouveau relancer la commande snmptable:
+
+SNMP table: UCD-SNMP-MIB::prTable
+prIndex prNames prMin prMax prCount prErrorFlag                    prErrMessage prErrFix                 prErrFixCmd
+       1 apache2     2   100       0       error Too few apache2 running (# = 0)   runFix /etc/init.d/apache2 restart
+
+Nous pouvons constater que la valeur de prErrFix est passée à runFix. Mais il ne se passe rien, malgré plusieurs minutes d’attente. La raison est simple : le service Net-SNMP est exécuté en tant qu’utilisateur Unix « snmp ». Cet utilisateur n’a pas le droit de lancer cette commande. Il faut donc lui donner les droits. Une première méthode (sale méthode… préférer plutôt la configuration de sudo) est de configurer le démon Net-SNMP pour qu’il prenne l’identifiant root (pour être exact : pour qu’il conserve les droits root lorsqu’il souhaite abandonner ses droits). Pour cela, il suffit d’ajouter la ligne suivante au fichier /etc/snmp/snmpd.conf:
+
+agentUser root
+
+Une fois l’agent Net-SNMP redémarré, la commande snmpset peut être relancée à l’aide de SNMPb. Dès lors, le service apache2 est immédiatement relancé:
+
+SNMP table: UCD-SNMP-MIB::prTable
+
+prIndex prNames prMin prMax prCount prErrorFlag prErrMessage prErrFix                 prErrFixCmd
+       1 apache2     2   100       4     noError               noError /etc/init.d/apache2 restart
+
+Il est aussi possible de se passer de SNMPb et de faire cela en ligne de commande grâce à snmpset : cela est très utile pour le faire dans un script. La commande est la suivante:
+
+snmpset -v 3 -u ctemple -a SHA -A 'MonMot2Passe!!' -x AES -X '!!MaPhrase2PasseAE' -l authPriv  localhost 1.3.6.1.4.1.2021.2.1.102.1 i 1
+
+Celle-ci est un peu longue, je vais la raccourcir pour mieux expliquer le sujet:
+
+snmpset [informations snmpv3]  localhost 1.3.6.1.4.1.2021.2.1.102.1 i 1
+
+En fait, la commande snmpset prend, en dehors des arguments standards pour m’identifier en SNMPv3, les arguments suivants :
+
+    l’adresse IP ou le nom de domaine de l’équipement
+    l’OID qui sera mis à jour. Attention : cet OId doit contenir l’index. Cet index est positionné en toute fin de l’OID. L’OID de base est : 1.3.6.1.4.1.2021.2.1.102, auquel je dois ajouter l’index, qui est « 1 ».
+    i correspond au type de données que j’envoie. Dans notre cas, le type de données attendu est un « Integer32 » qui est représenté par « i ».
+    la valeur envoyé. Dans notre cas, runFix est à la valeur 1.
+
+Le fichier /etc/snmp/snmpd.conf complet est maintenant:
+
+syscontact cedrictemple@cedrictemple.info
+syslocation Europe/France/Paris/6 rue Beaubourg
+load 16 8 4
+includeAllDisks 10%
+rouser ctemple
+informsink 192.168.1.1 secrete
+authtrapenable 1
+agentSecName ctemple
+defaultMonitors yes
+linkUpDownNotifications yes
+agentUser root
+proc apache2 100 2
+procfix apache2 /etc/init.d/apache2 restart
+
+
+== Configuration avancée de SNMP sur Linux : les informations systèmes
+
+
+Nous avons vu dans un article précédent comment configurer l’agent Net-SNMP afin qu’il réponde à nos requêtes. Nous allons voir maintenant comment configurer cet agent Net-SNMP pour qu’il supervise le serveur de lui-même.
+
+Nous partons du fichier de configuration précédent à savoir:
+
+rocommunity macommunaute
+rwcommunity macommunauteRW 192.168.0.1
+syscontact cedrictemple@cedrictemple.info
+syslocation Europe/France/Paris/6 rue Beaubourg
+
+Avant toute chose
+
+Toute la configuration se fait dans le fichier /etc/snmp/snmpd.conf.
+
+Tout modification faite dans ce fichier n’est propagée dans l’agent qu’au redémarrage de celui-ci. Pensez à redémarrer l’agent à chaque modification:
+
+/etc/init.d/snmpd restart
+
+Supervision de la load
+
+Le premier indicateur que nous allons configurer est la load. Vous pouvez retrouver sur Wikipedia la définition de la load. Attention : la load n’est pas uniquement liée aux CPU (vous pouvez avoir une load de 180 avec un CPU très très peu utilisé). Je vous expliquerai comment un jour prochain ;-). Comment configurer la supervision de la load:
+
+load loadAveragemax1minutes loadAveragemax5minutes loadAveragemax15minutes
+
+Exemple sur un serveur avec 4 coeurs :
+
+load 16 8 4
+
+Si la load avegarde sur 15 minutes est supérieure à 4 alors :
+
+    j’aurai une information d’erreur dans la MIB SNMP
+    j’aurai une trap SNMP qui sera envoyée au serveur de supervision (configuration que nous mettrons en place plus tard)
+
+Après sauvegarde du fichier et redémarrage de l’agent SNMP, je peux effectuer les requêtes:
+
+[root@localhost ~]# snmptable -v 2c -c macommunaute 127.0.0.1 1.3.6.1.4.1.2021.10
+SNMP table: UCD-SNMP-MIB::laTable
+
+ laIndex laNames laLoad laConfig laLoadInt laLoadFloat laErrorFlag laErrMessage
+       1  Load-1   1.76    16.00       176    1.760000           0             
+       2  Load-5   1.72     8.00       171    1.720000           0             
+       3 Load-15   0.92     4.00        92    0.920000           0
+
+Si vous ne connaissez pas snmptable, je vous invite à regarder ma vidéo sur SNMPb. Dans le résultat ci-dessus, on voit :
+
+    dans la colonne « laConfig » (la == load average) la configuration mise en place
+    la colonne « laLoadInt » donne la valeur de la load multipliée par 100
+    la valeur « réelle » de la load est dans  les colonnes « laLoad » et « laLoadFloat »
+    Enfin, les deux dernières colonnes indiquent si l’une des valeurs mesurées de la load dépasse la valeur seuil correspondante configurée (laErrorFlog == 0 si la valeur n’est pas dépassée et laErrorFlag == 1 si la valeur est dépassée) et le message d’erreur correspondant (« laErrorMessage »).
+
+J’ai artificiellement fait monter la load de ma machine virtuelle pour que la valeur de la load configurée soit dépassée. Voici le résultat:
+
+ [root@localhost ~]# snmptable -v 2c -c macommunaute 127.0.0.1 1.3.6.1.4.1.2021.10
+SNMP table: UCD-SNMP-MIB::laTable
+
+ laIndex laNames laLoad laConfig laLoadInt laLoadFloat laErrorFlag                          laErrMessage
+       1  Load-1  21.81    16.00      2180   21.809999           1 1 min Load Average too high (= 21.81)
+       2  Load-5   8.27     8.00       826    8.270000           1  5 min Load Average too high (= 8.27)
+       3 Load-15   3.42     4.00       341    3.420000           0
+
+Ici, on voit que la load average sur 1 minute et la load average sur 5 minutes dépassent toutes deux leurs valeurs seuils. On a donc pour chacune d’elle le « laErrorFlag » qui passe à 1 et le « laErrMessage » qui donne le détail de l’erreur. Ces deux OIDs peuvent être utilisés par une sonde de supervision, par exemple une sonde Nagios heu.. Shinken… heu… Icinga… heu Centreon-Engine… heu… Naemon. Bref!
+Supervision des partitions
+
+Pour superviser les partitions, il vous suffit d’ajouter une directive de la forme:
+
+disk /nom/partition espaceLibre
+
+Dès lors, la partition « /nom/partition » doit avoir au moins « espaceLibre » kilo octets de disponible. Sinon, une erreur est présente dans la MIB. Si vous ajoutez le sigle ‘%’ en fin de ligne, la partition doit disposer d’au moins « espaceLibre » % d’espace libre. Voici un exemple de configuration:
+
+disk / 10%
+
+disk /boot 15000
+
+Dans la configuration ci-dessus, la partition / doit disposer d’au moins 10% d’espace libre et la partition /boot doit disposer d’au moins 15000 Ko d’espace libre. Si vous souhaitez configurer le même espace libre pour toutes les partitions, il vous suffit de faire:
+
+includeAllDisks 10%
+
+Voici un exemple de requête SNMP:
+
+[root@localhost ~]# snmptable -v 2c -c macommunaute 127.0.0.1 1.3.6.1.4.1.2021.9
+SNMP table: UCD-SNMP-MIB::dskTable
+
+ dskIndex                  dskPath                       dskDevice dskMinimum dskMinPercent dskTotal dskAvail dskUsed dskPercent dskPercentNode dskTotalLow dskTotalHigh dskAvailLow dskAvailHigh dskUsedLow dskUsedHigh dskErrorFlag dskErrorMsg
+        1                        / /dev/mapper/VolGroup00-LogVol00         -1            10  6284792  4548256 1412136         24              3     6284792            0     4548256            0    1412136           0            0            
+        2                    /proc                            proc         -1            10        0        0       0          0            100           0            0           0            0          0           0            0            
+        3                     /sys                           sysfs         -1            10        0        0       0          0            100           0            0           0            0          0           0            0            
+        4                 /dev/pts                          devpts         -1            10        0        0       0          0            100           0            0           0            0          0           0            0            
+        5                    /boot                       /dev/hda1         -1            10   101086    83428   12439         13              0      101086            0       83428            0      12439           0            0            
+        6                 /dev/shm                           tmpfs         -1            10   436048   436048       0          0              0      436048            0      436048            0          0           0            0            
+        7 /proc/sys/fs/binfmt_misc                            none         -1            10        0        0       0          0            100           0            0           0            0          0           0            0
+
+Dans le résultat ci-dessus, les colonnes sont les suivantes:
+
+    dskPath : le nom du point de montage
+    dskDevice : le nom de la partition
+    dskMinimum : espace libre (en Ko) minimum configuré, si la valeur mesurée est inférieur, une erreur sera générée. Dans notre cas, -1 est affiché car nous n’avons pas configuré de valeur minimale en Ko mais en pourcentage
+    dskMinPercent : pourcentage d’espace libre minimum configuré, si la valeur mesurée est inférieur, une erreur sera générée
+    dskTotal : la taille de la partition (en ko)
+    dskAvailable : l’espace libre disponible (en ko)
+    dskUSed : l’espace occupé (en ko)
+    dskPercent : l’espace occupé (en %)
+    dskPercentNode : le pourcentage d’inodes occupé
+    dskErrorFlag : passe à 1 si la partition dépasse sa valeur seuil, 0 sinon
+    dskErrorMessage : détail du message d’erreur si la partition dépasse sa valeur seuil
+
+Supervision de processus
+
+La supervision de processus se fait par la directive de configuration suivante:
+
+proc nomProcessus maxPresent minPresent
+
+Voici un exemple pour Apache:
+
+proc httpd 100 2
+
+Dans la configuration ci-dessus, nous avons fait en sorte que l’agent SNMP supervise qu’il y ai au moins 2 processus httpd et pas plus de 100. S’il y a plus de 100 processus httpd ou moins de 2, une erreur sera présente dans la MIB. Voici un exemple:
+
+[root@localhost ~]# snmptable -v 2c -c macommunaute 127.0.0.1 1.3.6.1.4.1.2021.2
+SNMP table: UCD-SNMP-MIB::prTable
+
+ prIndex prNames prMin prMax prCount prErrorFlag                  prErrMessage prErrFix prErrFixCmd
+       1   httpd     2   100       0           1 Too few httpd running (# = 0)        0
+
+ 
+
+Dans le résultat ci-dessus, on peut voir :
+
+    le nom des processus supervisés (dans notre cas, un seul : httpd. Il est tout à fait possible de superviser plusieurs processus en ajoutant plusieurs lignes)
+    les valeurs seuils min et max configurées
+    le nombre de processus mesuré (« prCount » = 0)
+    le flag d’erreur (« prErrorFlag » = 1)
+    le message d’erreur (« pErrMessage »)
+
+Supervision de la taille d’un fichier
+
+L’agent SNMP peut aussi superviser la taille d’un fichier. Si la taille dépasse une valeur seuil, une erreur est disponible dans la MIB. La configuration est la suivante:
+
+file /var/log/syslog  153600
+
+Dès lors, on peut vérifier par une requête SNMP la taille de chaque fichier:
+
+[root@localhost log]# snmptable -v 2c -c macommunaute 127.0.0.1 1.3.6.1.4.1.2021.15
+SNMP table: UCD-SNMP-MIB::fileTable
+
+fileIndex        fileName  fileSize   fileMax fileErrorFlag                                        fileErrorMsg
+         1 /var/log/syslog 157473 kB 153600 kB          true /var/log/syslog: size exceeds 153600kb (= 157473kb)
+
+Les colonnes sont les suivantes:
+
+    le nom du fichier (« filename »)
+    sa taille (« fileSize »)
+    la taille maximale autorisée (« fileMax »)
+    si le fichier dépasse la taille maximale autorisée (« fileErrorFlag » = true (et non 1!!!))
+    le détail de l’erreur (« fileErrorMsg »)
+
+
+== Configuration avancée de SNMP sur Linux : SNMPv3
+ 
+Il existe plusieurs versions du protocole SNMP dont les principales sont :
+
+    SNMPv1
+    SNMPv2c
+    SNMPv3
+
+Les versions v1 et v2c sont les versions les plus utilisées et les plus répandues. Cependant, ces deux versions ont toutes les deux les mêmes problèmes:
+
+    les trames circulent en clair sur le réseau. Aucun chiffrement des trames n’est en place. Tout attaquant qui réussit à écouter le réseau à un endroit stratégique (pas sur le réseau bureautique en général) peut récupérer la communauté SNMP. La communauté SNMP ne suffit pas forcément : l’agent peut être configuré pour ne répondre qu’à des requêtes provenant de certaines adresses IP. De plus, un parefeu peut être mis en place et configuré pour n’autoriser les requêtes SNMP qu’aux serveurs de supervision. Mais le spoofing d’adresse IP est toujours possible.
+    il n’y a pas de notion d’« utilisateur authentifié ». La communauté SNMP est généralement connue de tous les administrateurs systèmes et réseaux. Il est possible de scinder les équipements selon leur type et d’affecter une communauté SNMP différente selon le type de l’équipement (exemple : tous les serveurs Linux ont une communauté, celle-ci est différente des équipements réseaux) mais ce n’est pas pratique.
+
+Généralement, lors d’un déploiement de SNMPv1 et SNMPv2c, aucune technique de sécurisation de ces protocoles n’est réalisée car aucun mécanisme ne le permet réellement. Alors, la sécurisation en périphérie du protocole doit être réalisée (filtrage à différents niveaux, mécanisme anti-spoofing, …).
+
+Le protocole SNMPv3 permet de répondre à ces deux enjeux:
+
+    les trames peuvent être chiffrées grâce à différents protocoles algorithmes (*).
+    des utilisateurs peuvent être créés, chacun disposant d’un identifiant et d’un mot de passe personnel.
+
+La sécurité de SNMPv3 est bien supérieure à celle de SNMPv1 et SNMPv2c. A contrario, sa mise en place est moins aisée. Nous allons voir les étapes pour configurer l’agent Net-SNMP sur Linux, tant sur Debian et CentOS/RedHat.
+
+Nous repartons du fichier de configuration initial à savoir:
+
+rocommunity macommunaute
+rwcommunity macommunauteRW 192.168.0.1
+syscontact cedrictemple@cedrictemple.info
+syslocation Europe/France/Paris/6 rue Beaubourg
+load 16 8 4
+includeAllDisks 10%
+
+La première chose est d’arrêter SNMP:
+
+/etc/init.d/snmpd stop
+
+Avez vous bien arrêter le service SNMP? Oui? Sûr? C’est important pour la suite! Ensuite, ajouter un utilisateur dans le fichier /etc/snmp/snmpd.conf:
+
+rouser ctemple
+
+Cet utilisateur va par la suite pouvoir s’authentifier. Pour cela, il faut ajouter une information dans un fichier spécifique. Ce fichier spécifique va être lu par le service SNMP, interprété puis modifié afin de ne pas conserver la clé et le mot de passe en clair. Attention, si vous n’avez pas arrêté le service SNMP, ce fichier va être écrasé : toutes les modifications faites seront perdues. Il est donc nécessaire d’arrêter le service SNMP avant d’éditer ce fichier. Ce fichier est particulier car il contient des informations à ne pas modifier. Il faut donc ajouter une ligne comme suit dans le fichier /var/net-snmp/snmpd.conf pour CentOS/RedHat et dans le fichier /var/lib/snmp/snmpd.conf pour Debian :
+
+createUser ctemple SHA MonMot2Passe!! AES !!MaPhrase2PasseAES
+
+Un utilisateur va avoir les caractéristiques suivantes:
+
+    un identifiant : ctemple
+    un algorithme de hachage du mot de passe : SHA (MD5 est disponible)
+    un mot de passe : MonMot2Passe!!
+    un algorithme de chiffrement des trames ; AES (DES est disponible)
+    une clé de chiffrement des trames : !!MaPhrase2PasseAES
+
+Cette ligne doit être ajoutée dans le fichier comme indiqué ci-dessous:
+
+#
+# net-snmp (or ucd-snmp) persistent data file.
+#
+############################################################################
+# STOP STOP STOP STOP STOP STOP STOP STOP STOP
+#
+#          **** DO NOT EDIT THIS FILE ****
+#
+# STOP STOP STOP STOP STOP STOP STOP STOP STOP
+############################################################################
+#
+# DO NOT STORE CONFIGURATION ENTRIES HERE.
+# Please save normal configuration tokens for snmpd in SNMPCONFPATH/snmpd.conf.
+# Only "createUser" tokens should be placed here by snmpd administrators.
+# (Did I mention: do not edit this file?)
+#
+createUser ctemple SHA MonMot2Passe!! AES !!MaPhrase2PasseAES
+setserialno 766133377
+_mteTTable  0x736e6d70642e636f6e66 "dskTable" 0x .0.0 0x 0x 600 0x 0x 0
+_mteTTable  0x736e6d70642e636f6e66 "extTable" 0x .0.0 0x 0x 600 0x 0x 0
+_mteTTable  0x736e6d70642e636f6e66 "fileTable" 0x .0.0 0x 0x 600 0x 0x 0
+_mteTTable  0x736e6d70642e636f6e66 "laTable" 0x .0.0 0x 0x 600 0x 0x 0
+_mteTTable  0x736e6d70642e636f6e66 "memory" 0x .0.0 0x 0x 600 0x 0x 0
+_mteTTable  0x736e6d70642e636f6e66 "process table" 0x .0.0 0x 0x 600 0x 0x 0
+_mteTTable  0x736e6d70642e636f6e66 "snmperrs" 0x .0.0 0x 0x 600 0x 0x 0
+##############################################################
+#
+# snmpNotifyFilterTable persistent data
+#
+##############################################################
+##############################################################
+#
+# ifXTable persistent data
+#
+ifXTable .1 14:0 18:0x $
+ifXTable .2 14:0 18:0x $
+##############################################################
+engineBoots 1
+oldEngineID 0x80001f88802738b6189b55865200000000
+
+Une fois ceci fait, il faut démarrer le service snmp:
+
+/etc/init.d/snmpd stop
+
+Maintenant, on peut regarder le contenu du fichier /var/net-snmp/snmpd.conf pour CentOS/RedHat ou /var/lib/snmp/snmpd.conf pour Debian (note : seule la ligne qui nous intéresse est reprise ici) :
+
+...
+usmUser 1 3 0x80001f88802738b6189b55865200000000 0x6374656d706c6500 0x6374656d706c6500 NULL .1.3.6.1.6.3.10.1.1.3 0xad9448213617c761438de6e81e0495931f690973 .1.3.6.1.6.3.10.1.2.4 0xd364fad3241bfcb2c2bbbe3736ab85d6 ""
+...
+
+Le fichier a automatiquement été modifié pour éviter qu’une personne non autorisée puisse lire les deux mots de passe. Pour tester la configuration, il suffit de passer les options SNMPv3 en ligne de commande :
+
+snmpwalk -v 3 -u ctemple -a SHA -A 'MonMot2Passe!!' -x AES -X '!!MaPhrase2PasseAE' -l authPriv localhost
+
+Attention : les mots de passe contiennent des caractères spéciaux qui peuvent être interprétés par le SHELL. Il faut donc les encadrer par des simple quotes.
+
+Et voilà! SNMPv3 est configuré sur votre serveur. Pour parfaire la configuration, penser à désactiver SNMPv1 et SNMPv2c en supprimant/commentant les lignes concernées dans le fichier /etc/snmp/snmpd.conf:
+
+#rocommunity macommunaute
+#rwcommunity macommunauteRW 192.168.0.1
+syscontact cedrictemple@cedrictemple.info
+syslocation Europe/France/Paris/6 rue Beaubourg
+load 16 8 4
+includeAllDisks 10%
+rouser ctemple
+
+Et à redémarrer le service SNMP:
+
+/etc/init.d/snmpd restart
+
+
+
+== Configuration avancée de SNMP sur Linux : envoi de trap SNMP
+ 
+
+Le protocole SNMP n’est pas dédié à fournir une réponse à des requêtes SNMP. Le protocole permet aussi d’envoyer, sans avoir été sollicité, des informations à un récepteur. Ce mécanisme est connu sous le nom d’envoi de trap SNMP. Nous allons voir comment configurer l’envoi de trap SNMP à l’aide de Net-SNMP vers un récepteur donné.
+Pourquoi envoyer des traps SNMP?
+
+Le démon SNMPd s’auto-supervise. Comme nous l’avons vu dans un article précédent, il peut détecter des états anormaux de l’équipement. Lorsqu’un comportement est anormal, il peut envoyer des traps SNMP. Légitimement, on peut se demander pourquoi est il important de mettre en place des traps SNMP alors qu’un outil de supervision dédié est présent et réalise des tests récurrents. Les outils de supervision fonctionnent, généralement, sur le principe suivant: interrogation récurrente de l’équipement (par exemple « interrogation toutes les 5 minutes ») pour obtenir des informations données. L’intervalle de test est généralement amplement suffisant (qui peut dire qu’il peut répondre en moins d’une minute à toutes les pannes rencontrées? Vous? Sûr? Même lorsque vous êtes à la machine à café, à draguer la nouvelle stagiaire du service comptable qui ressemble beaucoup, par sa vivacité d’esprit mammaire et son intelligence croupiale, à la dernière starlette de la télé-réalité? (tiens?!? que devient la première starlette de la télé-réalité? Des nouvelles? Qui s’était déjà?!?)… Bref…). Cependant, il est possible d’améliorer la supervision sans avoir à saturer le serveur de supervision en demandant aux équipements supervisés d’envoyer des informations lorsqu’ils détectent une panne. Là est l’intérêt des traps SNMP : envoyer des « alertes » dès qu’une panne apparaît, sans avoir à saturer le serveur de supervision. De plus, certaines informations sont plus simples à récupérer par des traps SNMP que par des requêtes. Généralement, les traps SNMP sont plus faciles à analyser qu’un indicateur agrégé devant correspondre à plusieurs requêtes SNMP dans plusieurs MIBs différentes.
+
+Nous partons du fichier de configuration et de l’utilisateur SNMPv3 précédents (contenu du fichier /etc/snmp/snmpd.conf) :
+
+syscontact cedrictemple@cedrictemple.info
+syslocation Europe/France/Paris/6 rue Beaubourg
+load 16 8 4
+includeAllDisks 10%
+rouser ctemple
+
+Tout d’abord, il faut ajouter une ligne permettant d’indiquer quel récepteur recevra les traps SNMP et quelle communauté est utilisée:
+
+informsink <ip> <communaute>
+
+Par exemple, la ligne suivante permet de déclarer que l’équipement 192.168.1.1 recevra nos traps SNMP avec la communauté SNMP « secrete« :
+
+informsink 192.168.1.1 secrete
+
+Ensuite, il faut déclarer si l’on souhaite envoyer des traps SNMP lorsqu’une requête SNMP reçue par cet équipement échoue pour cause d’erreur d’authentification. Pour cela, il faut ajouter la directive suivante:
+
+authtrapenable 1
+
+Si vous ne souhaitez pas recevoir de traps SNMP lors d’une erreur d’authentification, il faut remplacer 1 (enabled) par 2 (disabled) :
+
+authtrapenable 2
+
+Remarque : par le passé, je désactivais systématiquement l’envoi de traps SNMP lors d’une erreur d’authentification. La raison en était simple : nous faisions changer les communautés SNMP sur tous les équipements. De ce fait, les outils de supervision précédemment mis en place et « oubliés » (oui, ça arrive : des vieux Nagios 1.3/Cacti/MRTG/… traînent toujours sur beaucoup de systèmes d’information et supervisent dans le vide pour rien) . Nous recevions alors beaucoup de traps SNMP inutiles dans la supervision « officielle ». En désactivant la fonctionnalité, le nombre d’alertes diminue. Depuis, je me suis rendu compte qu’il est préférable… de supprimer l’ancien outil de supervision devenu inutile 🙂
+
+Le démon Net-SNMP requiert un utilisateur SNMPv3 pour s’auto-superviser. Il faut donc déclarer cet utilisateur. Nous avions créé un utilisateur nommé ctemple dans l’article précédent, nous pouvons donc le réutiliser:
+
+agentSecName ctemple
+
+Ensuite, nous allons déclarer la supervision par défaut. Celle-ci est déjà suffisante et permet de superviser : la load, la swap, les partitions, l’absence de processus, la taille des fichiers. Ceci se fait en ajoutant la directive :
+
+defaultMonitors yes
+
+Enfin, nous allons faire en sorte que lorsqu’une interface réseau est déconnectée ou reconnectée, des traps SNMP soient envoyées.
+
+linkUpDownNotifications yes
+
+Une fois toutes les directives ajoutées, le fichier devient:
+
+syscontact cedrictemple@cedrictemple.info
+syslocation Europe/France/Paris/6 rue Beaubourg
+load 16 8 4
+includeAllDisks 10%
+rouser ctemple
+informsink 192.168.1.1 secrete
+authtrapenable 1
+agentSecName ctemple
+defaultMonitors yes
+linkUpDownNotifications yes
+
+Il est alors possible de redémarrer le service SNMP:
+
+/etc/init.d/snmpd restart
+
+Des trap SNMP seront alors automatiquement envoyées par le service SNMP de Net-SNMP lorsque des dépassements de seuil auront lieu. Pour tester, vous pouvez simplement faire une requête SNMP avec la mauvaise communauté SNMP:
+
+snmpwalk -v 2c -c badcommunnity IP
+
+Vous recevrez alors des traps SNMP sur le récepteur de trap SNMP:
+
+tail -f /var/log/messages
+2013-11-21T21:36:50.829966+01:00 localhost snmptrapd[1921]: 2013-11-21 21:36:50 localhost.localdomain [UDP: [127.0.0.1]:60228]:#012DISMAN-EVENT-MIB::sysUpTimeInstance = Timeticks: (11405) 0:01:54.05#011SNMPv2-MIB::snmpTrapOID.0 = OID: SNMPv2-MIB::authenticationFailure#011SNMPv2-MIB::snmpTrapEnterprise.0 = OID: NET-SNMP-MIB::netSnmpAgentOIDs.10
+2013-11-21T21:36:51.830362+01:00 localhost snmpd[2985]: Connection from UDP: [127.0.0.1]:42847
+2013-11-21T21:36:51.832737+01:00 localhost snmptrapd[1921]: 2013-11-21 21:36:51 localhost.localdomain [UDP: [127.0.0.1]:60228]:#012DISMAN-EVENT-MIB::sysUpTimeInstance = Timeticks: (11506) 0:01:55.06#011SNMPv2-MIB::snmpTrapOID.0 = OID: SNMPv2-MIB::authenticationFailure#011SNMPv2-MIB::snmpTrapEnterprise.0 = OID: NET-SNMP-MIB::netSnmpAgentOIDs.10
+2013-11-21T21:36:52.831201+01:00 localhost snmpd[2985]: Connection from UDP: [127.0.0.1]:42847
+2013-11-21T21:36:52.833210+01:00 localhost snmptrapd[1921]: 2013-11-21 21:36:52 localhost.localdomain [UDP: [127.0.0.1]:60228]:#012DISMAN-EVENT-MIB::sysUpTimeInstance = Timeticks: (11606) 0:01:56.06#011SNMPv2-MIB::snmpTrapOID.0 = OID: SNMPv2-MIB::authenticationFailure#011SNMPv2-MIB::snmpTrapEnterprise.0 = OID: NET-SNMP-MIB::netSnmpAgentOIDs.10
+
+Remarque : sur Debian, lors du redémarrage de l’agent SNMP, vous pourrez avoir des erreurs dans le fichier de log /var/log/syslog :
+
+Nov 27 09:05:41 debian snmpd[22637]: payload OID: prNames
+Nov 27 09:05:41 debian snmpd[22637]: /etc/snmp/snmpd.conf: line 13: Error: unknown payload OID
+Nov 27 09:05:41 debian snmpd[22637]: Unknown payload OID: prNames
+Nov 27 09:05:41 debian snmpd[22637]: /etc/snmp/snmpd.conf: line 13: Error: Unknown payload OID
+Nov 27 09:05:41 debian snmpd[22637]: payload OID: prErrMessage
+Nov 27 09:05:41 debian snmpd[22637]: /etc/snmp/snmpd.conf: line 13: Error: unknown payload OID
+Nov 27 09:05:41 debian snmpd[22637]: Unknown payload OID: prErrMessage
+Nov 27 09:05:41 debian snmpd[22637]: /etc/snmp/snmpd.conf: line 13: Error: Unknown payload OID
+Nov 27 09:05:41 debian snmpd[22637]: trigger OID: prErrorFlag
+Nov 27 09:05:41 debian snmpd[22637]: /etc/snmp/snmpd.conf: line 13: Error: unknown monitor OID
+Nov 27 09:05:41 debian snmpd[22637]: payload OID: memErrorName
+Nov 27 09:05:41 debian snmpd[22637]: /etc/snmp/snmpd.conf: line 13: Error: unknown payload OID
+Nov 27 09:05:41 debian snmpd[22637]: Unknown payload OID: memErrorName
+Nov 27 09:05:41 debian snmpd[22637]: /etc/snmp/snmpd.conf: line 13: Error: Unknown payload OID
+Nov 27 09:05:41 debian snmpd[22637]: payload OID: memSwapErrorMsg
+Nov 27 09:05:41 debian snmpd[22637]: /etc/snmp/snmpd.conf: line 13: Error: unknown payload OID
+Nov 27 09:05:41 debian snmpd[22637]: Unknown payload OID: memSwapErrorMsg
+Nov 27 09:05:41 debian snmpd[22637]: /etc/snmp/snmpd.conf: line 13: Error: Unknown payload OID
+
+Cela est lié à l’absence des MIBs de base car celles-ci ne peuvent pas être incluses dans Debian du fait de leur licence qui n’est pas compatible avec celle de Debian. Pour résoudre ce problème, il vous faut les télécharger. Heureusement, un paquet existe pour cela mais il n’est disponible que dans le dépôt non-free. Il faut modifier le fichier /etc/apt/sources.list pour ajouter non-free en fin de ligne:
+
+deb http://mirrors.ircam.fr/pub/debian/ squeeze main non-free
+deb http://security.debian.org/ squeeze/updates main non-free
+deb http://mirrors.ircam.fr/pub/debian/ squeeze-updates main non-free
+
+Une fois ceci fait, on peut installer le paquet snmp-mibs-downloader:
+
+apt-get update
+apt-get install snmp-mibs-downloader
+
+Editer le fichier /etc/default/snmpd et modifier la ligne concernée pour aboutir au résultat suivant:
+
+export MIBS=UCD-SNMP-MIB
+
+Redémarrer le service Net-SNMP:
+
+/etc/init.d/snmpd restart
+
+== Configuration de base de SNMPD
+
+ 
+
+Comment configurer le démon SNMPd de Net-SNMP afin qu’il réponde à nos requêtes? Nous verrons dans un second temps sa configuration avancée qui nous permettra d’envoyer des requêtes SNMP en cas de panne ou de redémarrer des services à distance. Mais voyons tout d’abord son utilisation basique. En effet, il est important de savoir que le fichier de configuration de SNMPd peut être très complexe. Sa configuration par défaut l’est d’ailleurs. Si vous regardez le fichier de configuration fourni par votre distribution Linux préférée, vous verrez qu’il est possible de définir des accessgroup, des views et autres subtilités. Je vous invite à partir d’un fichier vide. Ses fonctionnalités (view, accessgroup, …) sont assez peu utilisées en pratique. Elles sont relativement complexes à mettre en oeuvre pour un apport négligeable : peu de monde à besoin de filtrer les accès aux différents OIDs. En général, c’est du « tout ou rien » : soit vous avez accès à tous les OIDs, soit vous n’avez accès à rien. Il est peu probable que des personnes différentes ou des groupes de personnes différentes utilisent SNMP : c’est en effet le domaine des administrateurs des équipements. La seule subtilité, que nous allons voir d’ailleurs, correspond au filtrage sur l’accès en lecture ou en écriture.
+
+Tout d’abord, il faut se rendre dans le répertoire de configuration de SNMP:
+
+ cd /etc/snmp
+ mv snmpd.cond snmpd.conf.ori
+ vim snmpd.conf
+
+Une fois le fichier d’origine sauvegardé, vous pouvez partir d’un fichier vide. La première ligne de ce fichier va vous permettre de saisir la communauté accessible en lecture seule:
+
+ rocommunity macommunaute
+
+Dès lors, vous pourrez interroger votre agent SNMPd avec la communauté « macommunaute ». Vous pouvez augmenter la sécurité en ajoutant la source autorisée à vous interroger:
+
+ rocommunity macommunaute 192.168.0.1
+
+Dès lors, seule l’adresse IP 192.168.0.1 sera autorisée à vous interroger avec la communauté correspondante. Cela ajoute (un peu) de sécurité en autorisant seulement le serveur de supervision à récupérer les informations.
+
+Vous pouvez ajouter une communauté accessible en lecture et écriture en utilisant rwcommunity en lieu et place de rocommunity. Attention, vous ne devez pas utiliser la même communauté pour les lignes rocomunity et rwcommunity (c’est en effet un non sens : une communauté ne peut pas être à la fois en read-only et en read/write). En général, on met une communauté en Read-Only et une communauté différente en Read/Write.
+
+Ensuite, il vous faut mettre les informations administratives. Ces informations n’ont pas vraiment une grande utilité mais je les utilise personnellement pour renseigner l’adresse à laquelle contacter les administrateurs et la localisation de mes équipements. Je prends une politique de nommage afin de découper la localisation en différentes parties afin de les réutiliser dans différentes cartes. Exemple:
+
+syscontact admin@masociete.com
+syslocation Europe/France/Paris/6 rue Beaubourg/Salle 3/Baie 4
+
+Le fichier de configuration final :
+
+ rocommunity macommunaute
+ rocommunity macommunauteRW 192.168.0.1
+ syscontact admin@masociete.com
+ syslocation Europe/France/Paris/6 rue Beaubourg/Salle 3/Baie 4
+
+Une fois ceci fait, vous pouvez redémarrer l’agent SNMP et faire quelques tests pour vérifier qu’il fonctionne correctement :
+
+/etc/snmp/snmpd restart
+snmpwalk -v 2c -c macommunaute <ip>
