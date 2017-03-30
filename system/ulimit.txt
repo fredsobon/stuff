@@ -1,0 +1,162 @@
+=== Contrôle des ressources systèmes (ulimit)  ===
+
+Le contrôle des ressources offertes aux utilisateurs est un élément de base de la fiabilisation d’un système Linux. Un système soigneusement configuré ne souffrira pas de déni de services en cas de dysfonctionnement d’un processus, ou d’attaque plus ou moins consciente d’utilisateurs (voir Fork bombe en bash : Comprendre et s’en protéger).
+
+Linux permet de borner les ressources allouées aux utilisateurs, ou aux groupes d’utilisateurs, via le fichier « /etc/security/limits.conf » chargé par PAM (Plugable Authentification Module) à chaque ouverture de session.
+L’utilisateur peut ensuite adapter les ressources dont il dispose à ses besoins via la commande « ulimit ».
+Principe des limitations
+
+Il est possible de définir, pour un certain nombre de ressources (nombre de fichiers ouverts, taille des fichiers, nombre de processus instanciés, temps CPU, etc), une limite « souple » (limite « soft ») qui peut être augmentée par l’utilisateur, via « ulimit », jusqu’à une limite maximale qualifiée de limite « dure » (limite « hard »).
+
+Le système ne dépasse pas la valeur de la limite soft. Si l’utilisateur souhaite repousser cette limite, il devra définir une nouvelle limite soft avec ulimit.
+
+La limite soft est toujours inférieure ou égale à la limite hard.
+
+En général, les limites appliquées à un utilisateur sont prioritaires sur celles appliquées à un groupe.
+Les ressources gérées
+
+Les limites sont fixées dans le fichier « /etc/security/limits.conf ».
+
+« ulimit » Permet de modifier certaines limites tel que :
+
+    fsize (-f) : taille des fichiers ;
+    nofile (-n) : nombre de fichiers ouverts ;
+    cpu (-t) : temps CPU maximale pour un processus (quand le processus atteint la limite soft il reçoit un SIGXCPU toutes les secondes, quand il atteint la limite hard, il reçoit SIGKILL) ;
+    nproc (-u) : nombre de processus ;
+    priority (-r) : priorité des processus lancés par l’utilisateur (nice);
+    …
+
+D’autres limites, sont non modifiables et sont imposées uniquement par le fichier « /etc/security/limits.conf » :
+
+    maxlogins : nombre de login simultanés maximum (non applicable à root) ;
+    maxsyslogins : nombre maximum d’utilisateurs logués sur le système ;
+    nice : priorité maximale des processus de l’utilisateur ;
+    …
+
+La page de man de « limits.conf » décrit toutes les ressources manageable.
+Utilisation d’ulimit
+
+De manière générale, passer l’option « S » à « ulimit » impactera la limite effective (limite « soft ») et l’option « H » la limite « hard » (valeur maximum pouvant être définie par l’utilisateur).
+
+Dans l’espace utilisateur, « ulimit » permet de cantonner un programme/un script à une quantité de ressource choisie.
+Afficher les limitations
+
+« ulimit -a » retourne toutes les limites imposées au compte courant (donc les softs) :
+
+fhh@mafalda ~ $ ulimit -a
+core file size          (blocks, -c) 0
+data seg size           (kbytes, -d) unlimited
+scheduling priority             (-e) 0
+file size               (blocks, -f) unlimited
+pending signals                 (-i) 15906
+max locked memory       (kbytes, -l) 64
+max memory size         (kbytes, -m) unlimited
+open files                      (-n) 1024
+pipe size            (512 bytes, -p) 8
+POSIX message queues     (bytes, -q) 819200
+real-time priority              (-r) 0
+stack size              (kbytes, -s) 8192
+cpu time               (seconds, -t) unlimited
+max user processes              (-u) 100
+virtual memory          (kbytes, -v) unlimited
+file locks                      (-x) unlimited
+
+(« ulimit -Ha » retourne la liste des limites maximales pouvant être atteintes).
+
+Les valeurs d’une ressource particulière sont affichées en utilisant les options qui leurs sont associées :
+
+fhh@mafalda ~ $ ulimit -u # nombre de processus maximum autorisé :
+100
+fhh@mafalda ~ $ ulimit -Hu # la limite peut être augmentée jusqu'à :
+300
+
+Note : l’ordre des options à de l’importance.
+Modifier les limites
+
+Précisez une valeur derrière l’option associée à une ressource pour définir la limite à appliquer.
+
+Poursuivons l’exemple précédent :
+
+    Passer à 200 le nombre de processus autorisés :
+
+    fhh@mafalda ~ $ ulimit -Su 200
+    fhh@mafalda ~ $ ulimit -u
+    200
+
+    Tentative de dépassement des limites :
+
+    fhh@mafalda ~ $ ulimit -Su 400 
+    -bash: ulimit: max user processes: cannot modify limit: Invalid argument
+    fhh@mafalda ~ $ ulimit -Hu 400
+    -bash: ulimit: max user processes: cannot modify limit: Operation not permitted
+
+    Utiliser la valeur maximale :
+
+    fhh@mafalda ~ $ ulimit -u $(ulimit -Hu)
+    fhh@mafalda ~ $ ulimit -u
+    300
+
+    Descendre la valeur hard et fixer la limite soft à la valeur maximale :
+
+    fhh@mafalda ~ $ ulimit -u 250
+    fhh@mafalda ~ $ ulimit -u
+    250
+
+    Note : Il n’est pas possible de passer la borne hard sous la borne soft.
+
+    fhh@mafalda ~ $ ulimit -Hu
+    250
+    fhh@mafalda ~ $ ulimit -Su
+    250
+    fhh@mafalda ~ $ ulimit -Hu 225
+    -bash: ulimit: max user processes: cannot modify limit: Invalid argument
+
+    Une fois la limite hard définie, impossible de la dépasser :
+
+    fhh@mafalda ~ $ ulimit -Hu
+    250
+    fhh@mafalda ~ $ ulimit -Hu 300
+    -bash: ulimit: max user processes: cannot modify limit: Operation not permitted
+
+Limiter les utilisateurs d’un système
+
+Le travail de l’administrateur consiste à définir des limites « raisonnables » et fonctionnelles pour les utilisateurs. Tous ce travail est effectué dans « /etc/security/limits.conf ».
+Le fichier « /etc/security/limits.conf »
+
+Le fichier à la syntaxe suivante :
+
+<domain> <type> <item> <valeur>
+
+où :
+
+    <domain> est un utilisateur, un groupe (précédé de « @ »), « * » pour appliquer la règle à tous le monde, une plage d’utilisateurs définis par leurs uid (<uid min>:<uid max>), une plage de groupes définis par leurs gid (idem à la plage utilisateur précédée d’un « @ »).
+    <type> est le type de limite « soft », « hard » ou « – » (équivalent à « soft » et « hard »).
+    <item> et une chaîne de caractère désignant la ressource sur laquelle appliquer la limite.
+    <valeur> et la valeur limite.
+
+Consultez la liste complète des « items » sur la page de man de « limits.conf ».
+
+Voici un extrait de fichier « limits.conf » :
+
+...
+@users      soft      nproc      100
+@users      hard      nproc      200
+fhh         hard      nproc      300
+
+    ligne 2 : les utilisateurs du groupe « users » ne peuvent pas, par défaut, créer plus de 100 processus.
+    ligne 3 : en cas de besoin, les membres du groupe « users » peuvent monter cette limite à 200 via « ulimit -u 200 ».
+    ligne 4 : l’utilisateur « fhh » appartient au groupe « users », donc il dispose d’un maximum de 100 processus par défaut, mais, contrairement aux membres de son groupe, il peut augmenter cette limite jusqu’à 300.
+
+Mise en place dans PAM
+
+Le fichier « /etc/security/limits.conf » est chargé par PAM à chaque connexion d’utilisateur. Pour cela, le module « pam_limits.so » est chargé par une ligne du type :
+
+fhh@mafalda ~ $ cat /etc/pam.d/login
+...
+# Sets up user limits according to /etc/security/limits.conf
+session    required   pam_limits.so
+...
+
+Note : Il est possible de changer la localisation du fichier « limits.conf » par l’option « conf= » passé au module PAM.
+
+Si les limites que vous avez définies ne sont pas prises en compte, la première démarche consiste à vérifier que le module « pam_limits » est bien activé dans la configuration de PAM.
