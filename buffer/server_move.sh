@@ -9,84 +9,74 @@
 
 server_out_chk () {
 
-      ## check node presence before deleting : 
-
-      grep "$node" "$file"
-      chk="$?"
-      if [ _"$chk" != "_0" ]; then 
-          echo "no way the node is not present !" 
-          exit 1
-      fi
-
 	  # check position in file : in order to establish the dedicated text action to do.
       
       # begining : grep -E   "[[:alnum:]]*, \"${node}\"," prod.rb
-      grep -Eq   "[[:alnum:]]*, \"${node}\"," $file
-      chk="$?"
-      if [ _"$chk" = "_0" ]; then
-      echo "allright $node is the first of the list in the same category" 
+for file in $(cat lst); do 
+   if 
+       grep -Eq   "[a-z]{1,}, \"${node}\"," $file 
+   then
+      echo "in first pos in $file "
+	      sed -i "s# ${pattern}##" $file
+   elif 	  
+       grep -Eq   "\", \"${node}\"," "$file" 
+    then 
       pattern="\"${node}\","
-	  sed -i "s#${pattern}##" $file
-      fi
-	  
-	  # node between some other server of the category :
-      grep -Eq   "\"[[:alnum:]]*, \"${node}\"," "$file"
-      chk="$?"
-      if [ _"$chk" = "_0" ]; then
-      echo "allright $node is one between some of the same category"
-      pattern="\"${node}\","
-	  sed -i "s#${pattern}##" $file
-      fi
-
+	  echo "<$pattern>"
+      echo "in middle pos in $file"
+	      sed -i "s# ${pattern}##" $file
+    elif
       # last one of the category : 
-      grep -Eq   "\"[[:alnum:]]*, \"${node}\"$" "$file"
-      chk="$?"
-      if [ _"$chk" = "_0" ]; then
-      echo "allright $node is the last of the  category" 
+       grep -Eq   "\", \"${node}\"$" "$file" 
+    then
       pattern=", \"${node}\""
-	  sed -i "s#${pattern}##" $file
-      fi
+	  echo "<$pattern>"
+      echo "in last pos in file $file"
+	      sed -i "s/$pattern//g" $file
+    else
+      ## check node presence before deleting : 
+      echo " in node check ..in $file "
+       grep "$node" "$file" || echo "no way the node is not present !" 
+    fi 
+done
 }
-
-server_out () {
-echo "$node selected "
-sed -i "s#,*\""$node"\",*##g" $file
-}
-
 
 ## node injection : 
 
 server_in_chk () {
+      
+for file in $(cat lst); do 
+      # just check that the node is not already present : 
       grep "$node" "$file"
       chk="$?"
       if [ _"$chk" = "_0" ]; then 
-          echo "no way the node is already present !" 
-          exit 3
+          echo "no way the node is already present in $file !" 
       fi
-}
-
-server_def () {
-      echo "all right you would like to add a node in $nodedef role categorie ..a kind already exists in $file"
-      grep -in $nodedef $file
+      
+      # ensure that the role of the server is already defined AND that the first node of this role has to be record in a manual action : safe operation
+      role=${node:0:4}
+      grep "$role" "$file"
       chk="$?"
-      if [ _"$chk" = "_0" ]; then 
-          echo "no way : you want to inject a node that seems to be unique ..please check the role in the file !" 
-          exit 3
-      fi
-         
-         line=$(grep -in $nodedef $file |awk -F: '{print $1}')
+      if [ _"$chk" != "_0" ]; then 
+          echo "be careful the node seems to be the first one of the category. manual check and record needed ...in $file" 
+          exit 4
+      else
+          line=$(grep -in $role $file |awk -F: '{print $1}')
+          echo "all right : < $node >  gonna be added in $file at line n° $line "
+      fi 
+done
 }
 
 server_in () {
-echo "< $node > to be added in < $file >  at the end of line : < $line > "
-echo "sed -i ""$line" s#\(.*[[:alnum:]]\"$\)#\1, \""$node"\"#" $file" 
+for file in $(cat lst); do 
 sed -i ""${line}" s#\(.*[[:alnum:]]\"$\)#\1, \""$node"\"#" $file 
-
+done
 }
 
 # var :
-file="prod.rb"
-cp ${file} ${file}.ori
+#file="prod.rb"
+#cp ${file} ${file}.ori
+#lst= liste of files 
 
 
 echo "################################"
@@ -102,16 +92,15 @@ case $action in
 add)
 read -p "gimme a node : " node
 server_in_chk
-read -p "please provide the plateform and the role of the server to be added. aka for instance : mwebfront, xwebapipriv and so ..." nodedef
-server_def   
 server_in
 ;;
-remove)
 
+remove)
 read -p "gimme a node to be deleted: " node
 server_out_chk
-server_out
 ;;
+
 *) echo "Please enter the action you'd like to be done < add > a new node in '.rb' files or < remove > a exiting one from the file(s)..."
 
 esac
+
