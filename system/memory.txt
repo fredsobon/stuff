@@ -1,5 +1,68 @@
 == memory notes : ==
 
+=== presentation theorique : 
+
+I. Présentation de free
+La commande "free" sous Linux fait partie des commandes à connaitre lorsque l'on travaille fréquemment sur Linux. Cette commande, présente nativement sur de nombreuses distributions comme Debian et ses dérivées permet d'afficher l'état de la mémoire RAM du système, elle possède plusieurs options qu'il est intéressant de connaître et que nous allons voir ici. Suivez le guide !
+
+II. Affichage de la RAM utilisée, tampon et RAM libre
+Pour utiliser la commande, rien de plus simple :
+
+free
+On a alors un affichage qui ressemble à celui-ci :
+
+boogie@boogie-homy:~$ free -m 
+             total       used       free     shared    buffers     cached
+Mem:         64524      62107       2417       1329        133       5784
+-/+ buffers/cache:      56188       8335
+Swap:          976         92        883
+
+Ici, nous avons plusieurs informations :
+
+La ligne mémoire "Mem", divisée en trois colonnes qui sont donc le total de mémoire, la mémoire utilisée et la mémoire disponible.
+Les colonnes qui suivent "shared", "buffers" et "cached" sont toujours utilisées, mais à quoi correspondent-elles ? En fait, lorsque Linux va détecter une partie de la mémoire RAM non utilisée, il va en profiter pour charger des blocs du disque dur en RAM, rendant ainsi leur consultation beaucoup plus rapide. Ces blocs mis en RAM sont ce qui constitue la partie "buffers/cached". Cette partie de la RAM n'est pas réellement une occupation de la mémoire, car si un programme ou l'OS ont besoin de RAM, Linux va écraser ces données pour repasser dans un mode habituel où il lit les données directement sur le disque dur. Cela est donc une optimisation des ressources au profit d'une plus grande rapidité.
+
+La ligne "-/+ buffers/cache", elle aussi divisée en trois colonnes.
+Cette ligne représente la ligne mémoire en y ayant soustrait les valeur "buffers" et "cached". On obtient alors la quantité réelle de mémoire disponible pour les applications et le système. Une autre méthode d'obtenir des informations sur la mémoire libre est la commande "top" ou "htop", il arrive qu'il y a de gros écarts sur la quantité de mémoire libre et utilisée entre "top" et "free". Cela parce que free affiche en première ligne la valeur avec le cache compris alors que top l’exclue de l'affichage, considérant qu'il ne s'agit pas réellement d'une occupation de la mémoire RAM.
+
+La ligne "Swap" elle aussi divisée en trois colonnes.
+Cette valeur représente la quantité de contenu mémoire ayant été mise temporairement sur le disque. La Swap étant une extension de la RAM volatile sur le disque dur. Elle permet de positionner des éléments qui ne sont pas souvent utilisés. Cela, car la Swap offre des taux de lecture / écriture beaucoup moins bons que la RAM. Lors des périodes de fortes charges, la Swap est présente comme une pure extension de la RAM, des problèmes de lenteurs se font alors ressentir.
+
+Les valeurs retournées par free ne sont pas forcément parlantes, comme je l'ai dit, il s'agit de valeur en Kilooctets. Cependant, nous pouvons modifier ces valeurs en affichant, par exemple, la mémoire en Mégaoctets (avec l'option "-m") ou en Gigaoctets (avec l'option "-g"), comme dans l'exemple suivant :
+
+
+A noter que l'opération inverse est aussi possible, on peut vouloir afficher une unité plus petite : l'octet. Pour cela, il suffit d'utilisation l'option "-b" pour "bytes", qui signifie "octet". Pour que l'unité soit indiquée (ce que l'on appelle un affichage "human readable"),  il suffit d'ajouter l'option "-h" :
+￼
+
+Il est aussi possible d'afficher le total, représenté par l'addition de la RAM et de la SWAP, pour cela, il faut utiliser l'option -t :
+
+free -t
+Voici la ligne additionnelle que nous pourrons voir :
+
+~# free -t
+             total       used       free     shared    buffers     cached
+Mem:      66073412   63627872    2445540    1361040     137604    5941900
+-/+ buffers/cache:   57548368    8525044
+Swap:       999676      97440     902236
+Total:    67073088   63725312    3347776
+￼
+
+III. Affichage dynamique
+Il est possible, avec la commande "free", d'effectuer une sorte d'affichage dynamique de la RAM. Cela peut se faire via l'option "-c" qui va permettre de renouveler la commande X fois. Par exemple si je souhaite que la commande free me donne les détails de la RAM pendant 10 secondes, j'utiliserais la commande suivante :
+
+free -c 10
+Il est bien sûr possible de combiner les options, par exemple si je souhaite faire la même chose, mais avec un affichage au format "human readable" :
+
+free -h -c 10
+Ici, free va donc s'exécuter 10 fois toutes les secondes, on peut néanmoins déterminer un intervalle de rééxécution plus long en combinant l'option "-c" à l'option "-s" qui prend une valeur en seconde. Par exemple, pour un intervalle de 10 secondes pour 10 répétitions :
+
+free -c 10 -s 10
+Voilà, nous avons fait le tour de cette commande qui, une fois que l'on sait comment interpréter ses résultats et correctement l'utiliser, peut devenir très utile 
+
+
+
+==  pmap : monitoring proces : 
+
 
 on peut monitorer la ram utilisée par un process avec la commande pmap :
 [lapin ~] # pmap 103007

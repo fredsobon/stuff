@@ -1,7 +1,8 @@
 #!/bin/bash
 # Main goal : bck /home/boogie/Documents/learn folder and all contents ( which are the main doc to be retrieve) on a nexternal hdd 
 
-src="/home/boogie/Documents/learn"
+src1="/home/boogie/Documents/own"
+src2="/home/boogie/Documents/learn"
 dst="/media/boogie/bck_flash"
 
 # test de presence du montage dans proc/mounts : nb pas de "/" a la fin du pattern :
@@ -25,8 +26,23 @@ if [ -f $dst ]; then
 	exit 2
 else
 	echo "seems to be cool ..let's start ..."
-	cd $src
-	echo " we're now in $src folder ..."
+	cd $src1
+	echo " we're now in $src1 folder ..."
+        echo "gonna make a dry run first .."
+	rsync -azvn . $dst
+	read -p "is this the objective ??" ans
+	echo "your answer is $ans .."
+	case "$ans" in 
+		y|yes|Y|Y..) rsync -azv . $dst
+		;;
+		n|no|N|NO) echo "alright ..let 's go out .."
+		;;
+		*) echo "please the answer should be <y|yes|Y|Y..> or n|no|N|NO ..then try again.."
+		;; 
+	esac
+	echo "seems to be cool ..let's start ..."
+	cd $src2
+	echo " we're now in $src2 folder ..."
         echo "gonna make a dry run first .."
 	rsync -azvn . $dst
 	read -p "is this the objective ??" ans
