@@ -2,8 +2,7 @@
 
 ## main goal : eases the record of server in files used in code deployment
 
-#func :
-
+##func :
 
 # node remove : 
 
@@ -14,16 +13,18 @@ server_out_chk () {
       # begining : grep -E   "[[:alnum:]]*, \"${node}\"," prod.rb
 for file in $(cat lst); do 
    if 
-       grep -Eq   "[a-z]{1,}, \"${node}\"," $file 
+       grep -Eq   "[a-z]+, \"${node}\"," $file 
    then
-      echo "in first pos in $file "
+      pattern="\"${node}\","
+	  echo "<$pattern>"
+      echo "$node located at the start of $file "
 	      sed -i "s# ${pattern}##" $file
    elif 	  
        grep -Eq   "\", \"${node}\"," "$file" 
     then 
       pattern="\"${node}\","
 	  echo "<$pattern>"
-      echo "in middle pos in $file"
+      echo "$node is located between other nodes in $file"
 	      sed -i "s# ${pattern}##" $file
     elif
       # last one of the category : 
@@ -31,7 +32,7 @@ for file in $(cat lst); do
     then
       pattern=", \"${node}\""
 	  echo "<$pattern>"
-      echo "in last pos in file $file"
+      echo "$node is located at the end of the file $file"
 	      sed -i "s/$pattern//g" $file
     else
       ## check node presence before deleting : 
@@ -73,21 +74,13 @@ sed -i ""${line}" s#\(.*[[:alnum:]]\"$\)#\1, \""$node"\"#" $file
 done
 }
 
-# var :
-#file="prod.rb"
-#cp ${file} ${file}.ori
-#lst= liste of files 
-
-
 echo "################################"
 
 read -p "action on node : add or remove ?" action
 
 echo "################################"
 
-
 case $action in 
-
 
 add)
 read -p "gimme a node : " node
