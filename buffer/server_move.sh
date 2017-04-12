@@ -11,7 +11,7 @@ server_out_chk () {
 	  # check position in file : in order to establish the dedicated text action to do.
       
       # begining : grep -E   "[[:alnum:]]*, \"${node}\"," prod.rb
-for file in $(cat lst); do 
+for file in $(cat inputlist); do 
    if 
        grep -Eq   "[a-z]+, \"${node}\"," $file 
    then
@@ -46,7 +46,7 @@ done
 
 server_in_chk () {
       
-for file in $(cat lst); do 
+for file in $(cat inputlist); do 
       # just check that the node is not already present : 
       grep "$node" "$file"
       chk="$?"
@@ -69,10 +69,38 @@ done
 }
 
 server_in () {
-for file in $(cat lst); do 
+for file in $(cat inputlist); do 
 sed -i ""${line}" s#\(.*[[:alnum:]]\"$\)#\1, \""$node"\"#" $file 
 done
 }
+sort_in () {
+
+# retrieve role for nodes 
+grep -Eon "role :[[:alnum:]]+" $file |awk -F: '{print $1}'> line_number
+
+# fake name prefixing role to prepare sort 
+for num in $(cat line_number)
+do
+sed -rn "$num s/role (:[[:alnum:]]+),/1role\1/p" $file > part_$num
+done
+
+
+# delete unused caracters : 
+for i in $(ls part_*)
+do
+       sed -re "s/[\",]//g" $i |sed 's/ /\n/g' |sort |tr '\n' ' ' |sed -re "s/([[:alnum:]]+)/\"\1\"/g" |sed -re "s/(\"[[:alnum:]]+\")/\1,/g"  >> sorted_$i
+done
+
+# last change to clean role and delete unmandatory caracters : 
+
+for p in $(ls sorted_*)
+do
+    sed -rn "s/\"1role\",:\"([[:alnum:]]+)\",/role :\1,/p" $p |sed -rn "s/(.*+\"),/\1/p" >> last_$p
+done
+
+}
+
+
 
 echo "################################"
 
@@ -86,6 +114,7 @@ add)
 read -p "gimme a node : " node
 server_in_chk
 server_in
+sort_in
 ;;
 
 remove)
