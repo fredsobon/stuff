@@ -1,35 +1,37 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # main goal : retrieve cpu performance settings on "ProLiant Gen 9" servers  : this requires the uses of conrep (which belongs to hp-scripting-tools package )
-# mandatory : facter & conrep tools scripts available in path.
+
+### Adding more directory to PATH
+PATH=$PATH:/opt/puppetlabs/bin
 
 ## var : 
-conrep="/sbin/conrep"
 
+## check mandatory tool presence : facter  
 
-if ! which facter ; then 
-	echo "The tool < facter > seems not to be available. Please check" && exit 3
+if [ ! -x "$(which facter)" ];then
+  echo "The tool < facter > seems not to be available. Please check" && exit 3
 fi
-
-
-res=$(facter productname |grep -Eo "Gen9")
-
 
 # main test : to be processed only on g9 servers : 
 
-if [[ "$res" != "Gen9" ]] ; then 
-    echo "this server is not a Gen9" && exit 3
-else 
-##	# check mandatory tool presence 
-	if ! type  "$conrep"  &>/dev/null; then
-		echo "conrep is not available on this system"  && exit 1
-	else 
-		conrep -s -f - |grep -iq "Maximum performance"
-		conrep_check="$?"
-		if [ _"${conrep_check}" != _"0" ] ; then 
-		    echo "< Maximum performance > bios setting is not configured on this server please check " && exit 2 
-        else
-            echo "ALLOK" && exit 0
-        	fi 
-	fi 
+# testif gen9
+facter productname | grep "Gen9" >/dev/null 2>&1
+if [ $? -ne 0 ];then
+ echo "this server is not a Gen9" &&  exit 3
 fi
+
+## check mandatory tool presence :  conrep 
+    
+if [ ! -x "$(which conrep)" ];then
+  echo "The tool < conrep > seems not to be available. Please check" && exit 3
+fi
+
+# bios info to be retrieved : 
+conrep -s -f - | grep -iq "Maximum performance"
+if [ $? -ne 0 ] ; then
+    echo "< Maximum performance > bios setting is not configured on this server please check " && exit 2
+else
+    echo "ALLOK" && exit 0
+fi
+
