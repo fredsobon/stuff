@@ -6,9 +6,9 @@
 
 ##func :
 
-# node remove : 
+# node remove  - got to test misc cases in order to delete a node :
 
-server_out_chk () {
+server_out () {
 
 # check position in file : in order to establish the dedicated text action to do.
 for file in $(cat inputlist); do 
@@ -16,27 +16,30 @@ for file in $(cat inputlist); do
        grep -Eq   "[a-z]+, \"${node}\"," $file 
    then
       pattern="\"${node}\","
-      #echo "$node located at the begining of $file "
+      echo "$node gonna be deleted at the begining of $file "
 	      sed -i "s# ${pattern}##" $file
    elif 	  
        grep -Eq   "\", \"${node}\"," "$file" 
     then 
       pattern="\"${node}\","
-      #echo "$node is located between other nodes in $file"
+      echo "$node gonna be deleted between two other nodes in $file"
 	      sed -i "s# ${pattern}##" $file
-    else
+    elif
       # last one of the category : 
-      grep -Eq   "\", \"${node}\"$" "$file" 
+      grep -Eq   "\", \"${node}\"$" "$file"
+    then 
       pattern=", \"${node}\""
-      #echo "$node is located at the end of the file $file"
+      echo "$node gonna be deleted at the end of the file $file"
 	      sed -i "s/${pattern}//g" $file
+    else 
+      continue
     fi 
 done
 }
 
-# node injection : 
+# node injection - got to test misc cases in order to add a node :
 
-server_in_chk () {
+server_in () {
       
 for file in $(cat inputlist); do 
       # just check that the node is not already present : 
@@ -61,7 +64,7 @@ done
 }
 
 
-##
+# sort our files - got to work on our files after a node added in order to have sorted ones :
 
 sort_in () {
 
@@ -88,13 +91,25 @@ sort_in () {
 		    done
 				rm line_number
                 mv "${file}_final" "$file"
+    			sed -i "s#[[:space:]]*role#role#g" "$file"
+                sed -i "s#\(.*\"\)[[:space:]]*#\1#g" $file
         done
     done 
 }
 
 
 ####
-
+# delete potential dirty space at the end of lines : in order to process the job correctly
+for file in $(cat inputlist)
+do
+    sed -i "s#\(.*\"\)[[:space:]]*#\1#g" $file
+done
+# delete potential dirty space at the begining  of lines : in order to process the job correctly
+for file in $(cat inputlist)
+do
+    sed -i "s#[[:space:]]*role#role#g" $file
+done
+# 
 echo "################################"
 
 read -p "action on node : add or remove ?   " action
@@ -120,13 +135,8 @@ done
 grep -l "${node:0:5}" fold/* > inputlist
 echo "Here are the target file(s) :"
 echo "$(cat -n inputlist)"
-# delete potential dirty space at the end of lines : in order to process the job correctly
-for file in $(cat inputlist)
-do
-    sed -i "s#\(.*\"\)[[:space:]]*#\1#g" "$file"
-done
 
-server_in_chk
+server_in
 sort_in
 ;;
 
@@ -134,14 +144,12 @@ remove)
 read -p "gimme a node to be deleted: " node
 
 # retrieve target files to be process 
-grep  -q ^${node}$ "$file" 2>/dev/null || echo "no way the node is not present in $file!" 
-grep -l "$node" fold/* > inputlist
-# delete potential dirty space at the end of lines : in order to process the job correctly
-for file in $(cat inputlist)
+for file in fold/*
 do
-    sed -i "s#\(.*\"\)[[:space:]]*#\1#g" $file
+    grep  -q ${node} "$file" 2>/dev/null || (echo "no way the node is not present in $file! Please check the file(s) ! " ; exit 5 )
 done
-server_out_chk
+
+server_out
 ;;
 
 *) echo "Please enter the action you'd like to be done < add > a new node in '.rb' files or < remove > a exiting one from the file(s)..."
