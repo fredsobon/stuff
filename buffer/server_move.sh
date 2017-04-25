@@ -1,11 +1,21 @@
-#!/bin/env bash
+#!/usr/bin/env bash
 
-##
-## main goal : eases the record of server in files used in code deployment
-##
+####
+## main goal : eases the record of server in files used in code deployment for production env.
+## mardi 25 avril 2017, 11:10:17 (UTC+0200)
+## < exploit@meetic-corp.com > 
+### 
 
 
 ##func :
+
+# simple usage 
+usage() { 
+
+echo "$0 < add |remove > <node>" 
+echo "ex: $0 add rabbit32 ; $0 remove lulu43"
+
+}
 
 # node remove  - got to test misc cases in order to delete a node :
 
@@ -54,7 +64,7 @@ for file in $(cat inputlist); do
       role=${node:0:5}
       grep -q "$role" "$file"
       if [ $? -ne 0 ]; then 
-          echo "be careful the node seems to be the first one of the category. manual check and record needed ...in $file" 
+          echo "< Be careful the node seems to be the first one of the category. manual check and record needed ...in $file > " 
           exit 4
       else
             line=$(grep -En "$role" "$file" |awk -F: '{print $1}')
@@ -65,7 +75,7 @@ done
 }
 
 
-# sort our files - got to work on our files after a node added in order to have sorted ones :
+# sort our files - got to work on our files after a node added :
 
 sort_in () {
 
@@ -101,44 +111,31 @@ sort_in () {
 }
 
 
-####
-version="0.1"
-usage="Usage: command -[hv]. No args mandatory for this script."
-while getopts ":vh" optname
-  do
-    case "$optname" in
-      "v")
-        echo "Version $version"
-        exit 0;
-        ;;
-      "h")
-        echo $usage
-        exit 0;
-        ;;
-      "?")
-        echo "Unknown option $OPTARG"
-        exit 0;
-        ;;
-    esac
-  done
+###
 
+## var :
+action="$1"
+node="$2"
 
+# simple test to ensure at least one node is provided : 
+if [  -n "$action" -a  -z "$node" ]
+then 
+	echo "Please provide a node to be proceeded ! ex: $0 add rabbit32" 
+    exit 9
+fi
 
+# clean potential previous file : 
 if [ -e inputlist ] 
 	then rm inputlist
 else  
 	true
 fi
-echo "################################"
 
-read -p "action on node : add or remove ?   " action
 
-echo "################################"
-
-case $action in 
+#
+case "$action" in 
 
 add)
-read -p "gimme a node : " node
 
 # retrieve target files to be process and test if this kind of server is already present ; if not a manual record is better (aka more safe) for the first time ... 
 role=${node:0:5}
@@ -172,7 +169,6 @@ sort_in
 ;;
 
 remove)
-read -p "gimme a node to be deleted: " node
 
 # retrieve target files to be process 
 
@@ -199,12 +195,12 @@ for file in $(cat inputlist)
 do
     sed -i "s#[[:space:]]*role#role#g" $file
 done
-# 
+
 
 server_out
 ;;
 
-*) echo "Please enter the action you'd like to be done < add > a new node in '.rb' files or < remove > a exiting one from the file(s)..."
+*) usage
 
 esac
 
