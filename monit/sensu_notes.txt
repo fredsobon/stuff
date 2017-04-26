@@ -210,7 +210,7 @@ LOG_LEVEL=debug
 les autres valeurs sont warning et fatal 
 
 
-On peut redammer les services aussi de plusieurs manieres :
+On peut redemarrer les services aussi de plusieurs manieres :
 cd /etc/systemd/system && systemctl restart sensu-*
 
 
@@ -249,7 +249,7 @@ NB sensu peut être packagé et embarquer toutes les applis (server , client , a
 
 - sensi api : api qui fourni un acess REST ( Representative State Transfer )
 
--Redi : systeme de clé / valeur : sensu a la notion de stashes qui sont des données persistantes sous format json . Sensu utilise redis comme stockage d'informations sur les checks et les clients.
+-Redis : systeme de clé / valeur : sensu a la notion de stashes qui sont des données persistantes sous format json . Sensu utilise redis comme stockage d'informations sur les checks et les clients.
 
 
 = notes de configuration =
@@ -699,14 +699,12 @@ etc/sensu/conf.d/checks/load_check.json
 
 On voit ici  qu'on a à la fois l'option handle à false : on ne veut pas faire executer d'actions supplementaires 
 L'option aggregate est elle à true : on va dans ce cas enregistrer de maniere persistante dans redis le resultat pour une consultation future.
-NB : les checks en stadalone ne fonctionnent pas en aggregate : en effet les checks fait par les clients ont tous des timestamp differents
+NB : les checks en standalone ne fonctionnent pas en aggregate : en effet les checks fait par les clients ont tous des timestamp differents
 
 Les  aggregés eux se stockent dans le redis en fonction du nom du check et d'un timestamp unique.
 voir aggregate_check_result() dans process.rb
 
-Les resultats stockés  dans redis vont ensuite être executés par un autre check 
-
-sensu/check-aggregate.rb
+Les resultats stockés  dans redis vont ensuite  (à partir du deuxieme check) être executés par un autre check sensu/check-aggregate.rb" qui lui va evaluer les resultats stockés dans redis :
 
 
 /etc/sensu/cond.d/checks/aggregate_load_check.json
