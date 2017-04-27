@@ -706,6 +706,7 @@ voir aggregate_check_result() dans process.rb
 
 Les resultats stockés  dans redis vont ensuite  (à partir du deuxieme check) être executés par un autre check sensu/check-aggregate.rb" qui lui va evaluer les resultats stockés dans redis :
 
+on a donc un check dedié pour notre load qui va permettre l'execution du check aggregé et recupérer les données stockées dans redis : 
 
 /etc/sensu/cond.d/checks/aggregate_load_check.json
 {
@@ -720,6 +721,57 @@ Les resultats stockés  dans redis vont ensuite  (à partir du deuxieme check) �
 	}
 }
 }
+Ce check va être executé par les servers abonnées à la file "decisionmakert" : a priori seul le sensu server.
+> le script executé check-aggregate.rb -c load_check -W 75 -C 90 ne le sera donc en principe fait que depuis une machine puisque nous voulons uniquement un seul check aggregé.
+
+Attention les seuils (threshold) ont un sens particulier dans les checks d'aggregat 
+Ex : un warning de 75% en aggregé indique que 75% des serveurs hébergeant le check ont donc reppondu a un code retour different de 0 : donc ils ont une load en warning ou critical pour 75% d'netre eux .
+
+Si 90% des serveurs ont un code retour deifferent à 0 alors sensu levera une alerte critical.
+
+Dans notre exemple :sensu va envoyér en cas d'alerte un message sur un canal irc et demarrer un demarrage auto de bdd ( database_spinner_upper) pour soulager la charge.
+
+Clean des données agregées :
+les datas recoltées et aggrégées sont purgées toutes les 20secondes par le server sensu et il conserve les 20 derniers resulats de check aggregés.
+
+- Check auto-documentés :
+
+Comme differentes clés valeurs peuvent être définies dans les checks : ont peut définir des tips qui pourront aider lors  d'astreinte ou autre ../etc/sensu/conf.d/checks/legacy_database_check.json :
+
+{
+checks": {
+	"legacy_database_check": {
+		"command": "check_foxpro.rb",
+		"handler": "mailer",
+		"subscribers": [ "antiqueservers" ],
+		"interval": 60,
+		"playbook": "Before restarting the legacy database server, make sure no on\
+		e is using the microwave or you will trip the circuit breaker."
+		}	
+	}
+}
+Dans cet exemple le keyword "playbook" est specific au handler "mailer"
+
+On voit ici qu'on peut ajouter des infos additionnelles dans nos definitions de check et que ces infos sont donc  consultables par nos handlers ( après une configuration )
+
+
+- Utilisateur privilégié :
+
+quand le client sensu execute un check et doit le lancer avec un user particulier : une conf additionnelle doit être mise en place dans le sudoers 
+
+exemple : 
+/etc/sudoers.d/sensu
+Defaults:sensu !requiretty
+Defaults:sensu secure_path = /usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin\
+:/usr/bin
+sensu ALL = NOPASSWD: /etc/sensu/plugins/mycheck.rb
+
+
+==== Metrics ====
+
+Les checks renvoient un code retour : ils peuvent aussi renvoyer un flux vers la sortie standart . Un check qui renvoie une donnée structurée sur la sortie standart et un code retour toujours egal à 0 est associé à unb type "metric" dans sensu.
+Son but n'est pas de lever une alerte mais de rediriger les données vers sensu server qui lui même pourra router vers un outil de graphage.
+ 
 
 
 
