@@ -1267,9 +1267,116 @@ Si un filtre decouvre q'un event ne doit pas être géré alors il executera la 
 ->filter_dependencies : ici nous n'auront pas d'action si un event ko a une dependance avec un autre check  deja ko.
 -> utilisation d'un mutator pour bypasser un handler : si un mutator a un code retour different de 0 alors le handler ne s'executera pas.
 
-
 === Mutator === 
 
+un mutator va permettre de fournir une data transformées prvenant d'un event sensu à une handler : il s'agit souvent d'un formattage de données.
+Il y a deux types de mutators :
+-> pipe mutator : recoit les données sur l'entrée standart , transforme et envoie sur la sortie 
+-> mutator extension : demarre quand le sensu server demarre et se présente comme un callback ruby
 
+- les pipes mutators :
+sont simples à ecrire et peuvent exister dans differents languages
+ex : mutator qui va ajouter une entrée en booleen à un event entrant :
 
+spec/mutators/tag.rb
+#!/usr/bin/env ruby
+require 'rubygems'
+require 'multi_json'
+	event = MultiJson.load(STDIN.read, :symbolize_keys => true)
+	event.merge!(:mutated => true)
+puts MultiJson.dump(event)
+
+Sensu utilise MultiJson pour convertir les data entre json ruby et viceversa  
+
+Les mutators de type pipe sont facile a ecrire mais les mutator extensions sont preferables.
+Mutator extensions sont  localisées dans l'arbo /etc/sensu/extensions/mutators et sont des process persistants dans l'execution du sensu server 
+C'est parfait car il n'y a pas besoin de creer un nouveau process a chaque fois qu'un mutator est invoqué et les events sont doncconsidérés comme des hash ruby natifs plutôt que devoir être converti depuis ou vers json.
+exemple typique de mutator  :
+/etc/sensu/extensions/mutators/example.rb
+module Sensu
+  module Extension
+    class Example < Mutator
+	  def name
+		'example mutator'
+	  end
+	  def description
+		'this description states what this mutator does'
+	  end
+	  def run(event)
+		# Change the event in some way here.
+		# Then pass some data (typically the event) and a result code.
+		yield event, 0
+	  end
+	end
+  end
+end
+
+Sensu embarque de base trois mutator : JSON mutator, ruby hash mutator et only check output mutator.
+
+- JSON mutator :
+c'est celui par defaut qui est utilisé si aucune autre conf n'est définie :
+
+sensu-extensions/lib/sensu/extensions/mutators/json.rb
+require "sensu/extension"
+require "multi_json"
+module Sensu
+	module Extension
+		class Json < Mutator
+			def name
+				"json"
+			end
+			def description
+			"returns JSON formatted event data"
+			end
+			def run(event)
+			yield MultiJson.dump(event), 0
+			end
+		end
+	end
+end
+
+- Ruby hash mutator :
+
+Celui ci est à utiliser ci on veut considerer que les données en provenance de notre event sont des hash ruby et non du JSON. Il faut donc dans ce cas le preciser dans notre conf de handler en specifiant “mutator”: “ruby_hash” 
+
+sensu-extensions/lib/sensu/extensions/mutators/ruby_hash.rb
+require "sensu/extension"
+  module Sensu
+    module Extension
+      class RubyHash < Mutator
+        def name
+          "ruby_hash"
+        end
+        def description
+          "returns ruby hash event data"
+        end
+        def run(event)
+          yield event, 0
+        end
+      end
+    end
+end
+
+- Only check output mutator :
+
+sensu-extensions/lib/sensu/extensions/mutators/only_check_output.rb
+require "sensu/extension"
+  module Sensu
+    module Extension
+      class OnlyCheckOutput < Mutator
+        def name
+          "only_check_output"
+        end
+        def description
+          "returns check output"
+        end
+        def run(event)
+          yield event[:check][:output], 0
+        end
+      end
+    end
+end
+
+Ce mutator va simplement envoyer la valeur de la clé de notre event au handler : plutôt que l'integralité du contenu de l'event.
+Ce mutator peut être utiliser par exemple pour envoyer les résulats de metric à graphite qui attend juste une valeur plutot que l'inegralité d'un event.
 
