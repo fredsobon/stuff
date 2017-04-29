@@ -772,7 +772,503 @@ sensu ALL = NOPASSWD: /etc/sensu/plugins/mycheck.rb
 Les checks renvoient un code retour : ils peuvent aussi renvoyer un flux vers la sortie standart . Un check qui renvoie une donnée structurée sur la sortie standart et un code retour toujours egal à 0 est associé à unb type "metric" dans sensu.
 Son but n'est pas de lever une alerte mais de rediriger les données vers sensu server qui lui même pourra router vers un outil de graphage.
  
+Les checks de metric peuvent être soit de type standalone executés par le client soit publiés par le server sensu dans une file rabbitmq et executé à interval régulier par les clients à l'ecoute de cette file. 
+exemple : la sortie de cette commande va nous afficher la valeur de la charge de la machinne les 15 dernieres minutes 
+uptime | awk '{ print $(NF) }'
+1.54
+On pourra don creer un check de metric de ce type :
 
+/etc/sensu/conf.d/checks/load_check_15_min.json
+{
+"checks": {
+	"load_check_15_min": {
+		"command": "uptime | awk '{ print $(NF) }'",
+		"subscribers": [ "os" ],
+		"interval": 60,
+		"type": "metric",
+		"handler": "default"
+		}
+	}
+}
+
+On note ici forcement que le code retour sera toujours 0 et que la commande renverra toujours une valeur . Nous n'avons donc pas de notion d'alerting.
+On se contente donc d'ajouter un type "metric" dans la definition de notre check.
+
+Il est aussi possible d'envoyer des metrics au client sensu : il faut qu'elles soient en format json et envoyées en udp sur le port 3030 : le port d'ecoute par defaut du client sensu.
+
+Exemple : il est possible d'envoyer une notification de commit dans sensu 
+on a deux composants qui rentrent en ligne de compte :
+le post-commit subversion par exemple qui va formatter le message
+le plugin sensu qui va creeer et pousser l'event vers le sensu client sur le port 3030
+
+1/ creation d'un post commit : qui va donc être executé apres un commit réussi :
+
+ex : creation d'un script 
+Subversion post-commit hook: /var/www/svn/example/hooks/post-commit
+
+#!/bin/sh
+# Subversion passes in repository path
+# and revision number.
+
+REPOS="$1"
+REV="$2"
+
+# svnlook is a utility that queries the repository.
+SVNLOOK=/usr/bin/svnlook
+AUTHOR=$($SVNLOOK author -r $REV $REPOS)
+LOG=$($SVNLOOK log -r $REV $REPOS)
+CHANGED=$($SVNLOOK changed -r $REV $REPOS | wc -l)
+REPONAME=$(basename $REPOS)
+MESSAGE="$AUTHOR commit to $REPONAME $REV $LOG Changed files: $CHANGED "
+
+# Call the Sensu plugin.
+/etc/sensu/plugins/svn-commit.rb "$MESSAGE
+
+celui-ci doit être executable :
+$ ls -l /var/www/svn/example/hooks/post-commit
+-r-xr--r--. 1 apache apache Nov 5 20:58 /var/www/svn/example/hooks/post-commit
+
+2/ Plugin sensu pour pousser l'event vers le sensu client :
+
+Le plugin suivant va donc recupérer le texte du commit puis l'envoyer au client sensu sur le port 3030 puis  dans la queue rabbitmq pour q'il soit gérer par le sensu server egalement :
+/etc/sensu/plugins/svn-commit.rb
+
+#!/usr/bin/env ruby
+
+require 'rubygems' if RUBY_VERSION < '1.9.0'
+require 'socket'
+require 'json'
+
+s = TCPSocket.new 'localhost', 3030
+json = {
+	'name' => 'svn',
+	'output' => ARGV[0],
+	'status' => 0,
+	'type' => 'metric',
+	'handlers' => ['irc']
+}.to_json
+
+s.puts json
+s.close
+Les clés name, output et status sont obligatoires pour que le client recoivent le flux.
+On flaggue ensuite le type metric car le code retour d'un commit est toujours 0 donc pas de warning ni critical.
+On precise a la fin un handler pour rediriger l'event.
+Les checks qu'ont envoient vers le port 3030 doivent avoir une definition de handler explicite (contrairement au checks normaux et standalone )
+
+On a donc pour résumer :
+1/ un commit
+2/ un post commit qui cree le message et l'envoie au plugin sensu
+3/ le message est formatté en json puis envoyé au sensu client
+4/ le sensu client inspect la validité du format json puis envoie le message dans la file rabbitmq
+5/ le server sensu recupere le message et le passe au handler
+6/ le client irc post le message 
+ex : jvandyk commit to example 384 Replaced all foos with bars for better performance. Changed
+files: 4
+
+on peut examiner la façon donc c'est gérer en regardant : /lib/sensu/socket.rb
+
+
+=== Handlers ===
+
+Les handlers recuperent les infos en provenance des checks, checks standalone et metrics.
+Il y a deux parties à configurer : la definition du handler et la conf du handle lui-même (comme pour les checks ou on a une definition de checks et checks en lui même)
+
+On peut placer les conf de handlers par exemple dans cette arbo :
+/etc/sensu/conf.d/handlers en donnant un nom assez explicite 
+exemple ici on creer un handler de type pipe qui redirigera la sortie d'un script shell vers le json de sensu :
+
+/etc/sensu/conf.d/metric_to_file.json
+{
+	"handlers": {
+	"metric_to_file": {
+		"type": "pipe",
+		"command": "/etc/sensu/handlers/metric_to_file.sh"
+		}
+	}
+}
+A noter que le nom de notre handler devra être celui que l'on a inscrit dans notre  définition de handler : 
+"handler": "metric_to_file"
+
+
+Type de handlers : 
+sensu embarque differents type de handlers pour couvrir le maximum de besoin , la notion d'extension de handler existe aussi notamment pour le server sensu afin de reduire la charge liée à la multiplication de fork de process de handlers à gerer en cas de beaucoup d'evenements.
+
+-debug handler :
+comme son nom l'indique ce handler va recupérer les flux et les envoyer dans les logs : 
+/var/log/sensu/sensu-server.log
+
+- pipe handler :
+ce handler utilise une commande ruby popen pour lancer une nouvelle commande et envoyer le flux json de nos events sensu vers elle. Typiquement nos handlers seront en ruby et utiliseront une classe Sensu:handler . Nos handlers peuvent aussi être de diffrents type (python, php ..)
+La classe Sensu:handler est disponible dans le gem sensu plugin
+
+Attention le sensu-plugin doit être disponible pour le binaire ruby qui execute le plugin. Si on utilise le ruby embarqué donc le setting true dans /etc/defalut/sensu -> EMBEDED_RUBY = true : pas de souci.
+Sinon il faudra vérifier les gems installés et proceder si besoin à l'install : 
+gem list 
+sudo gem install sensu-plugin
+
+Exemple de handlers :
+
+ruby : 
+Ruby pipe handler. /etc/sensu/handlers/example_handler.rb
+
+class ExampleHandler < Sensu::Handler
+  # Override filters from Sensu::Handler.
+  # Not used for metric handlers.
+  def filter; end
+    # Override handler from Sensu::Handler.
+    def handle
+      metric = @event['check']['output']
+      File.open("/var/log/sensutest.log", 'a+') {|f| f.write(metric) }
+    end
+end
+
+bash :
+ici on reprend l'exemple de la metric du load des 15 dernieres minutes qu'on envoie dan un handler en shell qui poussera le tout dans un fichier de log :
+
+Check definition for bash pipe handler. /etc/sensu/conf.d/checks/load_check_15_min.json
+{
+"checks": {
+  "load_check_15_min": {
+    "command": "uptime | awk '{ print $(NF) }'",
+    "subscribers": [ "os" ],
+    "interval": 60,
+    "type": "metric",
+    "handler": "metric_to_file"
+    }
+  }
+}
+
+notre handler : 
+/etc/sensu/handlers/metric_to_file.sh
+
+#!/bin/bash
+# Read event data piped from Sensu into $sensu_event
+# variable.
+read sensu_event
+
+# Parse JSON.
+json=$(echo $sensu_event | tokenize | parse)
+
+# Get value of the output key.
+value=$(echo "$json" | awk -F '"' \
+'/^\["check","output"\]/ { print $6 }')
+
+# Write metric value to a file.
+echo "$value" >> /var/log/sensutest.log
+
+- python :
+
+la version de notre handler bash cette fois en python :
+on voit que le handler de type pipe utilise la commande python :
+/etc/sensu/conf.d/handlers/metric_to_file.json
+{
+	"handlers": {
+		"metric_to_file": {
+		"type": "pipe",
+		"command": "/etc/sensu/handlers/metric_to_file.py"
+		}
+	}
+}
+
+la definition de notre check reprend le même nom de handler :
+{
+"checks": {
+  "load_check_15_min": {
+    "command": "uptime | awk '{ print $(NF) }'",
+    "subscribers": [ "os" ],
+    "interval": 60,
+    "type": "metric",
+    "handler": "metric_to_file"
+    }
+  }
+}
+Notre handler va recevoir les flux du sensu server et rediriger la valeur dans un fichier de log : 
+
+#!/usr/bin/env python
+import sys
+import json
+
+# Read event data piped from Sensu into $sensu_event
+# variable.
+sensu_event = sys.stdin.readlines()
+
+# Parse event into Python dictionary.
+parsed_event = json.loads(sensu_event[0])
+
+# Get value of the output key.
+metric = parsed_event['check']['output']
+
+# Write metric value to a file.
+f = open('/var/log/sensutest.log', 'w')
+f.write(metric)
+f.close
+
+- Testing pipe handler :
+il est possible de tester nos handlers de type pipe en envoyant un event sensu directement vers eux :
+
+cat event.json | /etc/sensu/handlers/my_handlers.rb
+
+
+- TCP handlers :
+
+sensu utilise la methode EM:connect() pour executer les handlers tcp.Il faut juste definir le host et le port vers lequel sensu va envoyer les events.
+exemple : 
+TCP handler definition. /etc/sensu/conf.d/handlers/tcp_logstash.json
+{
+	"handlers": {
+		"tcp_logstash": {
+		"type": "tcp",
+		"socket": {
+		"host": "127.0.0.1",
+		"port": 5122
+			}
+		}
+	}
+}
+
+Biensur il faut sur le host distant un process qui ecoute sur le port dédié et accepte le json en entrée.
+exemple complet de fichier pour logstash qui ecrit les logs recu de sensu et les envoie egalement dans elasticsearch : 
+/etc/logstash/example.conf
+# Listen for JSON coming in from Sensu.
+input {
+	tcp {
+	port => 5122
+	codec => "json"
+	}
+}
+# Write events to a file.
+output {
+	file {
+		path => "/var/log/logstash/sensu_incoming.log"
+		}
+	}
+# Hand to Elasticsearch for indexing.
+output {
+	elasticsearch {
+		codec => "json"
+		}
+}
+
+- UDP handler : le fonctionnement est identique au tcp mais biensur il n'y a pas de garantie de reception de message de part la nature même de udp :
+ex : 
+/etc/sensu/conf.d/handlers/udp_logstash.json
+{
+	"handlers": {
+		"udp_logstash": {
+			"type": "udp",
+			"socket": {
+				"host": "127.0.0.1",
+				"port": 5123
+			}
+		}
+	}
+}
+
+
+- Transport handler :
+Le handler de type  transport envoie les messages au systeme de message queuing que sensu utilise (typiquement rabbitmq) 
+Il est même possible d'enboyer directement à un autre rabbitmq ou à un autre systeme de queing qui ecoute et a un consummer pour archiver des messages par exemple.
+
+/etc/sensu/conf.d/handlers/amqp_archiver.json
+{
+	"handlers": {
+		"amqp_archiver": {
+			"type": "transport",
+		"exchange": {
+		"name": "archive_exchange",
+		"type": "direct",
+		"routing_key": "archive"
+			}
+		}	
+	}
+}
+
+ici lenom amqp_archiver est la clé utilisée par sensu ; le type transport permet de définir que ce handler sera donc  de type transport.
+Ici la clé exchange va donner des infos sur  la queue de transport ici name type et routing_key seront donc des infos supplementaires 
+
+
+- Handlers set :
+
+il est possible d'envoyer des alertes, metriques etc à plusieurs handlers.
+/etc/sensu/conf.d/checks/load_check_15_min.json
+{
+	"checks": {
+		"load_check_15_min": {
+			"command": "uptime | awk '{ print $(NF) }'",
+			"subscribers": [ "os" ],
+			"interval": 60,
+			"type": "metric",
+			"handlers": [ "a_handler", "another_handler" ]
+			}
+	}
+}
+
+cependant il est souvent plus pratique de regrouper les handlers ensemble dans une section definie : handler set :
+/etc/sensu/conf.d/handlers/handler_sets.json
+{
+	"handlers": {
+		"my_handler_set": {
+		"type": "set",
+		"handlers": [
+		"a_handler",
+		"another_handler"
+			]
+		}
+	}	
+}
+
+On aura donc juste à mofifier l'entree de notre handler dans la definition de notre check :
+
+
+/etc/sensu/conf.d/checks/load_check_15_min.json
+{
+	"checks": {
+		"load_check_15_min": {
+			"command": "uptime | awk '{ print $(NF) }'",
+			"subscribers": [ "os" ],
+			"interval": 60,
+			"type": "metric",
+			"handlers": [ "my_handler_set" ]
+			}
+	}
+}
+You can easily add the debug handler to a handler set in order to observe the events being sent to
+the handler set.
+
+
+=== Filters === 
+
+sensu permet d'utiliser des filtres pour gérer les messages arrivant en utilisant des attributs.
+on peut combiner ces filtres avec les handlers pour avoir une gestion fine.
+
+- filtrage des handlers : il est possible de definir finement quoi faire lors de la reception d'un message.
+on peut utiliser le keyword filter ou utiliser la methode Sensu::Handler ici du sensu-plugin.Une troisieme forme est en cours de dev et elle est basée sur le timestamp de l'evenement.
+
+- Attributs de filtres : il est possible de définir des filtres sur la valeur des events recus.Il est possible de definir des type dans un fichier de type : /etc/sensu/conf.d/filters.json par exemple.On va donc definir des clé valeur qui seront en fonction de leur presence ou pas dans l'event traités ou pas.
+exemple : ici on ne va agir que pour la presence d'un node particulier :
+
+
+/etc/sensu/conf.d/filters.json
+{
+	"filters": {
+		"only_rumpelstiltskin": {
+			"attributes": {
+			"client": {
+			"name": "rumpelstiltskin"
+					}			
+			}
+		}	
+	}
+}
+ici on a dont un filtrer nommé : only_rumpelstiltskin qui donc sera activé à true quand le name rumpelstiltskin sera trouvé dans l'event d'un client.
+On va donc pouvoir ensuite combiner avec un handler en settant notre filtre créee :  
+/etc/sensu/conf.d/metric_to_file.json
+{
+	"handlers": {
+		"metric_to_file": {
+		"type": "pipe",
+		"filter": "only_rumpelstiltskin",
+		"command": "/etc/sensu/handlers/metric_to_file.sh"
+		}
+	}
+}
+la commande ne  sera executée que pour le node matchant dans notre filtre.
+
+- Filtre negatif :
+Il est possible de ne pas  executer une action si un flag de filtre particulier est détecté.
+
+Pour reprendre l'exemple précedent on va definir une section specifique pour les nodes differents de notre serveur précedent.
+{
+	"filters": {
+		"only_rumpelstiltskin": {
+			"attributes": {
+				"client": {
+				"name": "rumpelstiltskin"
+				}
+			}
+		}
+"all_but_rumpelstiltskin": {
+		"negate": true,
+			"attributes": {
+			"client": {
+				"name": "rumpelstiltskin"
+				}
+			}		
+		}
+	}
+} 
+
+Le nom de notre filtre negatif sera repri dans notre handler : donc ici notre event sera traité pour tous les nodes matchant dans le filtre "all_but_rumpelstiltskin" : donc tous sauf rumpelstiltskin
+
+/etc/sensu/conf.d/metric_to_file.json
+{
+	"handlers": {
+			"metric_to_file": {
+				"type": "pipe",
+				"filter": "all_but_rumpelstiltskin",
+				"command": "/etc/sensu/handlers/metric_to_file.sh"
+			}
+		}
+}
+
+- Filtrage sur les environments :
+
+Il va être tout a fait possible d'ajuster nos handlers à partir de filtre sur l'environment (dev/ staging/ production ..)
+exemple ici on a un node qui est flaggé en production : 
+/etc/sensu/conf.d/client.json
+{
+	"client": {
+		"subscriptions": [
+		"os"
+		],
+		"address": "203.0.113.2",
+		"name": "sensuclient.example.com",
+		"environment": "production"
+		}
+}
+
+on peut donc avoir un filtre qui ne va gérer que les events des nodes en production :
+
+/etc/sensu/conf.d/filters.json
+{
+	"filters": {
+		"only_production": {
+		"attributes": {
+			"client": {
+			"	environment": "production"
+					}
+			}
+		}	
+	}
+}
+on pourra donc utiliser le filtre defini pour le passer à un handler qui ne traitera que les nodes dédiés : 
+
+/etc/sensu/conf.d/metric_to_file.json
+{
+	"handlers": {
+		"metric_to_file": {
+			"type": "pipe",
+			"filter": "only_production",
+			"command": "/etc/sensu/handlers/metric_to_file.sh"
+			}
+	}
+}
+
+Il est tout a fait possible d'utiliser des formes négatives aussi. 
+L'idée est de savoir qu'on peut utiliser des attributs defini pour notre client et ensuite adapter les comportements à nos besoins.
+
+- Methode de filtre dans les handlers 
+si un handler est une sous classe de sensu-plugin/lib/sensu-handler.rb alors il héritera automatiquement des filtres qui fonctionne avec la fonction filter.
+Si un filtre decouvre q'un event ne doit pas être géré alors il executera la fonction bail et finira avec un status de code retour à 0
+
+->filter_disabled :  il n'y a pas de  filtrage si les clés sont settées à ['check']['alert'] key is false
+->filter_repeated : exemple ici on ne traitera pas un event s'il apparait trop souvent et qu'il ne doit être traiter q'a la 5eme occurence
+->filter_silenced : ici l'event ne sera pas traité si un flag silence a été posé sur le node.
+->filter_dependencies : ici nous n'auront pas d'action si un event ko a une dependance avec un autre check  deja ko.
+-> utilisation d'un mutator pour bypasser un handler : si un mutator a un code retour different de 0 alors le handler ne s'executera pas.
+
+
+=== Mutator === 
 
 
 
