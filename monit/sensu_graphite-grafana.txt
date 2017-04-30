@@ -1,0 +1,2046 @@
+== notes sensu ===
+
+
+= api sensu : ==
+https://sensuapp.org/docs/latest/api/overview.html
+
+
+
+=== notes v_oreilly et book ===
+
+
+== Install ( vm test ubuntu 16/04 lts : == 
+
+
+On install rabbitmq-server qui va nous servir a gerer les filles  de messages.
+une "webapp" est dispo des l'install avec l'install des plugins 
+
+root@ubuntu-xenial:~# apt-get install rabbitmq-server
+root@ubuntu-xenial:~# rabbitmq-plugins enable  rabbitmq_management
+The following plugins have been enabled:
+  mochiweb
+  webmachine
+  rabbitmq_web_dispatch
+  amqp_client
+  rabbitmq_management_agent
+  rabbitmq_management
+
+Applying plugin configuration to rabbit@ubuntu-xenial... started 6 plugins.
+
+on va redemmarer le service et checker :
+
+root@ubuntu-xenial:~# service rabbitmq-server restart
+
+on va tester notre appli :
+
+en cli :
+
+root@ubuntu-xenial:~# curl -I http://localhost:15672
+HTTP/1.1 200 OK
+Server: MochiWeb/1.0 (Any of you quaids got a smint?)
+last-modified: Sat, 25 Feb 2017 17:24:03 GMT
+Date: Sat, 25 Feb 2017 17:25:23 GMT
+Content-Type: text/html
+Content-Length: 1353
+
+on va aussi tester depuis un browser :
+pour cela on va faire une redirection de port de notre rabbitmqsur la vm vers le navigo de notre machine dans la conf vagrant :
+
+VAGRANTFILE_API_VERSION = "2"
+Vdministratoragrant.configure(VAGRANTFILE_API_VERSION) do |config|
+  config.vm.box = "ubuntu/trusty64"
+  config.vm.network "forwarded_port", guest: 15672, host: 15672
+
+
+on va ajouter un user test avec tous les droits pour acceder 
+rabbitmqctl add_user test test
+rabbitmqctl set_user_tags test administrator
+rabbitmqctl set_permissions -p / test ".*" ".*" ".*"
+
+on va ajouter un virtual host dans notre webapp rabbit mq 
+> a droite virtual host > new virtual host 
+on rentre : /sensu 
+on ajoute un nouveau user :
+sensu / mdp secret 
+
+on ajoute ensuite un user sensu avec un password secret au vhost sensu 
+root@SensuServer:/etc/rabbitmq# rabbitmqctl add_user sensu secret
+root@SensuServer:/etc/rabbitmq# rabbitmqctl set_user_tags sensu administrator
+root@SensuServer:/etc/rabbitmq# rabbitmqctl set_permissions -p / ".*" ".*" ".*"
+on rajoute le user sensu et on le grant au vhost /sensu : 
+root@SensuServer:/etc/rabbitmq# rabbitmqctl set_permissions -p / ".*" ".*" ".*"
+
+
+
+
+on va ensuite cliquer sur notre nouveau user et lui donner tous les droits (*) sur notre vhost /sensu en selectionnant les menus deroulant.
+on sauve et c'est ok .
+
+On install mintenant redis-server :
+
+root@ubuntu-xenial:~# apt-get install redis-server
+pour tester notre install on lance l'utilitaire :
+root@ubuntu-xenial:~# redis-cli ping
+PONG
+
+On va  maintenant passé à l'install de  sensu :
+-> on recupere la cle pub du repo :
+wget -q https://sensu.global.ssl.fastly.net/apt/pubkey.gpg -O- | sudo apt-key add -
+on va ensuite monter le repo dédié à notre distrib apres l'avoir identifiée :
+. /etc/os-release && echo $VERSION
+16.04.2 LTS (Xenial Xerus)
+
+on  rajoute un source list dedié a sensu concernant notre repo
+root@ubuntu-xenial:~# cat /etc/apt/sources.list.d/sensu.list
+deb     https://sensu.global.ssl.fastly.net/apt xenial main
+puis on update notre db :
+apt-get update
+
+on install sensu 
+apt-get install sensu
+
+on creee maintenant notre fichier de conf :
+qui va repertorier les infos de conf settee : rabbitmq ,redis et le port de notre api sensu . La conf sous format json doit toujours avoir les sections entourées de { } 
+root@ubuntu-xenial:~# vi /etc/sensu/config.json
+{
+  "rabbitmq": {
+    "host": "localhost",
+    "vhost": "/sensu",
+    "user": "sensu",
+    "password": "secret"
+  },
+  "redis": {
+    "host": "localhost" 
+  },
+  "api": {
+    "port": 4567
+  }  
+}
+
+on demarre maintenant notre sensu-server et api :
+root@ubuntu-xenial:~# systemctl start sensu-server
+root@ubuntu-xenial:~# systemctl start sensu-api
+
+on peut consulter les logs de notre appli dans /var/log/sensu : on a les logs server et api
+
+on va maintenant configurer la partie client :
+comme tout se passe sur la même machinne pas de conf particuliere 
+on rentre un nom pour identifier notre client , son ip et la liste des subscriptions ( ensemble de checks)  auquels il va s'inscrire
+
+t@ubuntu-xenial:~# cat /etc/sensu/conf.d/client.json
+{
+  "client": {
+    "name": "SensuServer",
+    "address": "10.0.2.15",
+    "subscriptions": [
+     "Production" 
+    ] 
+  }
+}
+puison demarre notre service : 
+root@ubuntu-xenial:~# service sensu-client start
+root@ubuntu-xenial:~# systemctl status sensu-client
+● sensu-client.service - sensu client
+   Loaded: loaded (/etc/systemd/system/sensu-client.service; disabled; vendor preset: enabled)
+   Active: active (running) since Sun 2017-02-26 12:35:58 UTC; 12s ago
+ Main PID: 9987 (sensu-client)
+    Tasks: 24
+   Memory: 16.7M
+      CPU: 229ms
+   CGroup: /system.slice/sensu-client.service
+           └─9987 /opt/sensu/embedded/bin/ruby /opt/sensu/bin/sensu-client -c /etc/sensu/config.json -d /etc/sensu/conf.d -e /etc/sensu/extensions -p /var/run/sensu/sensu-client.pid -l /var/lo
+
+on installe maintenant uchiwa (directement via notre distrib : ubuntu et le repo qu'on a setté font le job ou alors sur uchiwa.io : le site du projet )
+root@ubuntu-xenial:~# apt-get install uchiwa
+on va modifier le ficher de conf de base d'uchiwa en renseignant les infos de notre conf : 
+
+root@ubuntu-xenial:~# cat /etc/sensu/uchiwa.json 
+{
+  "sensu": [
+    {
+      "name": "SensuServer",
+      "host": "localhost",
+      "port": 4567,
+      "ssl": false,
+      "path": "",
+      "user": "sensu",
+      "pass": "secret",
+      "timeout": 10
+    }
+  ],
+  "uchiwa": {
+    "host": "0.0.0.0",
+    "port": 3000,
+    "refresh": 10
+  }
+}
+
+on redemmare notre stack 
+root@SensuServer:/etc/sensu# service sensu-server restart && service sensu-api restart && sleep 2 && service uchiwa restart
+
+on peut desormais acceder a uchiwa en http://lcoalhost:3000
+
+root@SensuServer:/etc/sensu# curl -i http://localhost:3000/clients
+HTTP/1.1 200 OK
+Accept-Charset: utf-8
+Content-Type: application/json
+Date: Sun, 26 Feb 2017 19:25:07 GMT
+Content-Length: 297
+
+[{"_id":"SensuServer/SensuServer","address":"10.0.2.15","dc":"SensuServer","name":"SensuServer","output":"No keepalive sent from client for 23862 seconds (\u003e=180)","silenced":false,"status":2,"subscriptions":["Production","client:SensuServer"],"timestamp":1.488113238e+09,"version":"0.27.1"}]
+
+
+En recap on a donc une appli découpée en plusieurs briques : 
+
+Service 	  Runs On 	Description
+sensu-client  client 	Runs checks; reports results
+sensu-api     server 	API for programmatic interaction
+sensu-server  server 	Schedules checks; routes results
+redis         server 	Persistent key-value storage
+sensu-dashboard server  Visualizes results
+rabbitmq-server amq server  AMQP server
+
+On a tous les logs de splités : 
+tail –f /var/log/sensu/sensu-server.log
+tail –f /var/log/sensu/sensu-client.log
+
+on peut setter le log level de sensu dans /etc/defaut/sensu
+
+LOG_LEVEL=debug
+les autres valeurs sont warning et fatal 
+
+
+On peut redemarrer les services aussi de plusieurs manieres :
+cd /etc/systemd/system && systemctl restart sensu-*
+
+
+Validation de json :
+
+quand on edite un fichier json on peut toujours lui passer un tester de syntax comme ceci :
+
+exemple on rajoute une virgule a la fin de notre derniere valeur de hash : ce qui n'en prends pas normalement : en lancant le check on a donc une erreur :
+
+roo@SensuServer:/tmp# cat uchiwa.json |python3 -m json.tool
+Expecting property name enclosed in double quotes: line 12 column 5 (char 207)
+
+
+== Architecture : == 
+
+- rabbitmq :
+est central a sensu et est un message broker : il recoit les messages à un point d'echange, les met en queues et les passe à un consummer.
+Il recoit les instructions du server sensu sur les differents checks a executer , il place ces instructions dans une queue dans laquelle le client peut venir chercher ces infos.
+Le broker recoit aussi les resultats des checks envoyés par les clients, les place en queue et les met donc a dispostion du sensu server 
+
+La capacité d'envoyer les checks à une queue de soubscription est vraiment un avantage pour le deploiment de nouveaux clients.
+Un nouveau server doit juste s'accrocher à une queue qui va ainsi lui fournir les checks a executer.
+
+- sensu server : 
+c'est le cerveau: il sait quel type de checks doivent être executer en lisant les fichiers de configuration et est en charge du sheduling des checks.
+sensu server ecoute aussi la queue rabbitmq pour recuperer les resultats et les diriger vers les handlers corrects.
+ex : un hdd full à 80% va envoyer un mail , un hdd full  90% va envoyer un sms ...
+
+- sensu client :
+Le client est à l'ecoute de rabbimq et execute les checks quand il doit le faire . Il execute donc des scripts et renvoie le resultat à rabbitmq 
+On a aussi des scripts périodiques qui sont executés periodiquement sur le client sans ordre demandé par rabbitmq 
+Le resultat de ces checks est envoyé à rabbitmq exactement comme les autres checks.
+Le  resultat envoyé peut être le status du code retour ou d'autres info complementaires.
+
+NB sensu peut être packagé et embarquer toutes les applis (server , client , api , dashboard  .) mais seul le client devra être installer sur notre server client.
+
+- sensi api : api qui fourni un acess REST ( Representative State Transfer )
+
+-Redis : systeme de clé / valeur : sensu a la notion de stashes qui sont des données persistantes sous format json . Sensu utilise redis comme stockage d'informations sur les checks et les clients.
+
+
+= notes de configuration =
+
+Attention une configuration de ntp est utile pour nos applications.
+
+
+- rabbitmq : les commandes principales ont été vues dans l'installation en utilisadant l'utilitaire en cli :
+
+rabitmqctl 
+
+- sensu-client :
+
+toutes les arbo server et client sont identiques mais le client n'a juste besoin que de savoir comment contacter le rabbitmq , l'acces aux diffrents check qu'il devra executer  : ceci se passe dans le repertoire plugin ou sous forme de gem ruby 
+Quand sensu client demarre il examine d'abord le repertoire /etc/sensu/conf.d ..on peut donc organiser nos arbo comme on veut ..les fichiers primordiaux sont client.json et rabbitmq.json
+ 
+La cle de subscription visible dans notre conf client, defini quelle queue rabbitmq notre client va ecouter .
+ex :
+"client": {
+"subscriptions": [
+"os"
+],
+..
+ex ici quand le sensu server va demander à tous les clients abonnés à la queue "os" de checker leur espace disque, ils vont le faire.
+si notre server héberge un nginx alors il pourra egalement s'abonner a la queue webserver qui aura des check http a faire executer sur les clients.
+
+"client": {
+"subscriptions": [
+"os" "webserver" 
+],
+
+
+Les checks en standalone (sans schedling par le sensu server ) devront être dans /etc/sensu/conf.d/
+
+Le nom des queues est tout à fait personnel et on les creee quand on defini nos definitions de checks sur le sensu-server.
+mais avant cela il va falloir définir un élément important :
+
+EMBEDDED_RUBY :
+
+La plupart des checks executés sont en ruby 
+l'install de base embarque un ruby : 
+/opt/sensu/embedded/bin/ruby , les checks embarqués sont tous testés.
+ont peut donc execute nos checks ruby de deux manieres :
+1/ avec le rubyembarqué à l'install de sensu 
+2/ en utilisant le ruby dejà installé sur notre systeme .
+
+Il est possible de changer notre setting : utilisation ou nom du ruby embarqué en rajoutant un param dans le fichier de conf /etc/defaut/sensu
+/etc/default/sensu :
+EMBEDDED_RUBY=false
+A partir de la version 0.21 la valeur par defaut est à true
+
+
+- Sensu-server :
+
+sensu-server doit savoir ou trouver rabbitmq et connaitre les checks qu'il schedule, redis et les handlers  pour savoir ou diriger une action à faire.
+les  arbos importantes sont : 
+le repertoire checks /api.json 
+le repertoire handlers / rabbitmq.json redis.json 
+les repertoires extensions / handlers / mutators 
+
+Par defaut sensu-server va recupérer une données à la fois dans rabbitmq en cas de charge on peut augmenter ce nombre en modifiant la conf de notre broker rabbitmq.
+ex : 
+/etc/sensu/rabbitmq.json 
+{
+  "rabbitmq": {
+	"host": "203.0.113.1",
+	"user": "sensu",
+	"port": 5672,
+	"vhost": "/sensu",
+	"password": "secret",
+	"prefetch": 3
+		}
+}
+
+On va creer des checks  et des handlers dans les arbos suivantes  /etc/sensu/conf.d/checks et /etc/sensu/conf.d/handlers 
+
+
+On peut avoir plusieurs server sensu : on a par contre un master ( le premier qui demarre crée un lock dans redis). le master publie les checks, gere les keepalive 
+Le slave va recupérer les checks de rabbitmq en round rubin (avec le master )et va less envoyer vers les handlers.
+
+
+- Configuration de l'api :
+l'api sensu est exposée au dessus du framework leger sinatra : il est possible d'herberger l'api ailleurs que sur le server sensu . comme pour le server et le client on peut avoir plusieurs api deifferentes en place : il duffit des les déclarer 
+/etc/sensu/api.json
+{
+	"api": {
+	"host": "localhost",
+	"port": 4567,
+	}	
+}
+
+ on peut déclarer un user / mdp pour acceder à l'api :
+/etc/sensu/api.json
+
+{
+	"api": {
+		"host": "localhost",
+		"port": 4567,
+		"user": "api_user",
+		"password": "api_secret",
+	}
+}
+
+Attention ci notre api est configurée ailleurs que sur le serveur il faut s'assurer que la communication se fait bien avec rabbitmq et redis.
+Uchiwa est un outil de visualisation qui interreagi avec l'api
+
+- Redis :
+
+la config de redis est tres simple : le port suffit quasiment 
+
+/etc/sensu/conf.d/redis.json
+{
+"redis": {
+  "host": "localhost",
+  "port": 6379,
+  }
+}
+
+
+on peut ajouter de l'authent en configurant /etc/redis.conf
+ex 
+requirepass mysupersecretredispassword
+on pourra ensuite declarer notre appel dans le conf de redis sensu 
+ex :
+{
+"redis": {
+	"host": "localhost",
+	"port": 6379,
+	"password": "mysupersecretredispassword"
+	}
+}
+
+== Checks : ==
+
+Le job le plus important est la gestion des checks.
+Le check est composé en deux partie :
+-> check definition : doc json qui fourni les metadata relatives au check : commande et frequence .
+la commande est typiquement un script . qu'on va stocker dans le repertoire plugins
+Il y a trois types de check :
+-> standalone : les resultat sont envoyés au sensu server 
+-> regulier  : les checks sont planifiés par le sensu server 
+-> keepalive  : check d'etat de vie du node
+
+les codes retour de nos scripts sont standarts 
+
+2 > critical
+1 > warning
+0 > ok
+3 > unknow 
+
+
+= standalone : 
+ce sont les checks les plus simple : les serveurs executent une commande et envoient le resultat au rabbitmq. le serveur sensu ecoute la queue recupere les resultats les envoie au handlers
+Aucune conf n'est nécéssaire sur le server 
+les checks sont uniquement definis dans le rep /etc/sensu/conf.d
+ils se declarent eux même standalone en rajoutant la clé "stadalone"
+
+le client Sensu planifie les checks standalone avec un offset particulier 
+
+Exemple de check :
+
+on cree un check qui va générer un critical si on est lundi et un warning si on est vendredi :
+
+On cree la definition de notre check 
+
+/etc/sensu/conf.d/checks/day_check.json 
+{
+"checks": {
+	"day_check": {
+		"command": "check-day.sh",
+		"standalone": true,
+		"interval": 3600
+		}		
+	}	
+}
+
+on cree notre check 
+
+/etc/sensu/plugins/check-day.sh
+#!/bin/sh
+DAY=$(date '+%A')
+	if [ "$DAY" == "Monday" ]; then
+		echo "CRITICAL - It is Monday"
+		exit 2
+	elif [ "$DAY" == "Friday" ]; then
+		echo "WARNING - It is Friday"
+		exit 1
+	else
+		echo "OK - Just another day"
+		exit 0
+	fi
+
+
+
+
+Exemple 2 : creation d'une definition de check et d'un check testant la presence d'un fichier  :
+- definition de check : 
+root@SensuServer:/etc/sensu/conf.d# cat check_file.json 
+{
+  "checks": {
+    "check_file": {
+      "command": "/etc/sensu/plugins/check_file.sh",
+      "subscribers": [ "Production" ],
+      "interval": 5
+      }
+   }
+}
+- check : 
+
+root@SensuServer:/etc/sensu/plugins# cat check_file.sh 
+#!/bin/bash
+
+if [ -f "/temp/file" ]
+then
+    echo "file exists"
+    exit 0
+else 
+    echo "file is missing!"
+    exit 2
+fi
+
+
+
+
+Les avantages de ces checks :
+> pas de charge sur le server enterme de schedule et publication des requettes : tout est fait sur le serveur .
+on place  les checks de cette façon dont on veut connaitre parfaitement la frequence 
+
+les inconveniants :
+chaque modif de script doit être faite sur les serveurs en  local (il faut donc gérer via puppet ..etc ..)
+On by pass les soubscription et donc les organisations car on en utilise  pas avec les checks de ce type.
+En cas de souci avec le check sensu-server n'a aucune idee du souci .;sauf si le check de keealved ne repond plus 
+on ne peut pas aggreger les checks standalone .
+
+= keepalive = 
+sensu check regulierement que les clients sensu s'enregitrent regulierement : on a donc pas besoin de rajputer de check ping.
+les keepalive sont envoyés toutes les 20 secondes par les clients . Si un client ne s'est pas manifesté au bout de 120 secondes : on a un warning. Un crittical est levé a partir de 180 secondes .Ceci sont les configurations par defaut mais on peut les modifier : il faut le faire pour chaque client.
+ex: 
+/etc/sensu/conf.d/client.json 
+{
+"client": {
+	"subscriptions": [
+	"os"
+	]	,
+	"address": "203.0.113.2",
+	"name": "sensuclient.example.com",
+	"keepalive": {
+	"thresholds": {
+	"warning": 120,
+	"critical": 180
+	},
+  "handler": "default"
+  }
+ }
+}
+
+Il est egalement possible de modifier les handlers des checks keepalive si l'on veut.
+ex :
+on rajoute ce type de ligne dans le fichier de conf du client :
+
+"handlers": [ "default", "myhandler" ] 
+
+Rabbitmq  hearthbeat :
+rabbitmq de base à un hearthbeat situé à 600secondes.
+on peut le verifier avec la commande :
+rabbitmqctl environment
+Il est possible de definir une conf particuliere dans :
+ex: 
+/etc/rabbitmq/rabbitmq.config
+[
+	{rabbit, [
+		{heartbeat,119},
+		...
+	]}
+]
+
+= Checks "normaux" = 
+la particularité de sensu est de permettre aux clients de s'abonner à certains groupes de checks.
+Ces checks ont leur definition de configurés sur le server sensu.
+Il va regulierement publier ces definitions de checks dans le rabbitmq .
+Les clients qui ecoutent la queue vont recevoir la definition du check et ensuite executer en local le check / plugin et renvoyer le resultat du code à rabbitmq 
+
+Quand on definit un check on doit donc se demander :
+-> est ce que les checks / plugins qu'ont va utiliser sur le client existent dejà ( consulter les checks de la communauté sensu ) et les checks nagios.
+-> quel groupe de server vont executer le check : on doit juste definir la conf correcte dans la partie subscriptiuons de /etc/sensu/conf.d/client.json
+-> que va--il se passer à la reception d'une alerte : mail, sms .. c'est la qu'on dva definir nos handlers.
+-> a quelle frequence devra t on executer le script : c'est la session interval 
+
+ex : check de conso memoire :
+
+
+{
+"checks": {
+	"free_ram": {
+		"command": "check-ram.rb",
+		"subscribers": [
+		"webservers"
+		]		,
+		"handlers": [
+			"default"
+		],
+		"interval": 60
+		}
+	}		
+}
+
+
+- Overriding de param / substitutions.
+
+Il est bien entendu classique de recevoir une alerte quand on depasse un certain seuil. Il est cependant possible de fixer des seuils particulier pour certains nodes en overridant la config
+grace à des tokens de commandes de substitution 
+La  definition du check fourni des valeurs par  defaut mais on peut les overrider.
+ex: 
+/etc/sensu/conf.d/checks/free_ram.json
+
+{
+"checks": {
+	"free_ram": {
+		"command": "check-ram.rb",
+		"subscribers": [ "os" ],
+		"interval": 60
+		}	
+	}
+}
+
+Quand on examine le check-ram.rb on voit les seuils settes :
+ici on voit qu'on a un warning quand il reste 10% de ram dispo et un critical a 5%
+/etc/sensu/conf.d/checks/free_ram.json
+{
+"checks": {
+    "free_ram": {
+        "command": "check-ram.rb -w 10 -c 5",
+        "subscribers": [ "os" ],
+        "interval": 60
+    }
+}
+
+Pour pouvoir overrider la conf dans le client on va modifier la syntaxe :
+on rajoute ":::" ce  qui va correspondre à quelque chose dans la conf client 
+et va recuperer la valeur par defaut si rien n'est recupérer dans la conf client :
+
+/etc/sensu/conf.d/checks/free_ram.json
+{
+"checks": {
+	"free_ram": {
+		"command": "check-ram.rb -w :::params.ram.warning|10::: -c :::params.ram.critical|5:::",
+		"subscribers": [ "os" ],
+		"interval": 60
+			}
+	}
+}
+
+Pour overrider la conf dans le client on va donc setter des param qui corespondront à la definition du check 
+/etc/sensu/conf.d/client.json 
+
+{
+"client": {
+		"name": "sensuclient.example.com",
+		"subscriptions": [
+		"os", "webservers"
+		],
+		"address": "203.0.113.2",
+		"params": {
+			"ram": {
+				"warning": 20,
+				"critical": 10
+				}
+			}
+		}		
+}
+
+Quand le client sensu parcoure le check il voit params.ram.warning et prend donc la valeur défini au lieu de celle par defaut définie dans  le check. idem pour la valeur critical.
+Le check va donc être : check-ram.rb -w 20 -c 10
+
+Il faut garder à l'eprit que sensu est malleable et que les  param de substitution sont tres pratiques . On peut mettre le nom que l'on veut ici params mais ce n'est pas une obligation : il est important de garder du sens cependant.
+
+On peut également definir des commandes par défaut : ex si on a une commande particuliere pour notre ram on peut la définir sinon fallbacker sur une de base.
+
+ex :
+/etc/sensu/conf.d/checks/free_ram.json
+{
+"checks": {
+	"free_ram": {
+		"command": ":::ramcheck|check-ram.rb:::",
+		"subscribers": [ "os" ],
+		"interval": 60
+		}
+	}
+}
+
+/etc/sensu/conf.d/client.json
+{
+"client": {
+	"name": "sensuclient.example.com",
+	"subscriptions": [
+	"os", "webservers"
+	],
+	"address": "203.0.113.2",
+	"ramcheck": "other-ram-check.sh"
+	}
+}
+
+-  Password et données sensibles :
+
+On a une obligation de ne pas faire transiter de données sensibles.
+Sensu a un mecanisme de protection de "redaction" (suppression ) des infos sensibles.Ceci se fait de base pour :
+
+access_key
+api_key
+api_token
+pass
+passwd
+password
+private_key
+secret
+secret_key
+
+Des clés additionnelles peuvent être ajoutées dans notre client.json 
+L'instruction redact est obligatoire . Ex on ajoute des données sensible entre la clé redact 
+{
+"client": {
+	"name": "sensuclient.example.com",
+	"subscriptions": [
+	"os", "webservers"
+	],
+	"address": "203.0.113.2",
+	"redact": [
+		"secret_banana",
+		"passcode"
+		]
+	}
+}
+
+Dans les logs les infos supprimées seront flagguées "REDACTED"
+
+- Safe mode :
+
+sensu permet de setter un param de safe mode qui prend en valeur un booleen 
+
+/etc/sensu/conf.d/client.json
+{
+"client": {
+	"name": "sensuclient.example.com",
+	"safe_mode" : true,
+	"subscriptions": [
+	"os", "webservers"
+	],
+	"address": "203.0.113.2",
+	}
+}
+
+Si on set un safe-mode a false : le check s'execute .Si on le set a true : le chec kne s'execute que si la definition du check est présente sur le server ET sur le client.
+Si ce n'est pas le cas sensu renvoi un code d'erreur 3 et une sortie de type : "Check is not locally defined (safe mode)."
+
+Cette option permet de s'assurer que les checks correctement declarés sont correctement executés.
+NB que cette option n'est pas prise en compte sur un serveur et un client présent sur la même machinne.
+Idem pour les checks en standalone : ceci n'est pas pri en compte.
+*
+
+- Aggregation de checks :
+
+Il est possible de vouloir recevoir une multitude d'infos pour un check afin par exemple d'assurer le provisionning correct.
+ex : si on veut connaitre la charge de nos dbs et qu'on voit qu'elles sont toutes à 90% de cpu on va pouvoir planifier de l'ajout 
+
+etc/sensu/conf.d/checks/load_check.json
+
+{
+"checks": {
+	"load_check": {
+		"command": "check-load.rb -w 10,20,30 -c 25, 50, 75",
+		"subscribers": [ "databases" ],
+		"interval": 60,
+		"aggregate": true,
+		"handle": false
+		}
+	}
+}
+
+
+On voit ici  qu'on a à la fois l'option handle à false : on ne veut pas faire executer d'actions supplementaires 
+L'option aggregate est elle à true : on va dans ce cas enregistrer de maniere persistante dans redis le resultat pour une consultation future.
+NB : les checks en standalone ne fonctionnent pas en aggregate : en effet les checks fait par les clients ont tous des timestamp differents
+
+Les  aggregés eux se stockent dans le redis en fonction du nom du check et d'un timestamp unique.
+voir aggregate_check_result() dans process.rb
+
+Les resultats stockés  dans redis vont ensuite  (à partir du deuxieme check) être executés par un autre check sensu/check-aggregate.rb" qui lui va evaluer les resultats stockés dans redis :
+
+on a donc un check dedié pour notre load qui va permettre l'execution du check aggregé et recupérer les données stockées dans redis : 
+
+/etc/sensu/cond.d/checks/aggregate_load_check.json
+{
+"checks": {
+	"aggregate_load_check": {
+		"command": "check-aggregate.rb -c load_check -W 75 -C 90",
+		"subscribers": [ "decisionmaker" ],
+		"interval": 300,
+		"handlers": [
+		"irc", "database_spinner_upper"
+		]
+	}
+}
+}
+Ce check va être executé par les servers abonnées à la file "decisionmakert" : a priori seul le sensu server.
+> le script executé check-aggregate.rb -c load_check -W 75 -C 90 ne le sera donc en principe fait que depuis une machine puisque nous voulons uniquement un seul check aggregé.
+
+Attention les seuils (threshold) ont un sens particulier dans les checks d'aggregat 
+Ex : un warning de 75% en aggregé indique que 75% des serveurs hébergeant le check ont donc reppondu a un code retour different de 0 : donc ils ont une load en warning ou critical pour 75% d'netre eux .
+
+Si 90% des serveurs ont un code retour deifferent à 0 alors sensu levera une alerte critical.
+
+Dans notre exemple :sensu va envoyér en cas d'alerte un message sur un canal irc et demarrer un demarrage auto de bdd ( database_spinner_upper) pour soulager la charge.
+
+Clean des données agregées :
+les datas recoltées et aggrégées sont purgées toutes les 20secondes par le server sensu et il conserve les 20 derniers resulats de check aggregés.
+
+- Check auto-documentés :
+
+Comme differentes clés valeurs peuvent être définies dans les checks : ont peut définir des tips qui pourront aider lors  d'astreinte ou autre ../etc/sensu/conf.d/checks/legacy_database_check.json :
+
+{
+checks": {
+	"legacy_database_check": {
+		"command": "check_foxpro.rb",
+		"handler": "mailer",
+		"subscribers": [ "antiqueservers" ],
+		"interval": 60,
+		"playbook": "Before restarting the legacy database server, make sure no on\
+		e is using the microwave or you will trip the circuit breaker."
+		}	
+	}
+}
+Dans cet exemple le keyword "playbook" est specific au handler "mailer"
+
+On voit ici qu'on peut ajouter des infos additionnelles dans nos definitions de check et que ces infos sont donc  consultables par nos handlers ( après une configuration )
+
+
+- Utilisateur privilégié :
+
+quand le client sensu execute un check et doit le lancer avec un user particulier : une conf additionnelle doit être mise en place dans le sudoers 
+
+exemple : 
+/etc/sudoers.d/sensu
+Defaults:sensu !requiretty
+Defaults:sensu secure_path = /usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin\
+:/usr/bin
+sensu ALL = NOPASSWD: /etc/sensu/plugins/mycheck.rb
+
+
+==== Metrics ====
+
+Les checks renvoient un code retour : ils peuvent aussi renvoyer un flux vers la sortie standart . Un check qui renvoie une donnée structurée sur la sortie standart et un code retour toujours egal à 0 est associé à unb type "metric" dans sensu.
+Son but n'est pas de lever une alerte mais de rediriger les données vers sensu server qui lui même pourra router vers un outil de graphage.
+ 
+Les checks de metric peuvent être soit de type standalone executés par le client soit publiés par le server sensu dans une file rabbitmq et executé à interval régulier par les clients à l'ecoute de cette file. 
+exemple : la sortie de cette commande va nous afficher la valeur de la charge de la machinne les 15 dernieres minutes 
+uptime | awk '{ print $(NF) }'
+1.54
+On pourra don creer un check de metric de ce type :
+
+/etc/sensu/conf.d/checks/load_check_15_min.json
+{
+"checks": {
+	"load_check_15_min": {
+		"command": "uptime | awk '{ print $(NF) }'",
+		"subscribers": [ "os" ],
+		"interval": 60,
+		"type": "metric",
+		"handler": "default"
+		}
+	}
+}
+
+On note ici forcement que le code retour sera toujours 0 et que la commande renverra toujours une valeur . Nous n'avons donc pas de notion d'alerting.
+On se contente donc d'ajouter un type "metric" dans la definition de notre check.
+
+Il est aussi possible d'envoyer des metrics au client sensu : il faut qu'elles soient en format json et envoyées en udp sur le port 3030 : le port d'ecoute par defaut du client sensu.
+
+Exemple : il est possible d'envoyer une notification de commit dans sensu 
+on a deux composants qui rentrent en ligne de compte :
+le post-commit subversion par exemple qui va formatter le message
+le plugin sensu qui va creeer et pousser l'event vers le sensu client sur le port 3030
+
+1/ creation d'un post commit : qui va donc être executé apres un commit réussi :
+
+ex : creation d'un script 
+Subversion post-commit hook: /var/www/svn/example/hooks/post-commit
+
+#!/bin/sh
+# Subversion passes in repository path
+# and revision number.
+
+REPOS="$1"
+REV="$2"
+
+# svnlook is a utility that queries the repository.
+SVNLOOK=/usr/bin/svnlook
+AUTHOR=$($SVNLOOK author -r $REV $REPOS)
+LOG=$($SVNLOOK log -r $REV $REPOS)
+CHANGED=$($SVNLOOK changed -r $REV $REPOS | wc -l)
+REPONAME=$(basename $REPOS)
+MESSAGE="$AUTHOR commit to $REPONAME $REV $LOG Changed files: $CHANGED "
+
+# Call the Sensu plugin.
+/etc/sensu/plugins/svn-commit.rb "$MESSAGE
+
+celui-ci doit être executable :
+$ ls -l /var/www/svn/example/hooks/post-commit
+-r-xr--r--. 1 apache apache Nov 5 20:58 /var/www/svn/example/hooks/post-commit
+
+2/ Plugin sensu pour pousser l'event vers le sensu client :
+
+Le plugin suivant va donc recupérer le texte du commit puis l'envoyer au client sensu sur le port 3030 puis  dans la queue rabbitmq pour q'il soit gérer par le sensu server egalement :
+/etc/sensu/plugins/svn-commit.rb
+
+#!/usr/bin/env ruby
+
+require 'rubygems' if RUBY_VERSION < '1.9.0'
+require 'socket'
+require 'json'
+
+s = TCPSocket.new 'localhost', 3030
+json = {
+	'name' => 'svn',
+	'output' => ARGV[0],
+	'status' => 0,
+	'type' => 'metric',
+	'handlers' => ['irc']
+}.to_json
+
+s.puts json
+s.close
+Les clés name, output et status sont obligatoires pour que le client recoivent le flux.
+On flaggue ensuite le type metric car le code retour d'un commit est toujours 0 donc pas de warning ni critical.
+On precise a la fin un handler pour rediriger l'event.
+Les checks qu'ont envoient vers le port 3030 doivent avoir une definition de handler explicite (contrairement au checks normaux et standalone )
+
+On a donc pour résumer :
+1/ un commit
+2/ un post commit qui cree le message et l'envoie au plugin sensu
+3/ le message est formatté en json puis envoyé au sensu client
+4/ le sensu client inspect la validité du format json puis envoie le message dans la file rabbitmq
+5/ le server sensu recupere le message et le passe au handler
+6/ le client irc post le message 
+ex : jvandyk commit to example 384 Replaced all foos with bars for better performance. Changed
+files: 4
+
+on peut examiner la façon donc c'est gérer en regardant : /lib/sensu/socket.rb
+
+
+=== Handlers ===
+
+Les handlers recuperent les infos en provenance des checks, checks standalone et metrics.
+Il y a deux parties à configurer : la definition du handler et la conf du handle lui-même (comme pour les checks ou on a une definition de checks et checks en lui même)
+
+On peut placer les conf de handlers par exemple dans cette arbo :
+/etc/sensu/conf.d/handlers en donnant un nom assez explicite 
+exemple ici on creer un handler de type pipe qui redirigera la sortie d'un script shell vers le json de sensu :
+
+/etc/sensu/conf.d/metric_to_file.json
+{
+	"handlers": {
+	"metric_to_file": {
+		"type": "pipe",
+		"command": "/etc/sensu/handlers/metric_to_file.sh"
+		}
+	}
+}
+A noter que le nom de notre handler devra être celui que l'on a inscrit dans notre  définition de handler : 
+"handler": "metric_to_file"
+
+
+Type de handlers : 
+sensu embarque differents type de handlers pour couvrir le maximum de besoin , la notion d'extension de handler existe aussi notamment pour le server sensu afin de reduire la charge liée à la multiplication de fork de process de handlers à gerer en cas de beaucoup d'evenements.
+
+-debug handler :
+comme son nom l'indique ce handler va recupérer les flux et les envoyer dans les logs : 
+/var/log/sensu/sensu-server.log
+
+- pipe handler :
+ce handler utilise une commande ruby popen pour lancer une nouvelle commande et envoyer le flux json de nos events sensu vers elle. Typiquement nos handlers seront en ruby et utiliseront une classe Sensu:handler . Nos handlers peuvent aussi être de diffrents type (python, php ..)
+La classe Sensu:handler est disponible dans le gem sensu plugin
+
+Attention le sensu-plugin doit être disponible pour le binaire ruby qui execute le plugin. Si on utilise le ruby embarqué donc le setting true dans /etc/defalut/sensu -> EMBEDED_RUBY = true : pas de souci.
+Sinon il faudra vérifier les gems installés et proceder si besoin à l'install : 
+gem list 
+sudo gem install sensu-plugin
+
+Exemple de handlers :
+
+ruby : 
+Ruby pipe handler. /etc/sensu/handlers/example_handler.rb
+
+class ExampleHandler < Sensu::Handler
+  # Override filters from Sensu::Handler.
+  # Not used for metric handlers.
+  def filter; end
+    # Override handler from Sensu::Handler.
+    def handle
+      metric = @event['check']['output']
+      File.open("/var/log/sensutest.log", 'a+') {|f| f.write(metric) }
+    end
+end
+
+bash :
+ici on reprend l'exemple de la metric du load des 15 dernieres minutes qu'on envoie dan un handler en shell qui poussera le tout dans un fichier de log :
+
+Check definition for bash pipe handler. /etc/sensu/conf.d/checks/load_check_15_min.json
+{
+"checks": {
+  "load_check_15_min": {
+    "command": "uptime | awk '{ print $(NF) }'",
+    "subscribers": [ "os" ],
+    "interval": 60,
+    "type": "metric",
+    "handler": "metric_to_file"
+    }
+  }
+}
+
+notre handler : 
+/etc/sensu/handlers/metric_to_file.sh
+
+#!/bin/bash
+# Read event data piped from Sensu into $sensu_event
+# variable.
+read sensu_event
+
+# Parse JSON.
+json=$(echo $sensu_event | tokenize | parse)
+
+# Get value of the output key.
+value=$(echo "$json" | awk -F '"' \
+'/^\["check","output"\]/ { print $6 }')
+
+# Write metric value to a file.
+echo "$value" >> /var/log/sensutest.log
+
+- python :
+
+la version de notre handler bash cette fois en python :
+on voit que le handler de type pipe utilise la commande python :
+/etc/sensu/conf.d/handlers/metric_to_file.json
+{
+	"handlers": {
+		"metric_to_file": {
+		"type": "pipe",
+		"command": "/etc/sensu/handlers/metric_to_file.py"
+		}
+	}
+}
+
+la definition de notre check reprend le même nom de handler :
+{
+"checks": {
+  "load_check_15_min": {
+    "command": "uptime | awk '{ print $(NF) }'",
+    "subscribers": [ "os" ],
+    "interval": 60,
+    "type": "metric",
+    "handler": "metric_to_file"
+    }
+  }
+}
+Notre handler va recevoir les flux du sensu server et rediriger la valeur dans un fichier de log : 
+
+#!/usr/bin/env python
+import sys
+import json
+
+# Read event data piped from Sensu into $sensu_event
+# variable.
+sensu_event = sys.stdin.readlines()
+
+# Parse event into Python dictionary.
+parsed_event = json.loads(sensu_event[0])
+
+# Get value of the output key.
+metric = parsed_event['check']['output']
+
+# Write metric value to a file.
+f = open('/var/log/sensutest.log', 'w')
+f.write(metric)
+f.close
+
+- Testing pipe handler :
+il est possible de tester nos handlers de type pipe en envoyant un event sensu directement vers eux :
+
+cat event.json | /etc/sensu/handlers/my_handlers.rb
+
+
+- TCP handlers :
+
+sensu utilise la methode EM:connect() pour executer les handlers tcp.Il faut juste definir le host et le port vers lequel sensu va envoyer les events.
+exemple : 
+TCP handler definition. /etc/sensu/conf.d/handlers/tcp_logstash.json
+{
+	"handlers": {
+		"tcp_logstash": {
+		"type": "tcp",
+		"socket": {
+		"host": "127.0.0.1",
+		"port": 5122
+			}
+		}
+	}
+}
+
+Biensur il faut sur le host distant un process qui ecoute sur le port dédié et accepte le json en entrée.
+exemple complet de fichier pour logstash qui ecrit les logs recu de sensu et les envoie egalement dans elasticsearch : 
+/etc/logstash/example.conf
+# Listen for JSON coming in from Sensu.
+input {
+	tcp {
+	port => 5122
+	codec => "json"
+	}
+}
+# Write events to a file.
+output {
+	file {
+		path => "/var/log/logstash/sensu_incoming.log"
+		}
+	}
+# Hand to Elasticsearch for indexing.
+output {
+	elasticsearch {
+		codec => "json"
+		}
+}
+
+
+
+exemple creation d'un handler tcp :
+1/ sur une console on lance un netcat en ecoute sur le port 6000 :
+
+root@SensuServer:~# netcat -l -4 -p 6000
+
+On va ensuite devoir modifier la config de notre sensu server en rajoutant une ligne dans la section api faisant refenrence à localhost pour avoir un fonctionnement correct :
+
+root@SensuServer:/etc/sensu# cat config.json 
+{
+  "rabbitmq": {
+    "host": "localhost",
+    "vhost": "/sensu",
+    "user": "sensu",
+    "password": "secret"
+  },
+  "redis": {
+    "host": "127.0.0.1" 
+  },
+  "api": {
+    "host": "localhost",
+    "port": 4567
+  }  
+}
+
+
+Creation maintenant du handler :
+root@SensuServer:/etc/sensu/conf.d# cat handler_tcp.json
+{
+  "handlers": {
+    "handler_tcp": {
+      "type": "tcp",
+      "socket": {
+        "host": "localhost",
+        "port": 6000
+        }
+    }
+  }
+}
+
+on va maintenant modifier notre check prealable "check_file.json" pour rajouter la section handler :
+
+{
+  "checks": {
+    "check_file": {
+      "command": "/etc/sensu/plugins/check_file.sh",
+      "subscribers": [ "Production" ],
+      "interval": 5,
+      "handler": "handler_tcp"
+      }
+   }
+}
+on restart notre service :
+root@SensuServer:/etc/sensu# service sensu-server restart && service sensu-api restart && service sensu-client restart && service uchiwa restart
+
+on a immediatement sur la fenetre du netcat un message apres la suppression du fichier /tmp/file :
+
+root@SensuServer:~# netcat -l -4 -p 6000
+{"client":{"name":"SensuServer","address":"10.0.2.15","subscriptions":["Production","client:SensuServer"],"version":"0.29.0","timestamp":1493543637},"check":{"command":"/etc/sensu/plugins/check_file.sh","subscribers":["Production"],"interval":5,"handler":"handler_tcp","name":"check_file","issued":1493543639,"executed":1493543639,"duration":0.01,"output":"file is missing!\n","status":2,"type":"standard","history":["0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","2"],"total_state_change":6},"occurrences":1,"occurrences_watermark":1,"action":"create","timestamp":1493543639,"id":"1dbca2e8-964b-4f05-9963-f4c358c09c14","last_ok":1493543639,"last_state_change":1493543639,"silenced":false,"silenced_by":[]}root@SensuServer:~# 
+
+
+Exemple de handler pour pager duty :
+
+il nous faut installer des prerequi :
+
+root@SensuServer:/etc/sensu# apt-get install ruby ruby-dev make
+
+on peut donc ensuite installer le plugin pagerduty pour sensu : 
+root@SensuServer:/etc/sensu# gem install sensu-plugins-pagerduty
+Fetching: pagerduty-2.1.0.gem (100%)
+If upgrading to pagerduty 2.0.0 please note the API changes:
+https://github.com/envato/pagerduty#upgrading-to-version-200
+Successfully installed pagerduty-2.1.0
+Fetching: sensu-plugins-pagerduty-2.2.0.gem (100%)
+You can use the embedded Ruby by setting EMBEDDED_RUBY=true in /etc/default/sensu
+Successfully installed sensu-plugins-pagerduty-2.2.0
+Parsing documentation for pagerduty-2.1.0
+Installing ri documentation for pagerduty-2.1.0
+Parsing documentation for sensu-plugins-pagerduty-2.2.0
+Installing ri documentation for sensu-plugins-pagerduty-2.2.0
+Done installing documentation for pagerduty, sensu-plugins-pagerduty after 0 seconds
+2 gems installed
+
+
+NB : on peut obtenir une bonne liste de plugins sur 
+http://sensu-plugins.io/plugins
+ 
+On va donc ici apres avoir recupére une cle d'api configurer notre handler de la maniere suivante , en specifiant comme evenements à notifier les critical et ok dans pagerduty :  
+root@SensuServer:/etc/sensu/conf.d# cat handler_pagerduty.json
+{
+ "pagerduty": {
+    "apikey": "dzfzfzdfzezfzfzblabla"
+    },
+   "handlers": {
+      "pagerduty": {  
+         "type": "pipe",
+          "command": "handler-pagerduty.rb",
+          "severities": [
+              "critical",
+              "ok" 
+              ]
+        }
+    }
+}
+
+on va maintenant modifier notre chek pour lui ajouter notre handler pagerduty :
+on rajoute deux elements : occurence : le nombre de fois à partir duquel l'alerte doit être levée : on met ici 1 : des a premiere alerte on doit être prevenu et on rajoute la param refresh : le delai qu'on souhaite entre l'envoi de la seconde notification pour l'alerte : pour l'exemple on met 1 seconde mais il ne sert à rien de se faire flooder en continue tant que le probleme n'est pas reglé.
+
+root@SensuServer:/etc/sensu/conf.d# cat check_file.json 
+{
+  "checks": {
+    "check_file": {
+      "command": "/etc/sensu/plugins/check_file.sh",
+      "subscribers": [ "Production" ],
+      "interval": 5,
+      "handler": "pagerduty",
+      "occurence": 1,
+      "refresh": 1
+      }
+   }
+}
+
+
+
+
+- UDP handler : le fonctionnement est identique au tcp mais biensur il n'y a pas de garantie de reception de message de part la nature même de udp :
+ex : 
+/etc/sensu/conf.d/handlers/udp_logstash.json
+{
+	"handlers": {
+		"udp_logstash": {
+			"type": "udp",
+			"socket": {
+				"host": "127.0.0.1",
+				"port": 5123
+			}
+		}
+	}
+}
+
+
+- Transport handler :
+Le handler de type  transport envoie les messages au systeme de message queuing que sensu utilise (typiquement rabbitmq) 
+Il est même possible d'enboyer directement à un autre rabbitmq ou à un autre systeme de queing qui ecoute et a un consummer pour archiver des messages par exemple.
+
+/etc/sensu/conf.d/handlers/amqp_archiver.json
+{
+	"handlers": {
+		"amqp_archiver": {
+			"type": "transport",
+		"exchange": {
+		"name": "archive_exchange",
+		"type": "direct",
+		"routing_key": "archive"
+			}
+		}	
+	}
+}
+
+ici lenom amqp_archiver est la clé utilisée par sensu ; le type transport permet de définir que ce handler sera donc  de type transport.
+Ici la clé exchange va donner des infos sur  la queue de transport ici name type et routing_key seront donc des infos supplementaires 
+
+
+- Handlers set :
+
+il est possible d'envoyer des alertes, metriques etc à plusieurs handlers.
+/etc/sensu/conf.d/checks/load_check_15_min.json
+{
+	"checks": {
+		"load_check_15_min": {
+			"command": "uptime | awk '{ print $(NF) }'",
+			"subscribers": [ "os" ],
+			"interval": 60,
+			"type": "metric",
+			"handlers": [ "a_handler", "another_handler" ]
+			}
+	}
+}
+
+cependant il est souvent plus pratique de regrouper les handlers ensemble dans une section definie : handler set :
+/etc/sensu/conf.d/handlers/handler_sets.json
+{
+	"handlers": {
+		"my_handler_set": {
+		"type": "set",
+		"handlers": [
+		"a_handler",
+		"another_handler"
+			]
+		}
+	}	
+}
+
+On aura donc juste à mofifier l'entree de notre handler dans la definition de notre check :
+
+
+/etc/sensu/conf.d/checks/load_check_15_min.json
+{
+	"checks": {
+		"load_check_15_min": {
+			"command": "uptime | awk '{ print $(NF) }'",
+			"subscribers": [ "os" ],
+			"interval": 60,
+			"type": "metric",
+			"handlers": [ "my_handler_set" ]
+			}
+	}
+}
+You can easily add the debug handler to a handler set in order to observe the events being sent to
+the handler set.
+
+
+=== Filters === 
+
+sensu permet d'utiliser des filtres pour gérer les messages arrivant en utilisant des attributs.
+on peut combiner ces filtres avec les handlers pour avoir une gestion fine.
+
+- filtrage des handlers : il est possible de definir finement quoi faire lors de la reception d'un message.
+on peut utiliser le keyword filter ou utiliser la methode Sensu::Handler ici du sensu-plugin.Une troisieme forme est en cours de dev et elle est basée sur le timestamp de l'evenement.
+
+- Attributs de filtres : il est possible de définir des filtres sur la valeur des events recus.Il est possible de definir des type dans un fichier de type : /etc/sensu/conf.d/filters.json par exemple.On va donc definir des clé valeur qui seront en fonction de leur presence ou pas dans l'event traités ou pas.
+exemple : ici on ne va agir que pour la presence d'un node particulier :
+
+
+/etc/sensu/conf.d/filters.json
+{
+	"filters": {
+		"only_rumpelstiltskin": {
+			"attributes": {
+			"client": {
+			"name": "rumpelstiltskin"
+					}			
+			}
+		}	
+	}
+}
+ici on a dont un filtrer nommé : only_rumpelstiltskin qui donc sera activé à true quand le name rumpelstiltskin sera trouvé dans l'event d'un client.
+On va donc pouvoir ensuite combiner avec un handler en settant notre filtre créee :  
+/etc/sensu/conf.d/metric_to_file.json
+{
+	"handlers": {
+		"metric_to_file": {
+		"type": "pipe",
+		"filter": "only_rumpelstiltskin",
+		"command": "/etc/sensu/handlers/metric_to_file.sh"
+		}
+	}
+}
+la commande ne  sera executée que pour le node matchant dans notre filtre.
+
+- Filtre negatif :
+Il est possible de ne pas  executer une action si un flag de filtre particulier est détecté.
+
+Pour reprendre l'exemple précedent on va definir une section specifique pour les nodes differents de notre serveur précedent.
+{
+	"filters": {
+		"only_rumpelstiltskin": {
+			"attributes": {
+				"client": {
+				"name": "rumpelstiltskin"
+				}
+			}
+		}
+"all_but_rumpelstiltskin": {
+		"negate": true,
+			"attributes": {
+			"client": {
+				"name": "rumpelstiltskin"
+				}
+			}		
+		}
+	}
+} 
+
+Le nom de notre filtre negatif sera repri dans notre handler : donc ici notre event sera traité pour tous les nodes matchant dans le filtre "all_but_rumpelstiltskin" : donc tous sauf rumpelstiltskin
+
+/etc/sensu/conf.d/metric_to_file.json
+{
+	"handlers": {
+			"metric_to_file": {
+				"type": "pipe",
+				"filter": "all_but_rumpelstiltskin",
+				"command": "/etc/sensu/handlers/metric_to_file.sh"
+			}
+		}
+}
+
+- Filtrage sur les environments :
+
+Il va être tout a fait possible d'ajuster nos handlers à partir de filtre sur l'environment (dev/ staging/ production ..)
+exemple ici on a un node qui est flaggé en production : 
+/etc/sensu/conf.d/client.json
+{
+	"client": {
+		"subscriptions": [
+		"os"
+		],
+		"address": "203.0.113.2",
+		"name": "sensuclient.example.com",
+		"environment": "production"
+		}
+}
+
+on peut donc avoir un filtre qui ne va gérer que les events des nodes en production :
+
+/etc/sensu/conf.d/filters.json
+{
+	"filters": {
+		"only_production": {
+		"attributes": {
+			"client": {
+			"	environment": "production"
+					}
+			}
+		}	
+	}
+}
+on pourra donc utiliser le filtre defini pour le passer à un handler qui ne traitera que les nodes dédiés : 
+
+/etc/sensu/conf.d/metric_to_file.json
+{
+	"handlers": {
+		"metric_to_file": {
+			"type": "pipe",
+			"filter": "only_production",
+			"command": "/etc/sensu/handlers/metric_to_file.sh"
+			}
+	}
+}
+
+
+exemple de filtre : 
+pour l'exemple  on rajoute un attribut "QA" à notre client et on rajoute un filtre production que l'on cree : 
+
+root@SensuServer:/etc/sensu/conf.d# cat  client.json 
+{
+  "client": {
+    "name": "SensuServer",
+    "address": "10.0.2.15",
+    "subscriptions": [
+     "Production" 
+    ], 
+    "environment": "QA"
+  }
+}
+
+
+root@SensuServer:/etc/sensu/conf.d# cat filter_production.json
+{
+  "filters": {
+    "filter_production": {
+      "attributes": {
+        "client": {
+          "environment": "Production"
+        }
+      }
+    }
+  }
+}
+
+on associe maintenant notre filtre dans notre handler par exemple pagerduty :
+
+root@SensuServer:/etc/sensu/conf.d# cat handler_pagerduty.json 
+{
+ "pagerduty": {
+    "apikey": "dzfzfzdfzezfzfzblabla"
+    },
+   "handlers": {
+      "pagerduty": {  
+         "type": "pipe",
+          "command": "handler-pagerduty.rb",
+          "severities": [
+              "critical",
+              "ok" 
+              ]
+          "filter": "filter_production"
+        }
+    }
+}
+on a donc  donc cree un check qui ne va reagir que sur les nodes filtres avec la conf environment Production : notre node est flaggué en QA donc aucune alerte n'est levée quand notre check tombe en erreur .
+
+
+
+Il est tout a fait possible d'utiliser des formes négatives aussi. 
+L'idée est de savoir qu'on peut utiliser des attributs defini pour notre client et ensuite adapter les comportements à nos besoins.
+
+- Methode de filtre dans les handlers 
+si un handler est une sous classe de sensu-plugin/lib/sensu-handler.rb alors il héritera automatiquement des filtres qui fonctionne avec la fonction filter.
+Si un filtre decouvre q'un event ne doit pas être géré alors il executera la fonction bail et finira avec un status de code retour à 0
+
+->filter_disabled :  il n'y a pas de  filtrage si les clés sont settées à ['check']['alert'] key is false
+->filter_repeated : exemple ici on ne traitera pas un event s'il apparait trop souvent et qu'il ne doit être traiter q'a la 5eme occurence
+->filter_silenced : ici l'event ne sera pas traité si un flag silence a été posé sur le node.
+->filter_dependencies : ici nous n'auront pas d'action si un event ko a une dependance avec un autre check  deja ko.
+-> utilisation d'un mutator pour bypasser un handler : si un mutator a un code retour different de 0 alors le handler ne s'executera pas.
+
+=== Mutator === 
+
+un mutator va permettre de fournir une data transformées prvenant d'un event sensu à une handler : il s'agit souvent d'un formattage de données.
+Il y a deux types de mutators :
+-> pipe mutator : recoit les données sur l'entrée standart , transforme et envoie sur la sortie 
+-> mutator extension : demarre quand le sensu server demarre et se présente comme un callback ruby
+
+- les pipes mutators :
+sont simples à ecrire et peuvent exister dans differents languages
+ex : mutator qui va ajouter une entrée en booleen à un event entrant :
+
+spec/mutators/tag.rb
+#!/usr/bin/env ruby
+require 'rubygems'
+require 'multi_json'
+	event = MultiJson.load(STDIN.read, :symbolize_keys => true)
+	event.merge!(:mutated => true)
+puts MultiJson.dump(event)
+
+Sensu utilise MultiJson pour convertir les data entre json ruby et viceversa  
+
+Les mutators de type pipe sont facile a ecrire mais les mutator extensions sont preferables.
+Mutator extensions sont  localisées dans l'arbo /etc/sensu/extensions/mutators et sont des process persistants dans l'execution du sensu server 
+C'est parfait car il n'y a pas besoin de creer un nouveau process a chaque fois qu'un mutator est invoqué et les events sont doncconsidérés comme des hash ruby natifs plutôt que devoir être converti depuis ou vers json.
+exemple typique de mutator  :
+/etc/sensu/extensions/mutators/example.rb
+module Sensu
+  module Extension
+    class Example < Mutator
+	  def name
+		'example mutator'
+	  end
+	  def description
+		'this description states what this mutator does'
+	  end
+	  def run(event)
+		# Change the event in some way here.
+		# Then pass some data (typically the event) and a result code.
+		yield event, 0
+	  end
+	end
+  end
+end
+
+Sensu embarque de base trois mutator : JSON mutator, ruby hash mutator et only check output mutator.
+
+- JSON mutator :
+c'est celui par defaut qui est utilisé si aucune autre conf n'est définie :
+
+sensu-extensions/lib/sensu/extensions/mutators/json.rb
+require "sensu/extension"
+require "multi_json"
+module Sensu
+	module Extension
+		class Json < Mutator
+			def name
+				"json"
+			end
+			def description
+			"returns JSON formatted event data"
+			end
+			def run(event)
+			yield MultiJson.dump(event), 0
+			end
+		end
+	end
+end
+
+- Ruby hash mutator :
+
+Celui ci est à utiliser ci on veut considerer que les données en provenance de notre event sont des hash ruby et non du JSON. Il faut donc dans ce cas le preciser dans notre conf de handler en specifiant “mutator”: “ruby_hash” 
+
+sensu-extensions/lib/sensu/extensions/mutators/ruby_hash.rb
+require "sensu/extension"
+  module Sensu
+    module Extension
+      class RubyHash < Mutator
+        def name
+          "ruby_hash"
+        end
+        def description
+          "returns ruby hash event data"
+        end
+        def run(event)
+          yield event, 0
+        end
+      end
+    end
+end
+
+- Only check output mutator :
+
+sensu-extensions/lib/sensu/extensions/mutators/only_check_output.rb
+require "sensu/extension"
+  module Sensu
+    module Extension
+      class OnlyCheckOutput < Mutator
+        def name
+          "only_check_output"
+        end
+        def description
+          "returns check output"
+        end
+        def run(event)
+          yield event[:check][:output], 0
+        end
+      end
+    end
+end
+
+Ce mutator va simplement envoyer la valeur de la clé de notre event au handler : plutôt que l'integralité du contenu de l'event.
+Ce mutator peut être utiliser par exemple pour envoyer les résulats de metric à graphite qui attend juste une valeur plutot que l'inegralité d'un event.
+
+
+exemple mutator : 
+on va  reconfigurer pour l'exemple notre check avec le handler tcp :
+
+root@SensuServer:/etc/sensu/conf.d# cat check_file.json 
+{
+  "checks": {
+    "check_file": {
+      "command": "/etc/sensu/plugins/check_file.sh",
+      "subscribers": [ "Production" ],
+      "interval": 5,
+      "handler": "handler_tcp",
+      "occurence": 1,
+      "refresh": 1
+      }
+   }
+}
+
+root@SensuServer:/etc/sensu/conf.d# cat handler_tcp.json 
+{
+  "handlers":{
+    "handler_tcp": {
+      "type": "tcp",
+      "socket": {
+        "host": "localhost",
+        "port": 6000
+        }
+    }
+  }
+}
+le but est de formatter correctement la sortie de notre handler tcp : qui de base met nos events en ligne :  
+
+root@SensuServer:~# netcat -l -k -p 6000
+{"client":{"name":"SensuServer","address":"10.0.2.15","subscriptions":["Production","client:SensuServer"],"version":"0.29.0","timestamp":1493543637},"check":{"command":"/etc/sensu/plugins/check_file.sh","subscribers":["Production"],"interval":5,"handler":"handler_tcp","name":"check_file","issued":1493543639,"executed":1493543639,"duration":0.01,"output":"file is missing!\n","status":2,"type":"standard","history":["0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","0","2"],"total_state_change":6},"occurrences":1,"occurrences_watermark":1,"action":"create","timestamp":1493543639,"id":"1dbca2e8-964b-4f05-9963-f4c358c09c14","last_ok":1493543639,"last_state_change":1493543639,"silenced":false,"silenced_by":[]}root@SensuServer:
+
+on cree donc le mutator : 
+root@SensuServer:/etc/sensu/conf.d# cat  mutator_pretty.json
+{
+  "mutators": {
+    "mutator_pretty": {
+      "command": "/etc/sensu/mutator/prettymutator.rb"
+      }
+    }
+}
+
+on cree un repertoire mutator et le mutator dedié : 
+
+root@SensuServer:/etc/sensu/mutator# cat prettymutator.rb 
+#!/usr/bin/env ruby
+
+require 'rubygems'
+require 'json'
+
+puts JSON.pretty_generate(JSON.parse(STDIN.read))
+
+on le rend executable : 
+
+root@SensuServer:/etc/sensu/mutator# chmod +x prettymutator.rb
+
+on ajoute notre mutator dans la conf de notre handler tcp :
+
+
+root@SensuServer:/etc/sensu/conf.d# cat handler_tcp.json 
+{
+  "handlers":{
+    "handler_tcp": {
+      "type": "tcp",
+      "mutator": "mutator_pretty",
+      "socket": {
+        "host": "localhost",
+        "port": 6000
+        }
+    }
+  }
+}
+
+on restart nos appli puis on supprime le fichier test /tmp/file :
+sur notre seconde console recevant les flux on a donc maintenant notre event correctement formatté grace à notre mutator  : 
+
+root@SensuServer:~# netcat -l -k -p 6000
+{
+  "client": {
+    "name": "SensuServer",
+    "address": "10.0.2.15",
+    "subscriptions": [
+      "Production",
+      "client:SensuServer"
+    ],
+    "environment": "QA",
+    "version": "0.29.0",
+    "timestamp": 1493547057
+  },
+  "check": {
+    "command": "/etc/sensu/plugins/check_file.sh",
+    "subscribers": [
+      "Production"
+    ],
+    "interval": 5,
+    "handler": "handler_tcp",
+    "occurence": 1,
+    "refresh": 1,
+    "name": "check_file",
+    "issued": 1493547059,
+    "executed": 1493547059,
+    "duration": 0.004,
+    "output": "file is missing!\n",
+    "status": 2,
+    "type": "standard",
+    "history": [
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "2"
+    ],
+    "total_state_change": 6
+  },
+  "occurrences": 1,
+  "occurrences_watermark": 1,
+  "action": "create",
+  "timestamp": 1493547059,
+  "id": "8999b310-1fc1-4be7-a125-c5b9c3fbd69d",
+  "last_ok": 1493547059,
+  "last_state_change": 1493547059,
+  "silenced": false,
+  "silenced_by": [
+
+  ]
+}
+ 
+
+=== plugins  ===
+
+
+ il est possible d'installer plusieurs plugin.
+Une maniere générique est d'utiliser les commandes sensu qui vont gérer les dépendances de lib ruby ex : 
+
+root@SensuServer:~# sensu-install -p cpu-checks
+
+[SENSU-INSTALL] installing Sensu plugins ...
+[SENSU-INSTALL] determining if Sensu gem 'sensu-plugins-cpu-checks' is already installed ...
+false
+[SENSU-INSTALL] Sensu plugin gems to be installed: ["sensu-plugins-cpu-checks"]
+[SENSU-INSTALL] installing Sensu gem 'sensu-plugins-cpu-checks'
+Fetching: linux-kstat-0.1.3-universal-linux.gem (100%)
+Successfully installed linux-kstat-0.1.3-universal-linux
+Fetching: sensu-plugins-cpu-checks-1.0.0.gem (100%)
+You can use the embedded Ruby by setting EMBEDDED_RUBY=true in /etc/default/sensu
+Successfully installed sensu-plugins-cpu-checks-1.0.0
+2 gems installed
+[SENSU-INSTALL] successfully installed Sensu plugins: ["sensu-plugins-cpu-checks"]
+
+
+=== graphite / grafana === 
+
+
+
+1/ graphite 
+On installe les packages 
+
+ubuntu@SensuServer:~$ sudo apt-get install graphite-web graphite-carbon
+
+Attention : on ne supprime pas la conf au pop up : à l'install 
+
+on deploie la conf db : 
+
+ubuntu@SensuServer:~$ sudo graphite-manage syncdb
+/usr/lib/python2.7/dist-packages/graphite/settings.py:249: UserWarning: SECRET_KEY is set to an unsafe default. This should be set in local_settings.py for better security
+  warn('SECRET_KEY is set to an unsafe default. This should be set in local_settings.py for better security')
+Operations to perform:
+  Synchronize unmigrated apps: account, cli, render, whitelist, metrics, url_shortener, dashboard, composer, events, browser
+  Apply all migrations: admin, contenttypes, tagging, auth, sessions
+Synchronizing apps without migrations:
+  Creating tables...
+    Creating table account_profile
+    Creating table account_variable
+    Creating table account_view
+    Creating table account_window
+    Creating table account_mygraph
+    Creating table dashboard_dashboard
+    Creating table events_event
+    Creating table url_shortener_link
+    Running deferred SQL...
+  Installing custom SQL...
+Running migrations:
+  Rendering model states... DONE
+  Applying contenttypes.0001_initial... OK
+  Applying auth.0001_initial... OK
+  Applying admin.0001_initial... OK
+  Applying contenttypes.0002_remove_content_type_name... OK
+  Applying auth.0002_alter_permission_name_max_length... OK
+  Applying auth.0003_alter_user_email_max_length... OK
+  Applying auth.0004_alter_user_username_opts... OK
+  Applying auth.0005_alter_user_last_login_null... OK
+  Applying auth.0006_require_contenttypes_0002... OK
+  Applying sessions.0001_initial... OK
+  Applying tagging.0001_initial... OK
+
+You have installed Django's auth system, and don't have any superusers defined.
+Would you like to create one now? (yes/no): yes
+Username (leave blank to use 'root'): 
+Email address: root@test.com
+Password: 
+Password (again): 
+Superuser created successfully.
+
+on cree donc un user/mdp et adresse mail.
+
+- config de carbon : 
+
+On configure le service carbon-cache au boot du server :
+
+-
+ubuntu@SensuServer:~$ sudo cat /etc/default/graphite-carbon
+# Change to true, to enable carbon-cache on boot
+CARBON_CACHE_ENABLED=true
+
+- modification de la retention des données stockées dans carbon :
+ubuntu@SensuServer:~$ sudo cat /etc/carbon/storage-schemas.conf 
+# Schema definitions for Whisper files. Entries are scanned in order,
+# and first match wins. This file is scanned for changes every 60 seconds.
+#
+#  [name]
+#  pattern = regex
+#  retentions = timePerPoint:timeToStore, timePerPoint:timeToStore, ...
+
+# Carbon's internal metrics. This entry should match what is specified in
+# CARBON_METRIC_PREFIX and CARBON_METRIC_INTERVAL settings
+[carbon]
+pattern = ^carbon\.
+retentions = 60:90d
+
+[default_1min_for_1day]
+pattern = .*
+#retentions = 60s:1d  <<< on change donc le polling pour les données arrivant dans carbon 
+retentions = 5s:1d,1m:30d
+
+- Demarrage du service carbon-cache :
+ubuntu@SensuServer:~$ sudo service carbon-cache start
+
+- install et config du serveur web : 
+
+ubuntu@SensuServer:~$ sudo apt-get install apache2 libapache2-mod-wsgi
+copie du vhost d'origine : 
+ubuntu@SensuServer:~$ sudo cp /usr/share/graphite-web/apache2-graphite.conf /etc/apache2/sites-available/
+Activation du vhost : 
+ubuntu@SensuServer:~$ sudo a2ensite apache2-graphite
+Enabling site apache2-graphite.
+To activate the new configuration, you need to run:
+  service apache2 reload
+ubuntu@SensuServer:~$ sudo service apache2 reload
+
+ubuntu@SensuServer:~$ sudo a2dissite 000-default.conf 
+Site 000-default disabled.
+To activate the new configuration, you need to run:
+  service apache2 reload
+ubuntu@SensuServer:~$ sudo service apache2 reload
+
+Modification des droits sur les fichiers d'execution : 
+ubuntu@SensuServer:~$ sudo chmod 666 /var/lib/graphite/graphite.db
+ubuntu@SensuServer:~$ sudo chmod 755 /usr/share/graphite-web/graphite.wsgi 
+
+ubuntu@SensuServer:~$ sudo service apache2 restart
+
+On peut desormais ouvrir un navigateur et consulter le frontend graphite :
+
+a noter que si on utilise une vm vagrant une redirection de port peut être faite pour le web ( verifier le Vagrantfile et modifier si besoin ) 
+
+http://127.0.0.1:8080/
+
+
+On va ajouter des plugins pour grapher les  charges et network :
+pour se faire  il nous faut installer ruby puis des gems dediés :
+
+root@SensuServer:~# apt install ruby
+root@SensuServer:~# gem install sensu-plugins-load-checks
+root@SensuServer:~# gem install sensu-plugins-network-checks
+
+Attention au version de ruby : il est conseillé dans l'immadiat d'utiliser les commandes sensu-install pour monter les plugins 
+
+root@SensuServer:~# sensu-install -p cpu-checks
+
+
+
+root@SensuServer:~# sensu-install -p network-checks
+[SENSU-INSTALL] installing Sensu plugins ...
+[SENSU-INSTALL] determining if Sensu gem 'sensu-plugins-network-checks' is already installed ...
+false
+[SENSU-INSTALL] Sensu plugin gems to be installed: ["sensu-plugins-network-checks"]
+[SENSU-INSTALL] installing Sensu gem 'sensu-plugins-network-checks'
+Fetching: dnsbl-client-1.0.2.gem (100%)
+Successfully installed dnsbl-client-1.0.2
+Fetching: net-ping-1.7.8.gem (100%)
+Successfully installed net-ping-1.7.8
+Fetching: i18n-0.8.1.gem (100%)
+Successfully installed i18n-0.8.1
+Fetching: thread_safe-0.3.6.gem (100%)
+Successfully installed thread_safe-0.3.6
+Fetching: tzinfo-1.2.3.gem (100%)
+Successfully installed tzinfo-1.2.3
+Fetching: activesupport-4.2.5.gem (100%)
+Successfully installed activesupport-4.2.5
+Fetching: whois-3.6.3.gem (100%)
+********************************************************************************
+
+  Thank you for installing the whois gem!
+
+  If you like this gem, please support the project.
+  http://pledgie.com/campaigns/11383
+
+  Does your project or organization use this gem? Add it to the apps wiki.
+  https://github.com/weppos/whois/wiki/apps
+
+********************************************************************************
+Successfully installed whois-3.6.3
+Fetching: sensu-plugins-network-checks-1.1.0.gem (100%)
+You can use the embedded Ruby by setting EMBEDDED_RUBY=true in /etc/default/sensu
+Successfully installed sensu-plugins-network-checks-1.1.0
+8 gems installed
+[SENSU-INSTALL] successfully installed Sensu plugins: ["sensu-plugins-network-checks"]
+
+
+
+Injection de données dans graphite  :
+
+on va dans sensu creer un check metric qu'on va donc diriger vers graphite :
+
+root@SensuServer:/etc/sensu/conf.d# cat check_metrics.json 
+{
+  "checks": {
+    "cpu_metrics": {
+      "type": "metric",
+      "command": "metrics-cpu.rb",
+      "interval": 5,
+      "subscribers": ["Production"],
+      "handlers": ["handler_graphite"]  
+     },
+    "net_metrics": {
+      "type": "metric",
+      "command": "metrics-net.rb",
+      "interval": 5,
+      "subscribers": ["Production"],
+      "handlers": ["handler_graphite"]  
+     }
+
+  }
+}
+
+On va donc maintenant creer notre handler graphite :
+
+root@SensuServer:/etc/sensu/conf.d# cat handler_graphite.json 
+{
+  "handlers":{
+    "handler_graphite": {
+      "type": "tcp",
+      "mutator": "only_check_output",
+      "socket": {
+        "host": "localhost",
+        "port": 2003
+        }
+    }
+  }
+}
+
+Apres le redemmarage de nos services , on voit maintenant dans graphite un nouveau client notre SensuServer avec les metriques exportées dans graphite.
+
+
+=== Grafana ===
+
+on va l'installer au dessus de graphite.
+
+root@SensuServer:/etc/sensu/conf.d# apt-get install grafana
+
+On va devoir changer le port part defaut de grafana qui ecoute sur le même que sensu sur notre serveur unique :
+
+vi /etc/grafana/grafana.ini :
+
+
+# The http port  to use
+;http_port = 3000
+http_port = 7777
+
+
+on s'assure que grafana demarre en auto dans les rc.d : 
+
+root@SensuServer:/etc/sensu/conf.d# update-rc.d grafana defaults 95 10
+
+on va dans le cadre de notre vm vagrant rajouter un forward de port pour consulter grafana dans notre navigateur : 
+
+config.vm.network "forwarded_port", guest: 7777, host: 7777
+
+On peut donc acceder à notre frontend dans un navigateur :
+http://localhost:7777
+
+le login mdp de base sont admin/admin
+
+1/
+on va ajouter une datasource :
+new
+> on selectionne graphite 
+>on ajoute Graphite comme nom.
+> on s'assure que le case default est cochée
+> on saisit l'url :http://localhost dans le champ dédié
+> on verifie que la methode proxy est bien activée 
+et on clic sur add 
+
+on peut faire un test de connectivité pour voir que tout fonctionne.
+
+2/ 
+on va ajouter un dashboard 
+> on clic sur dashboard
+> on clic sur home 
+> on clic sur new
+a ce moment un ecran vide apparait : on ajout un graph apres un clic droit sur le toggle vert de l'ecran en haut à gauche section add pannel 
+> on va maintenant cliquer sur le titre du graph puis sur edit 
+> on clic sur metric > select metric puis on choisi notre sensu server
+on choisi ensuite la metric qu'on veut : on prend cpu dans un premier temps puis on ajuste comme on veut 
+
+on va pouvoir ajouter un /des nouveaux graphs et personnaliser notre dashboard par la suite.
+
+Exemple : on va creer un dashboard qui peut changer de couleur si une valeur dépasse un seuil precis : ex cpu user 
+
+on cree un dashboard vide 
+> metric sensu server
+> metric cpu
+> filtre sur * ( tous les cpu du server)
+> filtre sur user 
+> on choisi la methode filter movingaverage() qu'on set a 1 minutes: le calcul moyen est fait pour toutes les minutes.
+> on va ensuite selectionner dans les axes et grid une echelles des absicess à ops/s 
+> on va ensuite pouvoir definir des seuils thresholds le premier que l'on fix a 50 puis le second à 70 en mode line : on aura donc des lignes horizontales qui apparaitront quand le ou les seuils seont franchis.
+
+on peut ensuite creer un autre graph : single panel qui lui ne va afficher q'une valeur
+par exemple on selectionne les bytes transféres sur nos interfaces reseaux : avec un raffracichissement .
+On peut en fonction des seuil avoir un changement de couleur du background pour montrer la criticité  
+
+
+
