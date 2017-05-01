@@ -1760,6 +1760,68 @@ Successfully installed sensu-plugins-cpu-checks-1.0.0
 [SENSU-INSTALL] successfully installed Sensu plugins: ["sensu-plugins-cpu-checks"]
 
 
+=== sensu api ===
+
+on peut interreagir directement avec  sensu via l'api rest 
+ex de requettes :
+
+root@SensuServer:~# curl http://localhost:4567/clients
+[{"name":"SensuServer","address":"10.0.2.15","subscriptions":["Production","client:SensuServer"],"environment":"Production","version":"0.29.0","timestamp":1493664900}]
+
+on peut formatter la sortie plus proprement en utilisant un module json en python :
+
+root@SensuServer:~# curl http://localhost:4567/clients |python -m json.tool
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100   167  100   167    0     0  13653      0 --:--:-- --:--:-- --:--:-- 15181
+[
+    {
+        "address": "10.0.2.15",
+        "environment": "Production",
+        "name": "SensuServer",
+        "subscriptions": [
+            "Production",
+            "client:SensuServer"
+        ],
+        "timestamp": 1493665040,
+        "version": "0.29.0"
+    }
+]
+
+on peut creeer des clients à la volée : des clients sensu-jit : just in time : il s'agit d'equipements qui ne pourront pas heberger de sensu-client (lb sw etc....) mais dont le monitoring est essentiel .
+
+Exemple on veut monitorer notre lb qui ne peut avoir sensu-client et on a egalement un server monito sur lequel on va installer le sensu-client jit et un script qui va s'executer regulierement pour voir que tout ce  passe bien sur le lb.
+
+On cree donc en cli un nouveau client en redirigeant notre json vers l'api 
+
+root@SensuServer:~# curl -s -i -X POST -H 'Content-Type: application/json' -d '{"name": "loadbalancer1", "address": "10.0.2.55", "subscriptions": []}' http://localhost:4567/clients
+HTTP/1.1 201 Created
+Access-Control-Allow-Credentials: true
+Access-Control-Allow-Headers: Origin, X-Requested-With, Content-Type, Accept, Authorization
+Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS
+Access-Control-Allow-Origin: *
+Connection: close
+Content-length: 24
+Content-type: application/json
+
+{"name":"loadbalancer1"}root@SensuServer:~# 
+
+Maintenant que notre client JIT est creer on va s'assurer que s'il y a un souci sur le vrai lb on va pouvoir être averti 
+on creer donc un check : 
+
+root@SensuServer:~# cat << EOT |netcat localhost 3030
+> {
+>   "name": "statuscheck",
+>   "output": "loadbalancer failing healthcheck !",
+>   "status": 2,
+>   "source": "loadbalancer1"
+> }
+> EOT
+okroot@SensuServer:~#
+
+En examinant notre frontend ushiwa on voit bien l'alerte créée sur notre lb qui ne repond pas ... 
+
+
 === graphite / grafana === 
 
 
