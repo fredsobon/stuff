@@ -1,0 +1,128 @@
+== notes sur la section puppet dediée dans le cours intermediate sensu udemy ==
+
+Deux modules puppet officiels existent :
+-> sensu
+-> uchiwa
+
+Pour la  demo une vm ubuntu fraiche est dediée. Des ressources extra seront potentiellement à consulter dans les sections udemy.
+1/ install d'une version recente de puppet
+
+2/ installation de module officiel de rabbitmq 
+
+puppet module install puppetlabs/rabbitmq
+
+La doc du module est consultable sur 
+http://forge.puppetlabs.com/puppetlabs/rabbitmq
+
+3/ creation du profile sensu :
+on se met dans le logic role / profile /module de puppet : 
+on cree une classe et un include : 
+
+vi profile_sensu.pp
+
+class profile_sensu::server { 
+  class { 'rabbitmq':   
+    }
+}
+include profile_sensu::server
+
+on lance ensuite un puppet apply sur notre manifest :
+
+puppet apply profile_sensu.pp
+
+on a donc l'install de rabbitmq. On peut verifier dans les process que l'appli est bien lancée (ps fauxw |grep rabbitmq) 
+
+4/ on va maintenant charger redis : on va donc sur la forge puppet et on selectionne les modules parmi ceux qui sont flaggués "approved"
+ex : puppet module install arioch-redis
+
+on va rajouter notre module dans notre manifest sans conf supplementaire : 
+
+vi profile_sensu.pp
+
+class profile_sensu::server {
+  class { 'rabbitmq':
+    }
+  class { 'redis':
+    }
+}
+include profile_sensu::server
+
+
+
+on relance notre apply pour l'install de redis :
+
+puppet apply profile_sensu.pp
+on test l'install avec la cmd :
+redis-cli ping
+PONG < est repondu c'est don ok
+
+5 / install du module sensu : ce module puppet est géré chez sensu donc aucun pb :
+
+puppet module install sensu-sensu 
+
+on peut avoir un souci d'install en effet rabbitmq/ redis et sensu peuvent avoir en prerequi des versions different de puppetlabs-apt 
+on peut forcer qi on connait bien le systeme  l'install sans les soucis de dépendances :
+
+puppet module install sensu-sensu  --ignore-dependencies
+
+
+on modifie ensuite notre manifest en rajoutant notre module /classe sensu et en prefixant nos classes avec un '::nom_classe' pour être  sur encas de definition multiples de classes portant le même nom qu'il n'y aura pas de souci :
+
+vi profile_sensu.pp
+
+class profile_sensu::server {
+  class { '::rabbitmq':
+    }
+  class { '::redis':
+    }
+  class { '::sensu':
+    }
+}
+include profile_sensu::server
+
+on va maintenant commencer à configurer notre classe sensu avec des elements de base comme le passwd necessaire à rabbitmq, la conf de l'api et du server : 
+
+vi profile_sensu.pp
+
+class profile_sensu::server {
+  class { '::rabbitmq':
+    }
+  class { '::redis':
+    }
+  class { '::sensu':
+    rabbitmq_password => 'blablabla',
+    server => true,
+    api    => true,
+    }
+}
+include profile_sensu::server
+
+NB: Le module sensu ne configure que sensu et pas rabbitmq 
+Il va donc falloir le faire et donc reproduire les actions manuelles que nous faisons lors de nos install via pupppet :
+
+
+
+vi profile_sensu.pp
+
+class profile_sensu::server {
+  class { '::rabbitmq':
+  rabbimq_user { 'sensu':password =>'blabla' }
+  rabbitmq_vhost { 'sensu': ensure => present}
+  rabbitmq_user_permissions {'sensu@sensu':
+    configure_permission =>'.*', 
+    read_permission =>'.*', 
+    write_permission =>'.*', 
+      }
+    }
+  class { '::redis':
+    }
+  class { '::sensu':
+    rabbitmq_password => 'blablabla',
+    server => true,
+    api    => true,
+    }
+}
+include profile_sensu::server
+
+Quand on relance notre run et qu'on examine les logs rabbitmq : la connection est acceptée.
+
