@@ -126,3 +126,39 @@ include profile_sensu::server
 
 Quand on relance notre run et qu'on examine les logs rabbitmq : la connection est acceptée.
 
+
+6/ installation de plugin sensu packagé en gem via puppet :
+
+il est possible d'installer des gem avec puppet egalement . Il va faloir par contre connaitre les dependances  et essayer de les gerer avec puppet egalement  :
+ex : ici on rajoute un plugin pour gérer l'envoi de mail .on note qu'on configure un sensu_gem comme provider. le packet build-essential est un prerequi qu'on installe également : 
+
+vi profile_sensu.pp
+
+class profile_sensu::server {
+  class { '::rabbitmq':
+  rabbimq_user { 'sensu':password =>'blabla' }
+  rabbitmq_vhost { 'sensu': ensure => present}
+  rabbitmq_user_permissions {'sensu@sensu':
+    configure_permission =>'.*', 
+    read_permission =>'.*', 
+    write_permission =>'.*', 
+      }
+    }
+  class { '::redis':
+    }
+  class { '::sensu':
+    rabbitmq_password => 'blablabla',
+    server => true,
+    api    => true,
+    }
+    # pre-requi pour l'install de gem pour sensu : 
+    packages {'build-essential': ensure => 'installed',}
+    packages {'sensu-plugin-mailer': 
+      ensure   => 'installed',
+      provider => sensu_gem,
+    }
+}
+
+Apres avoir lancé notre run on voit que c'est ok : on va pouvoir examiner la doc du module car on va devoir gérer la conf de notre serveur et notamment du handler que l'on vient d'installer.
+
+
