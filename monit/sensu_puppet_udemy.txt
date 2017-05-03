@@ -160,5 +160,113 @@ class profile_sensu::server {
 }
 
 Apres avoir lancé notre run on voit que c'est ok : on va pouvoir examiner la doc du module car on va devoir gérer la conf de notre serveur et notamment du handler que l'on vient d'installer.
+Il va être necessaire de determiner le path complet de la commande notre handler (souvent les commandes sont situées dans : /opt/sensu/embeded/bin/
 
+
+vi profile_sensu.pp
+
+class profile_sensu::server {
+  class { '::rabbitmq':
+  rabbimq_user { 'sensu':password =>'blabla' }
+  rabbitmq_vhost { 'sensu': ensure => present}
+  rabbitmq_user_permissions {'sensu@sensu':
+    configure_permission =>'.*', 
+    read_permission =>'.*', 
+    write_permission =>'.*', 
+      }
+    }
+  class { '::redis':
+    }
+  class { '::sensu':
+    rabbitmq_password => 'blablabla',
+    server => true,
+    api    => true,
+    }
+    # pre-requi pour l'install de gem pour sensu : 
+    packages {'build-essential': ensure => 'installed',}
+    packages {'sensu-plugin-mailer': 
+      ensure   => 'installed',
+      provider => sensu_gem,
+    }
+  sensu::handler {'mailer':
+    command => '/opt/sensu/embeded/bin/handler-mailer.rb',
+    type => 'pipe',
+    config => {
+      'admin_gui' => "http://admin.exemple.com:8080/",
+      'mail_from' => "sensu@exemple.com", 
+      'mail_to'   => "monitor@exemple.com",
+      'smtp_address' => "smtp.exemple.com",
+      'smtp_port' => "25",
+      'smtp_domain' => "exemple.com",
+    }
+
+include profile_sensu::server
+
+}
+
+
+7/ on va maintenant s'occuper de configurer et installer des checks en provenance de sensu-plugins: dans un premier temps nous allons les installer sur notre server puis faire une conf dedié sur un client un peu plus tard : puisqu'on sais que globalement les checks sont exlusivemernt executés par les clients  en local :
+
+
+vi profile_sensu.pp
+
+class profile_sensu::server {
+  class { '::rabbitmq':
+  rabbimq_user { 'sensu':password =>'blabla' }
+  rabbitmq_vhost { 'sensu': ensure => present}
+  rabbitmq_user_permissions {'sensu@sensu':
+    configure_permission =>'.*', 
+    read_permission =>'.*', 
+    write_permission =>'.*', 
+      }
+    }
+  class { '::redis':
+    }
+  class { '::sensu':
+    rabbitmq_password => 'blablabla',
+    server => true,
+    api    => true,
+    }
+    # pre-requi pour l'install de gem pour sensu : 
+    packages {'build-essential': ensure => 'installed',}
+    packages {'sensu-plugin-mailer': 
+      ensure   => 'installed',
+      provider => sensu_gem,
+    }
+  sensu::handler {'mailer':
+    command => '/opt/sensu/embeded/bin/handler-mailer.rb',
+    type => 'pipe',
+    config => {
+      'admin_gui' => "http://admin.exemple.com:8080/",
+      'mail_from' => "sensu@exemple.com", 
+      'mail_to'   => "monitor@exemple.com",
+      'smtp_address' => "smtp.exemple.com",
+      'smtp_port' => "25",
+      'smtp_domain' => "exemple.com",
+    }
+
+  package {'sensu-plugins-disks-checks':
+      ensure => 'installed',
+      provider => 'sensu_gem',
+    }
+  
+include profile_sensu::server
+
+}
+
+
+il va falloir maintenant configurer notre server pour qu'il puisse utiliser ces checks : 
+
+on rajoute donc une section sous notre package :
+
+...
+  package {'sensu-plugins-disks-checks':
+      ensure => 'installed',
+      provider => 'sensu_gem',
+    }
+  sensu::check {'check-disks':
+    command => "/optsensu/embedded/bin/check-disk-usage.rb",
+   }
+
+on a donc ensuite la creation d'une conf crée dans notre repertoire
 
