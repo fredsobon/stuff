@@ -269,4 +269,185 @@ on rajoute donc une section sous notre package :
    }
 
 on a donc ensuite la creation d'une conf crée dans notre repertoire
+on voit que les param par defaut sont settés.
 
+
+8 / on va  maintenant installer le dashboard frontend de notre sensu-server : 
+
+puppet module install yelp-ushiwa --ignore-dependencies
+il est possible d'avoir un pb de config lié à la config du repo : on peut bypasser ce souci en ignorant specifiquement cette conf puisque le repo est installé avec notre server-sensu :
+
+  class {'ushiwa':
+    install_repo => false,
+    sensu_api_endpoints  => [
+      {'hosts' => '127.0.0.1', }
+    ] 
+  }
+
+
+
+
+9/ on va maintenant modifier notre conf : on a tout ce qu'il faut pour faire tourner notre serveur mais on va définir une classe pour notre client et une meta classe comme point d'entrées :
+
+
+  profile_sensu::client {}
+  profile sensu (
+    $server => false,
+  ) {
+}
+
+on va donc rassembler dans notre classes les differents élements liés au client ( check ..) afin de modulariser notre profile :
+
+
+
+vi profile_sensu.pp
+
+class profile_sensu::server {
+  class { '::rabbitmq':
+  rabbimq_user { 'sensu':password =>'blabla' }
+  rabbitmq_vhost { 'sensu': ensure => present}
+  rabbitmq_user_permissions {'sensu@sensu':
+    configure_permission =>'.*', 
+    read_permission =>'.*', 
+    write_permission =>'.*', 
+      }
+    }
+  class { '::redis':
+    }
+  class { '::sensu':
+    rabbitmq_password => 'blablabla',
+    server => true,
+    api    => true,
+    }
+    # pre-requi pour l'install de gem pour sensu : 
+    packages {'build-essential': ensure => 'installed',}
+    packages {'sensu-plugin-mailer': 
+      ensure   => 'installed',
+      provider => sensu_gem,
+    }
+  sensu::handler {'mailer':
+    command => '/opt/sensu/embeded/bin/handler-mailer.rb',
+    type => 'pipe',
+    config => {
+      'admin_gui' => "http://admin.exemple.com:8080/",
+      'mail_from' => "sensu@exemple.com", 
+      'mail_to'   => "monitor@exemple.com",
+      'smtp_address' => "smtp.exemple.com",
+      'smtp_port' => "25",
+      'smtp_domain' => "exemple.com",
+    }
+
+    sensu::check {'check-disks':
+      command => "/optsensu/embedded/bin/check-disk-usage.rb",
+     }
+
+  class {'ushiwa':
+    install_repo => false,
+    sensu_api_endpoints  => [
+      {'hosts' => '127.0.0.1', }
+    ] 
+  }
+
+include profile_sensu::server
+
+Une des difficultés va être de creeer une classe partagée : "shared" classe car on ne peut pas declarer deux fois la même classe dans un manifest :
+
+ATTENTION BRONX ===
+
+ 
+vi profile_sensu.pp
+
+class profile_sensu::server {
+  class { '::rabbitmq':
+  rabbimq_user { 'sensu':password =>'blabla' }
+  rabbitmq_vhost { 'sensu': ensure => present}
+  rabbitmq_user_permissions {'sensu@sensu':
+    configure_permission =>'.*', 
+    read_permission =>'.*', 
+    write_permission =>'.*', 
+      }
+    }
+  class { '::redis':
+    }
+
+  
+   # meta classe : 
+
+  class profile_sensu { 
+     $server => false,
+  ) {
+
+  class { '::sensu':
+    rabbitmq_password => 'blablabla',
+    server => $server <<<<<  ici on set une variable qui est donc un booleen voir plus loin 
+    api    => $server 
+    }
+    # pre-requi pour l'install de gem pour sensu : 
+    packages {'build-essential': ensure => 'installed',}
+    packages {'sensu-plugin-mailer': 
+      ensure   => 'installed',
+      provider => sensu_gem,
+    }
+
+
+  class {'ushiwa':
+    install_repo => false,
+    sensu_api_endpoints  => [
+      {'hosts' => '127.0.0.1', }
+
+    ] 
+  sensu::handler {'mailer':
+    command => '/opt/sensu/embeded/bin/handler-mailer.rb',
+    type => 'pipe',
+    config => {
+      'admin_gui' => "http://admin.exemple.com:8080/",
+      'mail_from' => "sensu@exemple.com", 
+      'mail_to'   => "monitor@exemple.com",
+      'smtp_address' => "smtp.exemple.com",
+      'smtp_port' => "25",
+      'smtp_domain' => "exemple.com",
+    }
+
+    sensu::check {'check-disks':
+      command => "/optsensu/embedded/bin/check-disk-usage.rb",
+     }
+
+  }
+
+
+ATTENTION BRONX ===
+
+
+Avec sensu et puppet on va donc pouvoir si on veut installer directements la partie monitoring en fonction de notre appli :
+ex si on installe apache, on va dans notre manifest installer les checks apache en même temps : il est evident que dans ce cas nous ne pourrons plus oublierd'associer le monitoring lors du deploiement de machinnes : puisque cela sera fait automatiquement :
+
+ex : ici sette un profile_webserver dans lequel on va installer apache et les checks http associés.
+
+class profile_webserver (
+    $port = 80,
+	)  {
+
+    class { 'apache' :
+	listen_on =>$port,
+    }
+    package {'sensu-plugins-http-checks':
+      ensure => 'installed',
+      provider => 'sensu_gem',
+    }
+    sensu::check {'check-apache':
+     command => "/opt/sensu/embedded/bin/check-http.rb --port ${port} --host localhost",
+    }
+}
+  
+
+
+
+=== tuning checks ==
+
+
+
+
+
+
+
+}
