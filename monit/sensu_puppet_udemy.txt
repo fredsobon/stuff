@@ -445,9 +445,50 @@ class profile_webserver (
 === tuning checks ==
 
 
+la doc de sensu est exellente et on va pouvoir examiner en détail les differents attributs.
+Le "language" de sensu est extremement flexible et on va pouvoir ajouter des clé /valeurs personnalisés.
 
+On a des attributs importants 
+-> occurence : nbr de fois à partir duquel on aura l'alerte sera levé 
+ex : "occurence" 1 : l'alerte sera levée dans le premier check en echec.
+-> refresh : est une duree en seconde ( par defaut 1800 / 30mnts) : delai à partir duquel le handler va faire une action.Ex si on a un check qui fail , le handler email enverra une alerte toutes les 30 minutes. Ce setting est totalement independant de l'attribut occurence.
+-> dependencies : va nous permettre de gerer le comportement de nos handlers et par exemple un handler ne sera pas activé si une alerte concernant un autre check est deja levée.Les blocs sont assez simples à definir : 
+ex 
+"dependencies" [
+    "check-app",
+    "db1/check-mysql"
+]        
 
+Nous pouvons  aussi faire des "custom checks attributes" :
 
-
-
+{
+  "checks": {
+    "check_mysql_replication": {
+      "command": "check-replication-mysql.rb --user sensu --password secret",
+      "subscribers": [ "mysql" ],
+      "interval": 5,
+      'playbook': 'http://doc.exemple/plabook'   <<<< ici on definit un arrtibut "playbook" qui n'existe nulle part dans la doc sensu.
+      }
+   }
 }
+
+sensu va ignorer cet attribut mais le passer au handler.
+L'information de cet attibut apparait dans l'event data et le handler lui va pouvoir faire une action si besoin.
+dans cet exemple on voit en examinant le code du handler-email que si l'attibut playbook est setté alors le corps du mail contiendra la valeur de la clé "playbook" dans le corps du mail.
+
+https://github.com/sensu-plugins/sensu-plugins-mailer :
+
+    playbook = "Playbook:  #{@event['check']['playbook']}" if @event['check']['playbook']
+    body = <<-BODY.gsub(/^\s+/, '')
+            #{output}
+            Admin GUI: #{admin_gui}
+            Host: #{@event['client']['name']}
+            Timestamp: #{Time.at(@event['check']['issued'])}
+            Address:  #{@event['client']['address']}
+            Check Name:  #{@event['check']['name']}
+            Command:  #{command}
+            Status:  #{status_to_string}
+            Occurrences:  #{@event['occurrences']}
+            #{playbook}
+
+
