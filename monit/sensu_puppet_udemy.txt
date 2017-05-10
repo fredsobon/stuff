@@ -549,7 +549,7 @@ ruby 2.3.1p112 (2016-04-26) [x86_64-linux-gnu]
 
 et donc on aura une diff avec la version embarquée de sensu.
 
-Certains scripts ruby dédié à sensu ont dans leut shebang la path du ruby de sensu embarqué :
+Certains scripts ruby dédié à sensu ont dans leur shebang la path du ruby de sensu embarqué :
 
 ubuntu@SensuServer:/opt/sensu/embedded/bin$ head check-socat.rb 
 #!/opt/sensu/embedded/bin/ruby
@@ -563,3 +563,94 @@ ubuntu@SensuServer:/opt/sensu/embedded/bin$ head check-socat.rb
 require 'rubygems'
 
 
+=== creation de checks personalisés ===
+l'écriture de scripts est tres simple : les codes retours sont essentiels et "classiques" :
+-> 0 pour ok
+-> 1 pour warning 
+-> 2 pour critical
+-> 3 pour quelque chose d'autres (unknown)
+
+Un jour on devra forcement créer une sonde qui n'existe pas .
+Exemple de test d'existence de fichier :
+
+#!/bin/bash
+
+
+function assert () {
+    if [[ $1 -eq $2 ]]; then
+		echo "pass"
+	else 
+		echo "fail. expected $2 but got $1 "
+    fi
+}
+
+touch test_file
+./check_test_files_exist test_file
+assert $? 0 
+
+rm test_file
+./check_test_files_exist test_file
+assert $? 2 
+
+cat test_files_exist 
+
+#!/bin/bash
+
+if [[ $1 -eq ]]; then 
+	echo "ok file $1 exists and is a normal file "
+	exit 0
+else 
+	echo "pb $1 is not a file or doesnt exists"
+	exit 2
+fi 	
+
+
+Il peut être tres simple d'utiliser un language avec des builtsin integrés : comme ruby qui lui est forcement installé et déployer sur les systemes monitorés par sensu.
+
+lab/temp_fold>> cat check_file_exists.rb 
+#!/opt/sensu/embedded/bin/ruby
+
+require 'sensu-plugin/check/cli'
+
+  class  CheckFileExists < Sensu::Plugin::Check::CLI
+
+	def run 
+	filename = argv[0]  ### ici on assure que notre code prend le premier argument.
+	if File.exists?(filename)
+	  ok "file '#{filename}' exists!"
+	else
+	  critical "file '#{filename}' does not exists! "
+	end
+  end
+end
+
+On, va pouvoir pour tester gérer lma creation d'un test inverse : 2 si le fichier existe et 0 s'il n'existe pas .
+
+On va pouvoir alimenter notre script ruby d'une nouvelle section qui nous permettra cette gestion 
+
+
+=== A completer ===
+
+#!/opt/sensu/embedded/bin/ruby
+
+require 'sensu-plugin/check/cli'
+
+  option :'inverse,
+    :long => "--inverse",
+    :description => "Return ok if the file does not exists and critical if it exists",
+    :boolean => true  
+
+
+  class  CheckFileExists < Sensu::Plugin::Check::CLI
+
+	def run 
+	filename = argv[0]  ### ici on assure que notre code prend le premier argument.
+	if File.exists?(filename)
+	  ok "file '#{filename}' exists!"
+	else
+	  critical "file '#{filename}' does not exists! "
+	end
+  end
+end
+
+=== A completer ===
