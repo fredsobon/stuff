@@ -653,4 +653,123 @@ require 'sensu-plugin/check/cli'
   end
 end
 
+
+
+```ruby
+    if File.exists?(filename)
+      if not config[:inverse]
+        ok "File '#{filename}' exists!"
+      else
+        critical "File '#{filename}'exists!"
+      end
+    else
+      if not config[:inverse]
+        critical "File '#{filename}' doesn't exist!"
+      else
+        ok "File '#{filename}' doesn't exist!"
+      end
+    end
+```
+
+
+
 === A completer ===
+
+
+
+== Handlers personalisés ==
+
+Il est possible de creer des handlers dans n'importe quel language mais il est plus pratique de le faire en ruby pour gérer les methodes natives à sensu.
+
+Un des handlers les plus simple est show.rb 
+
+exemple : 
+
+#!/opt/sensu/embedded/bin/ruby  # on part du principe qu'on utilise la version ruby installée 
+require 'sensu-handler'  # ici on suppose que le gem sensu-handler est installé.
+
+class Show < Sensu::Handler
+  def handle
+    puts 'Settings: ' + settings.to_hash.inspect
+    puts 'Event: ' + @event.inspect
+  end
+end
+
+
+ steal some example [event data](https://sensuapp.org/docs/latest/events#sensu-event-data)
+from the official sensu documentation page.
+
+    cat > test-data.json
+    ...
+
+Une fois crées on va donc rediriger le fichier d'event json vers le handler qui se contente d'afficher les "Settings" & "Event" de notre fichier grâce aux methodes decrites dans notre handler.
+
+    cat test-data.json | ./handler.rb
+
+== a completer ==
+
+On va maintenant créer un handler qui va notifier notre phone sous android .
+Un project existe, il est assez simple à utiliser.
+https://notifymyandroid.com
+
+on va pouvoir recupérer le gem du project 
+
+https://github.com/slashk/ruby-notify-my-android#usage-as-a-gem
+
+
+/opt/sensu/embedded/bin/gem install ruby-notify-my-android
+
+on va donc copier le contenu de la partie usage dans notre handler :
+
+
+cat notify_my_android_handler.rb 
+#!/opt/sensu/embedded/bin/ruby
+require 'sensu-handler'
+require 'ruby-notify-my-android'
+
+class Show < Sensu::Handler
+
+  def handle
+    NMA.notify do |n|
+      n.apikey = "9d1538ab7b52360e906e0e766f34501b69edde92fe3409e9"
+      n.priority = NMA::Priority::MODERATE
+      n.application = "NMA"
+      n.event = "Notification"
+      n.description = "Your server is under attack!!!"
+    end
+  end
+
+on va donc ensuite tester la redirection de notre json vers le handler :
+
+cat test-data.json | ./notify_my_android_handler.rb et on a un resultat probant.
+
+On va maintenant améliorer le handler :
+tout d'abord on va creer un fichier de conf contenant notre clé d'api pour que ce soit plus safe ( pas besoin d'afficher ses infos sans protection) 
+
+cat > /etc/sensu/conf.d/notify_my_android.json
+{
+  "notify_my_android": {
+    "api_key": "abc123"
+  }
+}
+on va ensuite modifier notre handler pour qu'il puisse recupérer les valeurs de notre clé d'api au sein du fichier nouvellement crée :
+on va de plus modifier le nom de notre application en passant de NMA a sensu 
+on va aussi remplacer le keyword Notfication par le nom du server et du check en erreur 
+cat notify_my_android_handler.rb 
+#!/opt/sensu/embedded/bin/ruby
+require 'sensu-handler'
+require 'ruby-notify-my-android'
+
+class NotifyMyAndroid < Sensu::Handler
+
+  def handle
+    NMA.notify do |n|
+      n.apikey = settings["notify_my_android"]["api_key"]    <<<< ici on créee l'appel  à la valeur de la clé "api-key" du fichier notify_my_android.json avec la méthode settings 
+      n.priority = NMA::Priority::MODERATE
+      n.application = "sensu" # avant on avait  "NMA"
+      n.event = @event['client']['name'] + '/' + @event['check']['name'] # avant on avait "Notification"
+      n.description = "Your server is under attack!!!"
+    end
+  end
+
+
