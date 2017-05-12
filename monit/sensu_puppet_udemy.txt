@@ -755,6 +755,12 @@ cat > /etc/sensu/conf.d/notify_my_android.json
 on va ensuite modifier notre handler pour qu'il puisse recupérer les valeurs de notre clé d'api au sein du fichier nouvellement crée :
 on va de plus modifier le nom de notre application en passant de NMA a sensu 
 on va aussi remplacer le keyword Notfication par le nom du server et du check en erreur 
+on va finalement modifier la description en utilisant les methodes fournies dans le gem sensu-handler cf dans le sensu-handler.rb : def event_summary(trim=100) : on va recupérer le nom de l'event et pouvoir afficher jusqu'a 100 caracteres pour decrire ce qu'il se passe :afin d'avoir un bon resumé de ce qu'il se passe.
+
+
+
+
+
 cat notify_my_android_handler.rb 
 #!/opt/sensu/embedded/bin/ruby
 require 'sensu-handler'
@@ -764,12 +770,53 @@ class NotifyMyAndroid < Sensu::Handler
 
   def handle
     NMA.notify do |n|
-      n.apikey = settings["notify_my_android"]["api_key"]    <<<< ici on créee l'appel  à la valeur de la clé "api-key" du fichier notify_my_android.json avec la méthode settings 
+      n.apikey = settings["notify_my_android"]["api_key"]    <<<< ici on créee l'appel  à la valeur de la clé "api-key" du fichier notify_my_android.json avec la "variable" settings  qui est dédiée à la recupération des infos. 
       n.priority = NMA::Priority::MODERATE
       n.application = "sensu" # avant on avait  "NMA"
-      n.event = @event['client']['name'] + '/' + @event['check']['name'] # avant on avait "Notification"
-      n.description = "Your server is under attack!!!"
+      n.event = @event['client']['name'] + '/' + @event['check']['name'] <<<<  avant on avait "Notification" : dans le contexte du handler on recupere les données via '@event' 
+      n.description = event_sumary  <<<< on avait ici une description manuelle unique maintenant c'est un resumé de l'event. 
     end
   end
+
+
+on va maintenant afin de pouvoir agit précisement en cas de probleme rajouter un mode debug 
+On va enregitrer la reponse de notre handler , puis l'afficher : on va enregistrer la reponse ( reponse = NMA.notify do |n| puis l'afficher puts response.inspect
+
+
+```ruby
+  def handle
+    response = NMA.notify do |n|
+      n.apikey = settings["notify_my_android"]["api_key"]
+      n.priority = NMA::Priority::MODERATE
+      n.application = "Sensu"
+      n.event = @event['client']['name'] + '/' + @event['check']['name']
+      n.description = event_summary
+    end
+   puts response.inspect
+  end
+```
+on test et on voit l'affichage de notre sortie : 
+    cat event-data.json | ./notify_my_android.rb
+
+
+On peut donc assez simplement utiliser des methodes , fonctions internes a sensu, aux gems ou a du code ruby que l'on peut mixer pour definir répondre à nos besoins.
+
+==== Sensu omnibus package === 
+come on l'a vu sensu est livré de base avec son ruby et gem embarqués.
+Tout est donc parfaitement isolé du ruby du systeme .
+on peut s'assurer que c'est bien le ruby interne qui est utilisé dans sensu en settant à true la variable dans  le fichier /etc/defalut/sensu 
+
+vim /etc/default/sensu
+`EMBEDDED_RUBY=true` 
+
+Cela garant ique le ruby de sensu est setté en premier dans le path et qu'il sera donc utiliser en premier lorsqu'on aura besoin d'executer du ruby sur la machine.
+Certains gem à l'install vont examiner le path de ruby et donc installer dans le bon path les differents.
+Il est sinon possible de hard coder le path de sensu dans le shebang des scripts ruby.
+
+On peut aussi invoquer directement notre code ruby avec l'interpreteur ruby de sensu :
+
+/opt/sensu/embedded/bin/ruby my-script.rb
+
+nous n'aurons dans ce cas pas de pb.
 
 
