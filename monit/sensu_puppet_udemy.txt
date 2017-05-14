@@ -815,8 +815,85 @@ Il est sinon possible de hard coder le path de sensu dans le shebang des scripts
 
 On peut aussi invoquer directement notre code ruby avec l'interpreteur ruby de sensu :
 
-/opt/sensu/embedded/bin/ruby my-script.rb
+/opt/sensu/embedded/bin/ruby my-script.rb : nous n'aurons dans ce cas pas de pb.
 
-nous n'aurons dans ce cas pas de pb.
+Il est biensur possible de comparer les differentes versions de ruby et de gem sur notre systeme et celles embarquée par sensu :
+
+root@SensuServer:~# ruby --version
+ruby 2.3.1p112 (2016-04-26) [x86_64-linux-gnu]
+root@SensuServer:~# /opt/sensu/embedded/bin/ruby --version
+ruby 2.4.1p111 (2017-03-22 revision 58053) [x86_64-linux]
+
+root@SensuServer:~# gem list  |wc -l
+24
+root@SensuServer:~# /opt/sensu/embedded/bin/gem list  |wc -l
+52
+
+=== subscirptions checks ans standalone ===
+quand on a un sensu client et server : le seul moyen de comm entre les deux est le rabbitmq.
+le client va envoyer les resultats des checks au rabbitmq
+le serveur va envoyer des ordres de schedule de check au rabbitmq pour que le client execute ces checks.
+
+- les subscriptions checks sont schedulent par le sensu server :
+on a par exemple une subscription webserver avec un check http de defini sur le server 
+un client web devra donc s'inscrire a la subscription webserver : dans ce cas il pourra recupérer les listes des checks a executer et eecutera donc ceux ci en mocal puis renvera le resulat a rabbitmq .
+
+- safe mode : on peut definir une autre methode plus secure 
+on a dans ce cas une conf a faire pour scpefiquement autoriser le client a executer des checks définis : et uniquement eux : une execution de checks non clairement defini ne pourra pas être faite : il faudra donc rajouter de la config.
+safemode:True
+on va donc pour le check http precedent : autoriser le check http dans la conf avec safemode à true , on definie aussi en local le check http puis quand rabbitmq envoi l'ordre d'executuin : une verif de conf est faite sur le client et le check est executé s'il est validé.
+En utilisant un outil de config (puppet ..) cela ne pose pas de pb de d"ployer les fichiers de conf sur le client egalement
+
+-standalone :
+dans le cas de check en standalone le client est responsable du schedule, de l'execution et du renvoi des checks a rabbitmq
+le server sensu est plus passif puisqu'il ne va plus que recuperer les resultats pour les processer
+
+-aggregate : 
+le server va envoyer des checks aux subscriberset recupérer l'ensemble de ces checks pour les aggreger
+les aggregates ne fonctionnent pas en standalone checks.
+Les clients resoivent l'ordre du schedule envoyé par le server aurabbitmq et executent et renvoient le checks en même temps au rabbitqm qui les poussent ensuite au server.
+
+=== filters : ===
+
+voir la doc officielle de sensu pour les filtres.
+https://sensuapp.org/docs/latest/getting-started-with-filters#create-an-event-filter
+les filtres  s'appliquent toujours sur les eventdata
+https://sensuapp.org/docs/latest/events#sensu-event-data
+
+Ex :
+
+https://sensuapp.org/docs/latest/getting-started-with-filters#inclusive-filtering
+{
+  "filters": {
+    "production": {
+      "attributes": {
+        "client": {
+          "environment": "production"
+        }
+      }
+    }
+  }
+}
+
+on voit ici que  la section 'client' a un attribut dedié : environment avec la valeur production
+
+C'est un custom attribute pour les clients 
+
+On va par exemple avoir un comportement special en fonction de notre client .
+ex : onrempli un attribut environent dev dans notre client.json
+
+    cd /etc/sensu/conf.d
+root@SensuServer:/etc/sensu/conf.d# cat test.json 
+{
+  "client": {
+    "name": "localhost",
+    "address": "127.0.0.1",
+    "environment": "dev",
+    "subscription": [
+    ]
+  }
+} 
+
+
 
 
