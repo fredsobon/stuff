@@ -15,7 +15,7 @@ lapin:$apr1$zlXGfta0$3vBh5gjZfvww8iFEF7Gs81  # ici la sortie du mdp après hacha
 
 
 
-= Examen de  
+== Examen de clé privée ==  
 
 openssl rsa -in private.key -text -noout
 
@@ -23,7 +23,6 @@ openssl rsa -in private.key -text -noout
 == pour lire le contenu d'un crt générer avec openssl :
 
 openssl x509 -in notrecertif.crt -text -noout
-
 
 
 
@@ -51,3 +50,75 @@ openssl x509 -text -noout -in certificat
 openssl s_client -connect ip_server:443
 
 le detail de notre ssl apparait si tout fonctionne correctement. 
+
+
+
+
+
+
+====== openssl tuto =======
+
+
+OpenSSL - commandes utiles
+
+-Générer une demande de certificat avec une nouvelle private key:
+openssl req -sha256 -nodes -newkey rsa:2048 -keyout www.server.com.key -out www.server.com.csr
+
+-Générer une nouvelle demande de certificat à base d'une clé existante:
+openssl req -new -sha256 -key www.server.com.key -out www.server.com.csr
+
+-Générer une demande de certificat à base d'un certificat existant:
+openssl x509 -x509toreq -in www.server.com.crt -out www.server.com.csr -signkey www.server.com.key
+
+-Générer une nouvelle clé RSA:
+openssl genrsa -out www.server.com.key 2048
+
+-Générer une nouvelle clé ECC:
+openssl ecparam -out server.key -name prime256v1 -genkey
+
+-Générer un certificat auto-signé (self-signed) pour des tests:
+openssl req -x509 -newkey rsa:2048 -nodes -keyout www.server.com.key -out www.server.com.crt -days 365
+
+=== Afficher et contrôler les certificats ===
+
+-Contrôler et afficher une demande de certificat:
+openssl req -noout -text -verify -in www.server.com.csr
+
+-Contrôler et afficher une clé privée et publique:
+openssl rsa -noout -text -check -in www.server.com.key
+
+-Afficher le contenu décodé d'un certificat en format PEM:
+openssl x509 -noout -text -in www.server.com.crt
+
+-Afficher le contenu d'un certificat en format PKCS#7:
+openssl pkcs7 -print_certs -in www.server.com.p7b
+
+-Afficher le contenu d'un certificat et d'une clé en format PKCS#12:
+openssl pkcs12 -info -in www.server.com.pfx
+
+- Contrôler une connection SSL et afficher tous les certificats intermédiaires:
+openssl s_client -connect www.server.com:443
+
+- Contrôler si un certificat, une demande de certificat et une clé ont la même clé publique:
+openssl x509 -noout -modulus www.server.com.crt | openssl sha256
+openssl req -noout -modulus www.server.com.csr | openssl sha256
+openssl rsa -noout -modulus www.server.com.key | openssl sha256
+
+== Convertir des certificats ==
+
+- Conversion d'un fichier PKCS#12 ( .pfx .p12 ) contenant clé privée et certificat vers le format PEM:
+openssl pkcs12 -nodes -in www.server.com.pfx -out www.server.com.crt
+
+- Conversion du format PEM vers le format PKCS#12:
+openssl pkcs12 -export -in www.server.com.crt -inkey www.server.com.key -out www.server.com.pfx
+
+- Conversion du format PKCS#7 ( .p7b .p7c ) vers le format PEM:
+openssl pkcs7 -print_certs -in www.server.com.p7b -out www.server.com.crt  
+
+- Conversion du format PEM vers le format PKCS#7:
+openssl crl2pkcs7 -nocrl -certfile www.server.com.crt -out www.server.com.p7b
+
+- Conversion du format DER (.crt .cer ou .der) vers le format PEM:
+openssl x509 -inform der -in certificate.cer -out certificate.pem
+
+
