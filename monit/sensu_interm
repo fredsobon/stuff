@@ -1,0 +1,4187 @@
+== Sensu Architecture Recap
+
+=== Intro
+
+If you have not taken the Sensu Introduction course, I encourage you to do so,
+because I cover the overall Sensu archtecture in depth there. But for the
+intermediate course I'm just going to do a quick refresher.
+
+==== The Sensu client
+
+The Sensu Client the process that *actually* executes checks. The Sensu Client
+can also *schedule* its own checks. These are called "standalone checks",
+because the client isn't dependent on getting instructions from the Sensu
+Server on what and when to run.
+
+Now, the Sensu Client can't be that standalone, it has to do something with the
+results of the checks. For that, the Sensu Client puts its results onto the
+transport, which is RabbitMQ.
+
+==== RabbitMQ
+
+Sensu uses a Queue to separate the actions between the clients and the server.
+Sensu Client places result data onto RabbitMQ, the Sensu-Client also listens
+for requests to execute a check from the Server.
+
+==== Sensu Server
+
+The Sensu Server is the daemon that pulls result data off of the queue and acts
+on that data. That action is usually in the form of executing _handlers_.
+Handlers are programs that read in the event data from stdin, and do something
+like email you or talk to pagerduty.
+
+The Sensu server can *also* ask for checks to be executed on the Sensu clients.
+These are called subscription-based checks, because the clients have to
+"subscribe" to a particular tag, like "webserver". The Sensu server puts a
+request for a particular check, say `check_http` to be executed by all clients
+that are subscribed to the "webserver" tag.
+
+The differences between subscription-based checks and standalone checks is also
+a common source of confusion amongst new Sensu users. We'll talk more about the
+differences in a later lecture.
+
+==== Redis
+
+Sensu has to keep state somewhere. The state includes things like check
+history, timestamps, whats up, whats down, etc. Sensu is designed to store that
+state in Redis.
+
+==== Sensu API
+
+The Sensu-API process's job is to just talk to Redis and RabbitMQ and provide a
+rest interface to what is going on. Handlers themselves often use this API, as
+well as dashboards and external tools.
+
+==== Dashboard (Uchiwa)
+
+Uchiwa is that nice "plane of glass" to expose what is going on with your
+systems. It only needs to connect to the Sensu API.
+
+=== Conclusion
+
+As you can see there are lots of parts here. If you are going to run Sensu in
+production, you have to understand what talks to what, and what runs where.
+This is especially true when things don't work! You have to be able to
+troubleshoot your systems, know where the logs are, etc. Again the intro course
+covers each piece a little bit, and we'll cover other pieces in this
+intermediate course, and in the advanced course I cover even more stuff.
+# Conclusion
+
+Thank you for taking my intermediate Sensu course. I hope you learned a lot!
+
+I hope you watched at least one of the lectures on configuration management. I
+think that configuration management is really great, and Sensu works really
+well with a configuration management too, whether that would be Puppet, Chef,
+Ansible or Salt.
+
+I hope you understand Sensu's internals a little better, and are able to deploy
+Sensu to production, and fully understand any security implications that might
+come with it.
+
+I also hope that you fully understand now the power of the Sensu embedded ruby.
+It really is a simplifying tool that comes with Sensu, that helps you deploy
+checks and handlers in a consistent way. And of course it makes it so that all
+of those community plugins and handlers are installable with a single command.
+
+Again, thank you for taking my course. Watch your inbox for announcements on
+this course or future course I might publish. And of course, as a customer, you
+are entitled to feedback. Let me know if there is room to improve this course
+or if there is a topic I didn't cover well enough, that you are still kinda
+fuzzy on. I'm constantly trying to improve my courses for you.
+
+That is it, again, thank you.
+# Deploying Third-Party Checks and Handlers
+
+I hope that you've watched at least *one* of the configuration
+management lectures. I don't care if it was Puppet, Chef, Ansible
+or Salt, they are all tools for reproducing infrastructure
+reliably, and they can all install Sensu stuff.
+
+In each of those configuration management lectures I showed how to
+install checks and handlers using the Sensu omnibus embedded ruby. Let's talk
+about this in more depth.
+
+## Installing the mail-handler by hand
+
+So what does it mean to install the mail-handler using the
+Sensu embedded ruby?
+
+Let's remind ourselves what the thing is:
+
+    https://github.com/sensu-plugins/sensu-plugins-mailer
+
+Yes it is on github, it is also a *realy* ruby gem:
+
+    https://rubygems.org/gems/sensu-plugins-mailer
+
+That means you can `gem install` it. If you have never used rubygems
+before, gems are just the ruby-specific package manager for handling ruby
+package installation and dependencies.
+
+Being a *real* gem comes with some benefits. It means they have version
+numbers you can pin, you can install them with a single command, you can
+stick them in a Gemfile and lock your dependencies. It is certainly a step
+up compared to fetching something off of github: it is a real package.
+
+## Installing the Gem
+
+We can fetch this third-party plugin with a single command:
+
+    /opt/sensu/embedded/bin/gem install sensu-plugins-mailer
+
+Now what just happened, there? The first thing to make really
+clear here is that we are using the embedded ruby. I don't have to
+set a special path or any extra environment variables. Just
+using the full path to the gem binary ensures that the gem
+is installed in the embedded ruby gempath.
+
+Let's look at the files:
+
+    /opt/sensu/embedded/bin/gem contents sensu-plugins-mailer
+
+You can see these are all self-contained in the Sensu embedded
+ruby path. This action didn't involve the system ruby at all.
+
+## Binaries
+
+Let's see where the scripts actually ended:
+
+    /opt/sensu/embedded/bin/gem contents sensu-plugins-mailer | grep bin
+
+And let's look at one of these
+
+    vim /opt/sensu/embedded/bin/handler-mailer.rb
+
+You can see that at the top that the path to the sensu embedded ruby
+is hard-coded at the top. This is a byproduct of the act of installing
+this gem using the embedded ruby. Again, we don't need any special
+environment variables or anything, we can just run this script directly,
+and so can Sensu!
+
+## Alternatives
+
+Using this embedded ruby for installing third party checks and handlers
+is really handy I think, but you by all means do not need to use it.
+
+If you already know your way around a ruby interpreter, and have an
+existing preferred method for distributing rubygems, you could
+absolutely use that instead. In the end Sensu just needs some script to run,
+so whatever works best for you is fine.
+
+If you like using a system installed ruby and managing gems that way; go for
+it. If you like bundler and rvm, you can do that too.
+
+### Even more Alternatives
+
+If you don't even like Ruby at all, you do *not* have to use is it.
+
+Sensu is compatible with any script that returns nagios-compliant return
+codes. This means good old nagios scripts too.
+
+So while there are many available Sensu plugins that are packaged
+as gems available for use:
+
+    http://sensu-plugins.io/plugins/
+
+## Conclusion
+
+You absolutely can install the gems in whatever way is most comfortable
+to you. If you don't have an existing method to install gems, then using the
+embedded ruby sure is convenient.
+
+But if you already have third-party existing Nagios checks, by all means
+use them! Sensu was designed to interoperate with those, you should should
+absolutely try to take advantage of that existing engineering.
+
+Just because you have installed "Sensu" doesn't mean you are locked in only
+to the sensu-plugins catalog here. These are just here for convenience,
+Sensu can run any command.
+
+In later lectures I'll even show you how to write your own Sensu checks and
+handlers, for times when there isn't an existing plugin available for use.
+# Handlers, Filters, and Subdued Checks
+
+Let's talk about filters. Eventually when you scale out any monitoring system,
+you come to the conclusion that not all alerts are created equal. Sensu's
+filter language is one tool you have to describe certain policies, to filter
+out certain alerts. 
+
+## How Filters Work
+
+A Sensu filter will limit what types of events a handler will see:
+
+    https://sensuapp.org/docs/latest/getting-started-with-filters#create-an-event-filter
+
+The official documentation on this subject is actually really good, so I don't
+feel the need to go over this subject too much, but I think it is worth doing
+an example.
+
+The first thing you need to understand about filters, is that they always
+operate on *event data*. Let's look at some example event data to refresh our
+memories:
+
+    https://sensuapp.org/docs/latest/events#sensu-event-data
+
+There are lots of interesting things in this dictionary to use for filters.
+
+Let's look at the example in the docs:
+
+    https://sensuapp.org/docs/latest/getting-started-with-filters#inclusive-filtering
+
+ You can see that filters are defined in the `filters` configuration namespace,
+then next is the name of the filter, in this case the name of the filter is
+`production`. Look at the next key, `attributes`. Here we are defining the
+attributes of the *event data* that are relevant for filtering. Next is
+`client`, so this filter has something to do with the client section of the
+event data, and then `environment: production`. But.. I don't see `environment
+in our example event data:
+
+    https://sensuapp.org/docs/latest/events#sensu-event-data
+
+### Custom Client Attributes
+
+This hints on a topic that we haven't really covered, and that is: Custom
+client attributes. Remember in the lecture about turning Sensu checks, we said
+that you can add custom data into the check for handlers to use? These were
+things like "playbook", and if the "playbook" key was in the check definition,
+the email handler would see that and stick it in the email output. 
+
+In the same way that you can define custom check attributes, you can also
+define custom client attributes:
+
+    https://sensuapp.org/docs/latest/clients#custom-definition-attributes
+
+Any custom fields here will be ignored by Sensu and just passed on to handler
+and filters for use. The example in the docs here is for MySQL, but
+`environment` is a good one too. Annotating your clients with metadata likes
+this means that handlers and filters can use it. Let's take our client on this
+test server and annotate it with `environment: production`.
+
+    cd /etc/sensu/conf.d
+    vim client.json
+
+And now let's restart the sensu-client to pick up that change:
+
+    sudo restart sensu-client
+
+Sensu pretty much will just ignore this extra data, it is not a syntax error.
+
+Now our filter kinda makes more sense. The filter will make it see only those
+events with `environment: production` in the client section of the event data.
+
+Well we just made our local client have this environment attribute, let's apply
+this filter and see if we can filter it out anything non-production:
+
+```
+{
+  "filters": {
+    "production": {
+      "attributes": {
+        "client": {
+          "environment": "production"
+        }
+      }
+    }
+  }
+}
+```
+
+Filters are consumed by the sensu-server, so we have to restart the sensu
+server to pick up on it.
+
+    sudo restart sensu-server
+
+Now, is our the checks being filtered?
+
+    tail -f /var/log/sensu/sensu-server.log
+
+It isn't. Why not? Because we haven't told sensu to connect the pieces between
+this filter we created, and the handler that is executed. In this case, it is
+our mailer handler. We need to tell our mailer handler to use the filter we
+created, so that we don't get emails for things in the production environment.
+
+```
+"filters": ["production"]
+```
+
+Note here that I'm calling out this filter by name, and "production" was the
+arbitrary name of the filter. Now we should restart the sensu server one more
+time, and then see if it worekd.
+
+    https://sensuapp.org/docs/latest/filters
+
+    sudo restart sensu-server
+    tail -f /var/log/sensu/sensu-server.log
+
+Now if we set our client to have the production environment attribue, the filter
+should start to see it and execute the handler.
+
+    vim /etc/sensu/conf.d/client.json
+    sudo restart sensu-client
+    tail -f /var/log/sensu/sensu-server.log
+
+Now that our client now has the production attribute, the handler sees it and
+sends us email again.
+
+## Subdue
+
+The "Subdue" mechinism is another tool that you can use, to quiet certain
+checks during specific time period. This is useful for checks during what you
+might call "quiet hours":
+
+    https://sensuapp.org/docs/latest/checks#subdue-attributes
+
+All of the subdue attributes are time-centric, they don't have anything to do
+with client attributes. Also you should note that this kind of filtering is on
+a per-check basis, they are not tied to a particular client or client
+attribute.
+
+This is not quite the same as filter, but it kinda acts like one, so I figured
+I would mention it. Sometimes you just want to subdue checks that are not
+relevant to check during say, non business hours. Other times you want to
+filter our checks that operate on custom client or check attributes, like
+things that are in the production environment.
+
+## Conclusion
+
+As always, be sure to check out the external resources section of this lecture
+for exact links to the Sensu documentation on these features for filtering
+out Sensu alerts.
+# Hardening the Rest of Sensu
+
+If you are running Sensu in production, you need to be at least aware of
+what Sensu's attack surface is, from a security prospective. Obviously different
+environments warrant different levels of security precautions. Even if you
+don't do anything about all of pieces, you should at least be informed.
+
+In this lecture I'll discuss some potential places where Sensu's security
+footprint can be improved, although I won't actually be demonstrating
+how to do so.
+
+## RabbitMQ
+
+We talked before about using SSL with RabbitMQ to encrypt communication between
+RabbitMQ and the other components. You should know that by default RabbitMQ
+does come with a guest account, even though it can only be used locally. In a
+production environment you should probably remove the guest account, and ensure
+that the Sensu credentials are strong.
+
+If you can, I recommend firewalling off everything except the SSL port. The SSL
+port 5671, is the only port the Sensu components need to use.
+
+Configuring RabbitMQ and Sensu to talk over SSL actually is demonstrated in
+a separate lecture.
+
+## Redis
+
+The only thing that needs to talk to Redis is the Sensu-server and Sensu-API
+components. If possible, try to lock down the access to the redis port to only
+those things that need it. Do not expose Redis to the internet.
+
+If you absolutely must use untrusted networks to communicate with Redis, it is
+advised to use stunnel or a vpn to encrypt your traffic.
+
+Redis does store things like silences and previous check output, which could
+potentially store secrets.
+
+## Sensu API
+
+The Sensu API is an http interface, and should not be exposed to the outside
+world unprotected. The Sensu-api configuration has settings for enabling
+http-basic auth, and you can a SSL terminating webserver like nginx in front,
+to encrypt any traffic that goes to the api.
+
+Don't forget that if you do enable authentication and SSL on the Sensu API, any
+tool that utilizes the API will need to be updated to use SSL and
+authentication.  This means at least the dashboard configuration will need to
+be updated.
+
+## Sensu Client
+
+The Sensu client by default exposes port 3030 on localhost only, for pushing
+external event data. If an attacker got on the local host, they could potentially
+send arbitrary check results, potentially DOS'ing your infrastructure. I'm not
+currently aware of a way to disable the client socket, but it is a potential
+attack vector. Again the attacker would have to have access to localhost.
+
+## Sensu Server
+
+The Sensu server has no externally facing endpoint.
+
+## Dashboards
+
+The Sensu dashboard is another http endpoint that can use hardening. Just like
+most web frontends, it is recommend to put SSL termination in front, and of course
+use some sort of authentication.
+
+The stock Uchiwa dashboard has very basic authentication, and the enterprise
+dashboard has more fancy authentication. Either way, an SSL-terminating
+webserver should be placed in front of the dashboard. Alternatively you can make
+the SSL-terminating webserver, say, apache or nginx, do authentication for you.
+
+
+## Conclusion
+
+The general philosophy here is defense in depth: use firewalls, authentication,
+and encryption where possible.
+
+Luckily Sensu uses existing components and traditional HTTP endpoints, which
+have existing, well-known best-practices for securing them.
+# How to Tune Sensu Check Parameters
+
+## Anatomy of a Sensu Check Definition
+
+Once you have Sensu setup and running in production, you need to figure out
+how you are going to rate limit and throttle alerts that you get.
+
+Say you have setup an email handler in combination with a disk check that
+runs every minute. You certainly don't need an email every minute reminding
+you that you are out of disk space!
+
+This is where check tunables come in, let's talk about what they are
+and how to use them.
+
+### How Checks Are Defined
+
+Sensu checks can be defined with lots of different attributes. Now-a-days the
+Sensu
+[documentation](https://sensuapp.org/docs/latest/checks#definition-attributes)
+is *excellent*, and describes every possible attribute in detail.
+
+Most of these attributes are self-explanatory, it isn't really necessary for me
+to just read these two you.
+
+But the more-interesting aspect of these check definitions are those attributes
+that are *not* used by Sensu! That's right, the Sensu check definition language
+is extremely flexible you can add *arbitrary* key/values in the check definition
+and the Sensu core will simply ignore them, and not through a syntax error.
+
+This is a big deal, and it means that you can extend Sensu to do really interesting
+things. Let me show you a few things that become possible when you allow this kind
+of arbitrary data passing.
+
+### Sensu-plugin Attributes
+
+Let's inspect some very popular [extra
+attributes](https://sensuapp.org/docs/latest/checks#sensu-plugin-attributes)
+that you can set for Sensu Handlers to use. To reiterate, these are extra
+setting you can just stick in your check definition for Sensu handlers to pick
+up on. Remember that Handlers are just scripts that are executed by Sensu when
+events fire. If the handler you are using utilizes the `sensu-plugin` gem (and
+almost every handler on the `sensu-plugins` Github project does), then they will
+respect these parameters.
+
+Let's look at a few:
+
+#### Occurrences
+
+Occurrences: The number of event occurrences that must occur before an event is
+handled. The default is `1` here. That means by default handlers will begin to
+fire on first event. So if you are running check-http, and the website goes
+down, then the *first* time that check fails, the Sensu handler will do
+something. To be clear here, *Sensu* is calling this handler *every time*.  For
+example if you are using the mailer handler like in our examples, Sensu is just
+running that mailer script every single time the check fails. *But*, the
+handler will filter itself based on this `occurences` setting.
+
+For another example, let's say that you have a ping check, but you know that
+sometimes the network can be flaky, and you don't want to get an email unless
+the network is *really* down. `Occurences` can be one way to gloss over these
+failures. If this check has an interval of `60` seconds, and you set the
+`occurrences` setting to 5, then on the fifth time this check fails on that 5th
+minute, the handler will actually do something about it. If the check passes
+before that 5th time, then the check will reset, and no email would have been
+sent.
+
+#### Refresh
+
+Refresh is a time unit, in seconds, that represents the next layer of filtering.
+The default refresh is 1800 seconds, which is 30 minutes. This means that you should
+get 30 minutes between when the mailer handler will send you emails.
+
+Keep in mind that this setting is independent of the `occurrences` setting. In
+other words, if you have a check that runs once a minute, and an `occurrences`
+setting of `15`, that means you will get an email alert 15 minutes after the
+check started failing.  You will then get another email on minute 30, because
+that is what `refresh` defaults to.  You won't get another email till minute
+60.
+
+This is probably fine, but you should just be aware of how these parameters
+interact.
+
+If you don't believe me or you would like to see for yourself, you can always
+look at the
+[sourcecode](https://github.com/sensu-plugins/sensu-plugin/blob/aa59019a584eae88f3e784d7079f59a762879418/lib/sensu-handler.rb#L108-L119)
+that controls this filtering behavior.
+
+#### Dependencies
+
+Dependencies is a totally underutilized parameter. With dependencies you can
+automatically *not* fire an email if a different check is already failing. You
+can even reference other hosts with this '/' notation.
+
+A real world example of this might be something that operates via cron, and you
+know that if cron isn't running, then you don't need an alert on this thing
+too. If the name of your cron check is simply `check_cron`, then you can just
+add `dependencies: ['check_cron']` to your check definition. If cron is already
+failing, then the alerts for the thing that depends on cron will be suppressed.
+This is especially helpful with network topologies and vpns. You don't need a
+billion alerts if you already know the vpn link is down. In sensu these
+dependencies are so easy, compared to other monitoring systems, because they
+are checks in a lazy way. It does mean that you do have to double-check your
+spelling. If you mis-spell your dependency name, Sensu doesn't know and it
+won't catch your typo.
+
+
+### Custom check attributes
+
+We've covered a few check tunables that you can use out of the box to help
+customize your alerting experience for you and your teams. Let's take moment
+to talk about taking this to a really interesting level: custom check attributes.
+
+Say we have a check definition on disk already:
+
+```
+{
+  "checks": {
+    "check_mysql_replication": {
+      "command": "check-mysql-replication-status.rb --user sensu --password secret",
+      "subscribers": [
+        "mysql"
+      ],
+      "interval": 30,
+      "playbook": "http://docs.example.com/wiki/mysql-replication-playbook"
+    }
+  }
+}
+```
+
+This example is right out of the official [Sensu
+Docs](https://sensuapp.org/docs/latest/checks#custom-definition-attributes) Do
+you recognize any unusual check parameters? `command`, `subscribers`, and
+interval are all normal parameters for a check, but what is `playbook`?
+Playbook is a totally custom, random parameter that someone decided to add in
+here. You know what, Sensu does *not* see this as a syntax error. It liberally
+accepts check definitions as long as they are syntactically correct. Anything
+extra it just passes along in the event data.
+
+But once it is *in* the event data, handlers can see it! In fact the stock
+sensu mailer handler 
+[*does* intepret this parameter](https://github.com/sensu-plugins/sensu-plugins-mailer/blob/a8355875b5f732c212d5eeeb51f7188b836773e5/bin/handler-mailer.rb#L95)
+
+The code here says, if there is a playbook defined in this check, we'll go ahead
+and add it into the body of the email.
+
+So in this way you can annotate your check definitions with extra metadata
+about the check. The `playbook` field is a great example, but you could do
+anything! You could add datacenter, or team name, or SLA, the limit
+is only your imagination. You could either just store that in the check data,
+or you could go further and adjust your handlers to use that data.
+
+In this case, we are just printing the playbook in the email of the body,
+but you could do a JIRA handler that takes in tags, or an EC2 handler that
+understands AZs, or maybe a multi-tenant environment that understands
+customer names. Maybe you work in a datacenter environment and you want all
+alerts to have an asset tag. Maybe you have a special role that each of your
+servers have, or you want servers that are in production to have a special
+`prod` tag. Once you have this tool in your toolbox, a lot of very
+interesting possibilities show up.
+
+## Conclusion
+
+Anyway, this to me is one of the more interesting aspects of Sensu that I've
+never really seen in any other monitoring system. Most monitoring systems
+have ways to tune how often you get an email, but not many allow arbitrary
+key/values that you can use for whatever you want.
+
+Look at the external resources section of this lecture for more interesting
+examples of custom check attributes. I'll try to keep a good currated list
+of creative ways to use this feature.
+
+List:
+
+* [mailer-handler](https://github.com/sensu-plugins/sensu-plugins-mailer/blob/a8355875b5f732c212d5eeeb51f7188b836773e5/bin/handler-mailer.rb#L95)
+  using the `playbook` field and adding it to the email body
+* [remediation-handler](https://github.com/sensu/sensu-community-plugins/blob/master/handlers/remediation/sensu.rb#L27-L66)
+  uses a special `remediation` attribute to describe ways to programmtically
+  "fix" (remediate) an alert.
+* [statuspage-handler](https://github.com/sensu-plugins/sensu-plugins-statuspage/blob/b5a8c4940536c4e0f0e51d980fea278e6d4075cf/bin/handler-statuspage.rb#L30)
+  Uses a custom `component_id` to automatically annotate status pages.
+* [ansible-handler](https://github.com/sensu/sensu-community-plugins/blob/f807971cee35bfc59f2217073f1cca25f7236e2e/handlers/other/ansible.rb#L30)
+  Takes a `playbook` attribute to execute a particular playbook
+* [pagerduty-handler](https://github.com/sensu-plugins/sensu-plugins-pagerduty/blob/df80a30ce3705852c2f9eb25b6ad967b64aaa553/bin/handler-pagerduty.rb#L43)
+  Understands a `pager_team` for different pagerduty Teams.
+* [jira-handler](https://github.com/Yelp/sensu_handlers/blob/5743cd89e9b4b9af9c3b0a45e3ac9e0ce801e569/files/jira.rb#L10)
+  Builds up `tags` for helping collect related alert tickets in JIRA.
+
+Also I'll like to the official docs on the tunables I mentioned in the lecture
+for adjusting the frequency of your alerts. They will definitely come in handy
+and any production Sensu engineer needs to have a firm grasp of them and
+what they do.
+# Installing and Using the Sensu-cli
+
+## Intro
+
+The sensu-cli is a nice command line tool that complements Sensu. It puts all
+of the power of the Sensu-API on the command line, for easy interactive use and
+for integrating Sensu with command line tools.
+
+## Installation
+
+The `sensu-cli` is not an official Sensu component. However, it is a normal
+rubygem, and can be install however you like to install rubygems. Of course, I
+like to install rubygems that are related to Sensu using the omnibus Ruby that
+Sensu comes with:
+
+    /opt/sensu/embedded/bin/gem install sensu-cli
+
+Now the bin stubs for these Sensu-install ruby gems end up in the embedded
+bin folder here:
+
+    ls /opt/sensu/embedded/bin/
+
+But I would like to have this just in my normal path, so I'm going to put this
+in my path by adding a symlink
+
+    ln -s /opt/sensu/embedded/bin/sensu-cli /usr/local/bin/
+    which sensu-cli
+
+## Background Prep
+
+    sed -i "s/localhost/`hostname -f`/" /etc/sensu/conf.d/client.json
+    /etc/init.d/sensu-client restart
+    sensu-cli client delete localhost
+    sensu-cli socket create -n check_http -o "CRITICAL: 400 bad" -s 2
+    sensu-cli socket create -n check_mem -o "WARNING: Out of memory" -s 1
+    sensu-cli socket raw '{"name": "check_ssh", "output": "CRIT: ssh is down", "status": 2, "source": "web02"}'
+    sensu-cli socket raw '{"name": "check_disk", "output": "CRIT: Disk is full", "status": 2, "source": "sadserver"}'
+
+## Usage
+
+Now let's see what it can do. Out of the box the tool is very human-friendly,
+outputting color where possible and has some nice ways to visualize the output.
+
+For example, let's see a list of clients. The cli is organized very well:
+
+    sensu-cli client list
+
+So sure, you can see the list of clients. This is cool. Now with each subcommand
+there are some output and filtering options:
+
+    sensu-cli client list --help
+
+The table format is a bit interesting:
+
+    sensu-cli client list --format table
+
+But I think JSON is the most interesting:
+
+    sensu-cli client list --format json
+
+I'll show you a bit more about what you can do with JSON output in a bit.
+Let's take a look at some more of the features:
+
+    sensu-cli --help
+
+There is pretty much a 1 to 1 correspondence with what the sensu-cli can do and
+what the Sensu-API can do.
+
+* `aggregate` is the advanced feature I've hinted at before that allows you to
+  execute a subscription check across a set of subscribers
+* `check` allows you to see and issue check requests
+* `client` is what I demonstrated right at first. You can see and delete
+  clients.
+* `event` allows you to list and resolve events, just like on the Sensu
+  dashboard.
+* `info` and `health` are commands to inspect the healthiness of the Sensu
+  infrastructure.
+* `silence` allows you to silence hosts or checks, which is handy to do from
+  the command line
+* `stash` allows you to add arbitrary stashes in Sensu's key-value store.
+  `silence` is just a specific type of stash.
+* `resolve` does the same thing as it does on the dashboard: it makes the
+  failing event go away.
+* `socket` is an interesting one. I have a later lecture demonstrating how you
+  can push your own events to the local socket. The sensu-cli provides a
+  convenient way to do this.
+
+## Doing more interesting things
+
+Lets say we wanted to take advantage of this command line tool and make it so
+we put the list of currently failing checks in the message of the day of the
+server, so when you log in you get some immediate situational awareness of what
+is wrong with it.
+
+Let's see if we can do it. We'll start with:
+
+    sensu-cli event list
+
+This is a good start, but we want to filter only the events for this local
+host? Luckily we can do that:
+
+    sensu-cli event list --filter name,`hostname -f `
+
+This is good, but it is a little verbose for being in the message of the day.
+The table format is a little better:
+
+    sensu-cli event list --filter name,`hostname -f `  --format=table
+
+But if we are going to do anything really fancy, we are going to have to
+pull out exactly the fields we want. Specifically I'm kinda only interested
+in "what" is failing and what the output is. This is where the JSON output can
+come in hand:
+
+    sensu-cli event list --filter name,`hostname -f `  --format=json
+
+But what are we going to use to extract the fields we need? Well, you could
+certainly write a program to do it, but I'm going to use one of my favorite
+unixy tools: `jq`. You have seen me use `jq` a few times before in previous
+lectures. Here I'm going to use it to print out just the check name and output:
+
+    apt-get -y install jq
+    sensu-cli event list --filter name,`hostname -f `  --format=json | jq -r '.[].check | .name + ":|" + .output'
+
+And then one more filter I'll apply is to pipe it through the column tool to align it:
+
+    sensu-cli event list --filter name,`hostname -f `  --format=json | jq -r '.[].check | .name + ":|" + .output' | column  -t  -s "|"
+
+Any more complicated than this then I would want to put it into a script or
+something.  But it is nice how much we can do just the command line with pipes
+and unixy tools.
+
+You could stick this in your `bash_profile` or motd and see right away what
+alerts are failing for the host before you start investigating. Pretty cool.
+
+## Having a Server Silence Itself
+
+Let's say you would like to use the sensu-cli not just for reporting purposes,
+but also to actually make your infrastructure interact with your monitoring
+system.
+
+Specifically, let's say that you want your servers to silence themselves for a
+few minutes after they do a reboot. Or maybe you want your provisioning system
+to silence newly provisioned servers for a bit. How could you use the sensu-cli
+tool to do this? Well, it it can be as simple as a single command:
+
+    sensu-cli silence -h
+
+The first argument is the hostname itself
+
+    sensu-cli silence `hostname -f`
+    sensu-cli stash list
+
+If you are going to silence the whole machine, then we won't provide a check
+name. 
+
+The owner might be the user, like root. Or if you know who owns the box from
+other metadata, you could insert it here. For the reason argument you could say
+"for a reboot" or "freshly provisioned". I like adding the expire argument so
+that if something goes wrong, it will automatically be un-silenced eventually.
+I don't think anything should be silenced indefinitely.
+
+    sensu-cli silence `hostname -f` --owner root --reason "This server was just created" --expire 3600
+    sensu-cli stash list
+
+Likewise the server could "un-silence" itself, maybe after a chef run or
+something like that.
+
+## Silencing Clients
+
+Let's do something else. Let's start by just getting a list of clients that
+Sensu knows about.
+
+    sensu-cli client list
+
+This is a good start, but I really want just the raw hostnames. To do that
+I'm going to use jq again:
+
+    sensu-cli client list -f json | jq -r .[].name
+
+Now that we have the raw names, we can pass them onto another tool. Let's say
+it was an emergency and you needed to silence them all. You could use on of my
+other favorite tools, `xargs`:
+
+    sensu-cli client list -f json | jq -r .[].name | xargs --verbose -n1 --no-run-if-empty sensu-cli silence
+
+So here we are taking every sensu client, and xargs will turn that and execute
+the sensu-cli silence command. The n1 indicates that we want xargs to execute
+one sensu-cli command per argument. I like the --verbose flag so it will print
+out exactly what xargs is running. Let's see what happens...
+
+Of course with this you could easily just use `grep` and filter only the clients
+you are interested. 
+
+## Emitting Alerts
+
+Another interesting things you can do with the Sensu-cli is emitting your own events.
+
+    sensu-cli socket create -h
+
+This function allows you to create a Sensu event, without having to define the check
+in the first place. This is an advanced feature. I have a dedicated lecture just
+for explaining what this is and why you would want to use it.
+
+## Resolving Alerts
+
+The sensu-cli tool can also help with manually resolving alerts.
+
+    sensu-cli resolve --help
+
+Why would you want to do this? This can be handy if you are in a dynamic environment,
+and checks and disappear as well as appear at will. The resolve command can
+help "clean up" any residual checks. For example, let's say you were running a hosting
+company and had a check for every customer that you had, and when a customer leaves,
+you would want to resolve any lingering events that might have been open, so they don't clutter up the dashboard.
+
+    sensu-cli socket create -n customer1 --output "Customer1 is DOWN" -s 2
+    sensu-cli event list -f table
+
+And then lets say customer1 left or was terminated, you could use the sensu-cli tool to resolve
+that check manually:
+
+    sensu-cli resolve `hostname -f` customer1
+    sensu-cli event list -f table
+
+Certainly your customer provisioning tool could interact with the Sensu api
+directly, but not everything has to be that fancy, if you just have some script
+to provision new customers, webservers, clusters, whatever, you can easily
+integrate the sensu-cli with your command line tools.
+
+## Conclusion
+
+The sensu-cli is a powerful tool, with a 1 to 1 mapping against the Sensu API.
+You can quickly integrate your existing scripts and tools with it. And if you
+get really fancy, you can combine it with things like `jq` and do some pretty
+crazy things. Check out the show notes for some even more complicated examples
+of using this cli tool that I'm too embarrassed to admit that I've used them in
+production.
+
+## All Examples
+
+### Have a host silence itself
+
+```bash
+sensu-cli silence `hostname -f` --owner root --reason "This server was just created" --expire 3600
+```
+
+### Silence any client that has the word "test" in the name
+
+```
+sensu-cli client list -f json |
+  jq -r .[].name |
+  grep "test" |
+  xargs --verbose --no-run-if-empty -n1 sensu-cli silence
+```
+
+### Delete sliences older than 3 days
+
+```bash
+THRESHOLD=$(date +%s --date="3 days ago")
+sensu-cli stash list --format json |
+  jq -r "map(select( .[\"content\"][\"timestamp\"] < $THRESHOLD )) | .[].path " |
+  xargs --verbose --no-run-if-empty -n1 sensu-cli stash delete
+```
+
+### Purge any checks that haven't checked in in a month
+
+```bash
+THRESHOLD=$(date +%s --date="1 month ago")
+sensu-cli event list --format json |
+  jq --raw-output "map(select( .[\"check\"][\"issued\"] < $THRESHOLD )) | .[] | .client.name + \" \" +  .check.name " |
+  xargs --verbose --no-run-if-empty -n2 sensu-cli resolve
+```
+# Intermediate Promo
+
+Hi. My name is Kyle and I'm a systems engineer. I've used Sensu in production,
+at scale, for a while now, and I've picked up a thing or two.
+
+If you haven't enrolled in my Introduction course, I encourage you to do so. It
+will lay the groundwork for understanding how Sensu works. For this course, I'm
+going to assume you know the basics, and we are going to be focusing on
+"Running in Production". What does that mean? It means we'll talk about:
+
+## Configuration Management
+
+Config management is near and dear to my heart. It is the key to getting
+reproducible configuration for any system, and Sensu is no different. I'll
+cover all the popular configuration management systems.
+
+## Utilizing third-party Check plugins and Handlers
+
+Next we'll cover how to take full advantage of all the third-party plugins and
+handlers out there.
+
+External plugins and handlers provide a lot of value to Sensu, but they don't
+come installed out of the box. I'll show you how to take advantage of these,
+and even write your own!
+
+## More advanced event routing
+
+If you are going to run Sensu in production, it means you need real actionable
+alerts. For example sending your important alerts to Pagerduty and sending
+other things to email, or setting up aggregation checks across a fleet of
+webservers. I'll cover this sort of event routing.
+
+## Security
+
+Having a production Sensu environment implies that it is secure. So I'll cover
+adding SSL to the transport and point out other places to harden Sensu or other
+common security gotchas you might encounter building out your Sensu
+infrastructure.
+
+## Conclusion
+
+And just like in the intro class, I'm going to make mistakes, just so you can
+see what it looks like to encounter errors, and then watch me talk through it
+and fix them.
+
+I designed this course for curious engineers who are looking to become
+better at their craft. Take this course with me, and I'll take your
+Sensu skills to a production level.
+# Pushing Your Own External Check Results
+
+Pushing your own external check results to the Sensu client is and advanced
+topic, that I was going to reserve for a future course, but I figured I would
+at least give a mini-lecture on how to use this feature.
+
+The official Sensu documentation does a pretty good job at explaining
+what this does, and gives and example:
+
+    https://sensuapp.org/docs/latest/clients#client-socket-input
+
+But I think it could use some elaboration.
+
+## What are these checks and where do they come from?
+
+Let's review how normal checks actually end up processed by the Sensu
+infrastructure. Remember that Sensu checks can be either subscription based,
+which means the Sensu-server schedules them, or they can be standalone, where
+the Sensu-client schedules them.  Regardless, the actual check is executed by
+the Sensu-client, and then the Sensu-client takes the result of the check, call
+it "event data", and then puts it on the queue, and then the Sensu server picks
+up on it for processeing. From there the Sensu server might invoke some
+handlers, send you an email, whatever.
+
+Now, imagine if there was some way to just "inject" event data like that, but
+without needing the sensu-server or sensu-client to actually execute the check.
+That is what this external result input is. It is where something *else* does the
+actual check execution, and just relays the resulting event data. Think of it as
+a kind of bypass, where the Sensu client gives you away to deposit your own custom
+result data onto the queue, even if that event data isn't even "from" the local
+Sensu client.
+
+## Where would this be useful?
+
+Where would this be useful? It is useful in situations where you have something
+you want to check that you won't want to have to pre-configure the Sensu-client
+to be aware of it. Let's look at one of my favorite use cases for this: Cron jobs.
+
+Let's say we have a cron job in place that we want to monitor, like this
+
+    crontab -l
+    0 0 * * * send-nightly-customer-report
+
+So we have this nightly customer report, and I would like to know if it doesn't work.
+Sure, you could check your inbox for cron emails. Or maybe you could edit your
+script to touch a file or something, and then configure Sensu to watch the
+modification date of that file, but I have a better idea.
+
+We can use the fact that Sensu allows us to push arbitary event data onto the
+queue, by pushing our own event data for this report. And in that event data,
+we'll push a status code of 0, meaning "OK", when it works, and a "2", for
+CRITICAL, when it doesn't work. But that means we need to adjust are script
+or something to make it talk to RabbitMQ right? Wrong.
+
+First, we don't have to talk to RabbitMQ or anything like that. We can talk directly
+to the local socket, which is listening on localhost port 3030. It isn't even
+HTTP, it is just a tcp socket that accepts plain text JSON. This interface is so
+simple, you could write a bash script to use it.
+
+So I did:
+
+    https://github.com/solarkennedy/sensu-shell-helper/
+
+This is a bash script that I use, to help make it even easier to send these
+events to the local socket. All you have to do is prepend your command with
+`sensu-shell-helper`, and you will get an event after your script runs.
+
+Let's try it out and see how it works behind the scense. First I'll download it:
+
+    wget -O /usr/local/bin/sensu-shell-helper https://github.com/solarkennedy/sensu-shell-helper/raw/master/sensu-shell-helper
+    chmod +x /usr/local/bin/sensu-shell-helper
+
+And now let's make up our fake report
+
+    vim /usr/local/bin/nightly-customer-report
+    #!/bin/bash
+    echo "Sales are great! Everything is fine!"
+    exit 0
+    chmod +x /usr/local/bin/nightly-customer-report
+
+Now we can prepend our command with `sensu-shell-helper`:
+
+    sensu-shell-helper nightly-customer-report
+
+That's it! If the nightly-customer-report script starts failing, we will
+get a sensu alert. What would that alert look like? We'll let's simulate
+a failure with our script
+
+    vim /usr/local/bin/nightly-customer-report
+    echo "But the script didn't work for some reason!!!"
+    exit 1
+
+Now let's run the command, with the `-d` option for a dry-run:
+
+    sensu-shell-helper -d nightly-customer-report
+
+Now you can see the actual JSON event data that would have been sent to Sensu.
+It has the name of this check: nightly-customer-report, and it even gives us the
+output, and the status code is 2, meaning it is CRITICAL. By default the
+sensu-shell-helper interprets any non-zero return code from the script as a
+critical failure.
+
+Let's run this thing and see what it looks like using the sensu-cli tool:
+
+    sensu-shell-helper nightly-customer-report
+    sensu-cli event list
+
+Now you can see that the event is there. Now let's "fix the script" and do it again,
+simulating what it would be like when cron runs it the next time:
+
+    vim /usr/local/bin/nightly-customer-report
+    dd
+    exit 0
+
+And now let's run it again...
+
+    sensu-shell-helper nightly-customer-report
+    sensu-cli event list
+
+Now you can see the event is gone, and we would have gotten a resolve email,
+saying that everything worked ok this time around.
+
+So the sensu-shell-helper is just one example of a quick tool that takes advantage
+of this local-socket feature, and allows you to make Sensu alerts for any command
+line invocation of anything, not just cron jobs of course.
+
+But you see, I didn't define *any* checks on the Sensu client, or on the sensu-server.
+No daemons were reloaded, no check config files were put on disk. The check for the
+nightly-customer-report came and went freely, the Sensu server didn't care that it
+came from the localhost socket and not from the Sensu-client itself. It processes
+the event just the same.
+
+## Another Example: External Devices
+
+Once you can send arbitrary events, you can do even more interesting things. This
+is extra useful when the things that you are checking are very dynamic. 
+
+Let's build off our customer example, but this time let's say we want to send an event
+on a per-client basis. And this time, I don't actually want to use the shell-helper,
+I'm going to use the standard sensu-cli command.
+
+First let's setup the customer report script:
+
+```bash
+#!/bin/bash
+#
+# Iterates through each client and will alert or resolve based on
+# whether action is required.
+#
+
+function check_customer {
+  customer=$1
+  standing=$2
+  # If a customer is in bad standing, send an alert so someone
+  # can look at it and try to fix it
+  if [[ $standing == "good" ]]; then
+    sensu-cli socket create --name "$customer" --output "Ok: Customer $customer is fine and is in in $standing standing" --status 0
+  else
+    sensu-cli socket create --name "$customer" --output "Critical: Customer $customer is in $standing standing. Take action!" --status 2
+  fi
+}
+
+# Iterate over all the customers
+check_customer "customerA" "good"
+check_customer "customerB" "bad"
+check_customer "customerC" "good"
+```
+
+Obviously this silly little bash script just serves as example. Hopefully
+real people are not writing their customer reports in bash.
+
+But you can see that this script iterates over customers and our `check_customer`
+function will send an event for that customer. It is important that we send
+and event when something is wrong, but we also want to send a "good" event
+when everything is ok, so we get that "resolve" email when things are fixed.
+
+Let's run this thing and see what happens:
+
+    nightly-customer-report
+
+If that worked, then it would have send an "ok" event for customers A and C, and a "critical" event
+for customer B. Let's see what events are now out there:
+
+    sensu-cli event list
+
+And now let's put customerB in good sanding and see if the event goes away:
+
+    vim /usr/local/bin/nightly-customer-report
+    /bad/good/
+    nightly-customer-report
+
+And now do we have any events?
+
+    sensu-cli event list
+
+And it resolved.
+
+## Conclusion
+
+Obviously this is just an example, hopefully no one is writing customer reports
+in bash. But it just serves as an example of how you can use this external
+event data feature of sensu to push your own events, for things that come and
+go like cron jobs and customers, without having to "let sensu know" beforehand
+that it exists.
+
+Before we conclude I would like to give a couple more examples of how this
+feature can be used.
+
+    https://github.com/solarkennedy/sensu-shell-helper/
+
+We saw how my `sensu-shell-helper` can be used to
+monitor the output of any command line invocation, like in a cron job.
+
+In this `check-serverspec.rb` example:
+
+    https://github.com/sensu/sensu-community-plugins/blob/master/plugins/serverspec/check-serverspec.rb
+
+The script iterates over a bunch of serverspec tests, and then emits and event
+for *each* test, whether it was a pass or a fail.
+
+In this example:
+
+    http://gist.leavesongs.com/countryHick/26a3dd2824b86dd5f994
+
+Someone has written a script that loops over some special SNMP traps and
+emits custom events based on teh name of the trap.
+
+In this example:
+
+    https://gist.github.com/joemiller/5806570
+
+The script inspects the Pantheon API, enumerates over all the endpoints,
+and pings each one, and emits and event for *each* endpoint.
+
+I hope that better illuminates what this feature can do for you. It is certainly
+an advanced feature. You can get by with normal Sensu checks for a long time
+before you encounter a case where you need this kind of custom event creation.
+
+But when you do have this tool in your toolbox, it means that when you encounter
+such a situation, where you don't know beforehand what it is that you need to
+monitor exactly, and you need to have a custom event based on what is out there,
+this feature can be a very powerful tool, and can help you monitor things that
+are inherently dynamic.
+# Securing RabbitMQ With SSL
+
+Let's talk a bit about why we care about SSL with RabbitMQ. In Sensu, RabbitMQ
+is the primary way that messages are sent between the client and servers. This
+whole time we have not been using SSL, which means all traffic between the
+Sensu client and server has been unencrypted. This is a potential security risk,
+especially if you are going across untrusted networks. This is especially
+important if you are not using `safe_mode`, and the Sensu clients will execute
+arbitrary code upon a check request.
+
+SSL encrypts this traffic. But, enabling SSL means we have an additional burden
+of getting SSL certs. For this lecture we will be creating our own certificate
+authority and issuing our own self-signed certs. At the end of the lecture I'll
+discuss the pros and cons to this approach, and talk about some other options.
+
+## Making a CA, Signing Some Certs
+
+The official Sensu documentation actually comes with some helping scripts
+to create our own Certificate Authority and sign our own certs.
+
+    https://sensuapp.org/docs/latest/ssl
+
+The docs are a little sparse, but let's download the helper script and
+see how far we can get...
+
+    cd /tmp && wget http://sensuapp.org/docs/latest/tools/ssl_certs.tar && tar -xvf ssl_certs.tar
+    cd ssl_certs
+    ls
+    vim ssl_cert.sh
+    ./ssl_certs.sh generate
+    find
+
+As you can see the script has generated some certs and keys for us to use, including
+one for a server, a client, and the CA. The are not anything really fancy, just basic
+self-signed certs:
+
+    openssl x509 -in server/cert.pem -text -noout
+    openssl x509 -in client/cert.pem -text -noout
+
+## Adding Certs to RabbitMQ
+
+Now that we have some certs and keys to work with, let's copy
+them into RabbitMQ's config directory for use:
+
+    mkdir /etc/rabbitmq/ssl
+    cp server/key.pem server/cert.pem sensu_ca/cacert.pem /etc/rabbitmq/ssl/
+
+Now we can configure RabbitMQ to use them. I'm for refererence, the
+[RabbitMQ documentation page](https://www.rabbitmq.com/ssl.html)
+has exact instructions on how to enable SSL listeners:
+
+    cd /etc/rabbitmq
+    find
+    vim rabbitmq.config
+
+```
+    {rabbit, [
+    {ssl_listeners, [5671]},
+    {ssl_options, [{cacertfile,"/etc/rabbitmq/ssl/cacert.pem"},
+                   {certfile,"/etc/rabbitmq/ssl/cert.pem"},
+                   {keyfile,"/etc/rabbitmq/ssl/key.pem"},
+                   {verify,verify_peer},
+                   {fail_if_no_peer_cert,true}]}
+  ]}
+```
+
+    /etc/init.d/rabbitmq-server restart
+
+And let's look at the logs:
+
+    tail -f /var/log/rabbitmq/rabbit@vagrant-ubuntu-trusty-64.log
+
+You can see that we haven't adjusted Sensu's configuration yet, so those clients
+are still connecting to the non-ssl port, 5672.
+
+## Adding Certs to Sensu
+
+Now that RabbitMQ is listening and ready to accept SSL connections on 5671,
+we are ready to give client certs to Sensu and adjust its configuration:
+
+    cd /tmp/ssl_certs/
+    mkdir /etc/sensu/ssl/
+    cp client/key.pem client/cert.pem sensu_ca/cacert.pem /etc/sensu/ssl/
+    vim /etc/sensu/config.json
+
+```
+  "rabbitmq": {
+    "ssl": {
+      "cert_chain_file": "/etc/sensu/ssl/cert.pem",
+      "private_key_file": "/etc/sensu/ssl/key.pem"
+    },
+    "host": "localhost",
+    "port": 5671,
+```
+
+Remember both the Sensu server, client, and API connect to RabbitMQ for
+communication, so they will all need to be restarted to pick up this
+configuration:
+
+    /etc/init.d/sensu-client restart
+    /etc/init.d/sensu-server restart
+    /etc/init.d/sensu-api restart
+
+This config file is shared by all three on this host, in practice you might
+have different components on differnet hosts, and they will all need this
+treatment. Let's look at the RabbitMQ log:
+
+    tail -f /var/log/rabbitmq/rabbit@vagrant-ubuntu-trusty-64.log
+
+Now you can see connections are coming in on port 5671. And let's verify that the
+Sensu components are still connected:
+
+    tail /var/log/sensu/sensu-server.log  -n 200
+
+And that uchiwa still works:
+
+    http://localhost:3000/#/datacenters
+
+So we did it, we got Sensu and RabbitMQ to talk over SSL, with no downtime.
+Normally I would do something where I would enable SSL on RabbitMQ, disable
+non-ssl, watch Sensu fail, then enable SSL on Sensu to watch it work again.
+But in this case I wanted to demonstrate that this configuration change can
+be done in a production environment with no downtime, as long as the steps
+are followed in this order.
+
+## Alternatives
+
+Setting up SSL can be a pain, but once you have it setup, it is done. I don't
+mind so much that it requires this effort up front and Sensu doesn't do it
+automatically for you. Honestly, I wouldn't want Sensu to do it magically for
+me, just like I wouldn't want Apache or Nginx to setup SSL certs for me.
+
+The fact that it is self-signed also doesn't bother me too much, is isn't like
+someone is going to see this in a browser.
+
+Alternatively though, if you already have a self-signed SSL cert setup in your
+environment, say for an existing setup like Puppet or Chef, you could totally
+use that. You already have a certificate authority, and each server has it's own
+signed private key, it would totally work.
+
+On the other hand, you may want to just go through the work of setting up a
+different SSL cert for Sensu, just so you don't risk the possibility of breaking
+your monitoring *and* your configuration management at the same time.
+
+SSL adds extra protection to the actual traffic on the wire for Sensu, and I
+think it is absolutely worth it for any production environment. Of course I
+always recommend using a configuration management tool like
+Chef/Puppet/Salt/Ansible, to make it easy to deploy this configuration in a
+reproducible way.
+
+As always, look to the external resources section of this lecture for links to
+the official documentation on how to configure SSL with RabbitMQ for Sensu, as
+well as the exact commands I ran, and links to more tutorials for doing this
+procedure.
+# Standalone, Safemode, and Subscriptions
+
+When running Sensu in production, you need to be aware of how
+Sensu schedules checks. The ideas of "standalone checks",
+"subscription checks", and "safemode" are all related ideas that
+I think are very important, and worth devoting a small lecture to
+explain what they mean.
+
+Let's go to the whiteboard to explain...
+
+## Sensu's Scheduling Model
+
+In order to talk about how Sensu's check scheduling model works, we have
+to talk about RabbitMQ. If you have a Sensu client and a Sensu server, RabbitMQ
+is the *only* method of communication between the two, that is it.
+
+But you have to remember that RabbitMQ is a two-way street here. Not only can
+Sensu clients put check results onto the queue for processing, but the Sensu
+server can also put check requests onto the queue for clients to act on.
+
+Your Sensu configuration and your check configuration will determine how this
+behaves exactly.
+
+## Subscription Checks
+
+Let's talk about "Subscription" checks first. Subscription checks are checks
+that are scheduled by the Sensu Server. In order for them to work, you need at
+least two pieces of configuration in place. This will be more obvious with an
+example.
+
+Let's say you have a Sensu server and a bunch of Sensu clients running
+on your cluster of webservers. To setup a subscription-based check for
+something like `check_http`, you need the actual check defined on the
+Sensu server. It will have a flag for which subscribers should run this check,
+you might say "webserver" need to subscribe to it. Once this is in place, on
+the regular schedule, the Sensu server will begin to put out check requests
+onto RabbitMQ, calling our for anything subscribed to "webserver" to execute
+this check.
+
+But who is listening? Any server client that has been setup with "webserver" in
+the client subscriptions configuration will be listening for these check
+requests. When the server puts out that call for `check_http`, the clients that
+are subscribed will pick up on it, execute the check, and put the results back
+onto the queue for the server to process. The advantage to this model is that
+you have central configuration and control over the checks, you only have one
+place where this check is defined, and conceptually it is similar to how most
+monitoring systems work, more or less. In a sense the Sensu clients are kinda
+acting like just "dumb" agents that are executing checks on the host, for the
+server. 
+
+### Security Implications / `safe_mode`
+
+Now if you are like me, with a decent amount of sysadmin experience, your first
+reaction to this might be, "wait, the Sensu clients just do whatever the server
+tells them to do? This sounds like a "remote execution exploit as a service"
+setup.
+
+And it is true, anyone with access to RabbitMQ in this setup could ask the
+Sensu clients to do anything, really. Granted processes are spawned under the
+Sensu user, it still seems like a pretty relaxed security model. Personally, I
+would not run Sensu like this in a production setup, without what is called:
+"`safe_mode`".
+
+With `safe_mode` on, Sensu clients will refuse to run any check that has not
+already been defined in their local configuration. This is certainly a little
+safer, but now it means that you must pre-configure your clients with the
+checks that they are going to run. That means now they each have to have
+a file with the `check_http` check defined on them.
+
+If you ask me this should be the default, but I understand why it is not: out
+of the box it restricts how useful Sensu is in this subscription mode. But this
+is certainly something engineers need to be aware of when they are integrating
+Sensu with their infrastructure.
+
+I personally don't see a problem with requiring a config file with this check
+definition, do you know why? It is because I use configuration management! If
+you haven't watched any of the lectures on using configuration management tools
+with Sensu, I encourage you to do so. If you are using configuration management
+to deploy Sensu and setup the list of subscriptions, then it isn't that big of
+a deal for the configuration management tool to also deploy the config file for
+the `check_http` check at the same time. After all, that is really what
+configuration management tools do best.
+
+## Standalone Checks
+
+But there is another option: standalone checks. Standalone checks are defined
+on the client *only*. Also the client is responsible for actually scheduling
+this check on itself. In fact, even if the Sensu server is down, standalone
+checks will continue to run on their intervals, because it is the job of the
+Sensu client.
+
+You can define a standalone `check_http` check on any server, regardless of
+it's subscriptions, and the Sensu client will see it, schedule and execute it,
+and that is it. The nice thing about this setup is that no configuration on the
+Sensu server is needed at all. Any client with standalone checks just operate
+on their own, and the Sensu server just operates on the results of those
+checks.
+
+The downside is that now you must deploy this configuration file to every
+webserver, you can no longer centrally control it. Again though, this is
+exactly what configuration management is for. If configuration management is
+setting up your webservers, it can deploy this Sensu config file too. In this
+world, `safe_mode` doesn't apply. You should certainly turn it on, but it
+doesn't affect the behavior of standalone checks.
+
+As I've said before, I like standalone checks myself, I think they are actually
+easier to understand than subscription checks, and I like how easily they fit
+with the configuration management model. If you are using configuration
+management to deploy a webserver on a particular port, and you wanted to change
+that port, the configuration management tool could change the port of the
+webserver and update the monitoring configuration on the same host, using
+standalone checks, and that is it.
+
+With the subscription model you might update your webservers, but then you have
+to update the Sensu server too. But what if the rollout is slow? Well in the
+standalone world, the app and the monitoring config are on the same server, so
+they can change kinda atomically together. I think this is cool. You could do
+this with subscriptions as long as you had the check defined on the server
+already, and the local settings will override the check definition that the
+server sends out, but at that point it seems like you might as well just do a
+standalone check.
+
+## Aggregate Notes. 
+
+I should note that there is an advanced Sensu topic called "aggregates". Aggregates
+are a way for the Sensu server to schedule a check across a set of subscribers and then
+tally the results to give you a kind of "aggregate" view. Aggregates don't work on
+standalone checks because they are not centrally scheduled.
+
+## Conclusion
+
+So in conclusion, "subscription" checks are defined and scheduled on the
+server, and then clients that are tagged with the same subscription pick them
+up, execute the check, and then put the results back on the queue.
+
+With `safe_mode` on, these clients will only execute those checks if the check is
+also defined locally, for safety.
+
+"standalone" checks are checks that are defined locally on the client-only,
+they don't need any server-side configuration. `safe_mode` doesn't affect them.
+
+I hope this makes this topic very clear. It is an idea unique to Sensu's
+architecture, so I thought it was worth clarification. If you are using
+configuration management, I find that standalone checks work well for that. If
+you are setting up checks by hand, subscription checks are easy with
+`safe_mode` off, but you do need to be aware of the security implications.
+
+Like always, I'll have additional documentation on these topics as well as show
+notes in the external resources section of this lecture.
+# Taking Advantage of the Embedded Omnibus Ruby
+
+## Intro
+
+You may remember me mentioning before in the introductory course that Sensu is
+distributed as an "omnibus package". That means it comes its own isolated ruby
+interpreter and gems, completely isolated from the system-installed Ruby, if
+any if the system even has Ruby installed.
+
+This is a good thing for Sensu, it means you have predictable deployments,
+regardless of the distro you are on.
+
+In previous lectures I've demonstrated how to use this Ruby to install handlers
+and checks. But say you really want to use this Ruby for everything, so
+much that whenever Sensu runs anything Ruby related it will use the embedded
+Ruby.
+
+### Advantages
+
+### Method 1: `EMBEDDED_RUBY=true`
+
+There are two ways you can take advantage of this. The first way is by setting
+`EMBEDDED_RUBY=true` in `/etc/default/sensu`:
+
+   vim /etc/default/sensu
+
+If you set this to true, then whatever service that runs on this host, either
+the sensu-client or the sensu-server, will have the omnibus-ruby in the path
+first. This means any ruby-based plugins will use *it* instead of whatever
+system ruby is installed.
+
+#### Mechanics of `EMBEDDED_RUBY=true`
+
+But how the heck does `EMBEDDED_RUBY=true` actually work? Let's find out where
+that actually activates.
+
+    https://github.com/sensu/sensu-build/blob/f872cc5f3d0345b636e73505b49e8230c836b0a8/sensu_configs/default/sensu
+
+This is where `EMBEDDED_RUBY` is actually set. You can see right now it
+defaults to false. This is definitely an opt-in kinda thing, it would be a
+little surprising if the Sensu-ruby took over by default.
+
+But if you know you want to use Sensu's Ruby as the default ruby, and you set
+this to `true`. What does that actually do?
+
+    https://github.com/sensu/sensu-build/blob/f872cc5f3d0345b636e73505b49e8230c836b0a8/sensu_configs/init.d/sensu-service#L166
+
+This is an example of one of the init scripts. You can see that if this is
+true, the init script will set the embedded Ruby's bin folder to be first in
+the path.  Also it will set the `GEM_PATH` to use the Sensu-embedded-ruby's
+Gems first, instead of what might be on the system.
+
+That's it, no magic, just bash. Nothing specific to the Sensu user or anything,
+it just sets the `PATH` and `GEM_PATH`.
+
+On the one hand this can be convenient, but it does mean that if you need to
+reproduce *exactly* how Sensu is executing checks or handlers, you need to
+remember to do the same thing. It isn't very explicit, which is I prefer the
+second method...
+
+### Method 2: Hard-coding Shebangs (#!)
+
+The other way to use this ruby is to make the she-bang directly invoke it. This
+is a little easier to do if you control the script, and it is not a host-wide
+setting, which is kinda nice.
+
+This is the method I've used in all the other lectures so far, mostly because
+it is so reproducible. It doesn't matter what your environment variables are,
+you can run the command with the full path and it will always use the right
+ruby.
+
+#### Looking at the ruby
+
+Lets see what we have to work with:
+
+    /opt/sensu/embedded/bin/ruby --version
+
+So Ruby 2.0.0, which is decently new. Lets see what gems are available:
+
+    /opt/sensu/embedded/bin/gem list | less
+
+These are the actual gems that Sensu uses, so be careful when adjusting these.
+
+#### Using the Ruby
+
+Of course if you want to use the embedded ruby on a script you can simply put
+that ruby into the she-bang of the script.
+
+    #!/opt/sensu/embedded/bin/ruby
+
+And of course you can simply invoke a ruby script with that interpreter directly:
+
+    /opt/sensu/embedded/bin/ruby my-script.rb
+
+It may be more verbose, but it is explicit about exactly which ruby to use.
+
+## Conclusion
+
+That is all I really wanted to say about the embedded ruby. In the other
+lectures you've seen me use it to install and run handlers and checks, but I
+just wanted to touch now what it means to set `EMBEDDED_RUBY=true`. You don't
+need to set it to be true to take advantage of the omnibus ruby, you can simply
+call scripts by their full path instead. You should only really set
+`EMBEDDED_RUBY=true` if understand what it means to set it. And of course all
+it does is change the paths in the init script, no magic. But now you know!
+# Using Ansible to Install Sensu - Part 1
+
+## Getting Everything Ready
+
+Welcome to "Using Ansible to Install Sensu". Just like all every configuration
+management lecture, our goal here is to build an example Sensu environment in
+a reproducible way. My specific goal here is to reproduce the exact setup we
+made together in the Introductory course. We'll be installing all the server
+and client components, a dashboard, and example check and email handler.
+
+First I'm going to install Ansible to get going
+
+    sudo su -
+    apt-get -y install ansible
+
+For the lecture I'm going to use Ansible in local-mode. In production
+you will probably have Ansible using SSH to do remote execution.
+
+I'm going to edit my hosts file to reflect that
+
+    cd /etc/ansible
+    vim hosts
+    localhost              ansible_connection=local
+    ansible all -m ping
+
+Good, ansible is installed and I can use it on localhost.
+
+## Getting The Roles/Playbooks Ready
+
+There is no official Ansible playbook for Sensu, but currently the
+most feature complete playbook seems to be from `Mayeu`:
+
+    https://github.com/Mayeu/ansible-playbook-sensu
+
+I'll use the ansible-galaxy tool to download this playbook for use:
+
+    ansible-galaxy install Mayeu.sensu
+
+Now we need a `site.yml` file to serve as the entrypoint to associate
+my localhost with the right roles:
+
+    vim site.yml
+
+    ---
+    - name: Install Sensu Server Stuff
+      hosts: localhost
+      roles:
+        - Mayeu.sensu
+
+We are going to need more things for sure, but let's start with just this
+and see what happens:
+
+    ansible-playbook site.yml
+
+Ok, our first error: this playbook expects ssl certs are available for use.
+Let's go back and read the [manual](https://github.com/Mayeu/ansible-playbook-sensu#expectation).
+
+The docs say that the playbook expects SSL certs to be available and that
+RabbitMQ is listening on the SSL port. I have a whole dedicated lecture
+dealing with RabbitMQ and ssl, so I won't talk about this subject too
+much in this lecture. But for now I'm going to use the example set of
+pre-generated certs and keys provided in the vagrant folder.
+
+    mkdir files
+    cp roles/Mayeu.sensu/vagrant/files/*.pem files/
+    ansible-playbook site.yml
+
+Our next error is talks about more missing files. These are mentioned in the
+[manual](https://github.com/Mayeu/ansible-playbook-sensu#expectation) that we
+didn't read fully...
+
+It specifies that it expects a directory structure for sensu plugins, handlers,
+and extensions. Let's make those folders, even if they are empty to start.
+
+    mkdir -p files/sensu/{plugins,handlers,extensions}
+    ansible-playbook site.yml
+
+Alright, our next errors say that it can't start the sensu-api or sensu-server.
+Now, we never setup RabbitMQ or redis, but let's see what the actual error is:
+
+    tail /var/log/sensu/sensu-server.log
+
+It looks like it the checks hash is defaulting to something invalid. I'm going to
+take this opportunity to start a vars file to contain all the role variables
+we are going to need to describe this `sensu_server` role. And in there I'll setup
+a place to define some sensu checks, even if we just default to an empty hash for
+now to satisfy the sensu-server.
+
+    vim site.yml
+
+    vars_files:
+    - sensu-server-vars.yml
+
+Now let's read up on what variables we can set for this playbook:
+https://github.com/Mayeu/ansible-playbook-sensu#role-variables
+
+Looks like `sensu_checks` is the variable we can set. Lets make it an empty
+hash. I'm also going to do the same for `sensu_handlers` for now.
+
+    vim sensu-server-vars.yml
+
+    ---
+    sensu_checks: {}
+    sensu_handlers: {}
+
+    ansible-playbook site.yml
+    tail /var/log/sensu/sensu-server.log
+
+Ok, now we get a transport connection failure. I think we are ready for installing
+RabbitMQ and Redis. And we know we got it right when the Sensu-server and Sensu-api
+startup.
+
+## Installing RabbitMQ
+
+Mayeu also has a very good RabbitMQ ansible playbook for use. For this lecture
+I'm going to re-use that playbook. I do like how this Sensu playbook doesn't
+presume to install RabbitMQ for you, but instead expects you to install
+RabbitMQ with a different playbook. I certainly do not want to re-invent the
+wheel here, so lets install the Mayeu RabbitMQ playbook:
+
+    ansible-galaxy install Mayeu.RabbitMQ
+
+And now we need to add the RabbitMQ playbook into our list of roles:
+
+    vim site.yaml
+    - Mayeu.RabbitMQ
+
+    ansible-playbook site.yml
+
+No red this time, but I'm skeptical that everything worked.
+
+    tail /var/log/sensu/sensu-server.log
+
+You might be able to guess what we are missing, based on what we did
+in the introductory video.
+
+We need to configure Ansible to setup the Sensu RabbitMQ vhost and user.
+
+Let's go back to the list of variables that the Sensu playbook exposes:
+
+    https://github.com/Mayeu/ansible-playbook-sensu#role-variables
+
+And now lets look at the RabbitMQ playbook and see how we might setup
+RabbitMQ credentials:
+
+    https://github.com/Mayeu/ansible-playbook-rabbitmq#vhost
+
+For a vhost definition, it looks like the only thing we need is the name.
+We could hard-code the string 'sensu', but we could also just re-use the
+vhost variable from the Sensu playbook.
+
+    vim sensu-server-vars.yml
+    rabbitmq_vhost_definitions:
+     - name:     "{{ sensu_server_rabbitmq_vhost }}"
+
+For user definitions, we'll need the vhost, user, and password, all of which
+are also variables that can come from the sensu playbook
+
+    vim sensu-server-vars.yml
+
+    rabbitmq_users_definitions:
+      - vhost:    "{{ sensu_server_rabbitmq_vhost }}"
+        user:     "{{ sensu_server_rabbitmq_user }}"
+        password: "{{ sensu_server_rabbitmq_password }}"
+
+If we got all that right, ansible should create the right RabbitMQ user for
+sensu to use. Lets run our playbooks and watch:
+
+    ansible-playbook site.yml
+    tail /var/log/sensu/sensu-server.log
+
+Looking at the timestamp on the log, it looks like the ansible playbook
+for Sensu is not trying to get the Sensu server components back up.
+
+At the time of this recording, there is an open Pull Request to make this
+happen. Certainly seems like a bug, the desired state is to have the
+Sensu stuff running of course.
+
+    https://github.com/Mayeu/ansible-playbook-sensu/pull/21
+
+Hopefully this is patched by the time you download this playbook, but for
+now I'm going to quickly apply this patch to my local copy
+
+    cd roles/Mayeu.sensu/
+    wget https://patch-diff.githubusercontent.com/raw/Mayeu/ansible-playbook-sensu/pull/21.diff
+    patch -p1 <21.diff
+    cd ../../
+
+Now that we've applied this patch, lets run the playbooks again:
+
+    ansible-playbook site.yml
+
+Now we get some red, and it is expected.
+
+    tail /var/log/sensu/sensu-server.log
+
+## Installing Redis
+
+Of course, we haven't setup Redis yet. Let's try to find a redis playbook to install
+and use.
+
+Just looking at the Ansible Galaxy for Reids playbooks can be a bit overwhelming.
+
+    https://galaxy.ansible.com/list#/roles?page=1&per_page=10&sort_order=average_score,name&f=redis
+
+Narrowing down to just Ubuntu Trusty, which happens to be the platform I'm using
+for this lecture, I get a few here:
+
+    https://galaxy.ansible.com/list#/roles?page=1&per_page=10&sort_order=average_score,name&f=redis&platform=Ubuntu&release=trusty&reverse
+
+I don't really need to install Redis from source here, and DebOps is a whole
+set of opinionated things. This next one down looks pretty sane, just installs
+redis from a package and makes sure it is running, which is good enough
+for me.
+
+    ansible-galaxy install geerlingguy.redis
+
+    vim site.yml
+    - geerlingguy.redis
+
+    ansible-playbook site.yml
+
+All green, no Red. Is everthing running?
+
+    ps -ef
+
+## Everything Running
+
+Great, looks like we've got redis, rabbitmq, the sensu-server, api, and
+Uchiwa. Let's check out uchiwa:
+
+    http://localhost:3000/#/login
+
+Hmm. What is the username and password?
+That is configured via a variable in the Sensu playbook
+
+    https://github.com/Mayeu/ansible-playbook-sensu#server-variables
+
+Looks like the default username is 'uchiwa' with a password of 'placeholder'.
+
+    http://localhost:3000/#/login
+
+Obviously you could set these variables in our yaml to override them as
+necessary, but I'll leave them for now.
+
+And it looks like all the components are installed and running, which
+sets up a good foundation for the next lecture, where we will install
+additional pieces like checks, handlers, and client stuff.
+# Using Ansible to Install and Configure Sensu - Part 2
+
+## Installing the Mailer Handler
+
+Now that we have the basic Sensu Components installed, we are ready to start
+adding more real-life configuration. We'll start with an email handler, just
+like in the introductory course, so you can get emails when things go wrong.
+
+Remember that in the Introductory Course we used the embedded Sensu ruby
+to install these handlers. I think this is a pretty sane way to do this,
+as it means that you don't have to depend on the system-installed ruby,
+which may not be up to date.
+
+We can use ansible to install gems for us, no problem:
+
+    http://docs.ansible.com/ansible/gem_module.html
+
+But if we included this gem without any extra options, it would install
+it using the system-ruby, if available. For us, we want to override the
+`executable` parameter, to point to Sensu's gem.
+
+But where are we going to put this task?
+
+There are many ways to organize ansible playbooks. You could even
+just modify the Sensu playbook to include the gems you need, but
+I would like to leave the third-party playbooks alone and just
+tack on my business requirements on top.
+
+To do this, I'm just going to make a `sensu_server_extras` playbook
+and put it in the roles folder, and put all my extra stuff in there.
+
+    mkdir -p roles/sensu_server_extras/{files,tasks,handlers,defaults}
+    vim roles/sensu_server_extras/tasks/main.yml
+
+And the handlers tasks will take care of installing handlers. Here is
+were we can install that the actual rubygem:
+
+    ---
+    - gem: name=sensu-plugins-mailer executable=/opt/sensu/embedded/bin/gem user_install=no state=present
+
+Note the important options here. Obviously we need the name, and we do need to set the path
+to the gem executable. Additionally we need to turn off `user_install`, as that
+defaults to yes in ansible.
+
+And now we can include the `sensu_server_extras` playbook to the list
+of roles to include:
+
+    vim site.yml
+    - sensu_server_extras
+
+And now lets get that gem installed
+
+    ansible-playbook site.yml
+
+We got an error installing that gem. This is a very common error when installing
+gems with native extensions. The solution is to install g++, and more generally
+by installing the `build-essential` package on Ubuntu.
+
+    - apt: name=build-essential state=installed
+    ansible-playbook site.yml
+
+Now let's verify the actual script is in place:
+
+    ls /opt/sensu/embedded/bin/
+
+### Configuring the Mail Handler
+
+Now how are we going to configure this handler?
+
+Looking at the docs for the Sensu playbook, there are variables
+we can set to define arbitary configuration:
+
+    https://github.com/Mayeu/ansible-playbook-sensu#configuration-organisation
+
+There are variables for the `sensu_settings`, which is a big catchall,
+and the `sensu_handlers` hash:
+
+    https://github.com/Mayeu/ansible-playbook-sensu#general-variables
+
+But I think it would be nice if this same playbook deployed the handler
+and configured the handler in the same playbook. I don't, personally, like
+the big single variable for all the arbitrary `sensu_settings`, when
+Sensu handles multiple configuration files so easily.
+
+To that end, for this lecture I'm going to install the mailer handler
+and configure it in the `sensu_server_extras` playbook like this:
+
+    vim roles/sensu_server_extras/defaults/main.yml
+
+    ---
+    sensu_mail_configuration:
+      handlers:
+        mailer:
+          type: pipe
+          command: /opt/sensu/embedded/bin/handler-mailer.rb
+      mailer:
+        admin_gui: http://admin.example.com:8080/
+        mail_from: sensu@example.com
+        mail_to: monitor@example.com
+        smtp_address: smtp.example.org
+        smtp_port: 25
+        smtp_domain: example.org
+
+In the `sensu_server_extras` playbook I'm setting up a variable to store
+the sensu mailer handler configuration, *and* the configuration snippet
+for the mailer plugin. I've set this to be in the `sensu_mail_configuration`
+variable.
+
+    vim roles/sensu_server_extras/tasks/main.yml
+
+    - name: sensu mailer config
+      copy:
+        content='{{ sensu_mail_configuration | to_nice_json }}'
+        dest=/etc/sensu/conf.d/mailer.json owner=sensu group=sensu mode=0640
+      notify:
+        - restart sensu server
+
+Now in my tasks I have a task to just output that variable directly into the
+filesystem in json form. 
+
+I am referencing a handler from the other playbook, so I'm going to cross-include
+it:
+
+    vim roles/sensu_server_extras/handlers/main.yml
+
+    ---
+    - include: ../../Mayeu.sensu/handlers/main.yml
+
+I'm not 100% sure this is the *best* way to do this, but it is certainly *a*
+way to do it, and I like that it doesn't have to interact with the `sensu_setting`
+variable or other variables from a different module. In this sense it is sort of
+self-contained.
+
+    ansible-playbook site.yml
+
+Now let's double check the output file
+
+    cat /etc/sensu/conf.d/mailer.json
+    tail /var/log/sensu/sensu-server.log
+
+The file on disk looks ok, and the sensu server seemed to accept it.
+The Sensu config loading code does a big glob over all the files in here,
+and it doesn't matter that the mail config is in it's own file.
+
+## Adding A Client
+
+So far we've got the *server* aspects of sensu setup, but we haven't talked
+much about the sensu client. The Sensu Ansible playbook we have been using
+actually enables the client by default. But what would it look like if you
+were configuring a standalone client?
+
+    vim site.yml
+
+    - hosts: localhost
+      roles:
+        - Mayeu.sensu
+      vars_files:
+        - sensu-server-vars.yml
+
+If we were configuring just a standalone client, we would want to still
+include the Sensu role, and we would even want to include the same
+sensu-server-vars file to prevent duplication.
+
+But we would want to *not* install the sensu server:
+
+    vars:
+      - sensu_install_server: no
+
+This will work, but I want to do something similar to what we did before, were
+we installed a disk check. We have to have *some* playbook to put that in,
+so I'm going to make a `sensu_client_extras` playbook.
+
+    cp -a roles/sensu_server_extras roles/sensu_client_extras
+
+And instead of instaling the handler, we'll install the disk check:
+
+    vim roles/sensu_client_extras/tasks/main.yml
+
+    ---
+    - gem: name=sensu-plugins-disk-checks state=present executable=/opt/sensu/embedded/bin/gem user_install=no
+    
+    - name: sensu disk check
+      copy:
+        content='{{ sensu_disk_check | to_nice_json }}'
+        dest=/etc/sensu/conf.d/check_disk.json owner=sensu group=sensu mode=0640
+      notify:
+        - restart sensu client
+
+That should install the gem and deploy a file with the disk check in it.
+
+    vim roles/sensu_client_extras/defaults/main.yml
+
+    ---
+    sensu_disk_check:
+      checks:
+        check_disk:
+          command: /opt/sensu/embedded/bin/check-disk-usage.rb
+          standalone: true
+          interval: 60
+          handlers: ['mailer']
+
+Now if we apply this, we should get a new gem installed for our disk check, and a
+new disk check configuration, and the sensu client should be automatically
+restarted to pick up on it.
+
+    ansible-playbook site.yml
+
+And if we tail the client log, we should see that this check is being processed:
+
+    tail /var/log/sensu/sensu-client.log  -f
+
+## Conclusion
+
+We have only setup a very basic Sensu installation with Ansible.
+
+There are many ways to organize ansible code. I think what is presented here
+is certainly *a* way to do it. I would imagine that if you had existing roles
+for thing like "webserver", that playbook would include say, and apache playbook
+as well as have tasks for monitoring apache, similar to the disk check
+that was setup in this lecture.
+
+Let's make an example and see what that might look like:
+
+    ansible-galaxy install geerlingguy.apache
+    mkdir -p roles/webserver/{files,tasks,handlers,defaults,meta}
+    vim roles/webserver/meta/main.yml
+
+    ---
+    dependencies:
+    - { role: geerlingguy.apache }
+
+   vim site.yml
+   - webserver
+
+We've made a kind of webserver wrapper role that depends on an apache
+playbook. So far that is all that it does. Lets apply this:
+
+   ansible-playbook site.yml
+
+Now, lets see what it would like like if we added sensu monitoring to this
+role:
+
+    vim roles/webserver/defaults/main.yml
+
+    ---
+    sensu_check_http:
+      checks:
+        check_http:
+          command: /opt/sensu/embedded/bin/check-http.rb --url 'http://localhost/'
+          standalone: true
+          interval: 60
+          handlers: ['mailer']
+
+We define a sensu check for check http, now lets make the task that actually
+deploys that check:
+
+    vim roles/webserver/tasks/main.yml
+
+```
+---
+- gem: name=sensu-plugins-http state=present executable=/opt/sensu/embedded/bin/gem user_install=no
+- name: sensu check http
+  copy:
+    content='{{ sensu_check_http | to_nice_json }}'
+    dest=/etc/sensu/conf.d/check_http.json owner=sensu group=sensu mode=0640
+  notify:
+    - restart sensu client
+```
+
+And the last thing we need is the cross reference to the sensu client ansible handler:
+
+    vim roles/webserver/handlers/main.yml
+
+```
+---
+- include: ../../Mayeu.sensu/handlers/main.yml
+```
+
+And that adds the monitoring to the webserver role. Let's make Ansible deploy this:
+
+    ansible-playbook site.yml
+
+    cat /etc/sensu/conf.d/check_http.json
+    tail -f /var/log/sensu/sensu-client.log
+
+I like the idea of having a playbook contain the checks that it needs, and
+all the associated configuration. That would mean that any host that included
+the `webserver` role would automatically include the monitoring with it,
+and nobody would have to remember to edit the top level `sensu_checks` variable.
+
+Obviously your mileage may vary. The point of this lecture is not to
+prescribe a certain way of doing this, but to inspire you to make your
+own playbooks and roles that integrate Sensu checks in the way that makes
+most sense for you. Hopefully that happened and you can see now how you
+might do that.
+
+Be sure to check out the show notes for the exact commands I used in this
+lecture, as well as the code samples for the example playbooks, including
+the webserver one that combines Apache and Sensu.
+## Using Chef to Install and Configure Sensu
+
+### Introduction
+
+In this lecture we will use Chef to install and configure Sensu.
+Like any configuration management tool, the purpose of this is to
+be able to reproduce our work, and encode how to get from a blank
+server, to a fully working Sensu installation.
+
+In this lecture I'm going to just use the chef-solo, 
+but it would be very similar to a production setup where you
+have Chef-server or whatever.
+
+### Getting Chef
+
+I'm going to download the latest version of chef, because before I saw some
+incompatibilities with earlier versions of chef and the cookbooks I'm going
+to be using
+
+    sudo su -
+    wget https://opscode-omnibus-packages.s3.amazonaws.com/ubuntu/10.04/x86_64/chef_12.4.1-1_amd64.deb
+    dpkg -i chef_12.4.1-1_amd64.deb && rm chef_12.4.1-1_amd64.deb 
+
+
+### Initial Setup
+
+Now I'm going to setup the standard chef-repo directory structure:
+
+    mkdir chef-repo && cd chef-repo
+    mkdir cookbooks
+    mkdir .chef
+    vim solo.rb
+    file_cache_path "/root/chef-solo"
+    cookbook_path "/root/chef-repo/cookbooks"
+    vim .chef/knife.rb
+    file_cache_path "/root/chef-solo"
+    cookbook_path "/root/chef-repo/cookbooks"
+
+The official way to download cookbooks is using the knife tool, which uses
+git under the hood, so we have to make a simple git repo.
+
+    cd cookbooks
+    apt-get -y install git
+
+    git init
+    git config --global user.email "root"
+    git config --global user.name "root"
+    git commit -m "First Commit" --allow-empty
+
+### Installing the required cookbooks
+
+Let's take a look at the cookbooks we are going to use. The major one
+is of course, [Sensu](https://github.com/sensu/sensu-chef).
+
+For the purposes of this lecture I'm actually going to skip SSL configuration.
+
+Looking through the provided recipes, it looks like we are going to need
+to include `sensu::default` first. And then for configuring a server we
+are going to need `rabbitmq`, `redis`, `server_service`, and `api_service`.
+We'll install a client and a dashboard a bit later.
+
+I'm hoping to get away with most of the sane default here, but these attributes
+will become important to you as you actually integrate Sensu with your
+existing chef infrastructure.
+
+Let's get the cookbook and its dependencies so we can use it using
+the knife tool:
+
+    knife cookbook site install sensu
+    ...
+    ls
+
+Look at all of these cookbooks we didn't have to write!
+
+### Making our `sensu_server` wrapper cookbook
+
+But we will need to write at least one "wrapper" cookbook to kinda put things
+together for us. I'm going to call this first wrapper cookbook, `sensu_server`:
+
+    knife cookbook create sensu_server
+
+Now let's begin to put together our first `sensu_server` recipe and try to put
+all these pieces together. First let's include that default recipe the documentation
+said we need to include:
+
+    include_recipe "sensu::default"
+
+Now lets try to include all the other components that normally go on the Sensu server:
+
+    include_recipe "sensu::rabbitmq"
+    include_recipe "sensu::redis"
+    include_recipe "sensu::api_service"
+    include_recipe "sensu::server_service"
+
+Now let's use chef-solo and see what happens. I'm going going to make a role or anything,
+I'll just run this cookbook directly
+
+    chef-solo -o sensu_server --config solo.rb
+
+What do we get? Our first error:
+
+    Chef::Log.debug 'apt is not installed. Apt-specific resources will not be executed.' unless apt_installed?
+
+Kinda strange. Of course apt is installed, but this is chef telling us that we have to
+let it know that we need apt. But really we only need to include the sensu
+cookbook as a dependency of our wrapper:
+
+    vim cookbooks/sensu_server/metadata.rb
+    depends 'sensu'
+    chef-solo -o sensu_server --config solo.rb
+
+Our next error is about databags:
+
+     40>>         raw_hash = Chef::DataBagItem.load(data_bag_name, item)
+
+By default the sensu cookbook uses databags to share ssl certs
+between clients and servers. For the purposes of this lecture
+I'm not going to go through this particular procedure, so I'm just
+going to set the attribute to disable ssl for now, just like we
+were actually doing in all the previous examples.
+
+    vim cookbooks/sensu_server/attributes/default.rb
+    default["sensu"]["use_ssl"] = false
+    chef-solo -o sensu_server --config solo.rb
+
+Wow, lots of stuff. But now you can see the sensu things are running:
+
+    ps -ef --forest
+
+## Installing a Client
+
+A lone Sensu server is no fun, let's also make sure there is a client ready to do stuff:
+
+    vim cookbooks/sensu_server/recipes/default.rb
+
+    sensu_client 'localhost' do
+      address '127.0.0.1'
+      subscriptions []
+    end
+    include_recipe "sensu::client_service"
+
+Now we can apply it
+
+    chef-solo -o sensu_server --config solo.rb
+
+And you can see it is running, although we haven't configured any checks.
+
+## Installing Uchiwa
+
+Let's install a dashboard so we can visually see what is going on with Sensu.
+To do that we'll need the [Uchiwa cookbook](https://github.com/sensu/uchiwa-chef):
+
+    knife cookbook site install uchiwa
+
+Now we can add this to our recipe:
+
+    vim cookbooks/sensu_server/recipes/default.rb
+    include_recipe "uchiwa"
+
+Now we will need to make sure our `sensu_server` wrapper depends on it:
+
+    vim cookbooks/sensu_server/metadata.rb
+    depends 'uchiwa'
+    chef-solo -o sensu_server --config solo.rb
+
+Opening it in a browser:
+
+   xdg-open http://localhost:3000
+
+We have a login page because the default chef attributes setup
+a username of `admin` and a password of `supersecret`
+
+    https://github.com/sensu/uchiwa-chef/blob/master/attributes/default.rb
+## Using Chef to Install and Configure Sensu
+
+### Installing a Disk Check
+
+Just like in the introductory course, I would like to install a disk check from
+from Sensu plugins github project. We are going to do the same thing as before
+were we install it using the Sensu omnibus ruby.
+
+With Chef we can use the `sensu_gem` provider to get it installed. Remember
+that only the Sensu client executes checks, so this code should be associated
+with the chef recipe that does client stuff.
+
+    vim cookbooks/sensu_server/recipes/default.rb
+    sensu_gem 'sensu-plugins-disk-checks'
+
+With the check gem installed, we can configure the check:
+
+    sensu_check 'check-disk' do
+      command "/opt/sensu/embedded/bin/check-disk-usage.rb"
+      standalone true
+    end
+
+    chef-solo -o sensu_server --config solo.rb
+
+Lets inspect the actual configuration file that Chef made for that:
+
+    cat /etc/sensu/conf.d/checks/check-disk.json
+
+In your infrastructure you will have to make the call between defining standalone
+checks on the clients like this, or doing subscription checks and configuring
+clients to subscribe to certain tags. I like standalone checks myself, as it makes
+it more straightforward to add Sensu checks *with* particular wrapper recipes.
+
+You could imagine a cookbooks that wraps apache stuff together. That cookbook might
+have a monitoring recipe included with it. This would keep the recipe kinda
+"self-contained", and any role that included that cookbook would get the
+monitoring with it, regardless of the tags it was subscribed to.
+
+
+## Installing a Email Handler
+
+Just like in the introductory course, lets get this sensu-server up and running
+with an email handler so you can get email alerts.
+
+Handlers are defined and executed on the server, so this code will go along with
+the other server stuff.
+
+We'll need the gem and the sensu-handler config:
+
+    vim cookbooks/sensu_server/recipes/default.rb
+    sensu_gem 'sensu-plugins-mailer'
+
+    sensu_handler "mailer" do
+      type "pipe"
+      command "/opt/sensu/embedded/bin/handler-mailer.rb"
+    end
+
+Now we need the configuration *for* the mailer plugin. For that we use the
+`sensu_snippet` construct to add in some arbitrary config:
+
+    sensu_snippet 'mailer' do
+      'admin_gui'    => 'http://localhost:3000/',
+      'mail_from'    => 'sensu@localhost',
+      'smtp_address' => 'localhost',
+      'smtp_port'    => '25',
+      'smtp_domain'  => 'localhost'
+    end
+
+
+And now a new error:
+
+```
+STDERR: ERROR:  Error installing sensu-plugins-mailer:
+	ERROR: Failed to build gem native extension.
+
+    /opt/sensu/embedded/bin/ruby extconf.rb
+```
+
+If you see this error, it might me one of two things. Maybe you are missing
+the build-essential package, which contains make, a compiler, and other things
+required to build native gem extensions. Or maybe you are like me and you were
+running a virtualbox image with the default 512MB of ram, which is not enough
+to run chef and gcc at the same time.
+
+## Conclusion
+
+I've kinda just scratched the surface of what you can use with Chef.
+Like any configuration-management tool, the big idea is to get your
+Sensu configuration down to something programmatic and reproducible.
+
+Here we have reproduced the setup we had from the introduction course,
+with only a few lines of code that we had to write. Obviously we are
+standing on tall shoulders of those who wrote all the supporting cookbooks.
+
+But, it will be up to you to make wrapping cookbooks that combine stock
+cookbooks with sensu monitoring and supporting checks and plugins.
+
+Check out the external resources of this lecture for more information on this
+as well as all the commands and cookbooks used in this example.
+## Using Puppet With Sensu
+
+### Intro
+
+If you use Puppet in your environment, or you would like it, I have some good
+news: Puppet plus Sensu is a pretty good combination.
+
+This lecture is going to focus mostly on these two puppet modules:
+
+https://github.com/sensu/sensu-puppet
+https://github.com/Yelp/puppet-uchiwa
+
+We'll talk about how to put them together to reproduce everything we did in
+the introductory course, that is, a fullly working Sensu setup with checks,
+handlers, and dashboard.
+
+### Getting Started
+
+I'm not going to run puppet in full client-server mode for this lesson. There
+is plenty of other documentation on that, for this lecture I'm just going to
+focus on Sensu-specific stuff. To do that, I'm going to write puppet code
+and just use the `puppet apply` command to apply it.
+
+This server that I'm on is freshly imaged, I have not tricks up my sleeve here.
+Everything will be from scratch.
+
+Every external puppet module I use and code samples or fragments will be
+available in the external resources section, so don't worry about missing an
+exact command or try to copy paste from the video.
+
+In fact, if things change, and they do change, I'm much more likely to keep the
+external resources section up to date, and not re-record the video, so just
+keep that in mind.
+
+### Just Getting Puppet
+
+Getting puppet in the first place is easy with a modern distro. I don't need
+any fancy features, whatever the distro has is fine.
+
+    sudo su -
+    apt-get install -y puppet
+
+This vagrant box happens to come with puppet already because it is a supported
+provisioning tools for building vagrant boxes, so we are ready to start.
+
+### RabbitMQ
+
+Just like in the Introduction lecture, the first thing I want to get in place
+is RabbitMQ.  To do that, I'm going to install the official Puppetlabs RabbitMQ
+module:
+
+    puppet module install puppetlabs/rabbitmq
+
+If you have never used the puppet module tool like that before, it just gets
+the latest release of the rabbitmq module from the puppet forge and makes it
+available for use. I don't have to know much about how it works, I just have to
+know how to interface with it in my puppet code.
+
+But we have to start with some puppet code somewhere. I'm going to write it
+down in a file, lets call it `profile_sensu.pp`. I'm a fan of Puppet's
+role/profile/module pattern, which suggest that we make what is called a
+profile, to tie together all the different modules together to make a Sensu
+server:
+
+    vim profile_sensu.pp
+
+```puppet
+class { '::rabbitmq': }
+ ```
+
+    puppet apply profile_sensu.pp
+
+Isn't configuration management just great? With one line of puppet code
+we did what took an entire lecture in the introductory course.
+
+Now we are getting away with lots of good defaults here. You can of course
+always read up on the exact api that is provided here, tweak inputs, etc:
+https://forge.puppetlabs.com/puppetlabs/rabbitmq
+
+### Redis
+
+Sometimes on the puppet forge it is not obvious which redis module is
+right for you, but Puppetlabs has done a good job of improving the situation.
+
+By simply filtering only the "Puppetlabs approved" modules, you can be sure
+that it is decent, has tests, is well maintained, etc.
+
+    puppet module install arioch-redis
+    vim profile_sensu.pp
+
+```puppet 
+class { '::rabbitmq': }
+class { '::redis': }
+```
+
+    puppet apply profile_sensu.pp
+    redis-cli ping
+
+So great. Again lots of good defaults here, and room to tweak.
+
+### Sensu
+
+The Sensu puppet module is built and maintained under the Sensu
+project itself. It is a well-supported module.
+
+https://forge.puppetlabs.com/sensu/sensu
+
+    puppet module install sensu-sensu
+
+Now one of these modules is probably a bit too agressive with their
+pinning to very specifc version of pupppetlabs-apt here. I'm pretty sure
+this is just really conservative settings and that we can ignore this:
+
+    puppet module install sensu-sensu --ignore-dependencies
+
+```puppet
+class { '::rabbitmq': }
+class { '::redis': }
+class { '::sensu': }
+```
+
+    puppet apply profile_sensu.pp
+
+You can see quite a bit of deprecation warnings. At this exact moment in time it looks like the
+puppetlabs apt module is in a flux and the API is changing. Luckily these are just deprecation
+warnings and this should still work.
+
+### More Configuration
+
+Well we are going to have to provide *some* configuration to this. By default the
+Sensu puppet module does not assume you are installing a sensu server.
+
+Lets look at the docs:
+https://forge.puppetlabs.com/sensu/sensu#basic-example
+
+For a sensu server we will need a rabbitmq password, and we'll want to enable the
+server and api toggles. We'll work on handlers, checks, and plugins later.
+
+```puppet
+class { '::sensu':
+  rabbitmq_password => 'correct-horse-battery-staple',
+  server            => true,
+  api               => true,
+}
+```
+
+This module leaves it up to you to configure the rabbitmq part. Simply telling
+Sensu what rabbitmq password to use will not magically make it show up. We need
+more *puppet* magic of course:
+https://forge.puppetlabs.com/puppetlabs/rabbitmq#native-types
+
+Just like in the official documentation:
+https://sensuapp.org/docs/latest/install-rabbitmq#configure-rabbitmq
+
+We will have to figure out how to do that with puppet.
+
+But before we actually do that, let's apply what we have to see what it looks
+like when it *doesn't* work:
+
+    puppet apply profile_sensu.pp
+    tail -f /var/log/sensu/sensu-server.log
+
+
+Now let's do the other part, and configure rabbitmq for Sensu:
+
+```puppet
+rabbitmq_user { 'sensu': password => 'correct-horse-battery-staple' }
+rabbitmq_vhost { 'sensu': ensure => present }
+rabbitmq_user_permissions { 'sensu@sensu':
+  configure_permission => '.*',
+  read_permission      => '.*',
+  write_permission     => '.*',
+}
+```
+
+I'm pretty sure this maps with what the official documentation has.
+
+    puppet apply profile_sensu.pp
+
+Does it work?
+
+    tail /var/log/sensu/sensu-server.log
+    tail /var/log/sensu/sensu-client.log
+
+It looks like it I guess. We don't have any checks or anything installed, so it is
+a bit hard to tell. Lets get some real checks going next.
+
+## Using Puppet With Sensu - Part 2
+
+## Installing the Email Handler
+
+In the introductory course we installed the `sensu-plugins-mailer` gem to install
+an email handler for Sensu?
+https://github.com/sensu-plugins/sensu-plugins-mailer
+
+Lets do that same thing but as puppet code. Luckily the Sensu puppet
+module has a type exactly for this:
+https://forge.puppetlabs.com/sensu/sensu#installing-gems-into-the-embedded-ruby
+
+```puppet
+package { 'sensu-plugins-mailer':
+  ensure   => 'installed',
+  provider => sensu_gem,
+}
+```
+Apply....
+
+Arg, an error:
+
+```
+Building native extensions.  This could take a while...
+ERROR:  Error installing sensu-plugins-mailer:
+	ERROR: Failed to build gem native extension.
+
+    /opt/sensu/embedded/bin/ruby extconf.rb
+
+Gem files will remain installed in /opt/sensu/embedded/lib/ruby/gems/2.0.0/gems/unf_ext-0.0.7.1 for inspection.
+Results logged to /opt/sensu/embedded/lib/ruby/gems/2.0.0/gems/unf_ext-0.0.7.1/ext/unf_ext/gem_make.out
+```
+This is very common one, you can google for this, but the spoiler alert here
+is that when you install gems you often need a compiler and stuff. On
+ubuntu you can get most of the common packages you need for this with
+the build-essential package. You know, we could install this package manually,
+but how reproducible would that be?
+
+    package { 'build-essential': ensure => installed }
+
+#### Mailer Configuration 
+
+Now how about configuring the handler? There is a puppet type for
+that too:
+https://forge.puppetlabs.com/sensu/sensu#handler-configuration
+
+```puppet
+sensu::handler {
+  'mailer':
+    command => '/opt/sensu/embedded/bin/handler-mailer.rb',
+    type    => 'pipe',
+    config  => {
+      'foobar_setting' => 'value',
+  }
+}
+```
+
+For the command you should use the full path to the ruby script.
+The type is "pipe" because this is a standard handler that accepts event
+data on standard in.
+
+The config is a hash of settings. Lets copy in what the docs have, and then
+port it to puppet:
+
+```
+{
+  "admin_gui": "http://admin.example.com:8080/",
+  "mail_from": "sensu@example.com",
+  "mail_to": "monitor@example.com",
+  "smtp_address": "smtp.example.org",
+  "smtp_port": "25",
+  "smtp_domain": "example.org"
+}
+```
+
+```pupppet
+    config  => {
+      'admin_gui'    => 'http://localhost:3000/',
+      'mail_from'    => 'sensu@localhost',
+      'smtp_address' => 'localhost',
+      'smtp_port'    => '25',
+      'smtp_domain'  => 'localhost'
+  }
+```
+
+ets take a look at where puppet is putting this stuff:
+
+    cd /etc/sensu/conf.d/
+
+You can see that this is pre-organized for you. Lets look at handlers
+
+    cd handlers
+    cat mailer.json
+
+Everything is nice and tidy. Made by a machine!
+
+### Installing Checks
+
+Sensu doesn't do much unless we install a check for clients to execute.
+
+This time lets try out the same sensu disk check we used from the
+introduction course::
+https://github.com/sensu-plugins/sensu-plugins-disk-checks
+
+Asking puppet to install this is easy with the `sensu_gem` type:
+
+```puppet
+package { 'sensu-plugins-disk-checks':
+  ensure   => 'installed',
+  provider => sensu_gem,
+}
+```
+
+At this point you should be thinking to yourself, wait a minute
+Kyle, I know how Sensu works internally, I watched your introductory
+course and I know that the Sensu Server never executes checks, only
+the clients! You are 100% correct. This code shoud only be installed on
+a client. In this particular case we are running the client and server
+on the same machine. Later I'll split this out and show what a
+client-only puppet class might look like.
+
+That installs the check, but how do we turn it on in Sensu?
+https://forge.puppetlabs.com/sensu/sensu#sensu-client-1
+
+```puppet
+sensu::check { 'check-disk':
+  command => '/opt/sensu/embedded/bin/check-disk-usage.rb',
+}
+```
+
+That is just an example, we'll have to clean up the command.
+If you ever forget what the actuall script filenames are called,
+you can always just look on github in the "bin" folder for a particular gem:
+https://github.com/sensu-plugins/sensu-plugins-disk-checks/tree/master/bin
+
+Lets apply..
+
+And where did Puppet put this stuff?
+
+    cd /etc/sensu/conf.d/checks
+    cat check-disk.json
+
+You can see the defaults for this in sensu is to have it check every minute,
+that is the interval of 60. Also this is a standalone check by default,
+which means this check definition will apply to the hosts that you define
+it on, which makes the most sense in a puppet world.
+
+Well we applied this puppet code, in theory puppet made everything happen,
+restarted the things that need to be restarted, etc. How do the logs look?
+
+    tail -f /var/log/sensu/sensu-client.log
+    tail -f /var/log/sensu/sensu-server.log
+
+## Installing Uchiwa with Puppet
+
+The official Sensu puppet module links to this puppet module as the recommended
+way of installing and configuring Uchiwa with Puppet.
+
+Lets install this one:
+
+    puppet module install yelp-uchiwa
+
+And now we can include the Uchiwa class with our existing server stuff:
+
+    class { 'uchiwa': }
+
+And now we have another very common error. In puppet, the same resource cannot
+be declared twice. In this case, both Uchiwa and the Sensu puppet module are
+trying to declare the sensu repo.
+
+The solution here is to tell one of them not to manage the repo. In this case
+it is easiest to just tell the `uchiwa` puppet module to not manage the repo:
+
+    class { 'uchiwa':
+      manage_repo => false,
+    }
+
+Apply, and now lets look at it with our browser:
+
+    xdg-open http://localhost:3000
+
+It looks like it isn't working still? Let's look at the logs and see why that
+might be:
+
+    tail /var/log/uchiwa.log
+
+It looks like the configuration file might be missing the `host` setting. Let's
+look at the file
+
+    cat /etc/sensu/uchiwa.json
+
+This is odd, because on github it looks like this bug has been fixed already, but
+on the version of the module that we downloaded from the forge, it isn't.
+
+That is ok, we can manually specify our api endpoints ourselves:
+
+    class { 'uchiwa':
+      manage_repo => false,
+      sensu_api_endpoints => [
+        { 'host' => '127.0.0.1' }
+      ],
+    }
+
+And now it is working. Minus that small bug, you can see how we could potentially
+grow this configuration to include more Sensu endpoints. Possible for showing both
+a production and development environment, or perhaps multiple stage environments.
+
+## What Would a Client Look Like?
+
+This may be fine for a server, but what if we were just configuring a client?
+
+    vim profile_sensu_client.pp
+
+We will need the sensu module, for sure:
+
+```puppet
+class { 'sensu':
+}
+```
+
+At the very least we need to give it the same credentials we made early on,
+so that our Sensu clients can connect to RabbitMQ and deposit their check
+results:
+
+    rabbitmq_password => 'correct-horse-battery-staple'
+
+And while the server was just a server, our client will need the RabbitMQ
+hostname too:
+
+    rabbitmq_host => 'localhost',
+
+And if you intend to use Sensu with subscription based checks, remember those
+are checks that are scheduled by the Sensu Server, then we will need to configure
+the Sensu client with which subscriptions it should respond to:
+
+    subscriptions  => ['webserver', 'production'],
+
+Is that it? It is not. The Sensu client is the *only* thing that actually
+executes checks. That means the Sensu client *must* have the Sensu plugins
+available on disk to run. This means that `check-disk` script, or `check_http`,
+or whatever, have to exist on the client.
+
+## Using Puppet With Sensu - Part 3
+
+### Integrating Puppet Sensu Checks with the Rest of Your Puppet Code
+
+```pupppet
+class profile_webserver (
+  $port = 80,
+){
+
+  class { 'apache':
+    listen_port => $port,
+  }
+
+}
+```
+
+Wouldn't it be great if you could get the monitoring to go right with it?
+
+```puppet
+class { 'apache':
+  listen_port => $port,
+} ->
+sensu::check { 'check_apache':
+  command => "/opt/sensu/embedded/bin/check-http.rb --port ${port} --host localhost",
+}
+```
+
+Now you can apply this apache class to whatever machine you want, and the
+monitoring will go with it. There is really good cohesion between your
+configuration of your software and the monitoring of that software.
+
+Because these are standalone checks, they apply no matter what subscriptions
+the Sensu client is subscribed to. That means if you applied this class
+to your production webserver, or if it was applied to some app server, both
+would get the same monitoring. I think this is just great!
+
+To re-iterate though, I don't think that the monitoring itself belongs
+*in* the apache module. No, the Apache module can just do its thing:
+install apache. It is the "profile" that combines the two together.
+In this particular instance I called it `profile_webserver`, because
+that is the particular function it does.
+
+## Conclusion
+
+Sensu was designed to be used with configuration management, and with
+puppet it really shows. The Sensu puppet module is a *first-class*
+citizen in the puppet world, it can do pretty much anything.
+
+And in the end you *want* it to do everything. More specifically,
+you want to make the most out of this automation so that you
+deploy reproducible infrastructure, that you never have to
+"remember" to add it to Nagios or whatever. With Puppet and Sensu,
+there is a really good bond between the software and the monitoring.
+# Using Salt to Deploy Sensu - Part 1
+
+## Getting Started
+
+Welcome to "Using Salt to Deploy Sensu". The purpose of this lecture is to
+demonstrate how to use Salt to install and configure Sensu. Specifically my
+goal here is to reproduce the environment we setup in the introductory course:
+where we had a Sensu server, client, api, dashboard, a disk check, and a email
+handler.
+
+### Installing Salt
+
+To install Salt, I'm going to use the PPA, as I'm using an Ubuntu-based
+VM:
+
+    sudo add-apt-repository ppa:saltstack/salt
+    apt-get update
+    apt-get install -y salt-common
+
+And at the time of this writing, I had to install python-msgpack
+
+    apt-get install -y python-msgpack
+
+As far as I can tell this has been fixed in unstable.
+
+### Setting Up Salt for Masterless Mode
+
+For the lecture, I don't really need a full Master and Minion setup, I'm just
+going to be applying state to localhost, so I'm going to setup Salt to operate
+in "masterless" mode by instructing it to look at just my local files:
+
+    mkdir /etc/salt
+    vim /etc/salt/minion
+
+```
+file_client: local
+file_roots:
+  base:
+    - /srv/salt
+```
+
+    mkdir /srv/salt
+
+And now I'll prepare a `top.sls` file, even if there is nothing in it yet:
+
+```
+base:
+  '*':
+    - TODO
+```
+
+## Installing the Sensu Salt-Formula
+
+There are number of ways to install Sensu with Salt.
+On the official Sensu project, there is a tree available:
+
+    https://github.com/sensu/sensu-salt
+
+But it looks a little old with not much activity.
+There is no pillar integration, and it is not very flexible.
+
+However, there *is* an official Salt Formula for Sensu:
+
+    https://github.com/saltstack-formulas/sensu-formula
+
+Which does look active, and at the time of this recording, looks like the best
+way to install Sensu using Salt, so that is what I'll use.
+
+To use this Salt Formula, I'm going to store it in the location recommended by
+the docs, which is `/srv/formulas/`. I'm going to download this formula
+manually for now instead of using git:
+
+    mkdir -p /srv/formulas
+    cd /srv/formulas
+    wget https://github.com/saltstack-formulas/sensu-formula/archive/master.tar.gz
+    tar xf master.tar.gz
+    rm master.tar.gz
+    mv sensu-formula-master sensu-formula
+
+It is kind nice to have third party formulas installed like this for use.  Now
+I'm going to add this path to my `file_roots` parameter, so that Salt knows
+where to find them
+
+    vim /etc/salt/minion
+
+```
+file_roots:
+  base:
+    - /srv/salt
+    - /srv/formulas/sensu-formula
+```
+
+Now would be a good time to look at 
+[the sensu-forumula docs](https://github.com/saltstack-formulas/sensu-formula#sensu-formula)
+
+I kinda want all of these to get started, let's add them to the top.sls:
+
+    vim /srv/salt/top.sls
+
+```
+base:
+  '*':
+    - sensu
+    - sensu.client 
+    - sensu.server
+    - sensu.api
+    - sensu.uchiwa
+```
+
+Now, the docs do say that it is our responsibility to install RabbitMQ and
+Redis.  I actually like that this formula doesn't install those for us.
+
+But for now, let's see what happens when we try to apply these states:
+
+    salt-call  --local state.highstate
+
+Let's look at the errors we got, which we totally knew we were going to get:
+
+Looks like Uchiwa needs some more config. Sensu-server and Sensu-api are dead,
+presumeably because we don't have RabbitMQ or Redis ready.
+
+## RabbitMQ with Salt
+
+Let's do RabbitMQ next. For Installing RabbitMQ with Salt, I'm going to use
+the official rabbitmq-formula:
+
+    https://github.com/saltstack-formulas/rabbitmq-formula
+
+I'll download that formula manually:
+
+    cd /srv/formulas
+    wget https://github.com/saltstack-formulas/rabbitmq-formula/archive/master.tar.gz
+    tar xf master.tar.gz
+    rm master.tar.gz
+    mv rabbitmq-formula-master rabbitmq-formula
+
+And now I'll add this formula path to our list of `file_roots`:
+
+    vim /etc/salt/minion
+
+```
+file_roots:
+  base:
+    - /srv/salt
+    - /srv/formulas/sensu-formula
+    - /srv/formulas/rabbitmq-formula
+```
+
+Now what states do we want? Well we know we want the normal rabbitmq server,
+we'll certainly need some config, even if I haven't setup anything for Pillar
+yet. The Sensu docs do recommend installing the latest version of Erlang and
+RabbitMQ, so I'll go for rabbitmq.latest:
+
+    cd /srv/salt
+    vim top.sls
+
+```
+    - rabbitmq.latest
+    - rabbitmq.config
+```
+
+But this won't be enough, because somewhere we will have to define rabbitmq
+users and vhosts. To do that, we are going to need "The Pillar".
+
+## Setting Up Pillar
+
+Following best practices, I'm going to setup a simple Pillar structure
+so I have a place to separate my configuration from my code.
+
+    vim /etc/salt/minion
+
+```
+pillar_roots:
+  base:
+    - /srv/pillar
+```
+
+    mkdir /srv/pillar
+    vim /srv/pillar/top.sls
+
+```
+base:
+  '*':
+    - rabbitmq
+```
+
+Now that we have pillar looking at the rabbitmq file, let's look at the example file
+provided by the RabbitMQ Salt formula:
+
+
+    cd /srv/pillar
+    cp /srv/formulas/rabbitmq-formula/pillar.example /srv/pillar/rabbitmq.sls
+    vim rabbitmq.sls
+
+Now let's prune this down to just what we know we need for Sensu and go from there:
+
+```
+rabbitmq:
+  vhost:
+    '/sensu':
+      - owner: sensu
+      - conf: .*
+      - write: .*
+      - read: .*
+  user:
+    sensu:
+      - password: password
+      - perms:
+        - '/sensu':
+          - '.*'
+          - '.*'
+          - '.*'
+``` 
+
+Sure we setup rabbitmq, but we haven't setup Pillar for Sensu for course!
+Let's setup Pillar for Sensu and fill in the configuration blanks:
+
+    cd /srv/pillar
+    cp /srv/formulas/sensu-formula/pillar.example /srv/pillar/sensu.sls
+    vim top.sls
+    - sensu
+    vim sensu.sls
+
+```
+sensu:
+  server:
+    install_gems: []
+  client:
+    embedded_ruby: False
+  rabbitmq:
+    host: localhost
+    user: sensu
+    password: password
+  api:
+    user: admin
+    password: password
+  ssl:
+    enable: False
+  uchiwa:
+    sites:
+      site1:
+        host: localhost
+        user: admin
+        password: password
+```
+
+Note that I've matched up the credentials we setup in the RabbitMQ pillar
+file. Also note that I've setup a username and password on the api, and
+made those match up with the Uchiwa configuration.
+
+## Installing Redis
+
+Next we need redis installed. I'm going to use the official redis-formula
+for Salt:
+
+    https://github.com/saltstack-formulas/redis-formula
+
+I'll download it manually like the other formulas:
+
+    cd /srv/formulas
+    wget https://github.com/saltstack-formulas/redis-formula/archive/master.tar.gz
+    tar xf master.tar.gz
+    rm master.tar.gz
+    mv redis-formula-master redis-formula
+
+    vim /etc/salt/minion
+
+And now we will add the redis state to be top file:
+
+    vim /srv/salt/top.sls
+
+    salt-call  --local state.highstate
+
+It says it started it, but it doesn't appear to be running:
+
+    ps -ef | grep redis
+    /etc/init.d/redis-server start
+
+At the time of this recording, it appears that this formula tries to apply
+configuration that doesn't work for this version of redis:
+
+    https://github.com/saltstack-formulas/redis-formula/issues/23
+
+The work around in this case is to setup some pillar data, just to disable
+this configuration option:
+
+    cd /srv/pillar
+    vim top.sls
+    - redis
+    vim redis.sls
+
+```
+redis:
+  tcp_backlog: 0
+```
+
+Now with that in place, let's see if that is enough to get Redis going...
+
+    salt-call  --local state.highstate
+
+And now let's look at the sensu server logs...
+
+And it looks like everything is working!
+
+And is Uchiwa up?
+
+Looks like Uchiwa has everything connected, but it does look like we have
+a failing cron check, we'll address that next.
+# Using Salt to Deploy Sensu - Part 2
+
+## What is this Cron Check?
+
+Now that we have the basic Sensu infrastructure in place and managed by
+Salt, let's do more and install the extras like handlers and checks.
+
+The first thing we need to investigate is this `check_cron` that is already
+showing up in Uchiwa:
+
+    http://localhost:3000/#/client/site1/vagrant-ubuntu-trusty-64
+    http://localhost:3000/#/client/site1/vagrant-ubuntu-trusty-64?check=cron_check
+
+How did it get there? Let's look at the Sensu Salt formula more closely:
+
+    https://github.com/saltstack-formulas/sensu-formula/blob/cf9f0ef98faffa5d4601b54912b482da352203b9/sensu/server.sls#L15
+
+Specifically it looks like this formula is configured to recursively copy
+anything in the conf.d folder over to the filesystem if we are applying
+the Server State stuff.
+
+And inside the formula in that conf.d folder is a hard-coded `check_cron.json` file:
+
+    https://github.com/saltstack-formulas/sensu-formula/tree/cf9f0ef98faffa5d4601b54912b482da352203b9/sensu/files/conf.d
+
+I'm embarrassed to say that, at least at the time of this recording, I'm not
+able to figure out how to not have this check, without forking this
+formula and removing that file. For now I'm going to ignore it, but
+this surprised me. I'm tempted to make a PR to remove it.
+
+### Deploying a Mail Handler
+
+In order to make Sensu useful, we need at least one handler. Let's install
+the email handler, just like we did in the introductory course.
+
+The Sensu Salt formula has a method to install arbitrary gems to make
+it easy to install handlers and dependencies:
+
+    https://github.com/vexxhost/sensu-formula#sensuserver
+
+It looks like all I need to do is add my gem to the `install_gems` list in
+pillar.
+
+    cd /srv/pillar
+    vim sensu.sls
+    - sensu-plugins-mailer
+
+As a reminder, we are trying to install this gem:
+
+    https://github.com/sensu-plugins/sensu-plugins-mailer
+
+So we can get the `handler-mailer.rb` script, and then we'll configure it.
+
+    salt-call  --local state.highstate
+
+The first error is the normal RabbitMQ user thing. The real error here is
+that Salt couldn't install this gem because it was missing `g++`. Generally
+in Ubuntu this is solved by installing the `build-essential` package. But
+where are we going to tell Salt to install this?
+
+There are lots of ways to organize Salt code. For this lecture, I'm going
+to store the extra server stuff into a state file called `sensu_server_extras`.
+This will give us a place to put stuff, and potentially have room to grow.
+
+I don't really want to fork the official Sensu formula. I would like to leave
+it alone and then just add my business requirements on top, if possible.
+
+So let's start this file, add it to our `top.sls`, and add in the
+`build-essential` package so it gets installed.
+
+    vim sensu_server_extras.sls
+
+    build-essential:
+      pkg.installed: []
+
+    salt-call  --local state.highstate
+
+Now that Salt says it installed it, let's confirm that Salt installed that gem
+and the script is ready:
+
+    ls /opt/sensu/embedded/bin/
+
+Yep! Installed and ready to go. Now we need to configure this handler.
+
+### Mailer Handler Configuration
+
+We somehow need to get a config file in the `conf.d` directory for configuring
+the mailer handler. We could make the file by hand and then have Salt
+copy it over for us, but I would rather use Pillar and define the configuration
+there.
+
+What if we just used our `sensu_server_extras` state file to just convert Pillar
+data into JSON form on-disk for Sensu to use? What would that look like?
+
+    vim sensu_server_extras.sls
+
+```
+/etc/sensu/conf.d/mailer.json:
+  file.managed:
+    - contents: '{{ pillar["sensu_server_extras"]["mailer_configuration"] | json() }}'
+    - watch_in:
+      - service: sensu-server
+```
+
+Now we have referenced this pillar variable, let's go make it exist:
+
+    cd /srv/pillar
+    vim top.sls
+    - sensu_server_extras.sls
+    vim sensu_server_extras.sls
+
+```
+sensu_server_extras:
+  mailer_configuration:
+    handlers:
+      mailer:
+        type: pipe
+        command: /opt/sensu/embedded/bin/handler-mailer.rb
+    mailer:
+      admin_gui: http://localhost:3000/
+      mail_from: sensu@localhost
+      mail_to: root@localhost
+      smtp_address: localhost
+      smtp_port: 25
+      smtp_domain: localhost
+```
+
+Note here that I'm deploying the dictionary as-is. I've got a handler configuration
+per the Sensu docs, and I've added in the configuration for the mailer itself
+per the mailer docs. Obviously in your environment you will need to use settings
+or variables that make sense for you.
+
+Let's apply this state and see what Salt does...
+
+    salt-call  --local state.highstate
+
+Let's double check the file that Salt made:
+
+    cat /etc/sensu/conf.d/mailer.json
+
+I'm going to use the `jq` command to pretty print this:
+
+    apt-get -y install jq
+    jq . /etc/sensu/conf.d/mailer.json
+
+Looks ok. You can see there is configuration here for Sensu, to define the
+handler, as well as the configuration for the handler itself. Did the sensu-server
+pick up and understand this file?
+
+    tail -f /var/log/sensu/sensu-server.log
+
+Looks like it did.
+
+### Deploying our Own Check-disk
+
+For the sake of reproducing what we built in the introductory lecture,
+I would like to get a check-disk in place. To do that I know I want to install
+the `sensu-plugins-disk-checks` ruby gem, and I know I need a configuration
+file for Sensu to use to execute that check.
+
+I'm going to follow a similar pattern as the `sensu_server_extras` state, because
+I don't like the idea of forking forking the upstream formula just for
+customization, and I like the idea of self-contained state files.
+
+Neither Salt nor the Sensu Salt Formula have a generic way to deploy
+these files in a generic way, other than just doing the `json` trick
+and defining the hash in Pillar.
+
+First let's add the Sensu rubygem for the disk check, so we have
+the script installed.
+
+    cd /srv/pillar
+    vim sensu.sls
+
+Now I could add this list of gems to be installed in the pillar variable, like
+we did with the mailer handler, but I don't really like that. The reason I don't
+like that is that it requires me to maintain the "canonical" list of rubygems
+that are installed for Sensu. Wouldn't it be nice if the state file that installed
+a disk check was responsible for installing the disk check *as well* as configuring
+that disk check? That way it wouldn't have to "assume" that the operator remembered
+to add the gem to this global list.
+
+Well, Salt doesn't really have a way to install Sensu gems, but it does have a method
+to install gems in general:
+
+    https://docs.saltstack.com/en/latest/ref/states/all/salt.states.gem.html
+
+But the Sensu Formula re-invents this wheel, twice even, once for the server
+and once for the client:
+
+    https://github.com/saltstack-formulas/sensu-formula/blob/master/sensu/client.sls#L84
+    https://github.com/saltstack-formulas/sensu-formula/blob/master/sensu/server.sls#L57
+
+I don't really like this. But for demonstration purposes, I'll leave the mail handler using
+the formula method here, but for the disk check method I'll use the Salt gem installer:
+
+    cd /srv/salt
+    vim top.sls
+    - sensu_client_extras.sls
+    vim sensu_client_extras.sls
+
+```
+sensu-plugins-disk-checks:
+  gem.installed:
+    - gem_bin: /opt/sensu/embedded/bin/gem
+
+/etc/sensu/conf.d/check_disk.json:
+  file.managed:
+    - contents: '{{ pillar["sensu_client_extras"]["check_disk_configuration"] | json() }}'
+    - watch_in:
+      - service: sensu-client
+```
+
+Note here that I'm telling Salt to use the Sensu embedded ruby gem binary to install
+this gem.
+
+Additionally I'm deploying the file for `check_disk.json`, and I'll get the actual
+config from Pillar. And lastly we need to remember to restart the sensu-client when this
+config file changes.
+
+    cd /srv/pillar
+    vim top.sls
+    - sensu_client_extras
+    vim sensu_client_extras.sls
+
+```
+sensu_client_extras:
+  check_disk_configuration:
+    checks:
+      check_disk:
+        command: /opt/sensu/embedded/bin/check-disk-usage.rb -i /vagrant
+        standalone: true
+        interval: 60
+        handlers: ['mailer']
+```
+Note here that I'm defining this check to use the full path to the check-disk script.
+We'll double check the path on that one. I'm configuring this to be a standalone
+check, because I like standalone checks and this check should be self-contained,
+and scheduled by the client. Additionally I've configured it to run every
+60 second and to use the mail handler we defined earlier.
+
+    salt-call  --local state.highstate
+
+Ok, let's verify the check script exists
+
+    ls /opt/sensu/embedded/bin/check-disk-usage.rb
+
+Ok that is there, how about the config file for sensu to check the disk?
+
+    ls -l /etc/sensu/conf.d/check_disk.json
+    jq . /etc/sensu/conf.d/check_disk.json
+
+Looks ok. Is Sensu reading that and acting on it?
+
+    tail -f /var/log/sensu/sensu-client.log
+
+It does look like the sensu client has picked up our config file and
+has started to check the disk!
+
+## Combining Sensu with an Apache Formula
+
+Hopefully you can see the pattern here of making states that deploy Sensu
+checks. Let's investigate a more real-world scenario: say you wanted
+to use Salt to setup a webserver and have it monitored.
+
+Well, first we'll need an apache formula to use. Let's download that in the
+normal way:
+
+    cd /srv/formulas
+    wget https://github.com/saltstack-formulas/apache-formula/archive/master.tar.gz
+    tar xf master.tar.gz
+    rm master.tar.gz
+    mv apache-formula-master apache-formula
+
+    vim /etc/salt/minion
+    - /srv/formulas/apache-formula
+
+But I don't really want to include the "apache" formula in the top file. I
+would like to think of the apache formula as a lower level abstraction,
+and put together my own wrapper between Apache and Sensu. I'll just
+call my state tree: webserver
+
+    cd /srv/salt
+    vim top.sls
+
+Now this theoretical webserver isn't going to include all the sensu server
+components, just the client stuff. And then I'll include my new webserver
+state.
+
+    - webserver
+
+    cd /srv/salt 
+    
+    vim webserver/init.sls
+
+To start, I'm just going to include the apache formula:
+
+```
+include:
+  - apache
+```
+
+    salt-call  --local state.highstate
+    ps -ef | grep apache
+
+Ok, salt has installed apache, that is cool. Now let's monitor it?
+
+We'll need a script to check apache, we could write one, or re-use an existing
+nagios plugin, or we can install the sensu http check plugin:
+
+    vim webserver/init.sls
+
+```
+sensu-plugins-http:
+  gem.installed:
+    - gem_bin: /opt/sensu/embedded/bin/gem
+
+/etc/sensu/conf.d/check_http.json:
+  file.managed:
+    - contents: '{{ pillar["webserver"]["check_http_configuration"] | json() }}'
+    - watch_in:
+      - service: sensu-client
+```
+
+I'm going to do something very similar to the disk check, where I'm going
+to install the check script I need, and deploy the config file that goes with
+it in the same state.
+
+Now I need to define the actual check configuration in pillar:
+
+    cd /srv/pillar
+    vim top.sls
+    - webserver
+
+Now I have a place to put my check configuration, in the webserver pillar
+file:
+
+    vim webserver.sls
+
+```
+webserver:
+  check_http_configuration:
+    checks:
+      check_http:
+        command: /opt/sensu/embedded/bin/check-http.rb --url "http://localhost/"
+        standalone: true
+        interval: 60
+        handlers: ['mailer']
+```
+
+Here I'm defining the check hash for Sensu to use. My command is referencing the full
+path to the check script, and I'm just using localhost as the url.
+
+This is a standalone check because it will be executed on the client, I'm not working
+with subscriptions in this case. And of course it will use the mailer handler we setup
+previously.
+
+    salt-call  --local state.highstate
+
+Now let's watch the logs:
+
+    tail -f /var/log/sensu/sensu-client.log
+
+And it is checking http, 200 OK. Let's stop apache and watch it fail?
+
+    /etc/init.d/apache2 stop
+    tail -f /var/log/sensu/sensu-client.log
+
+And now we get a connection refused. Great!
+
+## Conclusion
+
+There are many ways to organize Salt code. I really like the ability to re-use
+existing formulas like RabbitMQ, Apache, Redis, and Sensu. I like the idea
+that we can build a state tree that contains deploys a piece of software and
+sets up the monitoring for it too, like this webserver state tree. I *don't*
+like the idea of a single variable declaring all of the sensu checks for a
+server.
+
+Sensu tolerates having multiple config files that declare individual checks
+very well, so having a state tree deploy it's own config file along side the
+software works just fine.
+
+The purpose of this lecture isn't to prescribe a particular way of organized
+Salt code, as much as it is to inspire you to dream up your own ways of
+integrating Sensu checks with Salt, with your existing states.
+
+If you are curious about the example code I've used here, or need links to the
+exact formulas I used in this lecture, check out the "external resource"
+section for all those things.
+
+And good luck, installing Sensu checks with Salt!
+== Welcome
+
+Hi, welcome and thank you for enrolling in my course on Intermediate Sensu.
+
+For this course, I'm going to assume you know the basics. If you haven't
+taken my previous Introduction to Sensu course, please take it first.
+The Introductory course will lay the groundwork for the ideas and
+methods I'll be using in this course. It really is important to have a
+solid mental model of how sensu works, so please take it first.
+
+== Course Outline
+
+What should you expect from this course?
+
+=== Configuration Management
+
+First, configuration management.
+
+Config management is near and dear to my heart. It is the key to getting
+reproducible configuration for any system, and Sensu is no different. I'll
+cover all the popular configuration management systems.
+
+In my opinion, if you can't rebuild your infrastructure from a git repo
+and a tool, you are doing it wrong. I'll show you how to build Sensu clusters
+from scratch using configuration management.
+
+=== Utilizing third-party Check plugins and Handlers
+
+External check plugins and handlers provide a lot of value to Sensu, but they
+don't come installed out of the box.
+
+In the intro class I showed how to install check plugins and handlers from
+Github. I'll cover this in more depth and actually show you how to make your
+own.
+
+Eventually with any monitoring system you will find yourself needing to make
+your own custom check script, and maybe even your own Sensu handler. I'll
+show you how to make both, from scratch.
+
+=== More advanced event routing
+
+If you are going to run Sensu in production, it means you need real actionable
+alerts. For example sending your important alerts to Pagerduty and sending
+other things to email, or setting up aggregation checks across a fleet of
+webservers. I'll cover this sort of event routing. And I'll talk about how
+to tune Sensu to prevent alert floods and not spam your team.
+
+=== Security
+
+Having a production Sensu environment implies that it is secure. So I'll cover
+adding SSL to the transport and point out other places to harden Sensu or other
+common security gotchas you might encounter building out your Sensu
+infrastructure.
+
+== Conclusion
+
+There are lots of things covered in this course. You can think of it as
+"accelerated experience", where you get to see what it takes to run Sensu
+in a real life environment, but in course form :)
+# Writing Your Own Sensu Checks
+
+There comes a time in every engineers' life where they have a need to
+monitor something, where no existing monitoring script exists.
+
+Luckily, writing check scripts is relatively easy, because the contract
+you have to follow is so straightforward and hasn't changed for... decades?
+
+## Your First Check Script
+
+Let's write a very basic script in bash at first, and then we'll port it
+to Ruby before it gets too complex.
+
+For the lecture we are going to build a Sensu check to check to see if
+a file exists. There are certainly existing checks like this that
+already exist, but I find it helpful to do this exercise when we all
+already know what this check is *supposed* to do.
+
+But I would like to actually get my TDD on and write some tests first for
+this thing:
+
+```bash
+#!/bin/bash
+
+function assert {
+  if [[ $1 -eq $2 ]]; then
+    echo Pass
+  else
+    echo "Fail. Expected $2 but got $1"
+  fi
+}
+
+touch test_file
+./check_file_exists test_file
+assert $? 0
+
+rm -f test_file
+./check_file_exists test_file
+assert $? 2
+```
+
+So we have a little bit of a test framework to make sure our code will do
+what we think it should do. On the first test case where the `test_file`
+exists we assert that after the check runs the return code should be `0`,
+which means "ok"
+
+On the second case we remove the file and run our script and assert that
+the return code is `2`, which means critical. If you are curious about
+these return code conventions, they are pretty old and very standard:
+
+    https://sensuapp.org/docs/latest/checks#what-are-sensu-checks
+
+Pretty much every monitoring system that works in the linux world follows
+these same conventions.
+
+So let's run our tests!
+
+    chmod +x test_check_file_exists
+    ./test_check_file_exists
+
+Of course our tests fail, as we haven't written any code yet. 127 is
+the shell's return code when the script doesn't exist. Let's write
+some code to make our tests pass.
+
+    vim ./check_file_exists
+
+```bash
+#!/bin/bash
+```
+
+Now for for the most naive version of this check, we can simply use the
+basic test functionality of the shell:
+
+```bash
+[[ -f $1 ]]
+```
+
+We this might work. In bash the final return code here will be whatever
+the result of this test is. Does it pass our tests?
+
+    chmod +x check_file_exists
+    ./test_check_file_exists
+
+It doesn't. The second test case fails because this test returns `1` when
+the file doesn't exist, and we were expecting a `2`.
+
+Maybe we can write more than one line of code and make this check a tad
+more user friendly:
+
+```
+#!/bin/bash
+if [[ -f $1 ]]; then
+  echo "OK: File '$1' exists and is a normal file"
+  exit 0
+else
+  echo "Critical: File '$1' doesn't exist or is not a normal file"
+  exit 2
+fi
+```
+
+This is a bit more readable. Let's run the tests:
+
+    ./test_check_file_exists
+
+Both pass now. You can see that writing Sensu checks is really not that bad,
+all you have to do is conform to the return code conventions. Adding extra
+output for humans is nice too. I really like it when checks return as much
+human-readable friendly output as possible.
+
+## Porting to Ruby
+
+Bash is fine, but what if we wanted to make this check be more flexible,
+and have options like "negating" the check, so it is ok if the file
+*doesn't* exit?
+
+You can do this in bash, but more complex logic is easier to do in a language
+with more constructs. But guess, what: you have a language interpreter
+at your fingertips that is guaranteed to be deployed with every Sensu
+client that you deploy: the Sensu embedded ruby!
+
+You get a modern version of ruby with lots of goodies.
+
+Let's port our check to use this Ruby so we can expand it's functionality
+more easily.
+
+```ruby
+#!/opt/sensu/embedded/bin/ruby
+require 'sensu-plugin/check/cli'
+```
+
+Now this is a bit controversial: hard-coding the she-bang here to use
+the embedded Sensu ruby is a bit inflexible. It is true. If a user
+wanted to use a different ruby, they would have to literally edit
+this script and modify it.
+
+On the other hand, it is explicit about the exact ruby you are expected
+to use. If you didn't have this she-bang here, a user might execute
+it using the system ruby, which probably doesn't have the sensu-plugin gem
+that you requested.
+
+It is a tossup. For open-source plugins it makes Sensu to just be generic
+and use whatever ruby is set in the environment, but for plugins I develop
+in production, I hard-code the path because I never want it to be accidentally
+run, by a machine or by a human, with the wrong ruby.
+
+Anyway, let's run our tests just with what we've got.
+
+    ./test_check_file_exists
+
+    Sensu::Plugin::CLI: ["Not implemented! You should override Sensu::Plugin::CLI#run."]
+
+So now we need to talk a little bit about this class. The `sensu-plugin` gem
+comes with a lot of helpers to help build Sensu-plugins and handlers and stuff.
+
+Here we want to build a command line check script. Here is how you use this
+class to build this check:
+
+```ruby
+#!/opt/sensu/embedded/bin/ruby
+require 'sensu-plugin/check/cli'
+
+class CheckFileExists < Sensu::Plugin::Check::CLI
+  def run
+  end
+end
+```
+
+To use this class we have to inherit from it, and have a `run` method.
+This `run` method is what is invoked when someone executes it from the
+command line.
+
+    ./test_check_file_exists
+
+    CheckFileExists WARNING: Check did not exit! You should call an exit code method.
+
+Closer. We haven't told the check to exit properly. Let's do what it says
+and use an exit code method.
+
+What methods can we call? Well:
+
+    https://github.com/sensu-plugins/sensu-plugin/blob/b679e239a63d7c206bada044f67f43834d44e33f/lib/sensu-plugin/cli.rb#L26
+
+Although this is a bit meta, we can call a method for every type of exit code.
+What were those exit codes again?
+
+    https://github.com/sensu-plugins/sensu-plugin/blob/69ac44f539d07bf044eb2b1370c36230fd00524f/lib/sensu-plugin.rb#L4
+
+Now we should have enough data to write our check:
+
+```ruby
+#!/opt/sensu/embedded/bin/ruby
+require 'sensu-plugin/check/cli'
+
+class CheckFileExists < Sensu::Plugin::Check::CLI
+  def run
+    filename = argv[0]
+    if File.exists?(filename)
+      ok "File '#{filename}' exists!"
+    else
+      critical "File '#{filename}' doesn't exist!"
+    end
+  end
+end
+```
+
+This isn't supposed to be a ruby lesson, but just a demonstration of what
+it looks like to write sensu checks in ruby using the standard sensu-cli
+plugin constructs. It reads pretty well I think, but currently just implements
+our bash version. Do our tests pass?
+
+    ./test_check_file_exists
+
+So yea, pretty much the same functionality as the bash version. What have we
+gained? Well, in theory this check would work on systems, that maybe don't
+have bash? Like Windows or BSD systems?
+
+Also we are in a better position to add more logic and integrate with other
+ruby libraries that interface with more interesting things. For example
+in ruby you can get access to really good AWS libraries or http libraries
+that might be cumbersome to replicate in bash.
+
+### Expanding the check with negation
+
+Let's expand this check in ruby to include the option to negate the check,
+that is return "ok" the file isn't there, and critical when it is there.
+
+Let's write our tests first:
+
+```bash
+touch test_file
+./check_file_exists --inverse test_file
+assert $? 2
+
+rm -f test_file
+./check_file_exists --inverse test_file
+assert $? 0
+```
+
+I can't think of a much better term than just "inverse", as we are checking
+the inverse of what we normally would be checking.
+
+    ./test_check_file_exists
+
+
+    Invalid check argument(s): invalid option: --inverse, ["/opt/sensu/embedded/lib/ruby/gems/2.0.0/gems/mixlib-cli-1.5.0/lib/mixlib/cli.rb:191:in `parse_options'", "/opt/sensu/embedded/lib/ruby/gems/2.0.0/gems/sensu-plugin-1.2.0/lib/sensu-plugin/cli.rb:13:in `initialize'", "/opt/sensu/embedded/lib/ruby/gems/2.0.0/gems/sensu-plugin-1.2.0/lib/sensu-plugin/cli.rb:55:in `new'", "/opt/sensu/embedded/lib/ruby/gems/2.0.0/gems/sensu-plugin-1.2.0/lib/sensu-plugin/cli.rb:55:in `block in <class:CLI>'"]
+
+Our test fail of course because such an option doesn't exist. Let's add it.
+
+To add this option, let's read up on the docs! The Sensu-plugin cli construct
+uses the `milib-cli` gem to do command line parsing.
+
+This adds a very easy to use dsl for adding command line options:
+
+    https://github.com/chef/mixlib-cli
+
+```ruby
+option :inverse,
+  :long => "--inverse",
+  :description => "Return OK if the file doesn't exist, Critical if it exists",
+  :boolean => true
+```
+
+You can call this magic, or you can just call it abstraction, but this
+construct takes most of the gotchas out of command line parameter
+parsing.
+
+Now we can use this option in our code to invert our logic:
+
+```ruby
+    if File.exists?(filename)
+      if not config[:inverse]
+        ok "File '#{filename}' exists!"
+      else
+        critical "File '#{filename}'exists!"
+      end
+    else
+      if not config[:inverse]
+        critical "File '#{filename}' doesn't exist!"
+      else
+        ok "File '#{filename}' doesn't exist!"
+      end
+    end
+```
+
+There is almost certainly a better way to do this, but let's see if this works.
+Notice how the command line parameters show up in this config dictionary for
+use.
+
+With this new flag we automatically get some command line help options now:
+
+```
+$ ./check_file_exists --help
+Usage: ./check_file_exists (options)
+        --inverse                    Return OK if the file doesn't exist, Critical if it exists
+```
+
+Pretty cool. And do our tests pass now?
+
+    ./test_check_file_exists
+
+They all pass, so now we have expanded our check to include the inverse logic
+in case you need to be sure a file doesn't exist.
+
+## Conclusion
+
+In conclusion, writing Sensu checks is easy. You can use any language, even
+just plain bash, but you also have Ruby and some sophisticated constructs
+to reach for you want to.
+
+But don't forget to not-reinvent the wheel. Not only are there plenty
+of existing community Sensu plugins available for you to re-use, but
+there are also tons of other monitoring plugins that written for other
+tools that are also compatible, thanks to the Nagios-compliant
+return-code api.
+
+So go forth and write Sensu checks like a pro!
+
+### Further Reading:
+
+* [Sensu-plugin documentation](https://github.com/sensu-plugins/sensu-plugin)
+# Writing Your Own Sensu Handlers
+
+A "handler" is the name for the piece of code that Sensu executes
+in response to recieving and event.
+
+In the introductory course I mentioned that handlers simply take input
+from stdin and then act on that input. And that is true!
+
+Handlers can be as simple as just the `cat` command, that take the
+input and spit it back out. For this lecture will make a more sophisticated
+handler.
+
+## What Language Handlers are Written In
+
+Although you could write a Sensu handler in any language, most of them
+are written in Ruby. Handlers are written in ruby to give them access
+to a lot of helping ruby methods that come with the `sensu-plugin` gem.
+These are helper for things like reading config out of `/etc/sensu`, or
+handling the situation where checks are silenced.
+
+Still though, when writing handlers in Ruby, you get a lot of boilerplate
+for free. Similar to how when we wrote the check script in ruby, we got
+a lot of similar command line parsing things that seems to be kinda
+"magical", when we use the sensu-plugin class for handlers, we will
+also get a lot of cool stuff.
+
+## Getting Started
+
+There isn't a ton of [existing documentation](https://github.com/sensu-plugins/sensu-plugin#handlers)
+on how to write handlers, but there are lots of examples and prior art.
+
+Let's start by copy/pasting the [show handler](https://github.com/sensu/sensu-community-plugins/blob/master/handlers/debug/show.rb)
+, which is kinda the most minimal handler there can be:
+
+```ruby
+#!/opt/sensu/embedded/bin/ruby
+require 'sensu-handler'
+
+class Show < Sensu::Handler
+  def handle
+    puts 'Settings: ' + settings.to_hash.inspect
+    puts 'Event: ' + @event.inspect
+  end
+end
+```
+
+Like before I'm going to make the call to hard-code the Sensu embedded ruby
+in my shebang for the lecture. You will have to decide for yourself if this
+is what you want in your own environment.
+
+How are we going to actually test this handler? Certainly we could reproduce
+a server environment and a purposely failing check. But I have a better idea.
+Remember that handlers just take input from std-in and then operate on it?
+Let's just give it some stdin!
+
+We can just steal some example [event data](https://sensuapp.org/docs/latest/events#sensu-event-data)
+from the official sensu documentation page.
+
+    cat > test-data.json
+    ...
+    cat test-data.json | ./handler.rb
+
+And look! The *Show* handler did what it says it does, it prints out the
+settings and prints out the event data.
+
+## Writing a Real Handler
+
+So what kind of handler are we going to write? I toyed with the idea of
+writing a trivial handler, but this time I'm actually going to take this
+opportunity to write a handler that I've actually always wanted:
+a "Notify My Android" handler.
+
+Notify My Android is a service for android phones to receive arbitrary
+push notifications. It is extremely easy to use. I would like to get
+a NMA alert from Sensu, so let's build a handler.
+
+Building this handler is going to be very easy thanks to this existing
+[NMA rubygem](https://github.com/slashk/ruby-notify-my-android#usage-as-a-gem)
+
+I'm just going to copy in this example to get started:
+
+```ruby
+#!/opt/sensu/embedded/bin/ruby
+require 'sensu-handler'
+require 'ruby-notify-my-android'
+
+class Show < Sensu::Handler
+
+  def handle
+    NMA.notify do |n|
+      n.apikey = "9d1538ab7b52360e906e0e766f34501b69edde92fe3409e9" 
+      n.priority = NMA::Priority::MODERATE
+      n.application = "NMA"
+      n.event = "Notification"
+      n.description = "Your server is under attack!!!"
+    end
+  end
+
+end
+```
+
+Of course I need this gem installed, so I'm going to use the Sensu omnibus
+ruby to install it:
+
+    /opt/sensu/embedded/bin/gem install ruby-notify-my-android
+
+## Making the Handler More Sane With Settings
+
+Much of this will need to be replaced with real values from Sensu.
+Let's start with the API key. I could certainly hard-code an API key
+in here, but that would not be very flexible.
+
+You saw in the `show` handler that we have the ability to simply read in all of
+Sensu's configuration. This makes it really easy to add config for a handler!
+
+Let's make the config file we want, and then have the handler read it:
+
+```
+cat > /etc/sensu/conf.d/notify_my_android.json
+{
+  "notify_my_android": {
+    "api_key": "abc123"
+  }
+}
+```
+
+Behind the scenes I'm going to replace that with a real API key so this
+will actually work of course.
+
+But you can see how straight-forward this is, it is just a config file with
+a unique top-level key. In this case the key is `notify_my_android`. It is
+customary to have the name of the key be the name of your handler.
+
+    mv handler.rb notify_my_android.rb
+
+Now to use this config, we can just use the `settings` hash:
+
+    n.apikey = settings["notify_my_android"]["api_key"]
+
+So great. Really the ruby glue provided by the `sensu-plugins` gem makes
+everything available to you as you need it.
+
+## More Adjustments
+
+We can change our application to Sensu:
+
+    n.application = "Sensu"
+
+What should the event key be? Probably something about what is wrong on what
+host:
+
+    n.event = @event['client']['name'] + '/' + @event['check']['name']
+
+For the description we can use this hander [event summary](https://github.com/sensu-plugins/sensu-plugin/blob/aa59019a584eae88f3e784d7079f59a762879418/lib/sensu-handler.rb#L61)
+method.
+
+    n.description = event_summary
+
+Well, it isn't many lines of code, but I don't think we need many? Does it it
+work?
+
+    cat event-data.json | ./notify_my_android.rb
+
+It is kind strange to see no command line output though, that will make this
+handler pretty difficult to debug when things go wrong. Let's simply print
+the actual response we get back from the NMA method:
+
+```ruby
+  def handle
+    response = NMA.notify do |n|
+      n.apikey = settings["notify_my_android"]["api_key"]
+      n.priority = NMA::Priority::MODERATE
+      n.application = "Sensu"
+      n.event = @event['client']['name'] + '/' + @event['check']['name']
+      n.description = event_summary
+    end
+   puts response.inspect
+  end
+```
+
+    cat event-data.json | ./notify_my_android.rb
+
+That is better. It could be made more pretty, but at least we get something.
+
+## Conclusion
+
+You can see that there is really not much here, and that is because we get so much
+from `Sensu::Handler` class that we are inheriting. Getting settings for our
+handler, like an api key is super easy, thanks to the automatic `settings` variable
+we have access to. All of these event an client variables are given to use
+in a sanitized way from the standard-in, but I could imagine we could do fancier things with them.
+
+Speaking of fancy, on my lecture on tuning alerts, remember the `refresh` and
+`occurences` settings? This handler already respects those. That is part of the
+filtering logic of the `Sensu::Handler` class that we inherited.
+
+However, if you needed to you could override that method with your own, if
+notify-my-android need special filtering.
+
+But even with such little code our handler is mostly functional!
+When you take the existing methods you get from the `Sensu::Handler` class
+and you combine them with existing ruby gems that exist for just about
+anything, you get a great combination that allows you to build new
+integrations with Sensu, with very little effort.
+
+I am by no means a "Ruby guy", but I can handle this.
+
+So go forth and do not be afraid to build custom integrations with Sensu,
+as you can see you can get very far with a very minimal product. With a
+little glue, Sensu can integrate with just about anything!
+
+### Further Reading
+
+* [Official Documentation](https://github.com/sensu-plugins/sensu-plugin#handlers)
+* [Notify My Android Rubygem](https://github.com/slashk/ruby-notify-my-android)
+* [Sensu Show Handler](https://github.com/sensu/sensu-community-plugins/blob/master/handlers/debug/show.rb)

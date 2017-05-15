@@ -894,6 +894,44 @@ root@SensuServer:/etc/sensu/conf.d# cat test.json
   }
 } 
 
+on va se servir de notre conf pour creer un filtre puis pluger se filtre sur notre handler pour permettre la gestion de notre filtre :
 
+si notre check leve une alerte pour les nodes ayant une subscription particuliere (ex en de prod) puis un fitre qui va recuperer les event des machinnes avec la subscription de prod puis permettre a un handler de mailing par exemple de gerer les messages a envoyer pour les  servers dédiés grace au filtre qu'on va pluger.
+
+on a donc un client ayant un attribut sette puis un filtre gerant les nodes avec l'environment de production setté et enfin un handler qui va géré les events de ces nodes avec le filtre : 
+
+{
+ "filters": {
+    "production": {
+      "attributs": {
+		"clients": {
+			"environment": "production"
+			}
+		}
+    } 
+  }
+}
+
+
+cat handlers.json 
+
+{
+  "handlers": {
+	"mailer": {
+      "type": "pipe",
+      "command": "/opt/sensu/embedded/bin/handler-mailer.rb",
+	  "filters": ["production"] 
+    }
+  }
+}
+
+
+== Subdue == 
+Une autre methode pour gérer les evenements.
+Les attibuts subdue sont dédiés pour le filtrage en fonction de certains plages horaires particulieres.
+Ces conf ne comprennent que les périodes de temps .Le hash de subdue est directement positionnée dans le check en lui même 
+
+
+https://sensuapp.org/docs/latest/checks#subdue-attributes
 
 
