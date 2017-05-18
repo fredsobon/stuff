@@ -935,3 +935,106 @@ Ces conf ne comprennent que les périodes de temps .Le hash de subdue est direct
 https://sensuapp.org/docs/latest/checks#subdue-attributes
 
 
+=== ssl === 
+
+ il va pouvoir être interressant de securiser notre server sensu : pour ce faire on va creer une autorithe dze certification et un certif que l'on va faire porter par notre appli.
+
+une doc sensu est dédiée au sujet : 
+
+https://sensuapp.org/docs/latest/ssl
+
+Un script est même fourni pour faciliter le job : 
+    cd /tmp && wget http://sensuapp.org/docs/latest/tools/ssl_certs.tar && tar -xvf ssl_certs.tar
+    cd ssl_certs
+    ls
+    vim ssl_cert.sh : il s'agit d'un shell qui va creeer la CA , les clé et crt pour client et server 
+    ./ssl_certs.sh generate
+    find
+
+As you can see the script has generated some certs and keys for us to use, including
+one for a server, a client, and the CA. The are not anything really fancy, just basic
+self-signed certs:
+
+    openssl x509 -in server/cert.pem -text -noout
+    openssl x509 -in client/cert.pem -text -noout
+un fois qu'on a configurer notre certif ssl , on va copier les fichiers nécéssaires dans l'aorbo de rabbitmq afin de securiser la conf de celui-ci.
+on creer au prealable un repertoire pour recevoir les infos : 
+    mkdir /etc/rabbitmq/ssl
+    cp server/key.pem server/cert.pem sensu_ca/cacert.pem /etc/rabbitmq/ssl/
+on va maintenant configurer rabbitmq 
+on va pouvoir consulter la doc de rabbitmq :
+https://www.rabbitmq.com/ssl.html
+
+et donc configurer l'appli : 
+    cd /etc/rabbitmq
+    find
+    vim rabbitmq.config
+
+```
+    {rabbit, [
+    {ssl_listeners, [5671]},
+    {ssl_options, [{cacertfile,"/etc/rabbitmq/ssl/cacert.pem"},
+                   {certfile,"/etc/rabbitmq/ssl/cert.pem"},
+                   {keyfile,"/etc/rabbitmq/ssl/key.pem"},
+                   {verify,verify_peer},
+                   {fail_if_no_peer_cert,true}]}
+  ]}
+```
+
+    /etc/init.d/rabbitmq-server restart
+
+on va examiner les logs de notre appli : 
+    tail -f /var/log/rabbitmq/rabbit@vagrant-ubuntu-trusty-64.log
+on voit que le port 5672 ( non ssl) est toujours appellé :c'est juste qu'on a pas modifié la conf de notre server sensu :
+
+on va donc creer la partie ssl pour sensu 
+    cd /tmp/ssl_certs/
+    mkdir /etc/sensu/ssl/
+    cp client/key.pem client/cert.pem sensu_ca/cacert.pem /etc/sensu/ssl/
+    vim /etc/sensu/config.json
+
+```
+  "rabbitmq": {
+    "ssl": {
+      "cert_chain_file": "/etc/sensu/ssl/cert.pem",
+      "private_key_file": "/etc/sensu/ssl/key.pem"
+    },
+    "host": "localhost",
+    "port": 5671,
+```
+
+Remember both the Sensu server, client, and API connect to RabbitMQ for
+communication, so they will all need to be restarted to pick up this
+configuration:
+
+    /etc/init.d/sensu-client restart
+    /etc/init.d/sensu-server restart
+    /etc/init.d/sensu-api restart
+On va biensur devoir copier et configurer les parties ssl sur tous les composants de sensu (clients, server , api ) 
+
+en examinant les logs de rabbitmq maintenant on voit les acces ssl sur le port 5671
+
+=== Hardening Rest API ===
+
+Il va falloir s'interresser au renforcemenet de la securité de l'api quand on va devoir utiliser sensu et son api en production.
+
+rabbitmq :
+On a vu dans une autre section la configuration en ssl des communications entre rabitmq et les clients / serveurs.
+
+redis :
+On a vu qu'il était imperatif de modifier les login /passwwd fournis par defaut pour rabbitmq/senu /ushiwa ...
+Concernant redis on a vu qu'il servait a stocker les events et ne communique qu'avec l'api sensu et le sensu server : il est fortement recommandé de ne pas l'exposer à d'autres services si le ssl n'est pas possible.
+
+api : il va être partiulierement juducieux de rajouter une authen ssl pour atteindre l'api ( apache ,nginx ..)
+
+client :
+
+il va potentiellement falloir binder le port 3030 qui sert a faire transiter les resultats de checks sur l'interface localhost 
+localhost:3030 : en cas de prise de controle : le port ne pourra être utiliser pour générer un dos vers le  sensu server.
+
+server : il n'y a pas de configuration particuliere a faire pour renforcer la secu du sensu server 
+
+dashboard : 
+c'est un autre endpoint http
+il est biensur conseiller de rajouter une authent et du ssl
+
