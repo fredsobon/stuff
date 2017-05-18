@@ -1037,4 +1037,50 @@ server : il n'y a pas de configuration particuliere a faire pour renforcer la se
 dashboard : 
 c'est un autre endpoint http
 il est biensur conseiller de rajouter une authent et du ssl
+Vu que cette partie est génarallement exposée on protege le tout avec un acces vpn
+
+
+=== sensu-cli ===
+
+possibilité d'utiliser la puissance de sensu en cli
+c'est un ruby gem qu'on va installer normalement : 
+
+/opt/sensu/embedded/bin/gem install sensu-cli
+
+l'outil  n'est pas dans le path ( car installé via le ruby omnibus) mais on peut facilement l'ajouter en faisant un lien symbolique :
+
+    ln -s /opt/sensu/embedded/bin/sensu-cli /usr/local/bin/
+    which sensu-cli
+
+exemple de commandes :
+
+    sensu-cli client list
+    sensu-cli client list --help
+    sensu-cli client list --format table
+    sensu-cli client list --format json
+	sensu-cli --help
+
+sensu-cli event list
+
+
+This is a good start, but we want to filter only the events for this local
+host? Luckily we can do that:
+
+    sensu-cli event list --filter name,`hostname -f `
+
+This is good, but it is a little verbose for being in the message of the day.
+The table format is a little better:
+
+    sensu-cli event list --filter name,`hostname -f `  --format=table
+
+But if we are going to do anything really fancy, we are going to have to
+pull out exactly the fields we want. Specifically I'm kinda only interested
+in "what" is failing and what the output is. This is where the JSON output can
+come in hand:
+
+    sensu-cli event list --filter name,`hostname -f `  --format=json
+    apt-get -y install jq
+    sensu-cli event list --filter name,`hostname -f `  --format=json | jq -r '.[].check | .name + ":|" + .output'
+And then one more filter I'll apply is to pipe it through the column tool to align it:
+    sensu-cli event list --filter name,`hostname -f `  --format=json | jq -r '.[].check | .name + ":|" + .output' | column  -t  -s "|"
 
