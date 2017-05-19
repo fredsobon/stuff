@@ -1067,25 +1067,50 @@ exemple de commandes :
 
 sensu-cli event list
 
+on a aussi des commandes speciales pour tester nos confs :
 
-This is a good start, but we want to filter only the events for this local
-host? Luckily we can do that:
+sensu-cli socket <<< on peut pousser nos propres event vers la socket 
+
+on peut donc piloter sensu via la cli 
+
+exemple : on va pouvoir recupérer la liste des events filtres pour notre hostname : 
 
     sensu-cli event list --filter name,`hostname -f `
 
-This is good, but it is a little verbose for being in the message of the day.
-The table format is a little better:
-
+si on veut une version plus compacte en sortie on va pouvoir utiliser le format 'table' : 
+ 
     sensu-cli event list --filter name,`hostname -f `  --format=table
 
-But if we are going to do anything really fancy, we are going to have to
 pull out exactly the fields we want. Specifically I'm kinda only interested
 in "what" is failing and what the output is. This is where the JSON output can
 come in hand:
+On va même pouvoir filtrer plus finement en n'affichant que le nom des checks eux même et leur output :  pour cela on utilise la sortie en json et on va aussi pour filtrer précisement utiliser la commande jq ( un parser json ) : 
 
     sensu-cli event list --filter name,`hostname -f `  --format=json
     apt-get -y install jq
     sensu-cli event list --filter name,`hostname -f `  --format=json | jq -r '.[].check | .name + ":|" + .output'
 And then one more filter I'll apply is to pipe it through the column tool to align it:
     sensu-cli event list --filter name,`hostname -f `  --format=json | jq -r '.[].check | .name + ":|" + .output' | column  -t  -s "|"
+
+
+on va pouvoir utiliser le sensu-cli pour interragir directement avec notre server sensu .
+ex : on peut décider de passer les nodes par défaut en silence après le premier boot pour fixer la conf et s'assurer que les nodes ne vont pas alerter car leur build n'est pas fini.
+
+on peut donc examiner la commande pour 'silence' un host :  
+
+   sensu-cli silence -h
+
+ex : 
+    sensu-cli silence $(hostname -f)
+on va pouvoir controller que notre action est bien passée avec :  
+
+    sensu-cli stash list
+
+
+on va pouvoir passer des options sur le user qui passe le silence , la raison et le delai (en secondes) au dela duquel le node sortira du silence : 
+
+    sensu-cli silence `hostname -f` --owner root --reason "This server was just created" --expire 3600
+    sensu-cli stash list
+
+
 
