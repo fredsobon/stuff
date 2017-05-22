@@ -1,0 +1,114 @@
+=== eXtreme Network – Présentation et mise en oeuvre simple d’EAPS ===
+
+EAPS pour « Ethernet Automatic Protection Switching » est une technologie conçu par Extreme Nework et normalisée par l’IETF (RFC 3619). Le rôle de cette technologie est d’accroitre la résilience des topologies MAN et LAN en anneau. 
+Concept de base:
+
+Le concept EAPS associe des mécanismes dont le rôle sera de gérer un ou plusieurs  anneaux ethernet sans boucle. Cette gestion d’anneaux sans boucle doit garantir une convergence de la topologie en cas de changement très rapide, à l’image des boucles métropolitaine dont la conception doit garantir une haute disponibilité et une résilience à toute épreuve.   Cette technologie à la capacité de converger en cas d’incident en moins d’une seconde voir moins de 50 millisecondes, cependant la vitesse de convergence dépend bien sûr de plusieurs facteurs, le design et la quantité d’éléments qui compose la topologie, l’éloignement et le type de média utilisé.
+Un anneau est dans le langage EAPS identifié à travers la notion de domaines, chaque domaine est composé d’un ensemble d’équipements qui sont identifiés comme des nœuds. EAPS définit plusieurs types de nœuds dans sa topologie, avec comme élément principale de la topologie le nœud « maitre » puis dans un second temps les autres que l’on désigne comme étant des nœuds dit de « transit ».
+Ces nœuds disposent au minimum de deux accès pour l’anneau à gérer. On identifie l’accès via le nœud « maitre » comme étant l’accès dit « primary » ou « accès principal », ensuite vient les autres types d’accès identifiés comme étant « secondary » ou « accès secondaire ».
+
+Comme cela été indiqué auparavant, un domaine EAPS est perçu comme étant un anneau. La technologie doit prémunir le réseau d’une boucle qui peut potentiellement survenir, pour répondre à ce besoin le nœud maitre désigne l’un des deux accès comme bloqué (l’accès secondaire) pour les données considéré comme n’étant pas de la signalisation EAPS. Ceci permet de concevoir une topologie sans boucle comme c’est le cas avec spaning-tree qui agit de la même manière mais converge bien plus lentement.
+Il est à noter que le protocole EAPS utilise un VLAN dédié, il est identifié comme étant un domaine réservé à la signalisation. Ce VLAN est nommé « VLAN de contrôle » il présente la particularité de fonctionner en anneau sans prendre en compte la notion d’accès de primaire ou secondaire, il n’y a pas de port bloqué la topologie est bouclé.
+
+Une question se pose comme réagit le mécanisme en cas de panne de l’accès primaire ? Tous simplement via un re-routage des flux sur l’accès secondaire du Master. La technologie par le biais du VLAN de contrôle va procéder à l’envoi de trames informant d’un changement de topologie afin de provoquer la bascule des flux vers le lien de secours.
+Des messages de contrôles émis via le VLAN CONTROL. Un mécanisme appelé RING POLLING va procéder à l’envoi d’une trame de bonne santé (health-message), si celle-ci n’est pas reçue par l’accès secondaire dans le temps imparti à destination de son « accès secondaire », EAPS va considérer qu’une rupture de lien s’est produite et débloqué le lien « Secondary ». Si la trame traverse l’anneau sans encombre, EAPS va considérer que l’anneau est stable et fonctionner normalement.
+Un changement de topologie à la suite d’un incident nécessite dans le cadre du rétablissement l’anneau, la reprise de l’état initial. Malgré un incident, EAPS continuera à émettre des trames de bonne santé au sein de l’anneau afin de permettre un retour à l’état normal si une reprise est constatée.   Lors de la bascule en plus de la signalisation indiquant aux équipements concernés de débloquer l’accès secondaire, une commande est émise à destination des équipements de l’anneau pour vider et mettre  à jour la table de pontage (table MAC) dans le but de s’adapter au changement de topologie.
+Les  étapes de la détection d’un incident sur un nœud de transit :
+EAPS reçoit un message d’alerte d’un des nœuds de transit.
+Le nœud maitre reçoit l’information via le vlan de contrôle EAPS.
+EAPS débloque l’accès secondaire de l’anneau sur le maitre.
+Une information est envoyée à tous les équipements de l’anneau afin de vider la table de pontage (table MAC).
+L’activité reprend via un re-routage des flux à la suite de la modification topologique.
+Les messages d’état continue d’être émis via le VLAN de contrôle au cas où une reprise sur le lien défaillant surviennent.
+
+Topologie:
+Il est présenté ci-dessous deux exemples de topologies EAPS, d’autres modes d’implémentations sont possibles, mais cela dépasse le cadre de cet article. La documentation de l’XOS détaille les autres implémentations possibles, principalement en anneaux multiples.
+Topologie en anneau simple :
+
+Topologie en anneaux multiples :
+
+= Configuration d’EAPS: =
+La configuration d’EAPS sur un commutateur Extreme Network comprend plusieurs étapes :
+
+Créer un domaine EAPS :
+#create eaps <nom>
+
+Configurer le type de nœud EAPS  (Master ou Transit):
+#configure eaps <nom> mode master ou bien configure eaps <nom> mode transit
+
+Indiquer les interfaces primary et secondary de l’équipement :
+#configure eaps <nom> primary port <port number>
+#configure eaps <nom> secondary port <port number>
+
+Création d’un VLAN de contrôle
+#create vlan <nom>
+#configure vlan <nom> tag <id>
+
+Application d’un profil de QOS, le profil QP8 est celui qui par défaut dispose du niveau de priorité le plus élevé.
+#configure vlan vlan <id> qosprofile qp8
+
+Ajout d’un VLAN de contrôle :
+#configure eaps <nom> add control vlan <nom>
+
+Protéger les VLAN devant participer au domaine EAPS créé :
+#configure eaps <nom> add protect vlan <nom>
+
+Activer le domaine EAPS :
+#enable eaps <nom>
+
+Activer EAPS de manière global:
+#enable eaps
+
+Activer EDP sur les ports d’interconnexion pour lesquels EAPS est activé :
+#enable edp ports <port number>
+#enable edp ports <port number>
+
+L’exemple précédent ne tient pas compte de la mise en place d’une topologie en anneaux multiples et des paramètres permettant de procéder à un tunning de la technologie. Elle s’oriente sur la mise en œuvre d’une topologie avec un anneau simple, bien que les commandes soient les mêmes que pour la conception multi anneaux. La mise en œuvre de topologies plus complexe  et de l’optimisation des  paramètres fera l’objet d’un article à part.
+
+Commandes de permettant de diagnostiquer EAPS :
+show eaps:
+La commande ”show eaps “ sans les paramètres additionnels permet d’avoir une vue sommaire des paramètres.
+# show eaps
+EAPS Enabled: Yes
+EAPS Fast-Convergence: Off
+EAPS Display Config Warnings: On
+EAPS Multicast Add Ring Ports: Off
+EAPS Multicast Send IGMP Query: On
+EAPS Multicast Temporary Flooding: Off
+EAPS Multicast Temporary Flooding Duration: 15 sec
+Number of EAPS instances: 1
+# EAPS domain configuration :
+——————————————————————————–
+Domain         State           Mo  En  Pri   Sec   Control-Vlan VID   Count
+——————————————————————————–
+EAPS_LT1    Links-Up        T   Y   1:1  2:1   CTRL_EAPS (500) 20
+——————————————————————————–
+show eaps detail:
+La commande «show eaps detail » permet un affichage détaillé des paramètres :
+# show eaps detail
+EAPS Enabled: Yes
+EAPS Fast-Convergence: Off
+EAPS Display Config Warnings: On
+EAPS Multicast Add Ring Ports: Off
+EAPS Multicast Send IGMP Query: On
+EAPS Multicast Temporary Flooding: Off
+EAPS Multicast Temporary Flooding Duration: 15 sec
+Number of EAPS instances: 1
+Name: EAPS_LT1
+State: Links-Up                               Running: Yes
+Enabled: Yes    Mode: Transit
+Primary port:   1:1           Port status: Up Tag status: Tagged
+Secondary port: 2:1           Port status: Up Tag status: Tagged
+Hello timer interval: 1  sec
+Fail timer interval:  3  sec
+Preforwarding Timer interval: 15 sec
+Last update: From Master Id 02:04:96:25:59:4c, at Sun Jun 13 19:15:34 2010
+EAPS Domain has following Controller Vlan:
+Vlan Name                    VID
+CTRL_EAPS             500
+EAPS Domain has following Protected Vlan(s):
+Vlan Name                    VID
+voice                         101
+data                         102
+Admin                        103
+Number of Protected Vlans: 3
