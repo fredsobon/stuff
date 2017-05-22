@@ -1,0 +1,165 @@
+Udev is the mechanism used to create and name the /dev device nodes corresponding to the devices that are added to the system  during the booting. When a device is added or removed from the system, the kernel creates a device name in the /sys psuedo filesystem and then the event notifies the udev program about device addition or removal. The udev utility then creates the device file, usually in  the /dev directoy, or removes the device file from the systems.
+
+In RHEL6/RHEL7 , the Udev matches the information provided by sysfs with the rules provided by the user , to dynamically add/remove  the required device nodes.
+
+Where does these udev rules are stored and how to create our own udev rules?
+
+Udev rule files are kept in the /etc/udev/rules.d/ directory.  Adnd the Files stored in /etc/udev/rules.d/ are parsed in lexical order
+
+Note: In some circumstances, the order in which the udev rules are parsed is important.
+
+In general, custom rules should be parsed before the defaults, so it’s common to create a file at /etc/udev/rules.d/10-local.rules and write all custom rules into that file.
+
+Basic format of UDEV rule:
+
+    key1=”value”, key2=”value”, … keyN=”value”, name=”value”, symlink=”value”
+
+At least one key and a name must be provided. Extra keys are optional, but all must match for the rule to be applied.
+
+Let’s check some  examples for udev rules
+Sample Udev Rules in RHEL6/RHEL7
+Udev Rules that generates Notification on device add/remove
+
+    $ cat /etc/udev/rules.d/10-custom.rules
+    ACTION=="add", KERNEL=="sdb[1-9]", RUN="/usr/bin/wall  SCSI DEVICE ADDED"
+    ACTION=="remove", KERNEL=="sdb[1-9]", RUN="/usr/bin/wall SCSI DEVICE REMOVED"
+
+Rules to setup symlinks to devices. %n = the partition number
+
+    $ cat /etc/udev/rules.d/75-custom.rules
+    ACTION==”add”, KERNEL==”sdb[1-9]”, SYMLINK=”scsi%n”
+    ACTION==”remove”, KERNEL==”sdb[1-9]”, SYMLINK=”scsi%n”
+
+Udev Rule to apply a default setting for max_sectors_kb to newly discovered devices.
+
+    $ cat /etc/udev/rules.d/54-custom.rules
+    ACTION=="add", KERNEL=="sd*[!0-9]", SYSFS{vendor}=="WDC WD32", RUN+="/bin/sh -c 'echo 128 > /sys/block/%k/queue/max_sectors_kb'"
+    ACTION=="add", KERNEL=="sd*[!0-9]", SYSFS{vendor}=="WDC WD32", RUN+="/usr/bin/wall /sys/block/%k/queue/max_sectors_kb set to 128"
+
+The 2nd action line is for debug so that a broadcast message that this rule was being applied is sent to the system. Only the first line is needed to apply the desired setting to max_sectors_kb upon device discovery.
+
+We can also have the rules  to set owner / group / modes  as well.
+
+    KERNEL=="sdc5", OWNER="student", GROUP="student", MODE="0600"
+
+Example Udev Rules to Create a device file during Server booting
+ACTION==”add”, RUN+=”/bin/sh -c ‘mknod /dev/cs2 c 244 0 ; chmod 666 /dev/cs2′”
+How to Test this rule?
+
+    1. Just create a file named “99-myrules.rules” under /etc/udev/rules.d/
+    2. And then run the below command, to execute the above rule. The below udevadm command will make ke udev daemon aware of the above rule
+    #  udevadm trigger
+
+    3. Finally, verify that the device has been created.
+    # ls -l /dev/cs2
+    crw-rw-rw-. 1 root root 244, 0 Jun 15 20:52 /dev/cs2
+
+    If the above file creates succesfulle,  then rebooting the system should also create the /dev/cs2 device.
+
+udev rule to change parameters like nr_request and/or to change the I/O scheduler of a device?
+In this case, the below rule will  set the nr_requests for all sd devices to 1024 and sets  I/O scheduler as deadline
+
+    SUBSYSTEM!="block", GOTO="end_rule"
+    ENV{DEVTYPE}=="partition", GOTO="end_rule"
+    ACTION!="add|change", GOTO="end_rule"
+    KERNEL=="sd*", ATTR{queue/scheduler}="deadline", ATTR{queue/nr_requests}="1024" LABEL="end_rule"
+
+udev Rules to Configure Vmware virtual disks
+
+To write UDEV rules for the VMware virtual disks, it will  require some changes from VMware side, to export the disk UUID from vmware side. The steps from VMWARE normally varies from one release to another release.
+
+Below are sample steps from the VMWARE side:
+
+        shut down your virtual machine
+
+        right-click on the VM’s entry in the left-hand panel and select Edit Settings
+
+        click on the Options tab
+
+        select the Advanced -> General item on the left and click on the Configuration Parameters
+
+        Click on the Add Row button
+
+        Click Add Row.
+
+        In the Name column, enter disk.EnableUUID
+
+        In the Value column, enter TRUE
+
+        Click OK and click Save.
+
+        Power on the virtual machine.
+
+After making the changes from vmware side, you should be able to WWID of the vmware disk using ” scsi_id”  command.
+
+    Example: # /sbin/scsi_id -g -u -s /block/sdb
+    36000c2931a129f3c880b8d06ccea1b01
+
+then create Udev rule file under /etc/udev/rules.d/ using the above wwid.
+
+Below is Format of udev rule in RHEL 6 and RHEL7 :
+
+    KERNEL=="sd*", BUS=="scsi", PROGRAM=="/sbin/scsi_id --whitelisted --replace-whitespace --device=%N", RESULT=="36000c2931a129f3c880b8d06ccea1b01", SYMLINK+="mydevice%n"
+
+    Below is the Format of Udev Rule in RHEL 5:
+
+    KERNEL=="sd*", BUS=="scsi", PROGRAM=="/sbin/scsi_id -g -u -s %p",  RESULT=="36000c2931a129f3c880b8d06ccea1b01", SYMLINK+="mydevice%n"
+
+ 
+Udev rule to set the Permissions on Multipath devices except a system partition
+
+ 
+
+Creating a rule file under /etc/udev/rules.d with the below rule, will set the permission of all multipath devices in the system except the system partition i.e. mpatha.
+
+ 
+
+    ACTION=="add|change", ENV{DM_NAME}!="mpatha", GROUP:="dba", OWNER:="grid", MODE:="0660"
+
+ 
+Udev rules to set persistent network interfaces
+Below is a sample rule that always assigns the name “eth0” to the interface with MAC “52:54:00:37:99:3a”
+
+    SUBSYSTEM==”net”, ACTION==”add”, DRIVERS==”?*”, ATTR{address}==”52:54:00:37:99:3a”, ATTR{type}==”1″, KERNEL=”eth*”, NAME=”eth0″
+
+ 
+Udev rules to create LVM backed raw devices in RHEL6/RHEL7
+
+create a rule file named as “60-lvm-raw-rules” under “/etc/udev/rules.d” with the rules similar to below
+
+Note:  In the below examples we are assuming our volume group is vg_test and volume names are  lv_test1 and lv_test2. You should change these names as per your LVM configuration
+
+ 
+
+    ACTION!="add|change", GOTO="raw_end" 
+
+    # Create raw character device mapping: 
+    ENV{DM_VG_NAME}=="vg_test", ENV{DM_LV_NAME}=="lv_test1", RUN+="/bin/raw /dev/raw/raw1 %N"
+    ENV{DM_VG_NAME}=="vg_test", ENV{DM_LV_NAME}=="lv_test2", RUN+="/bin/raw /dev/raw/raw2 %N"
+
+    # To set permissions: 
+    KERNEL=="raw*", OWNER:="testuser", GROUP:="testuser", MODE:="0660"
+
+    LABEL="raw_end"
+
+you can reload the rules as per the procedure mentioned in the end of  this post and then verify the results using below command
+
+    # raw -qa
+    /dev/raw/raw1:  bound to major 253, minor 8
+    /dev/raw/raw2:  bound to major 253, minor 9
+
+    # lvs -o +lv_kernel_major,lv_kernel_minor
+      LV       VG             Attr       LSize  Pool Origin Data%  Move Log Cpy%Sync Convert KMaj KMin
+      lv_test1 vg_test        -wi-a-----  2.00g                                              253  8   
+      lv_test2 vg_test        -wi-a-----  2.00g     
+
+How to Reload the “udev rules” without restarting udev service, in RHEL6/RHEL7?
+
+After making the changes in udev configuration if there is no possibility to reboot the server, udevadm trigger can be utilized to reload the new rules configuration in udev:
+
+    # /sbin/udevadm control --reload-rules
+    # /sbin/udevadm trigger --type=devices --action=change
+
+    Run following command for specific event:
+
+
