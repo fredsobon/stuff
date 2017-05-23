@@ -6,3 +6,164 @@ ex : il faut loader le bon "env" de gem ruby :
 server #  GEM_PATH=/opt/sensu/embedded/lib/ruby/gems/2.3.0:/opt/sensu/embedded/lib/ruby/gems/2.4.0 ./check-memory-percent.rb -w 70 -c 80
 
 
+
+
+
+
+== sensu-cli ==
+
+    /opt/sensu/embedded/bin/gem install sensu-cli
+
+
+    ls /opt/sensu/embedded/bin/
+
+But I would like to have this just in my normal path, so I'm going to put this
+in my path by adding a symlink
+
+    ln -s /opt/sensu/embedded/bin/sensu-cli /usr/local/bin/
+    which sensu-cli
+
+## Background Prep
+
+    sed -i "s/localhost/`hostname -f`/" /etc/sensu/conf.d/client.json
+    /etc/init.d/sensu-client restart
+    sensu-cli client delete localhost
+    sensu-cli socket create -n check_http -o "CRITICAL: 400 bad" -s 2
+    sensu-cli socket create -n check_mem -o "WARNING: Out of memory" -s 1
+    sensu-cli socket raw '{"name": "check_ssh", "output": "CRIT: ssh is down", "status": 2, "source": "web02"}'
+    sensu-cli socket raw '{"name": "check_disk", "output": "CRIT: Disk is full", "status": 2, "source": "sadserver"}'
+
+## Usage
+
+    sensu-cli client list
+    sensu-cli client list --help
+
+The table format is a bit interesting:
+    sensu-cli client list --format table
+
+But I think JSON is the most interesting:
+    sensu-cli client list --format json
+
+    sensu-cli --help
+
+There is pretty much a 1 to 1 correspondence with what the sensu-cli can do and
+what the Sensu-API can do.
+
+* `aggregate` is the advanced feature I've hinted at before that allows you to
+  execute a subscription check across a set of subscribers
+* `check` allows you to see and issue check requests
+* `client` is what I demonstrated right at first. You can see and delete
+  clients.
+* `event` allows you to list and resolve events, just like on the Sensu
+  dashboard.
+* `info` and `health` are commands to inspect the healthiness of the Sensu
+  infrastructure.
+* `silence` allows you to silence hosts or checks, which is handy to do from
+  the command line
+* `stash` allows you to add arbitrary stashes in Sensu's key-value store.
+  `silence` is just a specific type of stash.
+* `resolve` does the same thing as it does on the dashboard: it makes the
+  failing event go away.
+* `socket` is an interesting one. I have a later lecture demonstrating how you
+  can push your own events to the local socket. The sensu-cli provides a
+  convenient way to do this.
+
+## Doing more interesting things
+
+    sensu-cli event list
+
+    sensu-cli event list --filter name,`hostname -f `
+
+    sensu-cli event list --filter name,`hostname -f `  --format=table
+
+    sensu-cli event list --filter name,`hostname -f `  --format=json
+
+    apt-get -y install jq
+    sensu-cli event list --filter name,`hostname -f `  --format=json | jq -r '.[].check | .name + ":|" + .output'
+
+And then one more filter I'll apply is to pipe it through the column tool to align it:
+
+    sensu-cli event list --filter name,`hostname -f `  --format=json | jq -r '.[].check | .name + ":|" + .output' | column  -t  -s "|"
+
+    sensu-cli silence -h
+
+    sensu-cli silence `hostname -f`
+    sensu-cli stash list
+
+    sensu-cli silence `hostname -f` --owner root --reason "This server was just created" --expire 3600
+    sensu-cli stash list
+
+## Silencing Clients
+
+    sensu-cli client list
+
+This is a good start, but I really want just the raw hostnames. To do that
+I'm going to use jq again:
+
+    sensu-cli client list -f json | jq -r .[].name
+
+Now that we have the raw names, we can pass them onto another tool. Let's say
+it was an emergency and you needed to silence them all. You could use on of my
+other favorite tools, `xargs`:
+
+    sensu-cli client list -f json | jq -r .[].name | xargs --verbose -n1 --no-run-if-empty sensu-cli silence
+
+So here we are taking every sensu client, and xargs will turn that and execute
+the sensu-cli silence command. The n1 indicates that we want xargs to execute
+one sensu-cli command per argument. I like the --verbose flag so it will print
+out exactly what xargs is running. Let's see what happens...
+
+Of course with this you could easily just use `grep` and filter only the clients
+you are interested. 
+
+## Emitting Alerts
+
+Another interesting things you can do with the Sensu-cli is emitting your own events.
+
+    sensu-cli socket create -h
+
+
+## Resolving Alerts
+
+The sensu-cli tool can also help with manually resolving alerts.
+
+    sensu-cli resolve --help
+
+    sensu-cli socket create -n customer1 --output "Customer1 is DOWN" -s 2
+    sensu-cli event list -f table
+    sensu-cli resolve `hostname -f` customer1
+    sensu-cli event list -f table
+## All Examples
+
+### Have a host silence itself
+
+```bash
+sensu-cli silence `hostname -f` --owner root --reason "This server was just created" --expire 3600
+
+### Silence any client that has the word "test" in the name
+
+```
+sensu-cli client list -f json |
+  jq -r .[].name |
+  grep "test" |
+  xargs --verbose --no-run-if-empty -n1 sensu-cli silence
+```
+
+### Delete sliences older than 3 days
+
+```bash
+THRESHOLD=$(date +%s --date="3 days ago")
+sensu-cli stash list --format json |
+  jq -r "map(select( .[\"content\"][\"timestamp\"] < $THRESHOLD )) | .[].path " |
+  xargs --verbose --no-run-if-empty -n1 sensu-cli stash delete
+```
+
+### Purge any checks that haven't checked in in a month
+
+```bash
+THRESHOLD=$(date +%s --date="1 month ago")
+sensu-cli event list --format json |
+  jq --raw-output "map(select( .[\"check\"][\"issued\"] < $THRESHOLD )) | .[] | .client.name + \" \" +  .check.name " |
+  xargs --verbose --no-run-if-empty -n2 sensu-cli resolve
+```
+
