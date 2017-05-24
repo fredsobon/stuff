@@ -1113,4 +1113,44 @@ on va pouvoir passer des options sur le user qui passe le silence , la raison et
     sensu-cli stash list
 
 
+on peut continuer a interragir avec notre parc de server :
+
+on peut par exemple recupérer la liste de nos machinnes, les trier par nom en utiliser le format json et le parser jq :
+
+sensu-cli cleint list -f json |jq . -r .[].name 
+
+lapin.front
+nain.back
+
+on va pouvoir par exemple gérer des actions sur notre monitoring en executant des commandes sur la liste de machine récupérée : on peut faire des boucles voir utiliser xargs : 
+
+sensu-cli cleint list -f json |jq . -r .[].name  |xargs 
+lapin.front nain.back
+
+xargs de base pose le dernier argument en dernier entrée 
+
+Pour gérer notre sortie de commande on va utiliser xargs avec -n 1 car le sensu-cli ne peut pas traiter plusieurs hosts sur la même ligne , on va aussi utiliser l'option verbose : 
+
+sensu-cli client list -f json |jq . -r .[].name  |xargs -n 1 --verbose  sensu-cli silence  
+
+
+sensu-cli resolve :
+
+c'est la version cli de l'action de cliquer sur un check et de cliquer sur l'onglet resolve.
+
+on peut s'en servir pour cleaner des checks résiduels qui peuvent s'entasser.
+
+sensu-cli event list -f table
+
+
+ex :
+sensu-cli resolve $(hostname) check_mem 
+
+
+=== external checks ===
+
+
+
+
+
 
