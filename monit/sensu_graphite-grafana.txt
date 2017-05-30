@@ -472,6 +472,74 @@ else
 fi
 
 
+ex: 3 
+l'écriture de scripts est tres simple : les codes retours sont essentiels et "classiques" :
+-> 0 pour ok
+-> 1 pour warning
+-> 2 pour critical
+-> 3 pour quelque chose d'autres (unknown)
+
+Un jour on devra forcement créer une sonde qui n'existe pas .
+Exemple de test d'existence de fichier :
+
+#!/bin/bash
+
+
+function assert () {
+    if [[ $1 -eq $2 ]]; then
+        echo "pass"
+    else
+        echo "fail. expected $2 but got $1 "
+    fi
+}
+
+touch test_file
+./check_test_files_exist test_file
+assert $? 0
+
+rm test_file
+./check_test_files_exist test_file
+assert $? 2
+
+cat test_files_exist
+
+#!/bin/bash
+
+if [[ $1 -eq ]]; then
+    echo "ok file $1 exists and is a normal file "
+    exit 0
+else
+    echo "pb $1 is not a file or doesnt exists"
+    exit 2
+fi
+
+
+Il peut être tres simple d'utiliser un language avec des builtsin integrés : comme ruby qui lui est forcement installé et déployer sur les systemes monitorés par sensu.
+
+lab/temp_fold>> cat check_file_exists.rb
+#!/opt/sensu/embedded/bin/ruby
+
+require 'sensu-plugin/check/cli'
+
+  class  CheckFileExists < Sensu::Plugin::Check::CLI
+
+    def run
+    filename = argv[0]  ### ici on assure que notre code prend le premier argument.
+    if File.exists?(filename)
+      ok "file '#{filename}' exists!"
+    else
+      critical "file '#{filename}' does not exists! "
+    end
+  end
+end
+
+On, va pouvoir pour tester gérer lma creation d'un test inverse : 2 si le fichier existe et 0 s'il n'existe pas .
+
+On va pouvoir alimenter notre script ruby d'une nouvelle section qui nous permettra cette gestion
+
+
+
+
 
 
 Les avantages de ces checks :
@@ -708,6 +776,42 @@ Cette option permet de s'assurer que les checks correctement declarés sont corr
 NB que cette option n'est pas prise en compte sur un serveur et un client présent sur la même machinne.
 Idem pour les checks en standalone : ceci n'est pas pri en compte.
 *
+
+
+== Sensu omnibus package ==
+come on l'a vu sensu est livré de base avec son ruby et gem embarqués.
+Tout est donc parfaitement isolé du ruby du systeme .
+on peut s'assurer que c'est bien le ruby interne qui est utilisé dans sensu en settant à true la variable dans  le fichier /etc/defalut/sensu
+
+vim /etc/default/sensu
+`EMBEDDED_RUBY=true`
+
+Cela garant ique le ruby de sensu est setté en premier dans le path et qu'il sera donc utiliser en premier lorsqu'on aura besoin d'executer du ruby sur la machine.
+Certains gem à l'install vont examiner le path de ruby et donc installer dans le bon path les differents.
+Il est sinon possible de hard coder le path de sensu dans le shebang des scripts ruby.
+
+On peut aussi invoquer directement notre code ruby avec l'interpreteur ruby de sensu :
+
+/opt/sensu/embedded/bin/ruby my-script.rb : nous n'aurons dans ce cas pas de pb.
+
+Il est biensur possible de comparer les differentes versions de ruby et de gem sur notre systeme et celles embarquée par sensu :
+
+root@SensuServer:~# ruby --version
+ruby 2.3.1p112 (2016-04-26) [x86_64-linux-gnu]
+root@SensuServer:~# /opt/sensu/embedded/bin/ruby --version
+ruby 2.4.1p111 (2017-03-22 revision 58053) [x86_64-linux]
+
+root@SensuServer:~# gem list  |wc -l
+24
+root@SensuServer:~# /opt/sensu/embedded/bin/gem list  |wc -l
+root@SensuServer:~# /opt/sensu/embedded/bin/gem list  |wc -l
+52
+
+on va egalement pouvoir tester nos check en cli en fournissant le path de nos gems : liés à la version embarqué dans le "pack" omnibus :
+server #  GEM_PATH=/opt/sensu/embedded/lib/ruby/gems/2.3.0:/opt/sensu/embedded/lib/ruby/gems/2.4.0 ./check-memory-percent.rb -w 70 -c 80
+
+
+
 
 - Aggregation de checks :
 
@@ -1294,6 +1398,132 @@ You can easily add the debug handler to a handler set in order to observe the ev
 the handler set.
 
 
+
+
+
+Handler personalisés : exemple supplémentaire :
+
+Il est possible de creer des handlers dans n'importe quel language mais il est plus pratique de le faire en ruby pour gérer les methodes natives à sensu.
+
+Un des handlers les plus simple est show.rb
+
+exemple :
+
+#!/opt/sensu/embedded/bin/ruby  # on part du principe qu'on utilise la version ruby installée
+require 'sensu-handler'  # ici on suppose que le gem sensu-handler est installé.
+
+class Show < Sensu::Handler
+  def handle
+    puts 'Settings: ' + settings.to_hash.inspect
+    puts 'Event: ' + @event.inspect
+  end
+end
+
+
+ steal some example [event data](https://sensuapp.org/docs/latest/events#sensu-event-data)
+from the official sensu documentation page.
+
+    cat > test-data.json
+    ...
+
+Une fois crées on va donc rediriger le fichier d'event json vers le handler qui se contente d'afficher les "Settings" & "Event" de notre fichier grâce aux methodes decrites dans notre handler.    cat test-data.json | ./handler.rb
+
+== a completer ==
+
+On va maintenant créer un handler qui va notifier notre phone sous android .
+Un project existe, il est assez simple à utiliser.
+https://notifymyandroid.com
+
+on va pouvoir recupérer le gem du project
+
+https://github.com/slashk/ruby-notify-my-android#usage-as-a-gem
+
+
+/opt/sensu/embedded/bin/gem install ruby-notify-my-android
+
+on va donc copier le contenu de la partie usage dans notre handler :
+
+
+cat notify_my_android_handler.rb
+#!/opt/sensu/embedded/bin/ruby
+require 'sensu-handler'
+require 'ruby-notify-my-android'
+
+class Show < Sensu::Handler
+
+  def handle
+    NMA.notify do |n|
+      n.apikey = "9d1538ab7b52360e906e0e766f34501b69edde92fe3409e9"
+      n.priority = NMA::Priority::MODERATE
+      n.application = "NMA"
+      n.event = "Notification"
+      n.description = "Your server is under attack!!!"
+    end
+  end
+
+on va donc ensuite tester la redirection de notre json vers le handler :
+
+cat test-data.json | ./notify_my_android_handler.rb et on a un resultat probant.
+
+On va maintenant améliorer le handler :
+tout d'abord on va creer un fichier de conf contenant notre clé d'api pour que ce soit plus safe ( pas besoin d'afficher ses infos sans protection)
+
+cat > /etc/sensu/conf.d/notify_my_android.json
+{
+  "notify_my_android": {
+    "api_key": "abc123"
+  }
+}
+on va ensuite modifier notre handler pour qu'il puisse recupérer les valeurs de notre clé d'api au sein du fichier nouvellement crée :
+on va de plus modifier le nom de notre application en passant de NMA a sensu
+on va aussi remplacer le keyword Notfication par le nom du server et du check en erreur
+on va finalement modifier la description en utilisant les methodes fournies dans le gem sensu-handler cf dans le sensu-handler.rb : def event_summary(trim=100) : on va recupérer le nom de l'event et pouvoir afficher jusqu'a 100 caracteres pour decrire ce qu'il se passe :afin d'avoir un bon resumé de ce qu'il se passe.
+
+
+
+
+
+cat notify_my_android_handler.rb
+#!/opt/sensu/embedded/bin/ruby
+require 'sensu-handler'
+require 'ruby-notify-my-android'
+
+class NotifyMyAndroid < Sensu::Handler
+
+  def handle
+    NMA.notify do |n|
+      n.apikey = settings["notify_my_android"]["api_key"]    <<<< ici on créee l'appel  à la valeur de la clé "api-key" du fichier notify_my_android.json avec la "variable" settings  qui est dédiée à la recupération des infos.
+      n.priority = NMA::Priority::MODERATE
+      n.application = "sensu" # avant on avait  "NMA"
+      n.event = @event['client']['name'] + '/' + @event['check']['name'] <<<<  avant on avait "Notification" : dans le contexte du handler on recupere les données via '@event'
+      n.description = event_sumary  <<<< on avait ici une description manuelle unique maintenant c'est un resumé de l'event.
+    end
+  end
+on va maintenant afin de pouvoir agit précisement en cas de probleme rajouter un mode debug
+On va enregitrer la reponse de notre handler , puis l'afficher : on va enregistrer la reponse ( reponse = NMA.notify do |n| puis l'afficher puts response.inspect
+
+
+```ruby
+  def handle
+    response = NMA.notify do |n|
+      n.apikey = settings["notify_my_android"]["api_key"]
+      n.priority = NMA::Priority::MODERATE
+      n.application = "Sensu"
+      n.event = @event['client']['name'] + '/' + @event['check']['name']
+      n.description = event_summary
+    end
+   puts response.inspect
+  end
+```
+on test et on voit l'affichage de notre sortie :
+    cat event-data.json | ./notify_my_android.rb
+
+
+On peut donc assez simplement utiliser des methodes , fonctions internes a sensu, aux gems ou a du code ruby que l'on peut mixer pour definir répondre à nos besoins.
+
+
+
+
 === Filters === 
 
 sensu permet d'utiliser des filtres pour gérer les messages arrivant en utilisant des attributs.
@@ -1758,6 +1988,108 @@ You can use the embedded Ruby by setting EMBEDDED_RUBY=true in /etc/default/sens
 Successfully installed sensu-plugins-cpu-checks-1.0.0
 2 gems installed
 [SENSU-INSTALL] successfully installed Sensu plugins: ["sensu-plugins-cpu-checks"]
+
+
+=== sensu-cli ===
+
+possibilité d'utiliser la puissance de sensu en cli
+c'est un ruby gem qu'on va installer normalement :
+
+/opt/sensu/embedded/bin/gem install sensu-cli
+
+l'outil  n'est pas dans le path ( car installé via le ruby omnibus) mais on peut facilement l'ajouter en faisant un lien symbolique :
+
+    ln -s /opt/sensu/embedded/bin/sensu-cli /usr/local/bin/
+    which sensu-cli
+
+exemple de commandes :
+
+    sensu-cli client list
+    sensu-cli client list --help
+    sensu-cli client list --format table
+    sensu-cli client list --format json
+    sensu-cli --help
+
+sensu-cli event list
+
+on a aussi des commandes speciales pour tester nos confs :
+
+sensu-cli socket <<< on peut pousser nos propres event vers la socket
+on peut donc piloter sensu via la cli
+
+exemple : on va pouvoir recupérer la liste des events filtres pour notre hostname :
+
+    sensu-cli event list --filter name,`hostname -f `
+
+si on veut une version plus compacte en sortie on va pouvoir utiliser le format 'table' :
+
+    sensu-cli event list --filter name,`hostname -f `  --format=table
+
+pull out exactly the fields we want. Specifically I'm kinda only interested
+in "what" is failing and what the output is. This is where the JSON output can
+come in hand:
+On va même pouvoir filtrer plus finement en n'affichant que le nom des checks eux même et leur output :  pour cela on utilise la sortie en json et on va aussi pour filtrer précisement utiliser la commande jq ( un parser json ) :
+
+    sensu-cli event list --filter name,`hostname -f `  --format=json
+    apt-get -y install jq
+    sensu-cli event list --filter name,`hostname -f `  --format=json | jq -r '.[].check | .name + ":|" + .output'
+And then one more filter I'll apply is to pipe it through the column tool to align it:
+    sensu-cli event list --filter name,`hostname -f `  --format=json | jq -r '.[].check | .name + ":|" + .output' | column  -t  -s "|"
+
+
+on va pouvoir utiliser le sensu-cli pour interragir directement avec notre server sensu .
+ex : on peut décider de passer les nodes par défaut en silence après le premier boot pour fixer la conf et s'assurer que les nodes ne vont pas alerter car leur build n'est pas fini.
+on peut donc examiner la commande pour 'silence' un host :
+
+   sensu-cli silence -h
+
+ex :
+    sensu-cli silence $(hostname -f)
+on va pouvoir controller que notre action est bien passée avec :
+
+    sensu-cli stash list
+
+
+on va pouvoir passer des options sur le user qui passe le silence , la raison et le delai (en secondes) au dela duquel le node sortira du silence :
+
+    sensu-cli silence `hostname -f` --owner root --reason "This server was just created" --expire 3600
+    sensu-cli stash list
+
+
+on peut continuer a interragir avec notre parc de server :
+
+on peut par exemple recupérer la liste de nos machinnes, les trier par nom en utiliser le format json et le parser jq :
+
+sensu-cli cleint list -f json |jq . -r .[].name
+
+lapin.front
+nain.back
+on va pouvoir par exemple gérer des actions sur notre monitoring en executant des commandes sur la liste de machine récupérée : on peut faire des boucles voir utiliser xargs :
+
+sensu-cli cleint list -f json |jq . -r .[].name  |xargs
+lapin.front nain.back
+
+xargs de base pose le dernier argument en dernier entrée
+
+Pour gérer notre sortie de commande on va utiliser xargs avec -n 1 car le sensu-cli ne peut pas traiter plusieurs hosts sur la même ligne , on va aussi utiliser l'option verbose :
+
+sensu-cli client list -f json |jq . -r .[].name  |xargs -n 1 --verbose  sensu-cli silence
+
+
+sensu-cli resolve :
+
+c'est la version cli de l'action de cliquer sur un check et de cliquer sur l'onglet resolve.
+
+on peut s'en servir pour cleaner des checks résiduels qui peuvent s'entasser.
+
+sensu-cli event list -f table
+
+
+ex :
+sensu-cli resolve $(hostname) check_mem
+
+
+
 
 
 === sensu api ===
