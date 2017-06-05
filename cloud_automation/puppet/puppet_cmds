@@ -277,6 +277,117 @@ Il est toujours préférable de travailler avec la conf suivante de settée :
 strict_variables = true
 
 
+- Operations :
+
+$added = 10 + 5
+$subtracted = 10 - 5
+$multiplied = 10 * 5
+$divided = 10 / 5
+$remainder = 10 % 5
+
+- Ajout dans les tableaux et hash :
+$my_list = [1,4,7]
+$bigger_list = $my_list + [14,17]
+# equals [1,4,7,14,17]
+
+$key_pairs = {name => 'Joe', uid => 1001}
+$user_definition = $key_pairs + { gid => 500 }
+
+ex :
+[vagrant@client manifests]$ cat re.pp
+$my_list = [1,4,7]
+$bigger_list = $my_list + [14,17]
+
+
+notify { 'yop':
+    message => "here it is ${bigger_list}"
+    }
+
+grant@client manifests]$ puppet apply re.pp
+Notice: Compiled catalog for client.example.com in environment production in 0.06 seconds
+Notice: here it is [1, 4, 7, 14, 17]
+Notice: /Stage[main]/Main/Notify[yop]/message: defined 'message' as 'here it is [1, 4, 7, 14, 17]'
+
+- ajout de valeur :
+on peut ajouter des  éléments dans un tableau avec la commande <<
+
+ex :
+ $longer_list = $my_list << 33
+ $unintended = $my_list << [33,35]
+
+ [vagrant@client manifests]$ cat re.pp
+ $my_list = [1,4,7]
+ $bigger_list = $my_list + [14,17]
+ $longer = $bigger_list << 'lapin'
+
+ notify { 'yop':
+     message => "here it is ${bigger_list}"
+     }
+
+     notify {'yy':
+         message => "now this is a longer list $longer"
+         }
+
+[vagrant@client manifests]$ puppet apply re.pp
+Notice: Compiled catalog for client.example.com in environment production in 0.07 seconds
+Notice: here it is [1, 4, 7, 14, 17]
+Notice: /Stage[main]/Main/Notify[yop]/message: defined 'message' as 'here it is [1, 4, 7, 14, 17]'
+Notice: now this is a longer list [1, 4, 7, 14, 17, lapin]
+Notice: /Stage[main]/Main/Notify[yy]/message: defined 'message' as 'now this is a longer list [1, 4, 7, 14, 17, lapin]'
+Notice: Applied catalog in 0.01 seconds
+
+ - Suppression d'éléments dans les listes et tableaux avec "-" :
+
+ # Remove a single value
+ $names = ['jill','james','sally','sam','tigger']
+ $no_tigger = $names - 'tigger'
+ # Remove multiple values
+ $no_boys = $names - ['james','sam']
+ex :
+[vagrant@client manifests]$ cat re.pp
+$my_list = [1,4,7]
+$cut = $my_list - 4
+notify { 'yop':
+    message => "here it cut list $cut"
+}
+Notice: Compiled catalog for client.example.com in environment production in 0.07 seconds
+Notice: here it cut list [1, 7]
+Notice: /Stage[main]/Main/Notify[yop]/message: defined 'message' as 'here it cut list [1, 7]'
+Notice: Applied catalog in 0.01 seconds
+
+ - L'ordre d'evaluation des opérations suit les regles mathématiques  de base : il faut toujours encadrer correctement avec des parentheses.
+
+- Operateurs de comparaisons :
+ce sont les mêmes que ceux utilisés classiquement en programmation.
+4 != 4.1
+$how_many_cups < 4
+$how_many_cups >= 3
+
+Le test sur les chaine de caracteres sont insensibles a la casse
+coffee == 'coffee'
+'Coffee' == 'coffee'
+tea' !in 'coffee'
+mais les sous chaines de caracteres sont sensibles a la casse :
+'Fee' !in 'coffee'
+'fee' in 'coffee'
+
+[1,2,5] != [1,2]
+5 in [1,2,5]
+{name => 'Joe'} != {name => 'Jo'} # hashes aren't identical
+'Jo' !in {fname => 'Jo', lname => 'Rhett'}   is a value and doesn't match
+$not_true =~ Boolean
+$num_tokens =~ Integer
+$my_name !~ String
+
+true and true
+true and false
+true or false
+true and !false
+true and !true
+                                                                                                                                                                              912,1         23%
+
+
+
 - Tests conditionnels : 
 
 exemples :
