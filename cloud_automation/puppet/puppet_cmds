@@ -410,6 +410,8 @@ include pkgng
 
 case :
 
+/!\ Attention dans un case on doit toujours définir une valeur par defaut même si on ne s'en sert jamais /!\
+
 case $facts['osfamily'] {
     'redhat': { include yum }
     'debian', 'ubuntu': { include apt }
@@ -518,6 +520,34 @@ notify { $ind :
   }
 }
 
+
+On peut exposer des variables dans hiera et les recupérer dans puppet pour bloucler dessus : 
+
+ex : ici dans puppet on expose une variable de la classe app_monitoring avec un tableau vide : $additionals_subscriptions = []
+et on va boucler et alimenter les valeurs récupérer dans hiera pour créer une nouvelle liste : $additionals_subscriptions.each |$subscription| { sensu::subscription { "${subscription}": }}
+
+Dans puppet : 
+cat app_monitoring/manifests/subscriptions.pp 
+# adds custom subscriptions to machines
+class app_monitoring::subscriptions (
+  $additionals_subscriptions = []
+) {
+  if $::productname =~ "Gen9" {
+    sensu::subscription { 'hp-gen9': }
+  }
+
+  if str2bool($::is_virtual) == true {
+    sensu::subscription { 'virtual': }
+  }
+  else {
+    sensu::subscription { 'physical': }
+  }
+  $additionals_subscriptions.each |$subscription| { sensu::subscription { "${subscription}": }}
+}
+
+dans hiera :
+
+app_monitoring::subscriptions:additionals_subscriptions: [ 'blabla' ]
 
 
 - Namevar :
