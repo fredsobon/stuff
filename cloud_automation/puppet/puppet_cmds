@@ -519,6 +519,72 @@ notify { $ind :
 }
 
 
+
+- Namevar :
+
+
+Chaque ressource a un attribut que l'on nomme namevar qui sert à l'identifier de manière unique.Si la namevar n'est pas définie elle prend par défault le titre de la ressource
+On a un namevar dedié par type de resource.
+https://docs.puppet.com/puppet/latest/type.html
+
+Pour simplifier la gestion des ressources on peut utiliser des alias qui peuvent simplifier certaines ressourses dont le comportement peut changer (ex : emplacement sur un fichier disque )
+on peut mettre en place un alias soit en indiquant un 'nom' dans le 'titre' de notre ressource :
+
+file { 'the-testfile':
+ensure  => present,
+path    => '/tmp/testfile.txt',
+content => "holy cow!\n",
+}
+on peut de manière plus claire pour les personnes non habituées à puppet , rajouter à un alias en tant que metacaractere :
+
+file { '/tmp/testfile.txt':
+ensure  => present,
+alias   => 'the-testfile'
+content => "holy cow!\n",
+}
+
+
+
+- Tags :
+
+On peut les utiliser pour renforcer la gestion des ressources: par exemple ajouter des packages sans redémarrer les services.
+On peut les ajouter sous forme de strings ou de tableaux de strings.
+
+Ici on va ajouter un tag 'packages' sur la ressource package : on va donc pouvoir dans notre cas pouvoir installer le package mais ne pas lancer le service tout de suitebien qu'il soit configurer pour dans notre manifest . On invoque notre run avec le tag en argument :
+
+vagrant@client manifests]$ cat /vagrant/manifests/packagetag.pp
+package { 'ntpdate':
+  ensure => present,
+  tag    => 'packages',
+}
+
+service { 'ntpdate':
+  ensure  => running,
+  enable  => true,
+}
+
+
+[vagrant@client manifests]$ sudo puppet apply /vagrant/manifests/packagetag.pp --tags packages
+Notice: Compiled catalog for client.example.com in environment production in 2.40 seconds
+Notice: Applied catalog in 0.13 seconds
+si on examine individuellement nos ressources : package et service -> on a bien notre package ntpdate d'installé comme configuré mais le service est stoppé : alors que le manifest decrit le service running : c'est uniquement lié au fait qu'on passe le run avec le tag du package
+
+grant@client ~]$ sudo puppet resource package ntpdate
+package { 'ntpdate':
+  ensure => '4.2.6p5-25.el7.centos',
+}
+
+[vagrant@client ~]$ sudo puppet resource service ntpdate
+service { 'ntpdate':
+  ensure => 'stopped',
+  enable => 'false',
+}
+NB: puppet ajoute 'automatiquement' le tag associé à chaque ressource : on peut donc imaginer qu'on tag service, package ... est crée et donc invocable.
+
+L'options tags peut prendre plusieurs arguments à la suite : --tags service,puppet, package ....
+
+
+
 - Resources par default :
 
 on peut creer des valeurs de resources par type de ressources.
