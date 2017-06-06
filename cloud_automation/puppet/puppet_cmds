@@ -695,6 +695,39 @@ service { 'puppet':
   enable => true,
   subscribe => Package['puppet-agent'],
 }
+
+
+
+
+- Collectors : on peut assembler plusieurs ressources entre elles pour en piloter d'autres.
+On declare un collector avec le nom d'une ressource commencant par une maj suivie de <| , puis d'un param optrionnel et |>
+ex :
+
+on peut se dire que la creation d'un user ne doit être faite qu'après l'installation des packages ( ex si on craint les soucis d'uid ) : 
+
+Package <||> -> User <||>
+
+
+User <||>
+User <| groups == 'wheel' |>
+Package <||>
+Package <| tag == 'yum' |>
+Service <||>
+ervice <| enabled == true |>
+on peut combiner des elements :
+Service <| ( ensure == running ) or ( enabled == true ) |>
+# Services other than Puppet set to be running
+Service <| ( ensure == running ) and ( title != 'puppet' ) |>
+
+on peut aussi combiner  les collectors et les arrows :
+# Regenerate the facts whenever a package is added, upgraded, or removed
+Package <||> ~> Exec['update-facts']
+
+Il est important de n'utiliser les collectors que pour les ressources de même manifest : afin d'eviter des  effets de bords sur les differents scope puppet
+
+
+
+
 - Comprehension de l'ordre de processing de puppet :
 
 Pendant la compilation du catalogue et donc avant d'appliquer les modifs : puppet crée un graph de dependance avec DAG ( direct acyclic graph ) pour eviter les boucles
