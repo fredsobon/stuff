@@ -1,0 +1,223 @@
+
+-> Configuration de hiera :
+
+de base puppet examine la conf hiera par la variable : hiera_config . par defaut dans ${codedir}/hiera.yaml ou /etc/puppetlabs/code/hiera.yaml
+La config de base du hiera est un hash en yaml.Les items en haut sont des globales. chaque globale commence par un symbole ruby debutant par un ":" . Tous les paramétrages  sont optionnels et on tombe dans les valeurs par défaut s'il manque une conf.
+
+---paramètres hiera  :
+
+-backends : comme vu il s'agit de la conf de notre hiera :
+:backends:
+  - yaml
+  - json
+- configuration de backends : pour chacun des backends on a un parametrage global du backend sous forme de hash . Il faut le faire pour tous les backends
+On doit utiliser la clé  ":datadir" qui identifie l'endroit ou on place nos confs
+ex : conf  par défaut si elle n'est pas overridée dans le fichier de conf :
+:yaml:
+  :datadir: /etc/puppetlabs/code/environments/%{::environment}/hieradata
+:json:
+  :datadir: /etc/puppetlabs/code/environments/%{::environment}/hieradata
+Comme chaque fichier doit porter une extention particuliere : on peut définir les datadir au même endroit.
+
+
+Cette config utilise le top scope "::environment" variable : defini par puppet (server ou agent) pour permettre l'utilisation de differentes  données par environment. Ce qui nous permet d'utiliser le rerpertoire hieradata défini pour notre env de test
+
+
+exemple de conf :
+vagrant@client ~]$ sudo cat /etc/puppetlabs/puppet/hiera.yaml
+---
+:backends:
+  - yaml
+:hierarchy:
+  - "nodes/%{::trusted.certname}"
+  - common
+
+:yaml:
+# datadir is empty here, so hiera uses its defaults:
+# - /etc/puppetlabs/code/environments/%{environment}/hieradata on *nix
+# - %CommonAppData%\PuppetLabs\code\environments\%{environment}\hieradata on Windows
+# When specifying a datadir, make sure the directory exists.
+  :datadir:
+par defaut hiera log sur la sortie standart.On peut modifier ce comportement
+console > Emit warnings and debug on STDERR (default)
+puppet  > Send messages to Puppet’s logging system
+noop    > Don’t emit messages
+name Utilize the Ruby class Hiera::name_logger , which must provide warn and debug
+class methods that expect a single string argument
+Note that this value is only used for Hiera command line-tools. Puppet overrides the
+value and logs Hiera messages utilizing the Puppet internal logger.
+
+-hierarchy :
+le dernier parametre obligatoire est :hierarchy qui va servir à definir l'ordre d'examen des data
+-> pour des valeur simple hiera parse l'arbo jusqu'a ce qu'il trouve la valeur désirée et il stop
+-> pour les tableaux et les hash : hiera va merger les data de chaque niveau de hierarchie comme defini dans la stratégie de la clé de merge (?).
+
+Il y a deux types de data sources : static et dynamics.
+Les sources statiques de data  sont des fichiers explicitement nommé dans la hierarchie contenant des  data
+Les sources dynamiques de data sont des fichiers nommé en utilisant l'interpolation de la conf des data locales ( ex le hostname ou l'os d'un node)
+On peut avoir des hierachies complexes dans certaines grosses entreprises.
+
+Comme bon point de départ on peut établir des regles simples :
+-> mettre les valeurs par defaut dans un fichier common.yaml
+-> rassembler toutes les infos specifiques à un os dans des fichiers de familles d'os ex : debian.yaml, redhat.yaml ..
+-> definir les informations specifiques à un node dans un fichier de type fqdn.yaml
+on peut donc utiliser par exemple ce type de conf qui utilise l'interpolation des données fournies par facter :
+:hierarchy:
+  - "fqdn/%{facts.fqdn}"
+  - "os/%{facts.osfamily}"
+  - common
+on peut biensur faire evoluer cette hierarchie
+ex ici on va definir notre hierarchie en recupérant le "short name de notre node" pour le ranger dans un sous dossier du repertoire hostname :
+:hierarchy:
+  - "hostname/%{facts.hostname}"
+  - "os/%{facts.osfamily}"
+  - common
+NB : si on a plusieurs backend ( yaml, json ou autres) hiera evalue la hierarchie complete du backend defini en premier dans la conf puis le second etc ...
+
+- Strategy de merge :
+Il y en a plusieurs :
+-> first ( strategy par defaut) : auparavant nommé priorité : dans ce cas il n'y a pas de merge ni de recursion : des la premiere occurence de data trouvée on s'arrête.
+Les clés trouvées avec la priorité la plus haute retournent les valeurs de la même priorité ( definies donc en premier dans la conf hiera )
+-> hash : auparavant nommé native : on a un merge des clés uniquement. Les correspondances des valeurs des priorité hautes seront exclusivement  utilisées.
+-> deep : auparavant deeper : merge recursif des clés et valeurs : si une clé existe à differents niveaux de priorité : la valeur de priorité basse qui ne rentre pas en conflit sera utilisée.
+-> unique : auparavant array : ecrase les valeurs des tableaux et valeurs scalaires toutes priorité confondues : les doublons sont supprimés.. Les hashes provoquent des erreurs.
+
+Puppet permet la configuration de merge strategy sur une base par clé  avec deux methodes :
+-> un enregistrement dans le hash du lookup_options peut être definie dans la conf globale de hiera, dans les environments ou dans les modules.
+Le hash des valeurs definies dans la clé vont fournir les options de lookup : incluant la strategy de merge
+-> les options fournies par la fonction lookup() : toutes les options utilisées dans la fonction de lookup() peuvent overrider les lookup_options des data
+
+Exemple complet qui servira de base pour la suite de nos tests de code . On va utiliser le yaml de notre conf /etc/puppetlabs/code/hieradata ( ce qui va nous permettre de partager notre conf hiera pour tous les environments.) . Il est conseillé de partager la conf hiera quand on veut juste tester notre code : c'est plus simple à maintenir.
+
+on definie une priorité de conf pour nos hosts, puis par os puis dans la partie common :
+
+vagrant@client ~]$ sudo cp /vagrant/etc-puppet/hiera.yaml /etc/puppetlabs/code/
+[vagrant@client ~]$ cat /etc/puppetlabs/code/hiera.yaml
+---
+:backends:
+  - yaml
+:hierarchy:
+  - "hostname/%{facts.hostname}"
+  - "os/%{facts.osfamily}"
+  - common
+:yaml:
+  :datadir: /etc/puppetlabs/code/hieradata
+
+- Lookup hieradata :
+il y a plusieurs manieres de valider la conf de nos données dans hiera
+ex : creation de conf hiera pour valider la gestion du service puppet
+
+vagrant@client ~]$ sudo mkdir /etc/puppetlabs/code/hieradata
+[vagrant@client ~]$ sudo vi /etc/puppetlabs/code/hieradata/common.yaml
+[vagrant@client ~]$ cat /etc/puppetlabs/code/hieradata/common.yaml
+---
+puppet::status: 'running'
+puppet::enabled: true
+Maintenant on va overrider notre conf pour le hostname : on creee un repertoire hostname , on recupere le hostname avec facter et on fait un fichier de conf dedié avec des valeurs dédiées :
+[vagrant@client ~]$ sudo mkdir /etc/puppetlabs/code/hieradata/hostname
+[vagrant@client ~]$ facter hostname
+client
+[vagrant@client ~]$ sudo vi /etc/puppetlabs/code/hieradata/hostname/client.yaml
+[vagrant@client ~]$ cat /etc/puppetlabs/code/hieradata/hostname/client.yaml
+---
+puppet::status: 'stopped'
+puppet::enabled: false
+
+
+
+
+
+- Test de configuration hiera :
+
+-> test de conf avec la commande hiera :
+cette commande ne recupere pas les valeurs comme puppet malheureusement :
+[vagrant@client ~]$ hiera puppet::enabled
+true
+[vagrant@client ~]$ hiera puppet::status
+running
+On voit ici que la conf definie par host et qui est prioritaire n'est pas recupérer par hiera car les valeurs ne sont pas remontées : c'est lié au fait que hiera ne recupere pas les infos de facter et de conf puppet : on a donc les valeurs contenues dans le fichier common.yaml
+
+Il est donc important de tester les vaeurs en utilisant la fonction lookup() pour recupérer les valeurs de hiera :
+
+[vagrant@client ~]$ puppet apply -e "notice(lookup('puppet::enabled'))"
+Notice: Scope(Class[main]): false
+Notice: Compiled catalog for client.example.com in environment production in 0.17 seconds
+Notice: Applied catalog in 0.01 seconds
+
+On a donc les infos correctes. On peut tester le retour de la fonction sans evaluer tout le code :
+[vagrant@client ~]$ puppet lookup puppet::status
+--- stopped
+
+
+n va creer un manifest qui va donc utiliser la conf hiera :
+on fait un lookup de certaine valeur dans hiera : le resulat est assigné à une variable. On definie ensuite le status de notre service avec la valeur de notre variable
+
+vagrant@client ~]$ cat /vagrant/manifests/hierasample.pp
+# Always set a default value when performing a Hiera lookup
+$status  = lookup({ name => 'puppet::status',  default_value => 'running' })
+$enabled = lookup({ name => 'puppet::enabled', default_value => true })
+
+notify { 'puppet-settings':
+  message => "Status should be ${status}, start at boot ${enabled}.",
+}
+
+# Now the same code can be used regardless of the value
+service { 'puppet':
+  ensure => $status,
+  enable => $enabled,
+}
+
+Quand on test notre manifest on a donc des modifs :
+
+[vagrant@client ~]$ sudo puppet apply  /vagrant/manifests/hierasample.pp
+Notice: Compiled catalog for client.example.com in environment production in 1.45 seconds
+Notice: Status should be stopped, start at boot false.
+Notice: /Stage[main]/Main/Notify[puppet-settings]/message: defined 'message' as 'Status should be stopped, start at boot false.'
+Notice: /Stage[main]/Main/Service[puppet]/ensure: ensure changed 'running' to 'stopped'
+Notice: Applied catalog in 0.11 seconds
+
+Si maintenant on supprime notre conf de host spécifique et qu'on relance le run : on a les valeurs de fallback du common.yaml qui s'appliquent :
+
+[vagrant@client ~]$ sudo rm /etc/puppetlabs/code/hieradata/hostname/client.yaml
+[vagrant@client ~]$ sudo puppet apply  /vagrant/manifests/hierasample.pp
+Notice: Compiled catalog for client.example.com in environment production in 2.01 seconds
+Notice: Status should be running, start at boot true.
+Notice: /Stage[main]/Main/Notify[puppet-settings]/message: defined 'message' as 'Status should be running, start at boot true.'
+Notice: /Stage[main]/Main/Service[puppet]/ensure: ensure changed 'stopped' to 'running'
+Notice: Applied catalog in 0.30 seconds
+
+
+- Strategie de merge : 
+
+Comme  on sait que l'on doit recupérer toutes les infos des users on peut definir notre stratégie de merge dans notre conf yaml :
+
+# common.yaml
+lookup_options:
+  users:
+    merge : deep
+users:
+  merge:
+    deep
+  jill:
+    uid: 1000
+    home: '/home/jill'
+  jack:
+    uid: 1001
+    home: '/home/jack'
+on va donc utiliser la strategy de merge par defaut sur la clé users lors de l'appel lookup
+[vagrant@client ~]$ puppet lookup users
+---
+jill:
+  uid: 1000
+  home: "/homes/jill"
+jack:
+  uid: 1001
+  home: "/homes/jack"
+jane:
+  uid: 999
+  home: "/homes/jane"
+
+Il est toujours important d'utiliser la strategy de merge deep pour eviter d'avoir a se repéter et dupliquer des confs
+
+
+
