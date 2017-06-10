@@ -3815,3 +3815,135 @@ class users(
   $default_shell = '/bin/bash',
   $userlist  = [],
 ) {
+
+
+Ajouter un param de lookup_options dans les data (hiera) permet donc definir une strategie de merge : celle ci est prioritaire a celle définie dans les modules.
+
+Attention on ne peut pas faire de lookup pour récupérer les lookup_options .
+
+
+- Changer les appels directs à hiera :
+
+Les appels directs à hiera utilisent les settings definis dans les param globaux . On doit donc remplacer tous les appels hiera() par lookup() pour utiliser les valeurs définies dans les environments et les modules.
+
+Si un module fait un appel de requette hiera : 
+
+# Format: hiera( key, default )
+$status = hiera('specialapp::status', 'running')
+
+on devra le remplacer par :
+pour le cas le plus simple : 
+# Format: lookup( key )
+# Simple example assumes type Data (anything), no default value
+$status = lookup('specialapp::status')
+
+pour une partie plus complexe ou on passe dans un hash avec des attributs optionnels qui definissent comment les données sont récupérées et validées 
+
+# Perform type checking on the value
+# Provide a default value if the lookup doesn't succeed
+$status = lookup({
+name          => 'specialapp::status',
+value_type    => Enum['running','stopped'],
+default_value => 'running',
+}
+
+ici d'autres exemples :
+
+utilisation d'un merge de valeurs pour tous les niveaux de hierarchie :
+
+$userlist = lookup({
+name        => 'users2add',
+value_type  => Array[String],
+merge       => 'unique',
+})
+
+ex ici de remplacement de l'ancienne fonction hiera :
+
+# replaces hiera_array('specialapp::id', [])
+lookup({
+name           => 'specialapp::id',
+merge          => 'unique'
+default_value  => [],
+value_type     => Array[Data],
+})
+
+# replaces hiera_hash('specialapp::users', {})
+lookup({
+name          => 'specialapp::users',
+merge         => 'hash'
+default_value => {},
+value_type    => Hash[Data],
+})
+
+
+La  fonction lookup accepte un tableau d'attribut de noms : chaque nom sera examiné dans l'ordre jusqu'a e qu'une valeur soit trouvée :
+seul le nom de la premiere valeur sera retournée même si le resultat contient des valeurs mergées :
+
+lookup( ['specialapp::users', 'specialapp::usernames', 'specialapp::users2add'], {
+merge => 'unique'
+})
+La fonction lookup peut aussi passer le nom à une fonction lambda et retourner le résultat trouvé :
+
+# Create a default value on request
+$salt = lookup('security::salt') |$key| {
+# ignore key; generate a random salt every time
+rand(2**256).to_s(24)
+}
+
+
+- Creation de sous-classes : 
+
+Quand on crée un module il est possible que tous ses composants ne soient pas utiliser par tous les systemes : exemple le module puppet va gérer les agents et le server : il est donc possible de  créer des sous classes :
+
+chaque sous classes sera nommé avec le scope de la classe parent :
+ex classe gérant le puppet agent :
+puppet::agent 
+
+Chaque sous classe doit être dans un fichier de manifest séparé du module 
+ex :
+puppet manifests/init.pp 
+puppet::agent manifests/agent.pp
+puppet::server manifests/server.pp
+
+
+comme notre module pour l'exemple ne configure que l'agent puppet on va tout déplacer dans une sous classe :
+
+# manifests/init.pp
+class puppet(
+# common variables for all Puppet classes
+  String $version = 'latest',
+  String $loglevel = 'warning',
+) {
+# no resources in this class
+}
+
+# manifests/agent.pp
+class puppet::agent(
+# input parameters specific to agent subclass
+  Enum['running','stopped'] $status = 'running',
+  Boolean $enabled,
+# required parameter
+)
+inherits puppet {
+all of the resources previously defined
+}
+
+# manifests/server.pp
+class puppet::server() {
+# we'll write this in Part III of the book
+}
+
+Best practice : a chaque fois qu'on doit utiliser un if /then dans un bloc de module pouradapter nos besoins il va falloir créer des sous classes
+
+On va juste finir par modifier notre hieradata :
+
+# /etc/puppetlabs/code/hieradata/common.yaml
+classes:
+- puppet::agent
+puppet::common_loglevel: 'info'
+puppet::version: 'latest'
+puppet::agent::status: 'stopped'
+puppet::agent::enabled: false
+puppet::agent::server: 'puppetmaster.example.com'
+
+
