@@ -3740,7 +3740,7 @@ On a plusieurs maniere de retrouver les résultats des hash et table	aux de  don
 1/ definir une strategie de merge par defaut pour les valeurs avec la conf lookup_option des données du module .
 2/ utilisation du parametre merge de la fonction lookup() pour overrider notre startegie par defaut.
 
-l'utilisation explicite de lookup() va overrider la conf  definie dans notre conf de données de module.
+l'utilisation explicite de lookup() va overrider la conf  definie dans notre conf de merge  de données de module.
  
 Pour recupérer les données mergées de nos hash et tableaux avec la fonction lookup() il faut utiliser le parametre merge :
 
@@ -3761,3 +3761,57 @@ Les differentes options  du parametre sont :
 
 
  
+- Compréhension du merge de hiera : 
+
+la fonction lookup() va merger les valeurs de differentes hierarchie de hiera.
+
+Par exemple on aura lors de la création d'un user un pannel de données ex :
+
+users::home_path: '/home'
+users::default_shell: '/bin/bash'
+users::users2add:
+- jill
+- jack
+- jane
+
+Si on veut overrider cette conf juste pour un server avec un seul user on peut donc juste créer un fichier d'override qui s'appliquera a notre host cible :
+
+users::users2add:
+- jo
+
+Si on veut merger toutes les valeurs uniques ensemble on pourra faire : 
+
+[vagrant@client hieradata]$ puppet lookup --merge unique users::users2add
+---
+jo
+jill
+jack
+jane
+
+On appliquera la même strategie de merge dans un manifest puppet pour creer un tableau comportant tous les users :
+
+class users(
+# input parameters and default values for the class
+$home_path
+= '/home',
+$default_shell = '/bin/bash',
+) {
+$userlist = lookup({ name => 'users::users2add', merge => 'unique' })
+
+La variable userlist contiendra donc un tableau des valeurs avec les priorités de merge.
+
+Le probleme avec cette syntaxe  est qu'elle est peu lisible.
+On peut specifier une stratégie de merge dans le hiera avec des param spécifics :
+il faut specifier une hash de valeur avec les options de lookup :
+
+lookup_options:
+  users::userlist:
+    merge: unique
+on pourra donc dans notre classe puppet simplifier l'ecriture :
+
+class users(
+# input parameters and default values for the class
+  $home_path = '/home',
+  $default_shell = '/bin/bash',
+  $userlist  = [],
+) {
