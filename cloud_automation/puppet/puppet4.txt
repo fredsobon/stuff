@@ -3946,4 +3946,62 @@ puppet::agent::status: 'stopped'
 puppet::agent::enabled: false
 puppet::agent::server: 'puppetmaster.example.com'
 
+on a donc avec cette forme la possibilité d'avoir un agent puppet configuré, un server puppet ou les deux.
+
+
+/!\ Attention il faut bien se souvenir que les parametres du module vont s'appliquer à la classe entiere : on ne peut pas definir des params sous forme de hash sous le nom du module.
+
+
+- Creation d'un nouveau type de ressources :
+
+les classes puppet sont des singletons : peut importe le nombre de fois où ils sont appellés avec un include ou un require : une seule copie de la classe existe en mémoire.
+Un seul set de param et un seul set de scope de variables sont utilisés.
+
+A chaque fois qu'on voudra appeller une classe avec  des param différents : il faudra utiliser une creation de 'define ressource type' 
+Ces define ressources sont implémentées dans les manifests comme les sous-classes :
+
+elles sont placées dans le repertoire manifest
+elles sont nommées dans le namespace du module : comme les sous-classes
+le nom du fichier doit contenir le nom de la ressource et finir par l'extension ".pp"
+ils commencent avec des parenthèses qui définissent les types de paramètres acceptés.
+
+Comme les ressources puppet et contrairement aux classes les define resources types peuvent être appellés encore et encore :cela les rends parfaitement utilisable avec une fonction lambda pour itérer 
+
+Pour illustrer ceci voici un exemple avec la classe user.pp :
+
+
+
+# modules/users/manifests/create.pp
+define users::create(
+ String $comment,
+ Integer $uid,
+ Optional[Integer] $gid = undef,
+) {
+   user { $title:
+   uid   => $uid,
+  gid   => $gid || $uid,
+  comment => $comment,
+  }
+}
+# modules/users/manifests/init.pp
+class users( Array[Hash] $userlist = [] ) {
+userlist.each |$user| {
+  users::create { $user['name']:
+  uid  => $user['uid'],
+  comment => $user['comment'],
+  }
+ }
+}
+
+Le create define type va être déclarer a chaque fois qu'un user sera alimenté dans le tableau du module users.
+A noter que comme pour les ressources habituelles , 2 variables sont implicites 
+
+$title : le titre de la resource quand la defined ressource est déclarée
+$name : par defaut vaut $title mais peut être overridée
+
+ on les appelle aussi des define type ou define .
+
+
+- Comprehension du scope des variables : 
+
 
