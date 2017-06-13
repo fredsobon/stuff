@@ -4004,4 +4004,104 @@ $name : par defaut vaut $title mais peut être overridée
 
 - Comprehension du scope des variables : 
 
+Les modules ne peuvent créer de variable que dans les namespaces des modules (scope) : ceci est fondamental surtout lors de l'utilisation de sous-classes qui ont elles même leur propre scope.
+ex: ces deux definitionssont identiques et vont créer une erreur : 
+
+
+class puppet::agent {
+# these two definitions are the same and will produce an error
+    $status = 'running'
+    $::puppet::agent::status = 'running' 
+
+un module ne peut pas creer de variable dans un scope de top level ou dans un scope d'un  autre module 
+exemple de ce qui va générer une erreur : 
+class puppet {
+# FAIL: can't declare top-scope variables
+    $::version = '1.0.1'
+# FAIL: Can't declare variables in another class
+    $::mcollective::version = '1.0.1'
+# FAIL: no, not even in the parent class
+    $::puppet::version = '1.0.1'
+
+On peut forcer les variables a ne pas être appellées de l'exterrieur en les préfixant par un "_" :
+
+# variable that shouldn't be accessed outside the current scope
+$_internalvar = 'something'
+# deprecated: don't access underscore-prefaced variables out of scope
+notice( $::mymodule::_internalvar )
+
+A noter que ces notations sont "polies" mais que dans les prochaines versions de puppet : les variables internes ne seront plus exposées 
+
+
+- Utilisation des variables hors scope :
+
+Tandis qu'on ne peut pas  modifier les variables dans les scope différents on peut les utiliser dans le scope actuel : 
+
+notify( $variable )
+# from current, parent, node, or top scope
+notify( $::variable )
+# from top scope
+notify( $::othermodule::variable ) # from a specific scope
+
+
+
+Attention le premier exemple peut remonter la valeur du scope interne ou la valeur de la même variable définie dans le scope parent , le scope du node pu le top scope.
+
+En best practice il est important de de définir le out of scope variable systematiquement en renseignant la forme '$::' prefix.
+
+- Compréhension du top scope : 
+
+Les top scope variables peuvent être définies à plusieurs endroits différents :
+-> les facts du node 
+-> les variables définies dans un manifest hors du module 
+-> les variables définies en bloc de paramètres dans unb external node classifier
+-> les variables déclarées en top scope de hiera 
+-> les variables définies par les puppet agent ou server
+
+Afin de faciliter le debug on peut utiliser les bonnes pratiques suivantes : 
+
+-> toujours utiliser les facts fournis par les clients avec un fact[]hash
+-> dans le cas ou on utilise un server : activer les trusted_server_facts et utiliser les $server_facts[] and $trusted[] hashes.
+
+En respectant ces règles on peut s'assurer que les variables sont donc ici soit de hiera soit d'un enc 
+
+Il faut donc toujours définir les variables dans les modules ou les roles.
+
+
+- Compréhension du node scope : 
+
+les node scopes variables sont spéciales et concernent les nodes : elles ressemblent à des top scope mais sont dédiées au node .
+Cette pratique est maintenant obsolete et à ne plus utiliser.
+
+- Comprehension du scope parent : 
+
+la classe parent d'une variable est la classe dont la classe courante hérite : par exemple quand une sous classe hérite de la classe base 
+
+class puppet::agent() inherits puppet {
+...
+}
+
+
+- Detection du top scope des ressources :
+
+
+comme on l'a vu il est possible de déclarer des valeur par defaut pour un type de ressource 
+Il peut être utile de changer ces valeurs par défaut dans  un  module ou une classe .
+Pour les changer dans un scope de classe on doit définir ces valeurs par defaut dans la classe
+Pour les changer dans toutes les classes d'un module : il faut les définir dans une classe defaults et la faire hériter dans toutes les classes du module.
+
+Il est assez commu de placer les valeurs par default dans la classe param comme elle est héritée par toutes les classes du module pour fournir les valeurs par défault
+
+class puppet::params() {
+# Default values
+  $attribute = 'default value'
+# Resource defaults
+  Package {
+  install_options => '--enable-repo=epel',
+  }
+}  
+
+
+
+
 
