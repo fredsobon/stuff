@@ -4101,7 +4101,62 @@ class puppet::params() {
   }
 }  
 
+Comme pour les variables si une valeur par défaut de resource n'est pas trouvée dans la classe elle va être cherchée dans la classe parent ,la classe du node ou le top scope.
+Contrairement aux variables le scope parent est sélectionné a travers des lois dynamiques 
+
+-> si une classe est déclarée à l'interrieur d'une classe alors  le scope parent est la classe appellante
+-> si une classe hérite d'une autre classe alors le scope parent est la classe héritée.
+
+Les classes n'etant instanciées qu'une seule fois , signifie que le scope parent evolue en fonction  de quelle classe definie sa première classe : ceci peut varier si on ajoute ou retire des modules dans notre environment.
+
+Best practice : 
+Make all classes with resources inherit from another class in the
+module to ensure that no resource defaults bleed in from another
+module. This defensive technique prevents unexpected attribute
+values from being applied to the module’s resources.
+
+• A resource can accept multiple attributes from a hash containing attribute keys,
+as documented in “Defining Attributes with a Hash” on page 62.
+• A resource declaration with a default resource body can provide default
+attributes, as documented in “Declaring Multiple Resource Bodies” on page 63.
 
 
+$package_defaults = {
+'ensure'          => 'present',
+'install_options' => '--enable-repo=epel',
+}
+# Resource defaults
+package {
+default: * 		=> $package_defaults ;
+'puppet-agent': ensure => 'latest' ;
+}
+
+It' s works exactly as if a Package {} default was created, but it will apply only to the
+resources that specifically use that hash for the defaults. This allows you to have mul‐
+tiple resource defaults, and select the appropriate one by name.
+Best Practice
+Use the default: resource title to set resource defaults based upon
+a hash of attribute values. This is more readable, less surprising,
+and will never bleed over to something you didn’t expect.
+
+
+
+- Redefinition de variables :
+
+On doit depuis puppet4 passer par la forme :
+$sumtotal = $sumtotal + 10
+
+Mais attention on créer dans ce cas une variable dans le scope local 
+On va donc pour eviter les confusions utiliser cette forme :
+
+clearly access top-scope variable
+$sumtotal = $::sumtotal + 10
+# clearly access parent-scope variable
+$sumtotal = $::parent::sumtotal + 10
+
+# even more clear by not using the same name
+$local_sumtotal = $::sumtotal + 10
+
+- Appel d'autres modules :
 
 
