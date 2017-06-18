@@ -4159,4 +4159,77 @@ $local_sumtotal = $::sumtotal + 10
 
 - Appel d'autres modules :
 
+Quand on split la conf d'un module en sous classes : les appels de la conf sont fait par le client et le server 
+Chacun peut potentiellement modifier la conf , redémarrer les services ...
+On peut utiliser deux méthodes pour s'accomoder de cette complication.
+Chacune utilise des classes qui font des appels a un module externe
+
+-> Sourcer une dependance commune :
+
+pour contourner ce probleme on va créer une troisieme classe nommé config
+Ce module contient un template pour peupler  les fichiers de conf avec les settings a la fois de l'agent et du server :
+Dans ce scenario chaque classe peut inclure une classe config 
+# manifests/_config.pp
+class puppet::_config(
+Hash $common = {}, #  [main] params empty if not available in Hiera
+Hash $agent = {},  #  [agent] params empty if not available in Hiera
+Hash $user = {},   #  [user] params empty if not available in Hiera
+Hash $server = {}, #  [master] params empty if not available in Hiera
+) {
+
+file { 'puppet.conf':
+ensure => ensure,
+path => '/etc/puppetlabs/puppet/puppet.conf',
+owner => 'root',
+group => 'wheel',
+mode => '0644',
+content => epp('puppet:///puppet/puppet.conf.epp', # template file
+{ 'agent' => $agent, 'server' => $server } # hash of config params
+    ),
+  }
+
+}
+On voit ici une manière  classique de nommer une classe utilisée de manière interne en commencant par un prefixe "_"
+
+Best practice : il est utile de nommer les classes qui ne sont pas appeller par les modules externes par un "_"
+
+On remarque que le fichier resource ne requiert pas de package pour puppet agent our server et ne notify pas non plus l'agent ou le server : c'est parceque l'agent et le server sont des classes séparées
+
+Aucune des deux ne devraient être déclaré pour un node donné
+On ne doit pas definir de relations avec des ressources qui potentiellement n'existent pas  dans le catalogue.
+
+A la place on modifie la classe agent pour inclure la classe config et dependre du fichier de ressource fourni :
+
+
+/!\ attention a réecrire : code faux : recopie mauvaise 
+
+# manifests/agent.pp
+class puppet::agent(
+String $status = 'running',
+Boolean $enabled,
+) {
+# Include the class that defines the config
+include puppet::_config
+# Install
+package {
+version
+before
+notify
+}
+the Puppet agent
+'puppet-agent':
+		=> $version,
+		=> File['puppet.conf'],
+		=> Service['puppet'],
+
+# Manage the Puppet service
+service { 'puppet':
+  ensure   => $status,
+  enable   => $enabled,
+subscribe => [ Package['puppet-agent'], File['puppet.conf'] ],
+}
+
+
+
+
 
