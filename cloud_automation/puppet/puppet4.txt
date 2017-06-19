@@ -4160,7 +4160,7 @@ $local_sumtotal = $::sumtotal + 10
 - Appel d'autres modules :
 
 Quand on split la conf d'un module en sous classes : les appels de la conf sont fait par le client et le server 
-Chacun peut potentiellement modifier la conf , redémarrer les services ...
+Le client et le server peuvent donc  potentiellement modifier le fichier de conf qui est unique "puppet.conf" , redémarrer les services ...
 On peut utiliser deux méthodes pour s'accomoder de cette complication.
 Chacune utilise des classes qui font des appels a un module externe
 
@@ -4169,6 +4169,7 @@ Chacune utilise des classes qui font des appels a un module externe
 pour contourner ce probleme on va créer une troisieme classe nommé config
 Ce module contient un template pour peupler  les fichiers de conf avec les settings a la fois de l'agent et du server :
 Dans ce scenario chaque classe peut inclure une classe config 
+
 # manifests/_config.pp
 class puppet::_config(
 Hash $common = {}, #  [main] params empty if not available in Hiera
@@ -4205,31 +4206,78 @@ A la place on modifie la classe agent pour inclure la classe config et dependre 
 
 # manifests/agent.pp
 class puppet::agent(
-String $status = 'running',
-Boolean $enabled,
-) {
+  String $status = 'running',
+  Boolean $enabled,
+  ) {
 # Include the class that defines the config
 include puppet::_config
-# Install
-package {
-version
-before
-notify
+
+# Install the Puppet agent
+  package { 'puppet-agent':
+    version     => $version,
+    before      => File['puppet.conf'],
+    notify      => Service['puppet'],
 }
-the Puppet agent
-'puppet-agent':
-		=> $version,
-		=> File['puppet.conf'],
-		=> Service['puppet'],
 
 # Manage the Puppet service
-service { 'puppet':
-  ensure   => $status,
-  enable   => $enabled,
-subscribe => [ Package['puppet-agent'], File['puppet.conf'] ],
+  service { 'puppet':
+    ensure   => $status,
+    enable   => $enabled,
+    subscribe => [ Package['puppet-agent'], File['puppet.conf'] ],
 }
 
+On peut créer une classe server avec la même config . On se souvient que la classe ne sera appellée qu'une seule fois
+même si elle est inclue dans chacune des classes (ici agent et server) 
+Si la classe puppet::server est définie avec les mêmes dépendances que la classe puppet::agent; les attributs before et subscribe vont s'assurer du bon ordre d'evaluation pour les nodes  utilisant les même classes 
+
+1/ les packages sont installés 
+puppet::agent les packets du puppet agent  vont être installés
+puppet::server le packet server va être installé
+
+2/ puppet::_config  le fichier de conf de puppet va être définis
+
+3/ les services vont démmarer
+puppet::agent  le service va démarrer 
+puppet::server le service va démarrer 
+
+On utilise pas  le keyword require qui pourrait faire une dépendance circulaire.
+comme on veut que les packages soient installés avant la définition du fichier de conf.
 
 
 
+->  Utilisation d'un module différent : 
+
+On a vu dans l'exemple precedent on a regler le pb avec l'utilisation de sous classe d'un seul module pour gérer l'utilisation de dépendance commune.Parfois ces dépendance se trouvent dans des modules différents. Même quand on utilise des modules qui peuvent creer un fichier entier à partir de différentes partie ( module concat par ex) : on doit définir le fichier entier poure qu'il soit gérer dans le catalogue puppet.
+
+L'alternative suivante utilise un module qui va gérer des lignes ou des changements de section de conf dans un fichier sans avoir connaissance du fichier final :
+
+
+
+# manifests/agent.pp
+class puppet::agent(
+  String $status  = 'running',
+  Boolean $enabled = true,
+  Hash $config  = {},
+) {
+# Write each agent configuration option to the puppet.conf file
+$config.each |$setting,$value| {
+ini_setting { "agent $setting":
+ensure  => present,
+path    => '/etc/puppetlabs/puppet/puppet.conf',
+section => 'agent',
+setting => $setting,
+value   => $value,
+require => Package['puppet-agent'],
+    }
+  }
+}
+
+Cette config est plus flexible que les appels de sous classes pour gérer la config du fichier 
+
+
+
+= Ordre de dépendances : =
+
+
+Quand on utilise d'autres modules
 
