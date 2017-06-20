@@ -1,0 +1,193 @@
+== How to Setup Linux Etherchannel Bonding for Network Interface HA ==
+
+In Linux, using etherchannel bonding you can combine two or more physical network interfaces (NIC) together to create a virtual interface.
+
+The IP address will be configured on this virtual interface. If one of the underlying physical adapters goes down, then the other physical adapter is used to handle the communication traffic.
+
+= The following are different types of etherchannel bonding modes:
+
+Mode 0 – Round-robin (RR) policy: Packet transmissions is done in a sequential order. For ex, the first packet is transmitted using the interface and second packet is done through next interface and so on. This mode provides load balancing and fault tolerance.
+
+Mode 1 – active-backup policy: Packet transmission happens only through the active interface and the traffic is routed through the backup interface only when the active interface went down.
+
+Mode 2 – XOR policy: This mode balances outgoing traffic across the active ports. In this mode the same slave is used for transmission for each destination MAC address. This provides load balancing and fault tolerance.
+
+Mode 3 – broadcast policy: This transmits everything on all slave interfaces. This mode provides fault tolerance.
+
+Mode 4( 802.3ad ): This mode is used to create the link aggregation groups that share the same speed and duplex settings.
+
+Mode 5( balance-tlb ): Adaptive transmit load balancing. The outgoing traffic is distributed based on the current load on each slave. Incoming traffic is received by the current slave. If the current slave fails, then another slave takes over the incoming traffic based on MAC address.
+
+Mode 6( balance-alb ): Adaptive load balancing. In this, the incoming traffic is handled to use load balancing across all the slaves. 
+
+The receive load balancing is done through ARP negotiation.
+
+= Configure Bonding in Redhat or CentOS
+1. Create ifcfg-bond0 File
+
+All the network configuration scripts are located under /etc/sysconfig/network-scripts in RHEL. Verify the link status of the interfaces using the command “ethtool ”
+
+Create a file ifcfg-bond0 with the below values and replace with correct IP, NETMASK and the appropriate bonding mode ( mode 0, 1 ,2 …) like the below.
+
+
+# cd /etc/sysconfig/network-scripts
+# vi ifcfg-bond0
+DEVICE=bond0
+IPADDR=19.86.101.120
+NETMASK=255.255.255.0
+ONBOOT=yes
+BOOTPROTO=none
+USERCTL=no
+BONDING_OPTS="mode=1 miimon=100"
+
+2. Modify ifcfg-eth0 and ifcfg-eth1 Files
+
+Edit the network interface files for eth0 & eth1 to reflect entries similar to the following. Make sure you have MASTER and SLAVE parameters defined as shown below.
+# cat ifcfg-eth0
+DEVICE=eth0
+HWADDR=00:50:56:8E:0C:10
+MASTER=bond0
+SLAVE=yes
+ONBOOT=yes
+USERCTL=no
+BOOTPROTO=none
+# cat ifcfg-eth1
+DEVICE=eth1
+HWADDR=00:50:56:8E:0C:2A
+MASTER=bond0
+SLAVE=yes
+ONBOOT=yes
+USERCTL=no
+BOOTPROTO=none
+
+3. Create bonding.conf File
+
+Create the bonding.conf file with the following content.
+
+# vi /etc/modprobe.d/bonding.conf
+alias netdev-bond0 bonding
+
+4. Restart Network Service and Verify Bonding
+
+Restart the network services:
+
+service network restart
+Verify the bonding status as shown below.
+The following indicates that the current bonding mode is fault-tolerance.
+
+# cat /proc/net/bonding/bond0
+Ethernet Channel Bonding Driver: v3.6.0 (September 26, 2009)
+
+Bonding Mode: fault-tolerance (active-backup)
+Primary Slave: None
+Currently Active Slave: eth0
+MII Status: up
+MII Polling Interval (ms): 100
+Up Delay (ms): 0
+Down Delay (ms): 0
+
+Slave Interface: eth0
+MII Status: up
+Speed: 10000 Mbps
+Duplex: full
+Link Failure Count: 0
+Permanent HW addr: 00:50:56:8e:0c:10
+Slave queue ID: 0
+
+Slave Interface: eth1
+MII Status: up
+Speed: 10000 Mbps
+Duplex: full
+Link Failure Count: 0
+Permanent HW addr: 00:50:56:8e:0c:2a
+Slave queue ID: 0
+
+You can perform the test by bringing down one interface, seeing that other interface will be active one and vice-versa.
+Configuring Bonding on SuSE Linux
+                            To configure bonding on latest version of SuSE, you can either use YaST or alternatively you can modify the system files as shown below:
+                            Verify the active interfaces using the following command:
+                            ethtool  eth0 | egrep "Speed|Duplex|Link"
+
+                            If the Speed, duplex & Link status is unknown then the interface may be in down status. Try to bring up the interface using “ifconfig up”. If you still do not see the link then the interface is not connected to the switch.
+                            1. Create ifcfg-bond0 File
+
+                            Login to the machine using console. Create ifcfg-bond0 under /etc/sysconfig/network and define the IP address and slave interfaces that can be used.
+
+                            In the following example, I have used active-backup mode for bonding which means only the active interfaces handles the communication traffic and failure in which the backup interface start to work.
+
+# cd /etc/sysconfig/network
+
+# cat ifcfg-bond0
+BONDING_MASTER=yes
+BONDING_MODULE_OPTS='mode=active-backup miimon=100'
+BONDING_SLAVE0='eth0'
+BONDING_SLAVE1='eth1'
+BOOTPROTO='static'
+IPADDR='192.168.1.85/24'
+BROADCAST=''
+STARTMODE='auto'
+
+2. Modify ifcfg-eth0 and ifcfg-eth1 Files
+
+Modify the slave interfaces so that it does not have the IP address, Netmask. The output should be similar to the following:
+
+# cat ifcfg-eth0
+DEVICE='eth0'
+BOOTPROTO='none'
+STARTMODE='onboot'
+NAME='82545EM Gigabit Ethernet Controller (Copper)'
+
+# cat ifcfg-eth1
+DEVICE='eth1'
+BOOTPROTO='none'
+STARTMODE='onboot'
+NAME='82545EM Gigabit Ethernet Controller (Copper)'
+
+3. Edit modprobe.conf File
+
+ Edit the file /etc/modprobe.conf and add the below 2 lines to include bonding driver with options.
+
+alias bond0 bonding
+options bond0 miimon=100 mode=1
+
+ Note: You may choose to ignore options if you already included it in the /etc/sysconfig/network/ifcfg-bond0 file.
+4. Restart Network Service and Verify Bonding
+
+After setting up the bonding, restart the network service:
+rcnetwork restart
+
+Verify the bonding interface is up and the ip is configured properly. Also ensure you are able to connect the server using the IP address.
+
+# ifconfig bond0
+bond0     Link encap:Ethernet  HWaddr 00:50:56:8E:00:26
+inet addr:192.168.1.85  Bcast:192.168.1.1  Mask:255.255.255.0
+UP BROADCAST RUNNING MASTER MULTICAST  MTU:1500  Metric:1
+RX packets:28420409 errors:0 dropped:0 overruns:0 frame:0
+TX packets:151985 errors:0 dropped:0 overruns:0 carrier:0
+collisions:0 txqueuelen:0
+RX bytes:2362560309 (2253.1 Mb)  TX bytes:17330542 (16.5 Mb)
+
+To test bonding interface works correctly, login to the console and bring down the active interface using “ifconfig eth0 down”. Verify that you will still be able to login to the machine using the same IP or Hostname. You can verify the status of the active interface in the below file,
+
+As shown below, the eth0 is down, but the network connectivity to the machine is still not lost, as we’ve setup bonding, and the eth1 interface is still up.
+
+# cat /proc/net/bonding/bond0
+Ethernet Channel Bonding Driver: v3.5.0 (November 4, 2008)
+
+Bonding Mode: fault-tolerance (active-backup)
+Primary Slave: None
+Currently Active Slave: eth1
+MII Status: up
+MII Polling Interval (ms): 100
+Up Delay (ms): 0
+Down Delay (ms): 0
+
+Slave Interface: eth0
+MII Status: down
+Link Failure Count: 1
+Permanent HW addr: 00:50:56:8e:00:26
+
+Slave Interface: eth1
+MII Status: up
+Link Failure Count: 0
+Permanent HW addr: 00:50:56:8e:7e:20
