@@ -1,0 +1,97 @@
+==== Notes from puppet_essntials_2nd edition ====
+
+
+== Writing  first manifests ==
+
+= Demarrage :
+ l'installation se fait via les repos des distrib ou alors directement depuis le site puppetlabs
+ On peut aussi décider d'intaller puppet en ruby gem mais ce n'est pas recommandé.
+Apres l'install on peut commencer à ecrire un manifest ce qui est le language / script de puppet . il est ecris endsl (domain specfic language)
+
+
+on utilise pour l'instant una machine vagrant avec un client puppet installé.
+On se place dans une arbo , on crée notre manifest et on le lance :
+
+[root@client manifests]# cat helloworld.pp 
+notify {'hello, world !':
+}
+
+[root@client manifests]# puppet apply helloworld.pp 
+Notice: Compiled catalog for client.example.com in environment production in 0.06 seconds
+Notice: hello, world !
+Notice: /Stage[main]/Main/Notify[hello, world !]/message: defined 'message' as 'hello, world !'
+Notice: Applied catalog in 0.02 seconds
+
+Pour eviter de mettre la bazar sur le system on va essayer de ne pas faire démarrer auto un service : exemple puppet :) 
+
+puppet_service.pp
+service { 'puppet':
+ensure => 'stopped',
+enable => false,
+}
+
+[root@client manifests]# puppet apply puppet_service.pp 
+Notice: Compiled catalog for client.example.com in environment production in 0.25 seconds
+Notice: /Stage[main]/Main/Service[puppet]/ensure: ensure changed 'running' to 'stopped'
+Notice: Applied catalog in 0.11 seconds
+
+A noter que l'on execute les commandes puppet avec un sudo ou en root
+
+Si on relance notre run : rien ne se passe car le service a dejà ete arreté
+
+[root@client manifests]# puppet apply puppet_service.pp 
+Notice: Compiled catalog for client.example.com in environment production in 0.24 seconds
+Notice: Applied catalog in 0.03 seconds
+
+
+On met ici en evidence qe puppet est un systeme indepomdent : il examine une resssoure, l'etat attendu de cette ressource et ne procede aux changements que si quelque chose n'est pas configuré comme attendu.
+
+
+
+= Ressources et propriétés :=
+
+Les resources sont les blocs élémentaires des manifests :chacune à un type ( exemple notify, service) et un nom , un titre ( exemple : hello world , puppet )
+Chaque resource est unique dans un manifest et peut être référencées par la combinaison de son nom et son type 
+Une ressource est aussi definie par un ensemble de 0 à plusieurs attributs : un attribut est un enemble clé valeur de type : "enable" => false
+
+Attention le nom des attributs depend des ressources on ne peut pas mettre n'inporte quoi . Certains param sont dispo pour tout type de ressource (metaparametres) d'autre sont commun : ex "ensure" 
+
+Ex le type service supporte la proprieté ensure ( status de la ressource) alors que la propriéte enable a comme scope le demarrage du system par l'os.
+Les termes attributs, parametres et proprité sont utilisés de diffrentes manière.
+
+On doit juste savoir que les param et proprietes sont deux differents type d'attributs que puppet utilise 
+
+on voit ici deux proprités et un parametre dans le manifest suivant 
+
+service { 'puppet':
+ensure   => 'stopped',
+enable   => false,
+provider => 'upstart',
+}
+
+le parametre provider indique à puppe qu'il doit travailler avec upstart contrairement par exemple  systemd ou init
+Sans cette definition explicite : puppet gerera le param de son choix grace a des fonctions internes
+
+EN gros les paramètres indique à puppet commennt gérer une ressource et pas quel est l'etat désiré.
+
+Une propriété est considére synchro avec le systeme pour une ressource donnée 
+
+Pour mémo : les propriétes  peuvent être hors synchro  alors que les param eux ne le peuvent pas.
+
+Puppet peut lire une config sur le systeme avec la commande puppet ressource : 
+
+
+root@puppetmaster:~# puppet resource user root
+user { 'root':
+ensure      => 'present',
+comment     => 'root',
+gid         => '0',
+home        => '/root',
+password    => '$6$17/7FtU/$TvYEDtFgGr0SaS7xOVloWXVTqQxxDUgH. eBKJ7bgHJ.hdoc03Xrvm2ru0HFKpu1QSpVW/7o.rLdk/9MZANEGt/',
+password_max_age => '99999',
+password_min_age => '0',
+shell => '/bin/bash',
+uid => '0',
+}
+
+
