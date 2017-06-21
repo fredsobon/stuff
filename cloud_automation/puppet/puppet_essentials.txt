@@ -94,4 +94,118 @@ shell => '/bin/bash',
 uid => '0',
 }
 
+Interpretatin de la sortie de la commande apply 
+
+
+On a lors de la sortie de commande en gros deux phases :
+une premiere pour la compilation du catalogue et la seconde correspondant à l'application du catalogue
+
+
+[root@client manifests]# puppet apply puppet_service.pp 
+Notice: Compiled catalog for client.example.com in environment production in 0.26 seconds
+Notice: Applied catalog in 0.03 seconds
+
+0n peut avoir beaucoup plus d'info en invoquand par exemple :
+
+[root@client manifests]# puppet apply -e'service { "puppet": enable => true, }'
+Notice: Compiled catalog for client.example.com in environment production in 0.24 seconds
+Notice: /Stage[main]/Main/Service[puppet]/enable: enable changed 'false' to 'true'
+Notice: Applied catalog in 0.11 seconds
+
+On voit ici qu'on forcer en commande ligne la modif de param de notre resource
+
+
+- Dry run :
+
+on va pouvoir lancer les comandes en dry run : pas d'effet on voit juste le comportement de notre run : 
+
+[root@client manifests]# puppet apply puppet_service.pp --noop
+Notice: Compiled catalog for client.example.com in environment production in 0.24 seconds
+Notice: /Stage[main]/Main/Service[puppet]/enable: current_value true, should be false (noop)
+Notice: Class[Main]: Would have triggered 'refresh' from 1 events
+Notice: Stage[main]: Would have triggered 'refresh' from 1 events
+Notice: Applied catalog in 0.03 seconds
+
+
+- Structures de controle dans les manifests :
+
+on peut comme dans les language utilisés des formes de controle .
+ex : 
+
+bloc if /else :
+
+
+if 'mail_lda' in $needed_services {
+service { 'dovecot': enable => true }
+} else {
+service { 'dovecot': enable => false }
+}
+
+Case :
+
+
+case $role {
+'imap_server': {
+    package { 'dovecot': ensure => 'installed' }
+    service { 'dovecot': ensure => 'running' }
+  }
+/_webserver$/: {
+    service { [ 'apache', 'ssh' ]: ensure => 'running' }
+  }
+default: {
+    service { 'ssh': ensure => running }
+  }
+}
+
+on a une definiton de cas par défaut .
+
+On peut trouver egalement une autre forme de tests de controle : les selectors : 
+
+package { 'dovecot':
+    ensure => $role ? {
+    'imap_server' => 'installed',
+    /desktop$/    => 'purged',
+default    => 'removed',
+  },
+}
+
+
+- Utilisation de variables : 
+
+Toutes les variables commencent avec un $ 
+
+$download_server = 'img2.example.net'
+$url = "https://${download_server}/pkg/example_source.tar.gz"
+
+Comme dans les autres languages on a un comportement différent si on place des ",' ...pour l'interprétation de nos variables.
+
+Dans puppet une fois qu'une variable a été créee elle ne peut pas être modifier ( il y a une copie d'objet)
+
+- Types de variables :
+
+  $a_bool = true
+  $a_string = 'This is a string value'
+  $an_array = [ 'This', 'forms', 'an', 'array' ]
+  $a_hash = {
+  'subject' => 'Hashes',
+  'predicate' => 'are written',
+  'object'    => 'like this',
+  'note'      => 'not actual grammar!',
+  'also note' => [ 'nesting is',
+  { 'allowed' => ' of course' } ],
+}
+
+Pour l'assignement de valeurs : c'est simple 
+
+$x = $a_string
+$y = $an_array[1]
+$z = $a_hash['object']
+
+LEs strings peuvent être des attibuts de variable
+il faut faire attention que le titre d'une ressource soit aussi une référence  de variable 
+
+package { $apache_package:
+ensure => 'installed'
+}
+
 
