@@ -201,11 +201,117 @@ $x = $a_string
 $y = $an_array[1]
 $z = $a_hash['object']
 
-LEs strings peuvent être des attibuts de variable
+Les strings peuvent être des attibuts de variable
 il faut faire attention que le titre d'une ressource soit aussi une référence  de variable 
 
 package { $apache_package:
 ensure => 'installed'
 }
+
+on peut egalement utiliser un tableau pour déclarer tout un lot de resource dans une seule section.
+ex : ici on s'assure que tous les packets mentionnés dansle tableau soient bien installés.
+
+$packages = [ 'apache2',
+    'libapache2-mod-php5',
+     'libapache2-mod-passenger', ]
+package { $packages:
+ensure => 'installed'
+}
+
+Il n'est pas nécéssaire de stocker les valeurs du tableau dans une variable mais c'est une bonne pratique.
+
+
+- Controle de l'ordre d'évaluation : 
+
+Un manifest n'est pas un script : c'est juste un outil pour définir l'etat d'un systeme a travers differentes ressources (packages , services, fichiers, cron ...;)
+Le language de puppet est déclaratif : le manifest déclare un set de resources qui doivent avoir des états  particulier .Ces ressources sont mises dans un catalogue et puppet essaie de construire le build . Le compilateur parse les manifests dans l'ordre mais le configurateur le fait dans un tout autre ordre.
+Le manifest décrit ce que l'on veut obtenir : les actions spécifiques pour atteindre ce résultat sont prises par puppet.
+
+
+package { 'haproxy':
+    ensure => 'installed',
+}
+file {'/etc/haproxy/haproxy.cfg':
+    ensure => file,
+    owner => 'root',
+    group => 'root',
+    mode => '0644',
+    source => 'puppet:///modules/haproxy/etc/haproxy/haproxy.cfg',
+}
+service { 'haproxy':
+ensure => 'running',
+}
+
+Dans ce manifest puppet s'assure que le packet haproxy est installé , le fichier haproxy.cfg a un contenu particulier présent dans un repertoire module et haproxy est démarré.
+Dans les versions  récentes de puppet ont peu définir l'ordre d'évaluation dans le puppet.conf
+ordering = manifest
+c'est la setting par defaut dans puppet4
+
+-Déclaration de dépendances : 
+
+Un  des moyens les plus simple pour assurer un ordre est d'utiliser un chaining de ressource : on utilise un symbole "->"
+
+
+package { 'haproxy':
+  ensure => 'installed',
+  }
+->
+file { '/etc/haproxy/haproxy.cfg':
+ensure => file,
+owner => 'root',
+group => 'root',
+mode
+=> '0644',
+source => 'puppet:///modules/haproxy/etc/haproxy/haproxy.cfg',
+}
+->
+service {'haproxy':
+ensure => 'running',
+}
+
+Ceci  est possible si toutes les ressources peuvent être définies  dans un seul et même fichier.
+Il existe des méthodes beaucoup plus fléxibles en utilisant des metaparamètres : paramètres qui sont utilisables pour differents type de resources
+Pour la gestion de l'ordre des resources puppet utilisent par exemple :
+before et require .
+Attention on ne peut déclarer des metaparametres que sur des ressources existant dans le catalogue.
+
+On voit ici la manifest haproxy avec l'utilisation de require :
+
+package { 'haproxy':
+   ensure => 'installed',
+  }
+file {'/etc/haproxy/haproxy.cfg':
+ensure => file,
+owner => 'root',
+group => 'root',
+mode  => '0644',
+source => 'puppet:///modules/haproxy/etc/haproxy/haproxy.cfg',
+require => Package['haproxy'],
+}
+service {'haproxy':
+ensure => 'running',
+require => File['/etc/haproxy/haproxy.cfg'],
+}
+
+
+Ici le même manifest est utilisant maintenant before :
+
+package { 'haproxy':
+  ensure => 'installed',
+  before => File['/etc/haproxy/haproxy.cfg'],
+}
+file { '/etc/haproxy/haproxy.cfg':
+  ensure => file,
+  owner => 'root',
+  group => 'root',
+  mode  => '0644',
+  source => 'puppet:///modules/haproxy/etc/haproxy/haproxy.cfg',
+before => Service['haproxy'],
+  }
+service { 'haproxy':
+ensure => 'running',
+}
+
+Il est courant d'utiliser require mais dans certains cas ( gestion de packages ) before peut être très pratique.
 
 
