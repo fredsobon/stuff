@@ -314,4 +314,88 @@ ensure => 'running',
 
 Il est courant d'utiliser require mais dans certains cas ( gestion de packages ) before peut être très pratique.
 
+- Erreurs de propagation : la definition de require permet de definir un autre sujet important : les references sur les resources déclarées seront considérées comme valides si la dépendance initiale s'est finie correctement : c'est un "point d'arret de puppet" lorsqu'une dependance n'est pas satisfaite.
+ex : on a une erreur de run si notre fichier de conf suivant n'est pas trouvé :
+
+file { '/etc/haproxy/haproxy.cfg':
+ensure => file,
+source => 'puppet:///modules/haproxy/etc/haproxy.cfg',
+}
+
+root@puppetmaster:~# puppet apply typo.pp
+Notice: Compiled catalog for puppetmaster.example.net in environment
+production in 0.62 seconds
+Error: /Stage[main]/Main/File[/etc/haproxy/haproxy.cfg]: Could not
+evaluate: Could not retrieve information from environment production
+source(s) puppet:///modules/haproxy/etc/haproxy.cfg
+Notice: /Stage[main]/Main/Service[haproxy]: Dependency File[/etc/haproxy/
+haproxy.cfg] has failures: true
+Warning: /Stage[main]/Main/Service[haproxy]: Skipping because of failed
+dependencies
+Notice: Applied catalog in 0.06 seconds
+
+On a donc une erreur de run : on voit ici que le service n'est pas modifié (redémarré par ex) car le fichier de conf n'est pas trouvé. : c'est donc une méthode sécure.
+
+
+- Interdire les dépendances circulaires :
+
+Il est capitale de ne pas définir de dépendances circulaires 
+ex :
+
+file { '/etc/haproxy':
+ensure => 'directory',
+owner => 'root',
+group => 'root',
+mode  => '0644',
+}
+
+file { '/etc/haproxy/haproxy.cfg':
+ensure => file',
+owner => 'root',
+group => 'root',
+mode  => '0644',
+source => 'puppet:///modules/haproxy/etc/haproxy/haproxy.cfg',
+}
+
+service { 'haproxy':
+ensure => 'running',
+require => File['/etc/haproxy/haproxy.cfg'],
+before => File['/etc/haproxy'],
+}
+
+
+on a ici des dépendance a tous les niveaux : le fichier /etc/haproxy/haproxy.cfg dépend implictement de  la création du rep /etc/haproxy . Le repertoire /etc/haproxy dépend du service  haproxy et le service haproxy dépend du fichier de conf /etc/haproxy/haproxy.cfg ...
+
+A noter :
+si un fichier et un rep dépendent de la creation d'un rep superrieur : puppet le créer en auto
+si un user et le groupe primaire du user sont définis : puppet crée en premier le groupe 
+si un fichier et son user sont déclarés : puppet crée en premier le user 
+
+on aura donc comme message lors de notre run une alerte de dépendance circulaire : 
+
+root@puppetmaster:~# puppet apply circle.pp
+Notice: Compiled catalog for puppetmaster.example.net in environment
+production in 0.62 seconds
+Error: Failed to apply catalog: Found 1 dependency cycle:
+(File[/etc/haproxy/haproxy.cfg] => Service[haproxy] => File[/etc/haproxy]
+=> File[/etc/haproxy/haproxy.cfg])
+Try the '--graph' option and opening the resulting '.dot' file in
+OmniGraffle or GraphViz
+
+on a un message qui nous montre les dépendances . Pour les cas complexes on peut utiliser une option qui va nous aider à mieux comprendre les dépendances :
+
+--graph option.
+
+si on utilise  cette option puppet incluera le chemin complet de notre fichier .dot (fichier de graph) dans sa sortie
+
+digraph Resource_Cycles {
+label = "Resource Cycles"
+"File[/etc/haproxy/haproxy.cfg]" ->"Service[haproxy]" ->"File[/etc/
+haproxy]" ->"File[/etc/haproxy/haproxy.cfg]"
+}
+
+
+
+- Implementation des interractions de ressources :
+
 
