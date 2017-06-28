@@ -1,7 +1,7 @@
 ==== Notes from puppet_essntials_2nd edition ====
 
 
-== Writing  first manifests ==
+== Chapitre 1 Writing  first manifests ==
 
 = Demarrage :
  l'installation se fait via les repos des distrib ou alors directement depuis le site puppetlabs
@@ -364,7 +364,7 @@ before => File['/etc/haproxy'],
 }
 
 
-on a ici des dépendance a tous les niveaux : le fichier /etc/haproxy/haproxy.cfg dépend implictement de  la création du rep /etc/haproxy . Le repertoire /etc/haproxy dépend du service  haproxy et le service haproxy dépend du fichier de conf /etc/haproxy/haproxy.cfg ...
+on a ici des dépendances  a tous les niveaux : le fichier /etc/haproxy/haproxy.cfg dépend implictement de  la création du rep /etc/haproxy . Le repertoire /etc/haproxy dépend du service  haproxy et le service haproxy dépend du fichier de conf /etc/haproxy/haproxy.cfg ...
 
 A noter :
 si un fichier et un rep dépendent de la creation d'un rep superrieur : puppet le créer en auto
@@ -397,5 +397,232 @@ haproxy]" ->"File[/etc/haproxy/haproxy.cfg]"
 
 
 - Implementation des interractions de ressources :
+
+En parallele des dépendances les ressources peuvent aussi avoir des relations 
+ex: 
+
+root@puppetmaster:~# puppet apply puppet_service.pp
+--noop
+Notice: Compiled catalog for puppetmaster.example.net in environment
+production in 0.62 seconds
+Notice: /Stage[main]/Main/Service[puppet]/ensure: current_value running,
+should be stopped (noop)
+Notice: Class[Main]: Would have triggered 'refresh' from 1 events
+Notice: Stage[main]: Would have triggered 'refresh' from 1 events
+Notice: Applied catalog in 0.05 seconds
+
+on voit ici que le refresh devra être lancé car la ressource service aura un status changé : un event aura changé le comportement.
+Le mechanisme rentrant en ligne de commpte est comparable au pub/sub queue : les resources sont configurées pour réagir a un event : on place dans  les manifests un notify : qui va donc déclencher une réaction.
+Typiquement on a des reload de services quand un fichier de conf a été modifié pour un service.
+
+ex: avec subscribe :
+
+
+file { '/etc/haproxy/haproxy.cfg':
+ensure => file,
+owner  => 'root',
+group  => 'root',
+mode   => '0644',
+source => 'puppet:///modules/haproxy/etc/haproxy/haproxy.cfg',
+require => Package['haproxy'],
+}
+service { 'haproxy':
+  ensure    => 'running',
+  subscribe => File['/etc/haproxy/haproxy.cfg'],
+}
+
+
+Equivalence avec un notify :
+
+file { '/etc/haproxy/haproxy.cfg':
+  ensure => file,
+  owner  => 'root',
+  group  => 'root',
+  mode   => '0644',
+  source => 'puppet:///modules/haproxy/etc/haproxy/haproxy.cfg',
+  require => Package['haproxy'],
+  notify => Service['haproxy'],
+}
+service { 'haproxy':
+  ensure => 'running',
+}
+
+On peut eventuellement utiliser la notion de dashing :
+
+file { '/etc/haproxy/haproxy.cfg': ... }
+   ~>  service { 'haproxy': ... }
+
+La resource service est une de celle à utiliser régulierement les notify / subscribe.
+
+- Examen des principales resources : 
+
+
+-> files :
+
+ex :
+
+file { '/etc/modules':
+  ensure => file,
+  content => "# Managed by Puppet!\n\ndrbd\n",
+}
+The double quotes allow expansion of escape sequences such as \n.
+
+Another useful capability is managing symbolic links:
+file { '/etc/apache2/sites-enabled/001-puppet-lore.org':
+ensure => 'link',
+target => '../sites-available/puppet-lore.org',
+}
+
+-> package :
+
+on va ici pouvoir avoir la notion de provider ( apt / yum ..) 
+package { 'haproxy':
+ensure   => present,
+provider => 'dpkg',
+source   => '/opt/packages/haproxy-1.5.1_amd64.dpkg',
+}
+
+-> service :
+on peut gérer les services avec le provider base  qui peut gérer les process en background 
+
+service { 'count-logins':
+provider  => 'base',
+ensure    => 'running',
+binary    => '/usr/local/bin/cnt-logins',
+start     => '/usr/local/bin/cnt-logins --daemonize',
+subscribe => File['/usr/local/bin/cnt-logins'],
+}
+
+ici le service sera reloasd si la conf est changé ou le service non démarré ...(? a voir pas clair ) 
+
+
+-> user / group : 
+
+Si on a pas de gestion centralisée avec un ldap par ex , il va être crucial de gérer nos users sur nos systèmes 
+On va pouvoir gérer les infos classiques ( /home , bash ,uid ...) 
+
+
+group { 'proxy-admins':
+ensure => present,
+gid    => 4002,
+}
+user { 'john':
+ensure        => present,
+uid           => 2014,
+home          => '/home/john'
+managehome    => true, # <- adds -m to useradd
+gid           => 1000,
+shell         => '/bin/zsh',
+groups        => [ 'proxy-admins' ],
+}
+
+Il est toujours nécéssaire de définir un group avant le user ..comme in faut un repertoire pour ecrire un fichier à l'interrieur.
+
+NB  : si un attribut n'est pas gérer pour la resource user : le run ne sera pas cassé mais un warning apparaitra.
+
+-> exec : 
+
+il peut être  utile dans certains cas d'utiliser la commande exec mais c'est en général à proscrire : ce n'est pas le rôle de puppet :
+
+
+exec { 'tar cjf /opt/packages/homebrewn-3.2.tar.bz2':
+cwd     => '/opt',
+path    => '/bin:/usr/bin',
+creates => '/opt/homebrewn-3.2',
+}
+
+ici creates est important car nous indique l'endroit ou la commande doit être executée : une fois crééer puppet considere la conf updatée 
+
+Il est possible de spécifier des param spéciaux pour puppet et gérer des cas . On peut utiliser unlessou onlyif.
+ex :
+
+exec { 'perl -MCPAN -e "install YAML"':
+path   => '/bin:/usr/bin',
+unless => 'cpan -l | grep -qP ^YAML\\b',
+}
+
+ici la command exec sera en echec si le retour de unless est vrai : pas d'install de module perl si le package est trouvé .
+On va aussi pour la resource  exec utiliser les param notify et subscribe :
+
+exec { 'apt-get update':
+path        => '/bin:/usr/bin',
+subscribe   => File['/etc/apt/sources.list.d/jenkins.list'],
+refreshonly => true,
+}
+
+
+On va pouvoir avoir des infos :
+
+"puppet describe <type> [-s]
+In case you are unsure whether a type exists, you can tell Puppet
+describe to return a full list of all available resource types:
+puppet describe --list"
+
+
+-> cron :
+
+on va pouvoir gérer nos cronjobs :
+
+cron { 'clean-files':
+ensure      => present,
+user        => 'root',
+command     => '/usr/local/bin/clean-files',
+minute      => '1',
+hour        => '3',
+weekday     => [ '2', '6' ],
+environment => 'MAILTO=felix@example.net',
+}
+
+
+On peut ajouter des variables dédiées à notre cron en utilisant le param "environment" 
+
+-> mount :
+
+on va pouvoir gérer nos points de montage  avec les infos essentielles (device, mountpoint ..)
+
+La traduction d'une ligne de fstab pourra être faite comme ceci :
+
+mount { '/media/gluster-data':
+ensure  => 'mounted',
+device  => 'gluster01:/data',
+fstype  => 'glusterfs',
+options => 'defaults,_netdev',
+dump    => 0,
+pass    => 0,
+}
+
+pour cette resource puppet va s'assurer que la resource est bien montée et dispo après le run 
+
+
+== Chapter 2 : puppet server / agent ==
+
+l'utilisation de puppet apply est parfaite pour tester des confs en local .mais c'est souvent la notion master / agent qiu est utilisée. le master compile le catalogue que l'agent vient récupérer régulièrement via une connection ssl.
+
+- master :
+
+-> il comporte toutes les infos de tous les systemes gérés.
+-> stocke les manifests et les compilation de catalogue 
+-> sert d'authorité de certif
+-> génère les rapports  des agents.
+-> recupere les infos des agents
+
+A l'initialisation le master génere un ca certificate pour les agents .Le certif est autosigné et la clé priv de puppet doit être protégé .
+Les nouveaux clients demandent un certif qui est signé avec la ca du master
+
+c'est une bonne pratique de copietr la ca dans notre provisionning : pour gérer facilement la signature du certif après la validation de l'identité  du master 
+
+Anciennement avant puppet 4 on parlait de master : la gestion ssl etait faite par apache et un module passenger 
+maintenant puppet embarque du jruby qui embarque du ssl natif servi par une jvm jetty 
+
+puppetserver est donc plus rapide et stable 
+
+
+
+= set up de server : =
+
+
+
+
+
 
 
