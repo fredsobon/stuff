@@ -620,9 +620,118 @@ puppetserver est donc plus rapide et stable
 
 = set up de server : =
 
+Il est relativement simple d'installer le puppetserver : packages de distributions classiques.
+On peut aussi installer l'appli via la puppet collection : eco systeme mis a dispo par puppetlabs contenant donc les outils. : ceci est disponible depuis la v4 de puppet.
+le package puppetserver contient un server jetty et une api clojure. le package puppet-agent contient tout un lot de composants : ruby etc ...
+On peut lancer la commande puppet sur le master également.
+
+En utilsant les version de puppetlabs : il faut s'aassurer de rajouter dans notre path l'arbo dédiée :
+/opt/puppetlabs + /opt/puppetlabs/bin
+on démarre notre appli ensuite comme ceci : 
+root@puppetmaster# service puppetserver start 
+
+Le boot peut être long la première fois. Il faut s'assurer que le port 8140 ne soit pas filtrer sur le fw.
+Il est possible d'avoir un souci de certif que l'on peut observer dans :
+/var/log/puppetlabs/puppetserver/puppetserver-daemon.log
+pour fixer le pb il peut être possible de lancer un run comme ceci :
+
+puppet master –-no-daemonize
+
+- Creation du manifest master :
+
+Le point de départ de toutes les compilations se trouvent dans un fichier fondamental :
+he site manifest, which can be found in /opt/
+puppetlabs/code/environments/production/manifests/site.pp
+
+Tous les agents vont se connecter à ce point d'entrée :
+on va pouvoir faire le distingo entre les besoins de chaque server en specifiant des confs dédiées :
+
+node 'agent' {
+$packages = [ 'apache2',
+  'libapache2-mod-php5',
+  'libapache2-mod-passenger', ]
+  package { $packages:
+  ensure => 'installed',
+  before => Service['apache2'],
+  }
+  service { 'apache2':
+  ensure => 'running',
+  enable => true,
+ }
+}
+Avant de connecter notre premier node au master on doit s'assurer de points essentiels :
+
+-> les agents doivent résoudre les noms en ip
+-> le master doit ecouter les connections entrantes sur cette adresse
+-> le master utilise le certificat avec le CN common name choisi (ou SAN) 
+
+La resolution de nom depend des circonstances ( le fichier hosts ..peut convenir )
+
+Le master va créer un certif pour le client et l'utiliser par la suite.Il faut pour cela renseigner dans notre fichier de conf principal :/etc/puppetlabs/puppet/puppet.conf la section suivante : 
+
+[master]
+certname=master.example.net   <<< on met ici le fqdn correspondant à nos besoins.
+
+Après le prochain redémmarage tous les connection entre le server et les clients se feront avec le ssl dédié.
+Attention si on change notre CA : il ya aura un pb global .
+Il faut donc s'assurer que la ca sera correctement préservée :
+
+/etc/puppetlabs/puppet/ssl/ca
+
+- Inspection de la configuration : 
+
+on va pouvoir utiliser une commande dédiée pour examiner la config :
+
+root@puppetmaster # puppet master --configprint manifest
+/etc/puppetlabs/code/environments/production/manifests
+
+Il est possible d'examiner la conf globale sans souci :
+
+root@puppetmaster# puppet master --configprint all | less
+
+...
+
+- Config de l'agent puppet :
+
+Des l'install du package on peut lancer un test :
+
+root@agent# puppet agent --test
+Info: Creating a new SSL key for agent
+Error: Could not request certificate: getaddrinfo: Name or service not
+known
+Exiting; failed to retrieve certificate and waitforcert is disabled
+
+Puppet dans un premier temps crée une clé de  certif ssl pour lui même :pour son propre nom il récupère son hostname 
+Il faudra donc eventuellement renseigner le fichier hosts  
 
 
+root@agent# puppet agent --test
+Info: Caching certificate for ca
+Info: csr_attributes file loading from /etc/puppetlabs/puppet/csr_
+attributes.yaml
+Info: Creating a new SSL certificate request for agent
+Info: Certificate Request fingerprint (SHA256): 52:65:AE:24:5E:2A:C6:17:E
+2:5D:0A:C9: 86:E3:52:44:A2:EC:55:AE:3D:40:A9:F6:E1:28:31:50:FC:8E:80:69
+Error: Could not request certificate: Error 500 on SERVER: Internal
+Server Error: java.io.FileNotFoundException: /etc/puppetlabs/puppet/ssl/
+ca/requests/agent.pem (Permission denied)
+Exiting; failed to retrieve certificate and waitforcert is disabled
 
+ici on voit que le client a créer une deman,de de certificat et l'a envoyé au master
+Il est possible de définir une conf pour autosigner les certifs 
+
+pour examiner le cert du master et pour le signer on peut faire :
+
+root@puppetmaster# puppet cert --list
+"agent" (SHA256) 52:65:AE:24:5E:2A:C6:17:E2:5D:0A:C9:86:E3:52:44:A2:EC:55
+:AE: 3D:40:A9:F6:E1:28:31:50:FC:8E:80:69
+This looks alright, so now you can sign a new certificate for the agent:
+
+
+root@puppetmaster# puppet cert --sign agent
+Notice: Signed certificate request for agent
+Notice: Removing file Puppet::SSL::CertificateRequest agent at '/etc/
+puppetlabs/ puppet/ssl/ca/requests/agent.pem'
 
 
 
