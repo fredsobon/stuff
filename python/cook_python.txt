@@ -154,6 +154,64 @@ Decomposition :
 
 
 
+
+= Charger une page html =
+
+Recupérer sous forme de caracteres le contenu d'une page html depuis une url :
+
+#/usr/bin/env python3
+
+
+from urllib.request import urlopen
+
+def getPage(url):
+    with urlopen(url) as fic:
+        data = fic.read().decode('utf-8')
+    return data
+
+print(getPage('http://kernel.org'))
+
+
+La fonction urlopen() du module urllib.request ouvre une page passée en param en créant une instance d'un objet HTTPResponse qui se comporte comme un descripteur de fichier : il faut juste lire cet élement pour obtenir le contenu de la page 
+
+Tout comme les descripteurs de fichier les objects HTTPResponse disposent de methode readline() et readlines() pour lire une ou l'ensemble des lignes présentées dans une liste : ainsi pour lire une seule ligne il faut ecrire :
+
+data = fic.readline().decode('utf-8')
+
+On peut utiliser trois méthodes pouvant être utilisées sur un descripteur ouvert par urlopen()
+-> getcode() : code retour http
+-> geturl() : fourni l'url ayant fournie l'info : utile en cas de redirection web
+-> info() : renvoie les headers
+
+#/usr/bin/env python3
+
+
+from urllib.request import urlopen
+
+def getcode(url):
+    with urlopen(url) as fic:
+        info = fic.info()
+    return info
+print(getcode('http://kernel.org'))
+
+va nous donner par exemple : 
+
+boogie-/tmp>> python3 code.py 
+Server: nginx
+Date: Sun, 02 Jul 2017 17:19:44 GMT
+Content-Type: text/html
+Content-Length: 19100
+Last-Modified: Fri, 30 Jun 2017 06:55:49 GMT
+Connection: close
+Accept-Ranges: bytes
+Strict-Transport-Security: max-age=15768000
+X-Frame-Options: DENY
+X-Content-Type-Options: nosniff
+X-Frontend: packetnet-amsterdam
+
+
+
+
 = communication socket réseau : =
 
 Etablir une connection entre deux machines (serveur /client) via un socket 
@@ -166,7 +224,7 @@ server.py
 
 #!/usr/bin/env python3
 import socket
-mport socket
+import socket
 
 
 HOST="127.0.0.1"
