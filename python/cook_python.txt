@@ -1,7 +1,160 @@
 === notes misc tips python (glmf hf 86) ===
 
 
-= socket : =
+
+== interractions data et users ==
+
+
+= Appel de commande shell : =
+
+executer des commandes shell depuis un script python 
+
+1/ commande  directe sans valeur de retour : 
+
+#!/usr/bin/env python3
+import subprocess
+
+subprocess.call(['vlc'])
+
+
+la methode  subprocess.call() ne fournie pas de valeur retour mais permet de continuer un script python après l'exec
+
+
+2/ Traitement de données d'une commande :  
+
+#!/usr/bin/env python3
+import subprocess
+
+pipe = subprocess.Popen("ls -la", shell=True, stdout=subprocess.PIPE)
+
+while pipe.poll() is None:
+    line = pipe.stdout.readline().decode('utf-8')
+    print(line,end='')
+
+
+
+subprocess.Popen() permet de lire les resultats de la commande sous forme de flux.
+Il faut employer la méthode poll() pour déterminer si le process fils est achevée et stdout.readline() pour lire les lignes de résultats qui sont retournées sous formes de bytes (d'où la conversion en string par decode('utf-8')
+
+
+= Recupérer les arguments de la ligne de commande : =
+
+l'objectif est de récupérer les arguments transmis à un script python via la ligne de commande.
+On va supposer que le script attend :
+-> --output=filename : fichier de sortie optionnel
+-> -v ou --verbose : indique le passage en mode verbeux optionnel
+-> filename : nom du fichier d'entrée
+
+
+1/ mode manuel :
+
+
+methode très peu utilisée et utile pour un très petit nombre d'arguments :
+
+#!/usr/bin/env python3 
+import sys
+
+def syntax():
+    print('Syntax: manual_arg filename [-v|--verbose] [--output=filename]')
+    print('    filename : fichier en entree')
+    print('    -v |--verbose : mode verbeux')
+    print('    --output=filename : fichier en sortie')
+    exit(1)
+
+def cmd_line(args):
+    nb_args = len(args)
+    arguments = { 'input': None, 'verbose': False, 'output': 'default.txt' }
+
+    if nb_args < 2 or nb_args > 4:
+        syntax()
+
+    for i in range(1, nb_args):
+        if args[i] == '-v' or args[i] == '--verbose':
+            arguments['verbose'] = True
+        elif args[i][0] != '-':
+            arguments['input'] = args[i]
+        else:
+            output = args[i].split('=')
+            if output[0] != '--output':
+                syntax()
+            arguments['output'] = output[1]
+    if arguments['input'] is None:
+        syntax()
+
+    return arguments
+
+if __name__ == '__main__':
+    args = cmd_line(sys.argv)
+    print(args)
+
+exemple d'utilisation :
+
+boogie-/tmp>> python3 manual_arg.py lapin 
+{'verbose': False, 'output': 'default.txt', 'input': 'lapin'}
+boogie-/tmp>> python3 manual_arg.py lapin -v
+{'output': 'default.txt', 'verbose': True, 'input': 'lapin'}
+boogie-/tmp>> python3 manual_arg.py lapin --verbose
+{'output': 'default.txt', 'verbose': True, 'input': 'lapin'}
+boogie-/tmp>> python3 manual_arg.py lapin -v --output=fichier_de_sortie
+{'input': 'lapin', 'output': 'fichier_de_sortie', 'verbose': True}
+boogie-/tmp>> python3 manual_arg.py lapin -v --bla
+Syntax: manual_arg filename [-v|--verbose] [--output=filename]
+    filename : fichier en entree
+    -v |--verbose : mode verbeux
+    --output=filename : fichier en sortie
+
+2/ Recupératin des arguments avec argparse :
+
+C'est de loin la methode qu'il faut utiliser 
+
+
+#!/usr/bin/env python3
+
+import sys
+import argparse
+
+def syntax():
+    print('Syntax: manual_arg filename [-v|--verbose] [--output=filename]')
+    print('    filename : fichier en entree')
+    print('    -v |--verbose : mode verbeux')
+    print('    --output=filename : fichier en sortie')
+    exit(1)
+
+
+def cmd_line(args):
+    arguments = { 'input': None, 'verbose': False, 'output': 'default.txt' }
+    parser = argparse.ArgumentParser(description='Recupérer les arguments de la ligne de commande')
+    parser.add_argument('-v', '--verbose', dest='verbose', default=False, action='store_true', help='mode verbeux')
+    parser.add_argument('input', action='store', help='fichier en entrée') 
+    parser.add_argument('--output', dest='output', default='default.txt', help='fichier en sortie')
+    return parser.parse_args()
+
+
+if __name__ == '__main__':
+    args = cmd_line(sys.argv)
+    print(args)
+
+exemples d'utilisation :
+
+python3 arg.py 
+usage: arg.py [-h] [-v] [--output OUTPUT] input
+arg.py: error: the following arguments are required: input
+boogie-/tmp>> python3 arg.py  lapin
+Namespace(input='lapin', output='default.txt', verbose=False)
+boogie-/tmp>> python3 arg.py  lapin -v
+Namespace(input='lapin', output='default.txt', verbose=True)
+boogie-/tmp>> python3 arg.py  lapin -v --output=lapinout
+Namespace(input='lapin', output='lapinout', verbose=True)
+
+
+Decomposition :
+-> On creee un parser 
+-> on ajoute des élements a l'aide de argparse.add_arguments()
+-> on traite les arguments avec le parser en invoquant parse_args() 
+
+
+
+= communication socket réseau : =
 
 Etablir une connection entre deux machines (serveur /client) via un socket 
 Deux elements :
@@ -10,72 +163,68 @@ Deux elements :
 
 server.py
 
-#!/usr/bin/env python3
 
+#!/usr/bin/env python3
 import socket
+mport socket
+
 
 HOST="127.0.0.1"
-PORT="8000"
+PORT=8000
+
+connexion = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+try:
+    connexion.connect((HOST,PORT))
+except socket.error:
+    print('impossible to link socket to adress : {}:{}'.format(HOST,PORT)) 
+    exit(1)
+
+print('connexion established on {}:{}'.format(HOST,PORT))
+
+while True:
+    msg = connexion.recv(1024).decode('utf-8')
+    if msg.upper() == 'Quit':
+        break
+    print('>> ', msg)
+    msgToSend = input('> ')
+    connexion.send(msgToSend.encode('utf-8'))
+
+print('connexion is closing')
+connexion.close()
+HOST="127.0.0.1"
+PORT=8000
 
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 try:
     server.bind((HOST,PORT))
 except socket.error:
-    print('impossible to link socket to adress : {}:{}'.format(HOST,PORT) 
-	exit(1)
-print('server {}:{} is waiting ...'.format(HOST,PORT) 
+    print('impossible to link socket to adress : {}:{}'.format(HOST,PORT)) 
+    exit(1)
+print('server {}:{} is waiting ...'.format(HOST,PORT)) 
 
 while True:
-	server.listen(2)
-	connexion, adress = server.accept()
-	print('New connexion from client {}:{}'format(address[0], address[1]))
+    server.listen(2)
+    connexion, address = server.accept()
+    print('New connexion from client {}:{}'.format(address[0], address[1]))
 
-	connexion.send('connexion established'.encode('utf8'))
-	while True:
-		msg = connexion.recv(1024).decode('utf8')
-		if msg.upper() == 'Quit':
-			break
-		print('>> ', msg)
-		msgToSend = input('> ')
-		connexion.send(msgToSend.encode('utf8'))
+    connexion.send('connexion established'.encode('utf-8'))
+    while True:
+        msg = connexion.recv(1024).decode('utf-8')
+        if msg.upper() == 'Quit':
+           break
+        print('>> ', msg)
+        msgToSend = input('> ')
+        connexion.send(msgToSend.encode('utf-8'))
 
-	connexion.send('quit'.encode('utf8'))
-	connexion.close()
-	print('connexion is closing ...)
-	print('waiting for a new connexion')
-
+    connexion.send('quit'.encode('utf8'))
+    connexion.close()
+    print('connexion is closing ...')
+    print('waiting for a new connexion')
 
 client.py :
 
-import socket
 
-
-HOST="127.0.0.7"
-PORT="8000"
-
-server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-try:
-	connexion.connect((HOST,PORT))
-	except socket.error:
-    print('impossible to link socket to adress : {}:{}'.format(HOST,PORT) 
-	exit(1)
-
-print('connexion established on {}:{}'.format(HOST,PORT))
-
-while True
-    msg = connexion.recv(1024).decode('utf8')
-    if msg.upper() == 'Quit':
-    break
-    print('>> ', msg)
-    msgToSend = input('> ')
-    connexion.send(msgToSend.encode('utf8'))
-
-print('connexion is closing')
-connexion.close()
-
-
-
-
+En lancant server.py et client.py dans deux terminaux distincts : on peut dialoguer 
 
 
