@@ -734,4 +734,97 @@ Notice: Removing file Puppet::SSL::CertificateRequest agent at '/etc/
 puppetlabs/ puppet/ssl/ca/requests/agent.pem'
 
 
+On ppeut donc maintenant lancer notre run sur notre server  :
+
+root@agent# puppet agent --test
+Info: Caching certificate for agent
+Info: Caching certificate_revocation_list for ca
+Info: Caching certificate for agent
+Info: Retrieving pluginfacts
+Info: Retrieving plugin
+Info: Caching catalog for agent
+Info: Applying configuration version '1437065761'
+Notice: Applied catalog in 0.11 seconds
+
+Nb: ici on a déclarer pour l'exemple que le master puppet devait utiliser le  nom : master.example.net
+les run pourront fonctionner sur le master si la version est puppet4 :car depuis cette version le certificate alt name "puppet" est maintenant configuré de base dans la conf.
+Il est important de toujours avoir un fqdn bien défini pour notre server :
+on peut rajouter la conf suivante : 
+[main]
+server=master.example.net
+
+Evidemment si on a pas de dns ..les entrées dans le fichier host sont fondamentales.
+
+
+Attention : il faut avoir des synchro de dates en regles : des conf ntp peuvent souvent régler des soucis ssl 
+
+= Cycle de vie de l'agent : =
+
+Des qu'on va recycler un serveur on va devoir supprimer le certificat etabli avec la commande :
+
+root@puppetmaster# puppet cert revoke agent 
+Le server va enregistrer dans une liste les certificats revoqués : le client quand il voudra se connecter se fera recaller.
+
+Si on a besoin de regénérer un certificat (pb sur un serveur ou autre ) ..il nous faudra regénérer un certificat 
+L'opération se fera en deux etapes :
+
+1/ sur le master : 
+
+puppet cert clean agent.example.net
+
+2/ sur le client : 
+
+find /etc/puppetlabs/puppet/ssl -name agent.example.net.pem –delete
+
+
+
+root@puppetmaster# puppet cert clean agent
+
+
+= Planifier les run puppet : =
+
+On va pouvoir facilement gérer les run puppet grace un une cron créee sous puppet :
+
+service { 'puppet': enable => false }
+cron { 'puppet-agent-run':
+user    => 'root',
+command => 'puppet agent --no-daemonize --onetime --logdest=syslog',
+minute  => fqdn_rand(60),
+hour    => absent,
+}
+
+On voit ici l'utilisation de la fonction fqdn_rand(60) : qui va générer un nombre aléatoire pour le node .
+Le fait de flagguer le param hour à absent de fait fait tourner la cron toutes les heures.
+
+= Performance considerations : =
+
+Le fait de travailler en mode server / client a des avantages mais il faut faire attention a ne pas générer trop de charge sur le server. Le cleint puppet : agent génére le max de travail mais la compilation du catalogue reste à la charge du server .
+
+Le master va aussi héberger les sources des fdichiers de conf de nos servers .
+ex :
+
+file { '/usr/local/etc/my_app.ini':
+ensure => file,
+owner => 'root',
+group => 'root',
+source => 'puppet:///modules/my_app/usr/local/etc/my_app.ini',
+}
+
+Il sera potentiellemennt nécéssaire d'optimiser nos conf server si la charge devient trop importante.
+
+
+= config de server =
+
+Des param simples peuvent changer les perf du puppetserver 
+
+Il va être important de configurer la jvm de notre puppet en jouant sur les param :-Xmx and -Xms
+
+Il va ausso être important de prendre en compte la puppetdb 
+elle est classiquement en postgresql et permet des actions via une api clojure .
+La puppetdb aide le master a stocker les favts etc ..;
+
+
+=== Chapitre 3 :  Facts / types et providers ===
+
+
 
