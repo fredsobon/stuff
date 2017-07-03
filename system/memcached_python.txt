@@ -1,0 +1,101 @@
+
+If you want to make such a connection, there are several clients available for you. The most popular ones are:
+
+    python-memcached: This is a pure-python implementation of the memcached client (implemented 100 percent in Python). It offers good performance and is extremely simple to install and use.
+    pylibmc: This is a Python wrapper on the libmemcached C/C++ library, it offers excellent performance, thread safety, and light memory usage, yet it's not as simple as python-memcached to install, since you will need to have the libmemcached library compiled and installed on your system.
+    Twisted memcache: This client is part of the Python twisted event-driven networking engine for Python. It offers a reactive code structure and excellent performance as well, but it is not as simple to use as pylibmc or python-memcached but it fits perfectly if your entire application is built on twisted.
+
+In this recipe, we will be using python-memcached for the sake of simplicity and since other clients have almost the same API, it does not make much difference from a developer's perspective.
+Getting ready
+
+It's always a good idea to create virtualenv for your experiments to keep your experiments contained and not to pollute the global system with the packages you install.
+
+You can create virtualenv easily:
+
+virtualenv memcache_experiments
+source memcache_experiments/bin/activate
+
+We will need to install python-memcached first, using the pip package manager on our system:
+
+sudo pip install python-memcached
+
+How to do it...
+
+    Let's start with a simple set and get script:
+
+    import memcache
+    client = memcache.Client([('127.0.0.1', 11211)])
+    sample_obj = {"name": "Soliman",
+    "lang": "Python"}
+    client.set("sample_user", sample_obj, time=15)
+    print "Stored to memcached, will auto-expire after 15 seconds"
+    print client.get("sample_user")
+
+    Save the script into a file called memcache_test1.py and run it using python memcache_test1.py.
+    On running the script you should see something like the following:
+
+    Stored to memcached, will auto-expire after 15 seconds
+    {'lang': 'Python', 'name': 'Soliman'}
+
+    Let's now try other memcached features:
+
+    import memcache
+    client = memcache.Client([('127.0.0.1', 11211)])
+    client.set("counter", "10")
+    client.incr("counter")
+    print "Counter was incremented on the server by 1, now it's %s" %
+    client.get("counter")
+    client.incr("counter", 9)
+    print "Counter was incremented on the server by 9, now it's %s" %
+    client.get("counter")
+    client.decr("counter")
+    print "Counter was decremented on the server by 1, now it's %s" %
+    client.get("counter")
+
+The output of the script looks like the following:
+
+Counter was incremented on the server by 1, now it's 11
+Counter was incremented on the server by 9, now it's 20
+Counter was decremented on the server by 1, now it's 19
+
+The incr and decr methods allow you to specify a delta value or to by default increment/decrement by 1.
+
+Alright, now let's sync a Python dict to memcached with a certain prefix:
+
+import memcache
+client = memcache.Client([('127.0.0.1', 11211)])
+data = {"some_key1": "value1",
+"some_key2": "value2"}
+client.set_multi(data, time=15, key_prefix="pfx_")
+print "saved the dict with prefix pfx_"
+print "getting one key: %s" % client.get("pfx_some_key1")
+print "Getting all values: %s" % client.get_multi(["some_key1", "some_
+key2"], key_prefix="pfx_")
+
+How it works...
+
+In this script, we are connecting to the memcached server(s) using the Client constructor, and then we are using the set method to store a standard Python dict as the value of the "sample_user" key. After that we use the get method to retrieve the value.
+
+The client automatically serialized the python dict to memcached and deserialized the object after getting it from memcached server.
+
+In the second script, we are playing with some of the features we never tried in the memcached server. The incr and decr are methods that allow you to increment and decrement integer values directly on the server automatically.
+
+Then, we are using an awesome feature that we also didn't play with before, that is get/set_multi that allows us to set or get multiple key/values at a single request. Also it allows us to add a certain prefix to all the keys during the set or get operations.
+
+The output of the last script should look like the following:
+
+saved the dict with prefix pfx_
+getting one key: value1
+Getting all values: {'some_key1': 'value1', 'some_key2': 'value2'}
+
+There's more...
+
+In the Client constructor, we specified the server hostname and port in a tuple (host, port) and passed that in a list of servers. This allows you to connect to a cluster of memcached servers by adding more servers to this list. For example:
+
+client = memcache.Client([('host1', 1121), ('host2', 1121), ('host3',
+1122)])
+
+Also, you can also specify custom picklers/unpicklers to tell the memcached client how to serialize or de-serialize the Python types using your custom algorithm.
+Summary
+
+Thus we learned how to connect to memcached servers from your python application.
