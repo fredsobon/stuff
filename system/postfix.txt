@@ -10,4 +10,72 @@ mailq | tail -n +2 | grep -v '^ *(' | awk  'BEGIN { RS = "" }
 { if ($8 == "bla@bla.com" && $9 == "")
         print $1 }
 '| tr -d '*!' | postsuper -d -
+"
+
+
+== gestion mailq : = 
+
+
+Quelques commandes pour gérer vos mails en queue (mailq).
+
+Traitement de Queue Postfix :
+
+Schéma des mouvements d'un message dans la Queue de Postfix :
+
+La première commande a utiliser est mailq pour voir l'état des mails (erreurs, blocage etc...).
+
+Lister les messages en Queue :
+
+postqueue -p
+
+Résultats :
+
+-Queue ID- --Size-- ----Arrival Time---- -Sender/Recipient-------
+DBB3F1A7        553 Mon May  5 14:42:15  titi@example.com
+        (connect to mail.pouet.com[195.58.15.78]: Connection refused)
+                                                 titi@pouet.com
+
+Supprimer un message en Queue :
+
+postsuper -d DBB3F1A7
+
+Supprimer tous les messages en Queue :
+
+postsuper -d ALL
+
+Pour supprimer des messages en masse en fonction de l'adresse source ou destination, utilisez le script PFDEL Scripts pour supprimer des emails de la queue postfix.
+
+Mettre un messages en attente (hold) :
+
+postsuper -h DBA3F1A7
+
+Remettre un messages en mode normale (actif) :
+
+postsuper -H DBA3F1A7
+
+Remettre en Queue un message :
+
+postsuper -r DBA3F1A7
+
+Pour tous les messages :
+
+postsuper -r ALL
+
+Afficher le contenu d'un message :
+
+postcat -q DBA3F1A9
+
+Forcer l'envoie des messages en Queue (flush) :
+
+postqueue -f
+
+Pour forcer l'envoie de messages spécifique à un domaine non présent dans les paramètres relay_domains de la configuration Postfix :
+
+Ajouter cette ligne dans le fichier main.cf :
+
+fast_flush_domains = $relay_domains ledomaine.fr
+
+Ensuite taper cette commande :
+
+postqueue -s example.com
 
