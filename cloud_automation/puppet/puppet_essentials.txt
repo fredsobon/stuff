@@ -826,5 +826,105 @@ La puppetdb aide le master a stocker les favts etc ..;
 
 === Chapitre 3 :  Facts / types et providers ===
 
+= facts =
+
+La gestion hétérogène de materiel et de différents écosystem peut rendre complexe  la gestion des système.
+Il va être interressant d'utiliser facter qui va pouvoir nous fournir énormément d'informations sur le system, hardware etc  ..
+
+exemple :
+
+puppet apply -e 'notify { "I am ${::fqdn} and have ${::processorcount} CPUs": }' 
+va nous donner au run :
+
+[root@client ~]# puppet apply -e 'notify { "I am ${::fqdn} and have ${::processorcount} CPUs": }'
+Notice: Compiled catalog for client.example.com in environment production in 0.06 seconds
+Notice: I am client.example.com and have 1 CPUs
+Notice: /Stage[main]/Main/Notify[I am client.example.com and have 1 CPUs]/message: defined 'message' as 'I am client.example.com and have 1 CPUs'
+Notice: Applied catalog in 0.02 seconds
+
+Acceder et utiliser des valeurs de facter :
+
+Chaque fact est accessible comme une variable globale :c'est pour cela que l'on utilise la notation ::processorcount par exemple.
+Il est courant de voir la notation suivante (qui fait partie d'une best practice) $::processorcount et qui correspond aux variables facter 
+Ce prefix indique que l'on accede à une donnée exposée par facter 
+
+On va biensur avoir plusieurs facts dispos :
+ex :
+
+file { '/etc/mysql/conf.d/bind-address':
+ensure  => 'file',
+mode    => '0644',
+content => "[mysqld]\nbind-address=${::ipaddress}\n",
+
+
+$::operatingsystem
+$::osfamilly
+$::operatingsystemrelease 
+
+[root@client ~]# puppet apply -e 'notify { "oh yeah ${::osfamily}: cool":}'
+Notice: oh yeah RedHat: cool
+
+
+Creation et personalisation  de facts : 
+
+on peut sans  pb créer nos facts perso .Il y a pour les fact un design assez simple : un bloc ruby pour chaque section et des données en retour du bloc qui est un fact 
+
+vi /etc/puppetlabs/code/environments/production/modules/hello_world/lib/facter/hello.rb
+Facter.add(:hello) do
+setcode { "Hello, world!" }
+end
+
+la valeur du bloc setcode est donc "Hello, world!" et on peut appeller ce fact $::hello dans un manifest.
+Les facts peuvent être dépendant les un des autres.
+
+root@client facter]# puppet apply -e 'notify {"oh Yeah ${::hello}":}'
+Notice: Compiled catalog for client.example.com in environment production in 0.06 seconds
+Notice: oh Yeah Hello, world!
+Notice: /Stage[main]/Main/Notify[oh Yeah Hello, world!]/message: defined 'message' as 'oh Yeah Hello, world!'
+Notice: Applied catalog in 0.02 seconds
+
+Il est tres important d'avoir l'option pluginsync de configurée sur le client cela permet d'avoir une synchro des facts entre le master et les clients : une fois synchro les facts sont présentssur le client .
+
+On peut interroger nos fact facilement : 
+
+[root@client facter]# puppet facts |grep hello
+    "hello": "Hello, world!",
+
+On peut definir des facts selon nos besoin et en utilisant des méthodes :
+
+Facter.add(:msvs_version) do
+    confine :kernel => :windows
+        setcode do
+    # ...
+    end
+end
+
+You can confine a fact to several alternative values as well:
+confine :kernel => [ :linux, :sunos ]
+
+On peut simplifier au quotidien l'utilisatin de facter en se servant des external facts : ce qui va nous permettre de ne pas être obliger d'ecrire du code ruby mais du shell, python ou autre voir même définir des data statiques.
+
+Les external facts doivent être stocker dans une arbo preciose :
+
+/etc/puppetlabs/facter/facts.d/
+les data ne doivent pas être simplement des strings mais peuvent aussi etre sous la forme clé / valeur 
+
+les format peuvent être en ini ou yaml / json 
+
+# site-facts.txt
+workgroup=CT4Site2
+domain_psk=nm56DxLp%
+The facts can be written in the YAML format in the following way:
+# site-facts.yaml
+workgroup: CT4Site2
+domain_psk: nm56DxLp%
+
+# site-facts.json
+{ 'workgroup': 'CT4Site2', 'domain_psk': 'nm56DxLp%' }
+The deployment of the external facts works simply through file resources in your
+Puppet manifest:
+file { '/etc/puppetlabs/facter/facts.d/site-facts.yaml':
+ensure => 'file',
+source => 'puppet:///...',
 
 
