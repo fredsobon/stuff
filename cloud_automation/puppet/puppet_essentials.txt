@@ -928,3 +928,28 @@ ensure => 'file',
 source => 'puppet:///...',
 
 
+
+Dans les versions récentes de puppet tous les external facts présents dans tous les modules seront synchronisé via le pluginsysn comme les custom facts.
+
+Quand il n'est pas possible d'ecrire des fichiers txt, json ou yaml : il est tout a fait possible de créer un fichier executable et de rajouter un shebang et la sortie du script doit sortie une valeur 
+La seule condition est d'avoir un fichier sous la forme de fichier ini : cle=valeur 
+
+ex : 
+
+[root@client hello_world]# cat facts.d/hello.sh 
+#!/bin/bash
+
+echo hello=Hello, world from external fact\!
+
+va nous donner au run : 
+
+[root@client hello_world]# puppet apply -e 'notify {"yep it is ${::hello}":}'
+Notice: Compiled catalog for client.example.com in environment production in 0.06 seconds
+Notice: yep it is Hello, world from external fact!
+Notice: /Stage[main]/Main/Notify[yep it is Hello, world from external fact!]/message: defined 'message' as 'yep it is Hello, world from external fact!'
+Notice: Applied catalog in 0.02 seconds
+
+Facter2 a introduit des données structurées : array, dictionnaires ...
+Le but de facter est de rendre puppet agnostic : ne pas dependre d'un systeme / hardware spécifique 
+
+
