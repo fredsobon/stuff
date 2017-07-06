@@ -952,4 +952,35 @@ Notice: Applied catalog in 0.02 seconds
 Facter2 a introduit des données structurées : array, dictionnaires ...
 Le but de facter est de rendre puppet agnostic : ne pas dependre d'un systeme / hardware spécifique 
 
+= Comprehension de type : =
+
+Une fois que le catalogue est compilé le master le met a dispo de l'agent qiu lui va entrer dans  une phase de validation : chaque type de ressource peut defoinir des  methodes ruby qui examineront que les valeurs reçues sont cohérentes.
+ex : une gestion de clé ssh s'assurera que le contenu de la clé ne contient pas  d'espace : le type ssh_authorized_key tombe ko si la clé contient un espace : une clé  ssh ne contenant pas plusieurs caractères.
+
+La validation entiere de ressource comme cron sera faite pour s'assurer que les moments  définis sont cohérents.
+ex  : ici le test tombera en erreur car ici midnight ne peut pas être cominé avec des champs numériques :
+
+cron { 'invalid-resource':
+command => 'apt-get update',
+special => 'midnight',
+weekday => [ '2', '5' ],
+}
+
+= providers : =
+on va être ammené à gérer plusieurs systemes ..qui veut fournir des provider : apt, yum, zypper etc ..gem , pip ..
+Il ya a certains type de resources qui n'utilisent aucun provider
+pour les taches les plus classiques ont peut avoir un provider : ex pour la gestion du fichier /etc/hosts 
+
+ex: 
+
+host { 'puppet':
+ip
+=> '10.144.12.100',
+host_aliases => [ 'puppet.example.net', 'master' ],
+}
+
+== Modularization de manifests avec les classes et les defined types : ==
+
+
+
 
