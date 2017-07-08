@@ -982,5 +982,99 @@ host_aliases => [ 'puppet.example.net', 'master' ],
 == Modularization de manifests avec les classes et les defined types : ==
 
 
+= introduction aux classes et aux definied types =
+Il y a des equivalences pour puppet :
+les méthodes et les fonctions s'appellent des classes et des defined types (appellés en raccourci defines)
 
+-> Definition et declaration de classe :
+
+une classe peut être considérée comme un container pour les ressources.
+c'est défini une fois et réutilisé à chaque fois qu'un node en a besoin.Chaque classe représente un bout de conf du système.
+
+class apache {
+package { 'apache2':
+  ensure => 'installed',
+}
+file { '/etc/apache2/apache2.conf':
+  ensure => 'file',
+  source =>   'puppet:///modules/apache/etc/apache2/apache2.conf',
+  require => Package['apache2'],
+  }
+service { 'apache2':
+  enable => true,
+  subscribe => File['/etc/apache2/apache2.conf',
+  }  
+}
+
+Tous les servers web qui voudront utiliser cette classe le feront avec :
+
+include apache 
+ex :
+
+node 'webserver01' {
+include apache
+}
+
+-> creation et utilisation de defined type : 
+un definded type ou define peut être vu comme un bout de code de manifest mais prenant des arguments et rend leur valeurs dispo au sein de variables locales.
+
+exemple defined pour apache :
+
+define virtual_host(
+  String $content,
+  String[3,3] $priority = '050'
+  ) {
+file { "/etc/apache2/sites-available/${name}":
+  ensure => 'file',
+  owner   => 'root',
+  group   => 'root',
+  mode    => '0644',
+  content => $content
+}
+file { "/etc/apache2/sites-enabled/${priority}-${name}":
+  ensure => 'link',
+  target => "../sites-available/${name}";
+  } 
+}
+
+On voit ici par exemple que le type de data : String est présent attention ceci n'existe qu'a partir de puppet4 : avant pas de typage.
+Ce code pourra être utilisé comme suivant dans une autre partie de notre manifest :
+
+
+virtual_host { 'example.net':
+  content => file('apache/vhosts/example.net')
+  }
+virtual_host{ 'fallback':
+  priority => '999',
+  content => file('apache/vhosts/fallback')
+}
+
+C'est pour cela qu'on parle de construction de code via un defined type 
+Il est éventuellement possible lors de laconstruction de resource du même type de factoriser l'écriture 
+ex :
+
+virtual_host {
+  'example.net':
+    content => 'foo';
+  'fallback':
+    priority => '999',
+    content => ...,
+}
+
+Le type virtual_host prend deux arguments  :
+-> content qui est obligatoire et va recupérer le contenu de la ressource file : puppet va synchroniser ce contenu avec ce qui est défini dans le manifest.
+-> priority : est optionnel et va prendre la valeur 50 par defaut si rien n'est défini 
+
+On n'est pas obliger de définir des types ici (String) 
+
+
+On a aussi de manière automatique des defined type que l'on peut interroger par leur valeur $name et $$title : qui sont automatiquement "créee" : chaque instance de nos defined ont un nom et on peut y acceder avec $name et $title
+
+Il n'y a que quelques variables "magic" qui sont disponibles dans un defined si une resource est déclarée avec un metaparametre require => sa valeur pourra être récupérée via un appel à la variable $require dans le corps de notre manifest.
+Cette variable sera vide si aucun param n'est setté.
+C'est valable aussi pour before, notify 
+.
+
+
+= Comprehension des différences : =
 
