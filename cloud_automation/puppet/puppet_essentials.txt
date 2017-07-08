@@ -1078,3 +1078,158 @@ C'est valable aussi pour before, notify
 
 = Comprehension des différences : =
 
+- Class 
+La class declare des ressources et des parametres de conf pour notre systeme : c'est specifiquement unique et la forme est fixe . La classe s'appliquera toujours si elle est appellée.
+Les ressources qui sont typiquement encapsulées dans une classe sont :
+-> les packages
+-> les fichiers de config (ex dans /etc/)
+-> les repertoires dédiés  au stockage des scripts
+-> des cronjobs
+
+- Defined resource / define :
+les define existent pour tout ce qui est présent un nombre de fois multiples 
+ex :
+-> fichiers de conf dans un repertoire conf.d
+-> virtual hosts apache
+-> shemat de bdd
+-> entrées facilement parsable (comme dans /etc/hosts)
+
+La nature unique de la classe est faite pour eviter les clashs lors d'appels multiples de déclarations de resources : chaque ressource doit être unique dans le catalogue puppet
+
+Si on declare une seconde fois la resource package apache 
+package { 'apache2': } : cette declaration pouvant être ou l'on veut dans un manifest concernant un web server : la compilation du catalogue va echouer ..car puppet sera incapable de savoir dans quel etat doit être la ressource (ex : apache status :demarré ou eteind ??, un resource peut vouloir la package présent l'autre absent etc ...) 
+
+On ne pourra avoir qu'une seule présence de l'include de notre resource.
+
+Cette contrainte d'unicité s'applique aussi aux define :
+ex on ne peut avoir de define de même nom :
+virtual_host { 'wordpress':
+  content => file(...),
+  priority => '011',
+}
+virtual_host { 'wordpress':
+  content => '# Dummy vhost',
+  priority => '600',
+}
+
+---> on a ici une erreur de compilation .....directe 
+
+= structure de pattern design =
+
+- Ecriture de classe compréhensives :
+Il est tout a fait possible d'ecrire des classes très complexes gérant d'énormes actions et interactions sur les systeme.
+On peut ecrire ces classes de manière monolithique : definir toutes les ressources dans notre manifest 
+Ou alors faire une classe composite qui elle permettra d'ajouter des include dans nos manifests : rendant une grande souplesse et lisibilité d'ecriture.
+les fonctions sont compartimentées et la classe principale sert de collecteur .
+On peut donc supposer qu'on peut inclure une classe dans une autre classe.
+On ne peut juste pas ajouter des 'nodes' blocs dans notre manifest .
+
+
+Ex : monolitic :
+
+class monolithic_security {
+  package { [ 'iptables', 'rkhunter', 'postfix' ]:
+    ensure => 'installed';
+  }  
+  cron { 'run-rkhunter':
+    ...
+  }
+  file { '/etc/init.d/iptables-firewall':
+    source => ...
+    mode  => 755
+}
+  file { '/etc/postfix/main.cf':
+    ensure => 'file',
+    content => ...
+  }
+    service { [ 'postfix', 'iptables-firewall' ]:
+    ensure => 'running',
+    enable => true
+  }
+}
+
+Ex : classe composite : 
+
+class divided_security {
+  include iptables_firewall
+  include rkhunter
+  include postfix
+}
+
+On va donc devoir souvent ecrire des classes qui en fonctions des besoins seront mixes ...
+
+= Ecriture de composant de classe : =
+
+On va toujours essayer d'écrire des classes simples qui font une seule chose mais simplement.
+Certaine classe ne contiendront qu'une ressource : on pourra donc utiliser une classe principale pour embarquer toutes nos ressources dépendantes.
+ex: le packet netcat pourra servir pour un fw mais aussi pour un server web 
+les deux vont déclarer une resources de type :
+
+package { 'netcat':
+  ensure => 'installed'
+}
+
+Si un node embarque le role fw et web  server : on aura un pb car la ressource ne pourra être embarquée deux fois ..
+On pourra donc pour contourner le pb déclarer notre packet dans une classe qui sera inclue dans nos role fw et webserver :
+
+class netcat {
+  package { 'netcat':
+    ensure => 'installed'
+  }
+}
+On peut avoir exactement le même cas de figure pour des servers qui devront avoir une arbo dediée pour heberger des scripts : ex notre fw et notre web server : on aura donc interet a declarer une classe qui permettra la creation des rep dédiés .ex :
+
+class scripts_directory {
+  file { [ '/opt/company/', '/opt/company/bin' ]:
+    ensure => 'directory',
+    owner => 'root',
+    group => 'root',
+    mode  => '0644',
+  }
+}
+
+
+= Utilisation de define comme wrapper de resource : =
+
+on a vu qu'on pouvait utiliser une classe comme wrapper de resource dans le cas précis d'une resource unique pouvant être appellée par differents autre classes (ex fw et web server pour package netcat ..)
+Les define au contraire vont servir à multiplier des ressources de types identiques mais avec un nom different.
+Pour cela la creation devra se faire dynamiquement : le nom de la resource déclarée dans le bloc de notre define sera dynamiquement crée : c'est quasiment systematiquement la variable $name qui est utilisée .
+ex : si on veut charger un fichier depuis une arbo précise on pourra déclarer par ex ::
+
+define module_file(String $module) {
+  file { $name:
+    source => "puppet:///modules/${module}/${name}"
+  }
+}
+Cela rend facile les sychros de fichiers entre master et agent 
+il faut placer sur le master le fichier au bon endroit 
+ex :
+module_file { '/etc/ntpd.conf':
+  module => 'ntp':
+}
+
+Le master va donc recupérer le fichier ntp.conf du module ntp 
+C'est une maniere plus concise que la déclaration de type 
+file { '/etc/ntpd.conf':
+  source => 'puppet:///modules/ntp/etc/ntpd.conf':
+}
+qui peut être tres longue si on a beaucoup de fichiers a copier 
+
+Pour le define module_file on va devoir s'arranger pour que les differents attributs de fichiers soient pris en compte : on rajoute donc le param mode : 
+
+define module_file(
+  String $module,
+  Optional[String] $mode = undef
+  ) {
+if $mode != undef {
+  File { mode => $mode }
+    }
+file { $name:
+  source => "puppet:///modules/${module}/${name}"
+  }
+}
+
+On voit ici que dans le bloc File { ..} on defini des valeurs par défaut 
+
+= Utilisation de define comme resource multiplexer : =
+
