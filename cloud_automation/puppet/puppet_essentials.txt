@@ -1232,4 +1232,75 @@ file { $name:
 On voit ici que dans le bloc File { ..} on defini des valeurs par défaut 
 
 = Utilisation de define comme resource multiplexer : =
+Il va être utile de pouvoir ajouter des fonctionalités aux resources créer avec un define
+On peut aussi vouloir unifier les differentes resources de nos define
+Dans ce cas on va donc avoir de muliples ressources définies dans le body de notre define :
+
+ex :
+
+define user_with_key(
+  String $key,
+  Optional[String] $uid = undef,
+  String $group = 'users'
+) {
+  user { $title:
+    ensure => present
+    gid  => $group,
+    managehome => true,
+  } ->
+  ssh_authorized_key { "key for ${title}":
+    ensure => present,
+    user  => $title,
+    type  => 'rsa',
+    key => $key,
+  }
+}
+
+Ce code nous permet de créer des users avec une clé ssh authorisée dans une déclaration de resource
+Le titre / title  de nos ressources internes est tiré du titre / title  de l'instance crée (ou le nom / name ) :c'est une méthode requise et obligatoire pour les define / defined resources
+On voit ici qu'on a harcodé certaines parties : gestion exclusive de clé rsa et le group ppar défaut est 'users'
+Les ressources entre elles peuvent être dépendantes : ici on a chainé deux resources avec '->' 
+
+= Utilisation des define comme de macros : =
+
+On va pouvoir factoriser un cerrtains nombre de taches répétitives comme la création de lien symboliques de type :
+
+file { '/etc/example_app/conf.d.enabled/england':
+  ensure => 'link',
+  target => '../conf.d.available/england'
+}
+file { '/etc/example_app/conf.d.enabled/ireland':
+  ensure => 'link',
+  target => '../conf.d.available/ireland'
+}
+file { '/etc/example_app/conf.d.enabled/germany':
+  ensure => 'link',
+  target => '../conf.d.available/germany'
+  ...
+}
+
+en utilisant un define on pourra facilement s'en sortir avec :
+
+define example_app_config {
+  file { "/etc/example_app/conf.d.enabled/${name}":
+    ensure => 'link',
+    target => "../conf.d.available/${name}",
+  }
+}
+
+Le define n'a pas besoin d'argument on peut donc s'en tirer simplement avec le $name 
+
+On peut donc simplifier le code précédent avec :
+
+example_app_config {'england': }
+example_app_config {'ireland': }
+example_app_config {'germany': }
+
+ou même plus compact avec l'utilisation de tableau :
+
+example_app_config { [ 'england', 'ireland', 'germany', ... ]:
+}
+
+= Utilisation des valeurs de  tableau / array les define : =
+
 
