@@ -1303,4 +1303,53 @@ example_app_config { [ 'england', 'ireland', 'germany', ... ]:
 
 = Utilisation des valeurs de  tableau / array les define : =
 
+une des taches les plus répendu en programmation est de pouvoir récupérer les valeurs d'un tableau et pouvoir faire un traitement dessus. On va pouvoir le faire aussi avec puppet.
+En reprenant l'exemple précedent des régions on va imaginer qu'une arbo dédiée est nécéssaire 
 
+define example_app_config (
+Array $regions = []
+) {
+file { "/etc/example_app/conf.d.enabled/${name}":
+ensure => link,
+target => "../conf.d.available/${name}",
+}
+# to do: add functionality for $regions
+}
+
+L'utlisation de paramtetes est assez rabarbative :
+
+example_app_config { 'england':
+regions => [ 'South East', 'London' ],
+}
+example_app_config { 'ireland':
+regions => [ 'Connacht', 'Ulster' ],
+}
+example_app_config { 'germany':
+regions => [ 'Berlin', 'Bayern', 'Hamburg' ],
+}
+...
+
+
+on pense que l'on pourrait s'en sortir en faisant ca :
+
+file { $regions:
+  path  => "/etc/example_app/conf.d.enabled/${title}/regions/${name}",
+  ensure => 'link',
+  target => "../../regions.available/${name}";
+}
+
+mais cela ne fonctionne pas : la variable $name ne fait pas reference au titre du fichier ressource déclaré
+ici cela fait juste reference a $title : le nom de la classe ou du defined (dans notre cas le nom du pays )
+
+On va devoir procéder à une écriture 
+
+define example_app_config(Array $regions = []) {
+  file { "/etc/example_app/conf.d.enabled/${name}":
+    ensure => 'link',
+    target => "../conf.d.available/${name}",
+  }
+  example_app_region { $regions:
+    country => $name,
+  }
+}
+Le defined 'externe" adapte le comportement de  example_app_config a ses besoins en passant son propre nom de resource en valeur de parametre
