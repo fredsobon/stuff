@@ -1,0 +1,38 @@
+=== notes nagios : ==
+
+
+- les checks peuvent être associés a des services :
+
+les services sont définis dans une arbo ex 
+
+cat /usr/local/nagios/etc/objects/services_lapin.cfg
+
+
+define service {
+        use                             generic-service,nagiosgraph
+        host_name                       www-lapin
+        service_description             lapin_email_connection_errors
+        is_volatile                     0
+        check_period                    24x7
+        max_check_attempts              5
+        normal_check_interval           5
+        retry_check_interval            2
+        contact_groups                  ,emergency-pager-ops
+        notification_interval           120
+        notification_period             24x7
+        notification_options            c,r
+        check_command                  check_lapin_stats!email_deliveries!--element_regex 'connection_errors' -w 10 -c 200
+}
+
+
+
+La commande elle est définie dans un fichier dédié 
+
+cat /usr/local/nagios/etc/objects/commands.cfg
+
+
+define command {
+    command_name    check_lapin_stats
+    command_line    /usr/local/nagios/libexec/check_http_json.rb -u 'https://www.lapin.fr/ap/stats/$ARG1$?api-key=blavla' $ARG2$ -t 30
+}
+
