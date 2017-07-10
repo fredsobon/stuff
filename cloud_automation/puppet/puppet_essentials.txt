@@ -1353,3 +1353,109 @@ define example_app_config(Array $regions = []) {
   }
 }
 Le defined 'externe" adapte le comportement de  example_app_config a ses besoins en passant son propre nom de resource en valeur de parametre
+
+
+= Utilisation des fonctions d'iterations =
+
+On va pouvoir utiliser les nouvelles fonctions de puppet 4 pour bloucler et créer aisement des resources :
+
+On va pouvoir créer les conf pour les pays comme ceci :
+
+[ 'england', 'ireland', 'germany' ].each |$country| {
+  file { "/etc/example_app/conf.d.enabled/${country}":
+    ensure => 'link',
+    target => "../conf.d.available/${country}",
+  }
+}
+
+
+Les regions vont pouvoir être déclarées avec un hash :
+
+$region_data = {
+  'england' => [ 'South East', 'London' ],
+  'ireland' => [ 'Connacht', 'Ulster' ],
+  'germany' => [ 'Berlin', 'Bayern', 'Hamburg' ],
+  }
+$region_data.each |$country, $region_array| {
+  $region_array.each |$region| {
+  file { "/etc/example_app/conf.d.enabled/${country}/
+  regions/${region}":
+    ensure => link,
+    target => "../../regions.available/${region}",
+    }
+  }
+
+
+}
+
+= Inclusion de classe depuis les defined =
+
+La conf précédente example_app_config est dédiée à une conf précise : on admet que le repertoire et les sous repertoire de /etc/example_app sont gérés independanemment de notre defined 
+On doit donc dans notre manifest nous assurer que des dépendances pour le defined sont gérées :
+
+file { [ '/etc/example_app', '/etc/example_app/config.d.enabled' ]:
+    ensure => 'directory',
+}
+Rajouter ce bloc dans notre defined générera une erreur si le cas est dejà pris en compte pour d'autre données . Pour que cela fonctionne il faudra mettre le bloc dans une classe par exemple example_app_config_directories et inclure cette classe dans notre defined 
+
+ex :
+
+define example_app_config(Array $regions = []) {
+  include example_app_config_directories
+...
+}
+
+= Etablissement de relations entre les élements =
+
+Les classes dans puppet sont speciales : elles n'ont ni methodes ni attributs comme dans les language classiques.
+pour permettre a puppet de gérer tout un sous systeme il faut simplement inclure une classe appropriée.
+
+- Passage d'evenements entre les classes et les defined :
+En triant toutes nos resources dans les classes on peut gérer simplement nos conf comme des collections de classes et defined .On peut donc simplement devoir inclure des classes pour nos besoins  sans specialement connaitre tout le code .Dans certains cas on peut examiner facilement les ressources ..dans d'autres les dependances sont dures à remonter.
+
+On va pouvoir dans certains  cas pouvoir s'assurer qu'une modif sur une ressource sera prise en compte et qu'une action sera faite pour s'assurer que toutes les resources dependant du changeent continueront à fonctionner normalement.
+ex : ici une modif de fichier ou de service gereront une dependance avec la classe apache via un notify ou un subscriber : 
+
+file { '/var/lib/apache2/sample-module/data01.bin':
+  source => '...',
+  notify => Class['apache'],
+}
+service { 'apache-logwatch':
+  enable => true,
+  subscribe => Class['apache'],
+}
+
+On va pouvoir adopter le meme coportement avec les defined : qui finalement pourront faire du notify / subscribe comme les ressources classiques 
+
+$active_countries = [ 'England', 'Ireland', 'Germany' ]
+  service { 'example-app':
+    enable  => true,
+    subscribe => Symlink[$active_countries],
+}
+
+Ici on va pouvoir gérer  plus facilement en permettant à l'instance de notre define de notifier le service :
+
+symlink { [ 'England', 'Ireland', 'Germany' ]:
+  notify => Service['example-app'],
+}
+
+
+Si un defined embarque une resource de type  service ou exec , il va être pratique de notifier cette instance pour rafraichir ces resources 
+ici on imagine qu'une ressource service est embarquée dans la ressource protected_service
+
+file { '/etc/example_app/main.conf':
+  source => '...',
+  notify => Protected_service['example-app'],
+}
+
+- Ordonner les containers :
+
+On peut comme avec notify et subscribe utiliser before et require pour gérer nos dépendances de resources et l'ordre 
+on peut utiliser le chaining :
+
+ex :
+
+include firewall
+include loadbalancing
+Class['firewall'] -> Class['loadbalancing']
+
