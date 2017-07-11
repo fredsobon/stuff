@@ -1459,3 +1459,66 @@ include firewall
 include loadbalancing
 Class['firewall'] -> Class['loadbalancing']
 
+On voit ici que les ressources de la classe firewall seront chargées / synchro avant les elements de la classe loadbalancing 
+
+Attention le chaining ne fonctionne qu'entre des ressources et des references ( pas entre des include)
+
+
+= Limitations : =
+On va rencontrer des limitations sur le bon sequencement des ressources  
+ex : ici le fichier de conf va dépendre de la classe apache et certainement de la classe package mais comme on ne peut pas appeller deux fois ine classe on aura une erreur.
+class apache {
+  include apache::service
+  include apache::package
+  include apache::config
+ }  
+file { '/etc/apache2/conf.d/passwords.conf':
+  source => '...',
+  require => Class['apache'],
+}
+
+On va toujours devoir faire attention aux ordres de dépendances et nous assurer que nos appels de classe sont bien positionnés.
+
+On peut utiliser deux nouvelles syntaxes pour gérer les dependances : 
+
+-> anchor : 
+
+class example_app {
+  anchor { 'example_app::begin':
+    notify => Class['example_app_config'],
+  }
+include example_app_config
+  anchor { 'example_app::end':
+    require => Class['example_app_config'],
+  }
+}
+
+
+Issu du module stdlib
+
+-> contain :
+
+Pour pallier les problemes liés au declaration d'include mulitple on peut utiliser un nouveau type créer pour faciliter cela : 
+
+class apache {
+  contain apache::service
+  contain apache::package
+  contain apache::config
+}
+
+Il faut tout de même faire attention     bien gérer nos dépendances et leur ordres.
+
+
+=  Utilisation de paramètres avec nos classes : = 
+
+class apache::config(Integer $max_clients=100) {
+  file { '/etc/apache2/conf.d/max_clients.conf':
+  content => "MaxClients ${max_clients}\n",
+  }
+}
+Avec une definition comme la précédente on pourra déclarer la classe suivante avec des parametres : 
+class { 'apache::config':
+  max_clients => 120,
+}
+
+
