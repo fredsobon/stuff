@@ -979,7 +979,7 @@ ip
 host_aliases => [ 'puppet.example.net', 'master' ],
 }
 
-== Modularization de manifests avec les classes et les defined types : ==
+== Chapitre 4 - modularization de manifests avec les classes et les defined types : ==
 
 
 = introduction aux classes et aux definied types =
@@ -1520,5 +1520,57 @@ Avec une definition comme la précédente on pourra déclarer la classe suivante
 class { 'apache::config':
   max_clients => 120,
 }
+
+Il va être possible de definir et d'appeller des class avec des param par defaut grâce aux include .
+Par contre des appels comme class { 'name': } ne pourront pas ce faire plus d'une fois dans le même manifest.
+
+On peut avoir des confs "tordues" qui peuvent mixer include avec une syntaxe alertnative 
+On va pouvoir utiliser un include avec une classe en param apres le chargement de la classe :
+
+class { 'apache::config': }
+include apache::config
+
+alors que cette conf suivante ne fonctionne pas :
+include apache::config
+class { 'apache::config': }
+
+= Preferez l'utilisation du keyword include : =
+
+A force d'utiliser des param de classes certains users peuvent oublier lmes include et proceder comme ceci :
+
+class apache {
+class { 'apache::service': }
+class { 'apache::package': }
+class { 'apache::config': }
+}
+ce qui est une mauvaise idée .
+On va toujours préférer l'utilisation de include et l'utilisation de hiera pour separer les data du code va nous aider .
+
+
+
+
+== Chapitre  5  - modules puppet : ==
+
+Toutes les ressources puppet doivent être séparée dans des classes dédiées sauf si elles ont besoin d'être une partie d'un defined
+Il va falloir organiser notre code et biensur ne pas tout ecrire dans un site.pp
+Puppet fourni une solution pour partager du code  les modules qui sont dispos par exemple sur la forge puppet.
+Le module est une organisation de haut niveau qui embarque des classes , defined , template et fichier.
+
+= parties des modules : =
+
+les modules vont embarquer un repertoire central manifest qui lui va héberger les classes , define qui vont partager un namespace dont la racine est le nom du module 
+ex : le module ntp va contenir des classes et defined qui vont commencer avec le prefix "ntp::"
+On va aussi avoir des fichier de conf .
+ex :
+file { '/etc/ntp.conf':
+  source => 'puppet:///modules/ntp/ntp.conf',
+}
+Il est possible egalement d'avoir des templates , customs facts ...
+
+= structure de module : =
+
+
+
+
 
 
