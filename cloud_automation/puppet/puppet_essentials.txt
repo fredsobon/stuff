@@ -1569,8 +1569,103 @@ Il est possible egalement d'avoir des templates , customs facts ...
 
 = structure de module : =
 
+Tous les elements du module doivent se situer dans une arbo definie pour permettre eau master de les recupérer : chaque module a une arbo dédiée et sont doc root est la racine du module lui même 
+exemple : ntp/ 
+Tous les manfiests sont stockes dans un repertoire manifests chaque class et defined dispose de son propre fichier  
+La classe ntp::package sera donc présente dans le module ntp/manifests/package.pp et le defined ntp::monitoring::nagios se trouvera dans l'arbo : 
+ntp/manifest/monitoring/nagios.pp 
+La premiere partie du nom est toujours le nom du module lui-même et le reste décrit les conf sous le repertoire manifests 
+
+
+Le fichier manifests/init.pp est special : c'est le manifest par defaut : c'est un endroit de base dans lequel toutes les conf sont examinées.
+On pourrait par defaut tout renseigner dans le fichier init.pp mais ce serait particulièrement inmaintenable.
+
+En pratique le init.pp ne doit comporter s'une seule classe : celle du module lui même :
+include ntp 
+
+Les fichiers et templates doivent être stockées dans des repertoires dédiés du module afin dêtre fournis aux clients.
+On peut donc avoir des reférences de typoe :
+
+puppet:///modules/ntp/ntp.conf
+puppet:///modules/my_app/opt/scripts/find_my_app.sh
+qui vont correspondre à des ref telles que : 
+
+.../modules/ntp/files/ntp.conf
+.../modules/my_app/files/opt/scripts/find_my_app.sh
+
+Le prefix /// du module est obligatoire  et c'est toujours comme cela qu'on presente l'uri du module.
+Le principe est le même pour les templates.
+
+Finalement tous les plugins sont placés  dans le repertoire /lib.
+Les facts ruby sont dans lib/facter .
+Les fonctions de parsing sont placées dans lib/puppet/parser/functions/
+Les custom resources types et providers dans lib/puppet/type/ et lib/puppet/provider/
+
+Arbo type :
+
+/opt/puppetlabs/code/environments/production/modules/my_app
+templates # templates are covered in the next chapter
+files
+  subdir1 # puppet:///modules/my_app/subdir1/<filename>
+  subdir2 # puppet:///modules/my_app/subdir2/<filename>
+subsubdir # puppet:///modules/my_app/subdir2/subsubdir/...
+manifests
+  init.pp # class my_app is defined here
+  params.pp # class my_app::params is defined here
+  config
+  detail.pp # my_app::config::detail is defined here
+  basics.pp # my_app::config::basics is defined here
+lib
+facter # contains .rb files with custom facts 
+puppet
+  functions # contains .rb files with Puppet 4 functions 
+  parser
+    functions # contains .rb files with parser functions 
+  type   # contains .rb files with custom types 
+  provider # contains .rb files with custom providers
 
 
 
+= Documentation : =
+Tous les modules doivent comporter de la documentation. il y a des best practices : https://docs.puppetlabs.com/puppet/
+latest/reference/modules_publishing.html."
+
+De base on doit avoir un fichier README à la racine du module . C'est souvent en markdown.
+On peut aussi documenter nos modules directement dans les manifests :
+ex  :
+# Class: my_app::firewall
+#
+# This class adds firewall rules to allow access to my_app.
+#
+# Parameters: none
+class my_app::firewall {
+# class code here
+}
+
+On peut générer de la doc en html y compris la navigation avec la commande puppet doc
+
+voir puppet help doc 
+
+= Maintien des environment : =
+Puppet n'organise pas tout sous forme de module mais peut egalement le faire à un niveau plus elevé : appellé environment qui regroupe et contient des modules.
+
+Un environment comporte au moinyts :
+-> un ou des fichiers de manifest 
+-> un repertoire module
+-> un fichier optionnel environment.conf
+
+Quand le master compile le catalogue il utilise toujours un environment et commence toujours par manifests/*.pp
 
 
+/opt/puppetlabs/code/environments
+production
+  environment.conf
+  manifests
+    site.pp
+    nodes.pp
+  modules
+    my_app
+    ntp
+
+
+le fiichier environment.con peut customiser les environments : normalement puppet utilise site.pp ou les fichiers dans manifests/*.pp 
