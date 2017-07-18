@@ -1654,7 +1654,7 @@ Un environment comporte au moinyts :
 -> un repertoire module
 -> un fichier optionnel environment.conf
 
-Quand le master compile le catalogue il utilise toujours un environment et commence toujours par manifests/*.pp
+Quand le master compile le catalogue pour un node il utilise toujours un environment et commence toujours par manifests/*.pp
 
 
 /opt/puppetlabs/code/environments
@@ -1668,4 +1668,92 @@ production
     ntp
 
 
-le fiichier environment.con peut customiser les environments : normalement puppet utilise site.pp ou les fichiers dans manifests/*.pp 
+le fichier environment.con peut customiser les environments : normalement puppet utilise site.pp ou les fichiers dans manifests/*.pp 
+on peut customiser les appels et definir des conf alternatives en modifiant le fichier : 
+# /opt/puppetlabs/code/environments/production/environment.conf
+manifest = puppet_manifests
+
+Normalement on a pas a toucher a ce fichier.
+
+Le fichier site.pp va inclure les classes et instancier les defined des modules.Puppet de base examine les sous repertoires des modules.
+On peut définir une conf particulière en modifiant le fichier environment.conf dans lequel puppet cherchera des conf supplementaires :
+
+# /opt/puppetlabs/code/environments/production/environment.conf
+modulepath = modules:site-modules
+On peut donc avoir une structure comme celle-ci ou l'on voit la conf additionnelle de notre conf module site-modules :
+
+/opt/puppetlabs/code/environments/
+production
+  manifests
+  modules
+   ntp
+  site-modules
+   my_app
+
+
+= Configuration de l'environment : =
+
+par defaut puppet utilise l'environment production par defaut.
+que l'on peut trouver dans opt/puppetlabs/code/environments
+
+il et possible de définir des paths  différents en overridant le fichier puppet.conf :
+[main]
+environmentpath = /etc/local/puppet/environments
+Les versions antérieures à puppet 4 nécéssitaient une conf dediée comme pour les modules 
+
+# in puppet.conf (obsolete since 4.0)
+[testing]
+manifest = /etc/puppet/environments/testing/manifests
+modulepath = /etc/puppet/environments/testing/modules
+
+Pour l'environment "special" production puppet utilise les sections manifest et modulepath des conf [master] ou [main]
+
+
+= Recupération et installation de modules : =
+
+On peut facilement récupérer des modules puppet depuis la forge comme on le fait avec les gem ruby et les modules cpan de perl.
+On va pouvoir utiliser la commande :
+puppet module install puppetlabs-stdlib
+
+on a l'auteur du module et le nom du module : auteur-nommodule :  puppetlabs-stdlib 
+
+L'installation se fera par defaut dans le rep situé dans la conf modulepath
+générallement environments/production/modules
+
+Nb :le module stdlib est un "prerequi" module essentiel qui contient bon nombre  de fonctions utiles.
+
+
+= Best practices pour modules : =
+
+On doit prendre pour habitude de travailler dans des modules .
+Dans les vieilles versions de puppet on pouvait trouver tout le code dans un fichier site.pp et l'utilisation du keyword import permettait de charger la conf : import n'existe plus et ces conf on connues d'enormes souci de scalabilité.
+Desormais il est plus simple de définir un appel en declarant précisemment notre classe : include ntp::server::component::watchdog
+puppet va examiner le module ntp de l'environment actuel et va essayer de trouver la conf dans  ntp/manifests/server/component/watchdog.pp si c'est un echec il va esayer dans ntp/manifests/init.pp
+
+Proscrire  la généralisation : chaque module doit être dédié à une fonctionalité particulière (apache, user, ntp, nagios, ssh ...)
+
+Test de modules :
+il va être fondamentral de tester nos modules  afin d'eviter un carnage sur notre parc si des modules centraux comme ssh sont cassés.
+
+On va donc créer des environments dédiés pour tester tranquillement.
+On va pouvoir au même niveau que production créer un environment testing par ex.
+(on le crée dans le rep défini dans "environmentpath" )
+
+Un env de test est fondamental : tous les modules seront testés puis pousser dans l'environment de production une fois ok
+pour tester on peut donc faire un appel dédié à notre environnement créée :
+puppet agent --test --noop --env testing
+
+
+On va pouvoir tester plus completement les modules avec :
+
+rspec-puppet http://rspec-puppet.com/
+et 
+beaker https://github.com/puppetlabs/beaker/wiki/How-To-Beaker
+
+= Creation d'un module specific : =
+
+
+
+
+
+
