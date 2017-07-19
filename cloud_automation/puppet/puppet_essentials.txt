@@ -1827,4 +1827,83 @@ class cacti($redirect = true ) {
 Si le site web heberge d'autre vhost que cacti il faudra donc bypasser cet appel en définissant les appels comme tels par exemple ;
 class { 'cacti': redirect => false }
 
+En best practice on s'assure que le process d'install utilise sa propre classe : on va donc séparer notre code.
+On va utiliser le keyword contain :
+
+class cacti( $redirect = true ) {
+  contain cacti::install
+    if $redirect {
+      contain cacti::redirect
+    }
+}
+
+
+Il est importzaant d'utiliser le keyword contain pour solidifier notre config
+On va donc placer notre install dans un manifest dédié :
+
+
+# .../modules/cacti/manifests/install.pp
+class cacti::install {
+  package { 'cacti':
+    ensure => 'installed'
+  }
+}
+
+Sous debian l'install de cacti génere aussi la cration d'un fichier dans  l'arbo d'apache 
+On va donc créer une ressource de typoe file pour s'assurer que cette conf sera toujours présente sur notre node :
+
+# .../modules/cacti/manifests/config.pp
+class cacti::config {
+  file { '/etc/apache2/conf.d/cacti.conf':
+    mode => '0644',
+    source => '/usr/share/doc/cacti/cacti.apache.conf'
+  }
+}
+
+
+On a donc créer differentes classe pour bien compartimenter notre module
+LE souci avec cacti s'est qu'une enorme partie de la config se passe via la web app ou on doit selectionner les servers et les graphs à ajouter.
+
+On va pouvoir être aider avec puppet et les defined type : chaque machine dans la conf cacti sera une instance de notre defined type.
+On doit toujours se demander comment gérer les actions en cli, si une api est dispo .
+
+Cacti fourni des script en cli disponibles sous debian dans /usr/share/cacti/cli 
+Le but étant d'utiliser des defined embarquant les commandes en cli pour toujours avoir nos confs de déterminées.
+
+On va donc dans un premier temps créer une classe pour gérer l'ajout de devices dans cacti :
+On va donc créer un defined qui prend en param une ip et settera le nom du device aussi 
+
+# .../modules/cacti/manifests/device.pp
+define cacti::device ($ip) {
+  $cli = '/usr/share/cacti/cli'
+  $options = "--description='${name}' --ip='${ip}'"
+  exec { "add-cacti-device-${name}":
+    command => "${cli}/add_device.php ${options}",
+    require => Class['cacti'],
+}
+
+On note ici qu'on utilise le $name aussi dans le nom de l'exec pour assurer qu'il n'y a pas de doublons dans la creation du device 
+
+On note qu'il va falloir améliorer notre ressource : car actuellement l'exec se lancera a chaque run : hors on ne veut l'exec que si le device n'existe pas déja :
+
+$search = "sed 1d | cut -f4- | grep -q '^${name}\$'"
+exec { "add-cacti-device-${name}":
+  command => "${cli}/add_device.php ${options}",
+  path => '/bin:/usr/bin',
+  unless => "${cli}/add_graphs.php --list-hosts | ${search}",
+  require => Class[cacti],
+}
+
+On va ici protéger le $ (\$) pour permettre une recherche litterale du terme :
+
+On va donc maintenant pouvoir tester sur un node :
+
+# in manifests/nodes.pp
+node 'agent' {
+  include cacti
+    cacti::device { 'Puppet test agent (Debian 7)':
+    ip => $ipaddress,
+    }
+}
+
 
