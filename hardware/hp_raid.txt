@@ -1,0 +1,31 @@
+== notes sur gestion de raid pour server hp : =
+
+
+Plusieurs utilitaires existent : les fonctionnements restent identiques
+
+
+- Ajout de 2 disques physiques sur un controller :
+ex : 
+hpssacli ctrl slot=0 logicaldrive 2 add drives=2I:1:5,2I:1:6
+
+- Prise en compte et agrandissement du volume raid lié à l'ajout de deux nouveaux disques :
+hpssacli ctrl slot=0 ld 2 modify size=max
+controle : 
+hpssacli ctrl all show config detail
+
+Notes d'historique : attention /!\ 0 garantie  
+
+- blkid
+- lsblk
+- pvdisplay
+- echo 1 > /sys/class/scsi_device/0\:0\:0\:1/device/rescan
+- pvresize /dev/sdb 
+- vgdisplay 
+- vgextend vg1 /dev/sdb
+- lvextend -L +100%FREE /dev/vg1/mountpoint
+- resize2fs /dev/vg1/mountpoint
+- fdisk -l /dev/sdb
+- partx -v -a /dev/sdb
+- echo "- - -" > /sys/class/scsi_host/host0/scan
+- echo "- - -" > /sys/class/scsi_host/host1/scan
+
