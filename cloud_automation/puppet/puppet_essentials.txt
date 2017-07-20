@@ -1862,7 +1862,7 @@ class cacti::config {
 
 
 On a donc créer differentes classe pour bien compartimenter notre module
-LE souci avec cacti s'est qu'une enorme partie de la config se passe via la web app ou on doit selectionner les servers et les graphs à ajouter.
+Le souci avec cacti s'est qu'une enorme partie de la config se passe via la web app ou on doit selectionner les servers et les graphs à ajouter.
 
 On va pouvoir être aider avec puppet et les defined type : chaque machine dans la conf cacti sera une instance de notre defined type.
 On doit toujours se demander comment gérer les actions en cli, si une api est dispo .
@@ -1870,7 +1870,7 @@ On doit toujours se demander comment gérer les actions en cli, si une api est d
 Cacti fourni des script en cli disponibles sous debian dans /usr/share/cacti/cli 
 Le but étant d'utiliser des defined embarquant les commandes en cli pour toujours avoir nos confs de déterminées.
 
-On va donc dans un premier temps créer une classe pour gérer l'ajout de devices dans cacti :
+On va donc dans un premier temps créer un defined pour gérer l'ajout de devices dans cacti :
 On va donc créer un defined qui prend en param une ip et settera le nom du device aussi 
 
 # .../modules/cacti/manifests/device.pp
@@ -1884,7 +1884,7 @@ define cacti::device ($ip) {
 
 On note ici qu'on utilise le $name aussi dans le nom de l'exec pour assurer qu'il n'y a pas de doublons dans la creation du device 
 
-On note qu'il va falloir améliorer notre ressource : car actuellement l'exec se lancera a chaque run : hors on ne veut l'exec que si le device n'existe pas déja :
+On note qu'il va falloir améliorer notre ressource : car actuellement l'exec se lancera a chaque run : hors on ne veut l'exec que si le device n'existe pas déja : on va utiliser un filtrage --list-hots de cacti qui va renvoyer une liste de device sur une ligne ..on n'executera l'exec : add_device.php que si le device n'existe pas dans cacti.
 
 $search = "sed 1d | cut -f4- | grep -q '^${name}\$'"
 exec { "add-cacti-device-${name}":
@@ -1896,7 +1896,7 @@ exec { "add-cacti-device-${name}":
 
 On va ici protéger le $ (\$) pour permettre une recherche litterale du terme :
 
-On va donc maintenant pouvoir tester sur un node :
+On va donc maintenant pouvoir tester sur un node en rajoutant cette conf :
 
 # in manifests/nodes.pp
 node 'agent' {
@@ -1905,5 +1905,106 @@ node 'agent' {
     ip => $ipaddress,
     }
 }
+
+Lorsque qu'on lance un run puppet va nous notifier de la creation d'un device , au second run il ne se passera rien car la ressource existe déja.
+
+
+= Customisation : =
+
+Le script add_device.php permet au user de définir finement bon nombre de paramètres.
+Chaque device embarque une methode ping qui utilise le tcp. On va pouvoir overrider cette conf par defaut 
+define cacti::device(
+  $ip,
+  $ping_method='icmp')
+  {  
+$cli = '/usr/share/cacti/cli'
+$base_opt = "--description='${name}' --ip='${ip}'"
+$ping_opt = "--ping_method=${ping_method}"
+$options = "${base_opt} ${ping_opt}"
+$search = "sed 1d | cut -f4- | grep -q '^${name}\$'"
+  exec { "add-cacti-device-${name}":
+    command => "${cli}/add_device.php ${options}",
+    path => '/bin:/usr/bin',
+    unless => "${cli}/add_graphs.php --list-hosts | ${search}",
+      require => Class[cacti],
+  }
+}
+Le module va utiliser icmp par defaut : la valeur sera toujours passée au script en cli que l'instance soit passée à cacti:device ou non 
+On va donc pouvoir si on travaille tous les param possibles construire une api pour cacti qui va facilement nous aider.
+
+= Suppresssion des éléments non désirables : =
+
+Il reste un élement sur lequel se pencher : il n'y a pas de scripts pour supprimer des devices créer (certains scripts hores communauté cacti existent bien cependant)
+On va essayer de pallier ce problème :
+
+On va ajouter un fichier dans l'arbo file du module cacti :
+
+
+file { '/usr/share/cacti/cli/remove_device.php':
+  mode => 755,
+  source => 'puppet:///modules/cacti/usr/share/cacti/cli/
+  remove_device.php',
+  require => Package['cacti'],
+}
+
+On va donc passer un attibut ensure au manifest cacti:device :
+
+define cacti::device(
+  $ensure='present',
+  $ip,
+  $ping_method='icmp')
+{
+$cli = '/usr/share/cacti/cli'
+$search = "sed 1d | cut -f4- | grep -q '^${name}\$'"
+case $ensure {
+  'present': {
+  # existing cacti::device code goes here
+  }
+  'absent': {
+    $remove = "${cli}/remove_device.php"
+    $get_id = "${remove} --list-devices | awk -F'\\t' '\$4==\"${name}\" { print \$1 }'"
+    exec { "remove-cacti-device-${name}":
+      command => "${remove} --device-id=\$( ${get_id} )",
+      path => '/bin:/usr/bin',
+      onlyif => "${cli}/add_graphs.php --list-hosts |
+       ${search}",
+      require => Class[cacti],
+      }
+    }
+  }
+}
+
+ici on va devoir recupérer l'id du device à supprimer : c'est ce que l'on fait avec --list-devices
+On a ici des caractères protégés (pour awk et une identation incorrecte ..ne pas tenir compte du code )
+
+= Augmentation de complexité : =
+L'ajout de graphs est plus complexe ,la sortie du script de cacti add_graphs.php ayant besoin d'id ..
+
+En gros la sortie /definition doit être comme ceci :
+
+#!/bin/bash
+DEVICE_DESCR=$1
+GRAPH_DESCR=$2
+DEVICE_ID=` #scriptlet to retrieve numeric device ID`
+GRAPH_ID=` #scriptlet to retrieve numeric graph ID`
+GRAPH_TYPE=`#scriptlet to determine the graph type`
+/usr/share/cacti/cli/add_graphs.php \
+--graph-type=$GRAPH_TYPE \
+--graph-template-id=$GRAPH_ID \
+--host-id=$DEVICE_ID
+
+Avec ceci on peut tenter d'ecrire :
+
+define cacti::graph($device,$graph=$name) {
+  $add = '/usr/local/bin/cacti-add-graph'
+  $find = '/usr/local/bin/cacti-find-graph'
+  exec { "add-graph-${name}-to-${device}":
+    command => "${add} '${device}' '${graph}'",
+    path => '/bin:/usr/bin',
+    unless => "${find} '${device}' '${graph}'",
+  }
+}
+
+
 
 
