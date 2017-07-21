@@ -2005,6 +2005,31 @@ define cacti::graph($device,$graph=$name) {
   }
 }
 
+On voit ici qu'on utilise un autre script : "cacti-find-graph" et que l'on va donc pouvoir gérer cacti via puppet grace à une multitude de possibilités de config.
 
+= Amelioration de l'agent via les plugins : =
+On va pouvoir utiliser différents plugins qui ne sont souvent des facts, parsers, resources types et providers 
+Actuellement tous ces plugins sont présents dans les arbos de modules  sur le master et sont synchro sur les agents . les parsers  ne sont pas utilisés par les agents par contre les facts et les resources font le gros de leur job sur les agents.
+
+Ici on devoir utiliser des connaissances ruby (biensouvent l'utilisation de manifest et de modules sur la forge suffisent)
+On va devoir créer nos plugins si les performances deviennent un sujet qu'il faut optimiser : dans le cas de cacti si puppet doit executer des dizaines de script php ..on peut vie être submerger 
+On va considérer un provider qui va créer une liste de device à l'initialisation : un seul script php sera lancer et le gros du job sera executé par du code ruby.
+
+Remplacement d'un defined type par un native type :
+
+Cette implémentation n'est pas simple et on va decouper les taches à effectuer :
+
+-> nommer la ressource : 
+il n'y a pas de regle particulière a respecter : il faut juste s'assurer de rester logique et ne pas utiliser de termes trop génériques pour eviter d'eventuels problemes.
+On part ici sur cacti_device 
+On doit ecrire notre type dans cacti/lib/puppet/type/cacti_device.rb  :
+Puppet::Type.newtype(:cacti_device) do
+  @doc = <<-EOD
+    Manages Cacti devices.
+  EOD
+end
+
+
+NB :@doc est obligatoire et on remplit la section entre EOD et EOD et end par notre code.
 
 
