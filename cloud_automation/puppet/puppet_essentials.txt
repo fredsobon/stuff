@@ -2008,12 +2008,12 @@ define cacti::graph($device,$graph=$name) {
 On voit ici qu'on utilise un autre script : "cacti-find-graph" et que l'on va donc pouvoir gérer cacti via puppet grace à une multitude de possibilités de config.
 
 = Amelioration de l'agent via les plugins : =
-On va pouvoir utiliser différents plugins qui ne sont souvent des facts, parsers, resources types et providers 
+On va pouvoir utiliser différents plugins qui  sont souvent des facts, parsers, resources types et providers 
 Actuellement tous ces plugins sont présents dans les arbos de modules  sur le master et sont synchro sur les agents . les parsers  ne sont pas utilisés par les agents par contre les facts et les resources font le gros de leur job sur les agents.
 
 Ici on devoir utiliser des connaissances ruby (biensouvent l'utilisation de manifest et de modules sur la forge suffisent)
-On va devoir créer nos plugins si les performances deviennent un sujet qu'il faut optimiser : dans le cas de cacti si puppet doit executer des dizaines de script php ..on peut vie être submerger 
-On va considérer un provider qui va créer une liste de device à l'initialisation : un seul script php sera lancer et le gros du job sera executé par du code ruby.
+On va devoir créer nos plugins si les performances deviennent un sujet qu'il faut optimiser : dans le cas de cacti si puppet doit executer des dizaines de script php ..on peut vite être submergé.
+On va considérer un provider qui va créer une liste de device à l'initialisation : un seul script php sera lancé et le gros du job sera executé par du code ruby.
 
 Remplacement d'un defined type par un native type :
 
@@ -2031,5 +2031,307 @@ end
 
 
 NB :@doc est obligatoire et on remplit la section entre EOD et EOD et end par notre code.
+
+-> creation de l'interface de la resource type :
+On doit avoir la proprieté ensure 
+En utilisant une methode embarqué puppet nommée ensurable dans le corps de notre type , on va pouvoir ajouter le proprieté ensure . Cette ligne est la seule nécéssaire dans le code du type.
+La plupart des proprietes et param ont besoin de plus de code : comme le param ip :
+
+require 'ipaddr'
+  newparam(:ip) do
+    desc "The IP address of the device."
+    isrequired
+    validate do |value|
+      begin
+        IPAddr.new(value)
+      rescue ArgumentError
+        fail "'#{value}' is not a valid IP address"
+      end
+    end
+  munge do |value|
+    value.downcase
+  end
+end
+
+Le  paaram est maintenant dispo pur cacti_device et un controle de validité d'ip sera fait pour ajouter un device
+
+-> design de hook de param sensibles :
+Si on examine les param de ping_method : les valeurs acceptées sont assez limitées 
+
+newparam(:ping_method) do
+  desc "How the device's reachability is determined.
+  One of `tcp` (default), `udp` or `icmp`."
+  validate do |value|
+    [ :tcp, :udp, :icmp ].include?(value.downcase.to_sym)
+  end
+  munge do |value|
+    value.downcase.to_sym
+  end
+  defaultto :tcp
+end
+Si on examine les bocks munge on voit qu'il unifient les  donner : c'est moins grave quand il s'agit de param que de propriétes ..mais si dans une nouvelle version de cacti il ya des modif ont va peut etre voir que la synchro de ping_method ne se fera pas de tcp à TCP 
+
+-> utilisation des resources  names :
+chaque resource puppet doit declarer un nom de variable (namevar) . ce param va utiliser le nom de la resource dans le manifest comme valeur si le param n'est pas defini dans la resource
+
+ex 
+
+exec { '/bin/true': }
+# same effect:
+exec { 'some custom name': command => '/bin/true' }
+
+Pour marquer le nom d'un param existant comme le nom d'une variable ; on peut utiliser la methode isnamevar dans le body des params . Si un type a un param appellé name , il devient automatiquement le nom de la variable : c'est plus safe.
+
+-> ajout d'un provider :
+
+notre ressource type est pret pour l'action mais il manque un provider pour faire le job d'inspection du system et de  faire la synchro. 
+Il faut tout d'abord le nommer : on va devoir le nommer en precisant pour quel ressource type notre provider est fait. On doit aussi preciser le type de managment qu'il gere : dans notre cas c'est pour gerer cacti en cli  on va donc preciser cli . Au cas ou le provider gere plusieurs methode il est bien de faire partager un nom pour identifier clairement .
+
+On va donc creer un skelette dans l'arbo suivante : 
+cacti/lib/puppet/provider/cacti_device/cli.rb :
+Puppet::Type.type(:cacti_device).provide(
+  :cli,
+  :parent => Puppet::Provider
+  ) do
+end
+
+La specification :parent => Puppet::Ptovider n'est pas obligatoire dans le sens ou pour l'instance c'est la classe par defaut des providers. Si on declare plusieurs providers ceux ci devront comporter le même type de déclaration.
+On pourra vouloir créer une base de provider 
+
+On voit ici qu'on declare la methode cli , on va devoir déclarer les differentes commandes dont on va avoir besoin :
+
+-> declaration des differentes commandes de managment :
+on va donc utiliser la methode command pour binder sur nos differents executables pour les identifiants ruby :
+
+commands :php => 'php'
+commands:add_device =>'/usr/share/cacti/cli/add_device.php'
+commands:add_graphs =>'/usr/share/cacti/cli/add_graphs.php'
+commands:rm_device =>'/usr/share/cacti/cli/remove_device.php'
+
+On invoque pas  php directement ici , c'est inclu directement  
+on peut appeller les commands via une methode générique
+le provider se considerera lui même valid uniquement pour les commandes trouvées 
+Donc si le php cli n'est pas trouvé dans le path puppet : le provider est considérer comme non fonctionnel : le user trouvera rapidement la cause en lancant un debug puppet.
+
+-> implementation du fonctionnement basique :
+
+Le fonctionnement de notre provider peut donc être implementer pour trois methodes  : ces methodes sont donc correspondant a ce qui a été flagguées a ensurable dans notre type
+
+Tout d'abord la methode de creation de resource  si elle n'existe pas encore . On doit recupérer tous les params de la resources et construire un appel à add_device.php 
+
+def create
+ args = []
+ args << "--description=#{resource[:name]}"
+ args << "--ip=#{resource[:ip]}"
+ args << "--ping_method=#{resource[:ping_method]}"
+ add_device(*args)
+end
+
+Attention il ne faut pas quotter les resources : c'est automatique et on aurait une erreur sinon.
+
+On doit pouvoir detruire une entité egalement :
+def destroy
+ rm_device("--device-id=#{@property_hash[:id]}")
+end
+
+la variable property_hash est une instance membre du provider . Chaque resource a son provider d'instance specific 
+On va finalement ajouter une derniere methode de provider pour implementer la propriéte ensure : c'est une methode de requete pour determiner si une resource est deja presente 
+
+def exists?
+  self.class.instances.find do |provider|
+    provider.name == resource[:name]
+  end
+end
+
+La propriete ensure s'appuie sur la methode instances pour avoir une liste des entités de providers sur le system . Il compare chacun d'eux avec l'attribut de resource  qui est le type de resource instance pour lequel il fonctionne 
+
+
+-> permettre au provider de recuperer(prefetch) les resources existantes :
+
+La methode instances est speciale et implemente un recuperation des  resources au demarrage de l'initialisation du system : on doit ajouter cette methode au provider lui même .
+Certains sous systems ne sont pas adapter pour le mass prefetching methode : ex les fichiers qui n'ont donc pas de methode instances.
+Enumérer les devices cacti est possible :
+
+def self.instances
+  return @instances ||= add_graphs("--list-hosts").
+  split("\n").
+  drop(1).
+  collect do |line|
+    fields = line.split(/\t/, 4)
+    Puppet.debug "prefetching cacti_device #{fields[3]} " +
+                 "with ID #{fields[0]}"
+    new(:ensure => :present,
+      :name => fields[3],
+      :id => fields[0])
+  end
+end
+
+
+
+La valeur ensure  de l'instance du provider reflete l'etat actuel . La methode cree une instance  pour les resources qui ne sont pas trouvées sur le systeme , pour celle-ci la valeur est toujours present 
+Nb le resultat de la methode est caché dans la variable @instances class member : c'est important car la methode exists? appelle la methode instances :ce qui peut être fait tres souvent.
+
+Pupppet dispaose d'une autre methode pour faire du mass prefetch : ce qu'on a fait fourni a l'agent une list d'instances de provider trouvés sur le systeme . L'agent recoit egalement depuis le master une liste de ressources de type instances 
+Puppet n'a cependant pas  construit de relation entre les ressources et les providers : on doit ajouter une methode prefecth a la classe du provider pour permettre a ceci d'arriver 
+
+
+def self.prefetch(resources)
+  instances.each do |provider|
+    if res = resources[provider.name]
+      res.provider = provider
+    end
+  end
+end
+
+L'agent passe la resource cacti_device comme un hash avec le nom de la resssource comme clé : ceci permet un lookup rapide et simple 
+Tout est complet : on peut donc maintenant remplacer notre caci::device par cacti_device pour voir les diff de performances :
+
+node 'agent' {
+include cacti
+  cacti_device { 'Puppet test agent (Debian 7)':
+    ensure => present,
+    ip => $ipaddress,
+  }
+}
+
+NB que comme notre defined cacti::device , notre native type ne prend pas de valeur par defaut a present pour la propriete ensure : on doit donc le specifier pour toutes les ressources cacti_device : sinon puppet ne gere que les ressource dejà existantes 
+
+
+
+-> Amelioration de la robustesse pendant le provisioning :
+
+On a encore un reglage a faire : en effet durant le premier run : puppet ne disposera pas du package cacti et du cli : l'agent ne trouvera donc pas le provider cli fonctionnel 
+Pour le defined on a juste ajouter un param require dans les ressources . Pour notre native type on va pouvoir utiliser autorequire .
+En rajoutant ce bloc dans notre cacti_device c'a fait l'affaire :
+
+autorequire :package do
+  catalog.resource(:package, 'cacti')
+end
+
+
+= Amelioration de la connaissance system avec les facts : =
+
+Les facts font partie des plugins qu'un module peut comporter . Ils appartiennent à l'arbo lib/facter/
+Pour les utilisateurs du module cacti il peut être interressant de connaitre tous les templates de graphs dispos 
+La liste complete peut être fournies par un fact : 
+cacti/lib/facter/cacti_graph_templates.rb
+
+Facter.add(:cacti_graph_templates) do
+  setcode do
+    cmd = '/usr/share/cacti/cli/add_graphs.php'
+  Facter::Core::Execution.exec("#{cmd} --list-graph-templates").
+    split("\n").
+    drop(1).
+    collect do |line|
+      line.split(/\t/)[1]
+    end
+  end
+end
+
+Ce code va appeller le script cli , supprimer la prmiere ligne de sortie et ajouter les valeurs de la seconde colonne pour chaque ligne restant dans la liste 
+Les manifests peuvent acceder a cette list avec une variable globale $cacti_graph_templates comme pour un autre fact.
+
+= Amelioration de l'interface de notre module a l'aide de fonctions : =
+Il est interressantr d'utiliser des fonctions qui peuvent rendre nos modules facile d'usage et à maintenir 
+Comme pour les plugins , les fonctions  n'ont pas a etre definies : elles sont de base disponibles pour tous les manifests 
+Pour notre module on va pouvoir utiliser des check de validation ( fonction internes à puppet) , afin de verifier la validité d'une ip fournie par ex .
+
+
+module Puppet::Parser::Functions
+ require 'ipaddr'
+ newfunction(:cacti_canonical_ip, :type => :rvalue) do |args|
+   ip = args[0]
+   begin
+     IPAddr.new(ip)
+   rescue ArgumentError
+    raise "#{@resource.ref}: invalid IP address '#{ip}'"
+   end
+  ip.downcase
+  end
+end
+
+dans le message d'exeption @resource.ref on aura un texte de la ressource de  type ex :Cacti::Device[Edge Switch 03]
+On pourra donc avoir un ex d'utilisation de la fonction dans  une version simple de cacti::device sans la presence du ensure en param :
+
+define cacti::device($ip) {
+  $cli = '/usr/share/cacti/cli'
+  $c_ip = cacti_canonical_ip(${ip})
+  $options = "--description='${name}' --ip='${c_ip}'"
+  exec { "add-cacti-device-${name}":
+    command => "${cli}/add_device.php ${options}",
+    require => Class[cacti],
+  }
+}
+
+on aura une eerreur de compilation par ex si notre ip mal transposée dans le texte est de type : 
+ip => '912.168.12.13'
+
+Dans puppet 4 une nouvelle api est introduite pour la gestion de fonctions personnalisées.
+
+= Permettre la portabilité des modules sous differentes plateformes : =
+
+Ici notre module est valable en l'etat pour debian 
+En testant l'install sous red-hat on a deja une modif :
+/var/lib/cacti/cli au lieu de  /usr/share/cacti/cli .
+
+On va permettre une conf dédiée dans param :
+
+# .../cacti/manifests/params.pp
+class cacti::params {
+  case $osfamily {
+    'Debian': {
+      $cli_path = '/usr/share/cacti/cli'
+    }
+    'RedHat': {
+      $cli_path = '/var/lib/cacti/cli'
+    }
+    default: {
+      fail "the cacti module does not yet support the ${osfamily} platform"
+    }
+  }
+}
+On va donc preferer avoir unc compilation en erreur pour les clients dont le module n'est pas supporter : afin de directement supprimer l'appel à la classe cacti (ex gentoo, bsd ..)
+Les class qui ont besoin d'acceder a des valeur de variable vont devoir inclure l'appel a la classe param :
+
+class cacti::install {
+  include cacti::params
+  file { 'remove_device.php':
+    ensure => file,
+    path => "${cacti::params::cli_path}/remove_device.php',
+    source => 'puppet:///modules/cacti/cli/remove_device.php',
+    mode => '0755',
+  }
+}
+
+On va devoir effectuer des modif pour la classe redirect egalement : on va pouvoir ajouter des variables  dans param egalement 
+
+class cacti($redirect = ${cacti::params::redirect})
+  inherits cacti::params{
+  # ...
+}
+
+On va souvent voir la classe param héritée au lieu de inclue 
+
+L'include ne permet pas l'utilisation de variables donc par ex l'utilisation de variables par defaut comme $redirect dans notre exemple 
+
+Il est prevu a terme (puppet 4 dans nos exemple n'est pas concerné ) de pouvoir binder dans params par defaut sans devoir passer par une class param
+
+
+= Trouver des modules utiles sur la forge puppet : =
+
+L'utilisation de http://forge.puppetlabs.com est directe et efficace.
+On va pouvoir ce fier au score, num de version, nombre de download 
+On peut aussi se fier rapidement aux modules : puppet supported et puppet approved 
+
+On va lire le README du module qui va nous expliquer les grandes lignes 
+Les tests unitaires sont aussi un bon element sur la qualité du module.
+
+
+Tout le developpement dans puppet doit se faire dans les modules qui doivent avoir un role specific 
+
+
+
+== Chapitre 6 - Augmentation du niveau de connaissance et utilisation d'outils : == 
+
 
 
