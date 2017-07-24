@@ -2334,4 +2334,95 @@ Tout le developpement dans puppet doit se faire dans les modules qui doivent avo
 == Chapitre 6 - Augmentation du niveau de connaissance et utilisation d'outils : == 
 
 
+= Template : =
+Les templates sont une alternative pour gérer les  fichiers de conf ou tout autre fichier.
+On peut avoir besoin de specifier des conf dédiées pour certains nodes etc...
+ex : pour apache la directive Maxclient depend du hardware et des caracteristiques du site web : il serait donc imopssible de preparer a l'avance tout une sorte de fichiers plats pour matcher nos besoins.
+
+- Apprentissage de la syntaxe :
+La conf se fait avec les fichiers de template de type ERB 
+ex on va pouvoir ecrire trois fichiers hello world de la sorte :
+<% ( 1 .. 3 ).each do %>
+Hello, world!
+<% end %>
+
+Pour inclure des valeurs dynamiques ont va inclure des tag de type <%=tag 
+<% ( 1 .. 3 ).each do |index| -%>
+Hello, world #<%= index %> !
+<% end -%>
+
+Maintenant la valeur de l'iterateur fait partie de la ligne de sortie . On peut aussi utiliser des membre de variables en utilisant @
+Ces variables sont peuplées par les valeurs des variables des manifests puppet :
+
+<IfModule mpm_worker_module>
+ServerLimit  <%= @apache_server_limit %>
+StartServers <%= @apache_start_servers %>
+MaxClients   <%= @apache_max_clients %>
+</IfModule>
+<% @apache_ports.each do |port| -%>
+Listen <%= port %>
+NameVirtualHost *:<%= port %>
+<% end -%>
+
+Les variables des manifests doivent être utilisées dans le même scope ou les même scope que le template est utilisé.
+On peut utiliser les variables dans les templates de plusieurs manières
+
+-> @ : en prefixant la variable avec un @ on s'assure que la variable est globale et qu'elle est définie dans la même classe que le template est utilisé.
+-> en utilisant la fonction :scope.lookupvar('variablewithscopename')  : on est capable de récupérer les variables de toutes les classes au sein d'un même module.
+NB : ne pas utiliser dans un autre module car on a la la creation d'une dépendance invisible.
+-> en utilisant la syntaxe : scope['variablewithscope']
+
+- Template en pratique : 
+
+Les  template sont placés dans un repertoire dédié dans les modules : ex : modules/templates
+La fonction template va permettre de les localiser 
+ex :template('cacti/apache/cacti.conf.erb') 
+dans ce cas on analyse le contenu de  modules/cacti/templates/apache/cacti.conf.erb
+Cette fonction est souvent utilisée pour la creation d'une ressource de type fichier :
+
+file { '/etc/apache2/conf.d/cacti.conf':
+content => template('cacti/apache/cacti.conf.erb'),
+}
+
+Les templates attendent que des variables soinet definies dans leur scope : le plus simple est d'embarquer la ressource  file dans un container de paramètres.
+Les fichiers sont des singletons 
+Les applis comme logrotate ou apache sont souvent des bon exemples :
+
+define logrotate::conf(
+String $pattern,
+Integer $max_days=7,
+Array $options=[]
+) {
+file { "/etc/logrotate.d/$name":
+  mode   => '0644',
+  content => template('logrotate/config-snippet.erb')
+  }
+}
+
+Dans cet exemple les param sont donc : @pattern , @max_days et @options
+
+On peut aussi trouver pour des conf très simples une config sur une seule ligne 
+ex :
+$comma_seperated_list = inline_template('<%= @my_array * "," %>') 
+
+ici on assume que puppet maintien un tableau de valeur dans @my_array
+
+
+- Proscrire les bootlenecks avec les templates :
+
+Attention  l'utilisation des fonctions template et inline_template ont de grosses incidences sur les performances du systeme.
+car le moteur de template ruby doit être initialisé . Il peut dans certains cas être nécéssaire de passer par la creation de fonction de parser comme vu précédemment (chapitre 5) 
+
+
+
+= Creating virtual ressources : =
+
+
+
+
+
+
+
+
+
 
