@@ -2418,11 +2418,93 @@ car le moteur de template ruby doit être initialisé . Il peut dans certains ca
 = Creating virtual ressources : =
 
 
+On a vu que les ressources ont une contrainte d'unicité : pas possible d'avoir une ressource de même type deux fois avec le même nom.
+On peut cependant avoir un souci quand plusieurs modules veulent une même resource par ex un package: on a vu que définir une classe precise pour cette ressoure permet de controurner le pb car on peut l'appeler un nombre illimité de fois.
+Ceci peut devenir problematique quand un nombre élevé de ressource est partagé .
+Admettons qu'on doivent alimenté toute sorte de machinnes differentes avec des repo et package dédiés : cela peut être très lourd en config a gérer.
+On pourrait se dire qu'on va définir des repos pour des groupe de server qui seront donc dédié a ce tyep de machine ex :
+
+class yumrepos::team_ninja_stable {
+  yumrepo { 'team_ninja_stable':
+    ensure => present,
+    ...
+  }
+}
 
 
+Pour les packages extra on devra donc faira attention a bien déclarer nos conf avec des include appropriés :
+
+include yumrepos::team_ninja_stable
+include yumrepos::team_wizard_experimental
+package { 'doombunnies':
+  ensure => installed,
+  require => Class[
+  'yumrepos::team_ninja_stable',
+  'yumrepos::team_wizard_experimental'
+  ],
+
+..c'est possible mais pas idéal.
+
+Puppet permet de s'epargner des duplications de conf via la creation de virtual resource : ce qui nous permet d'ajouter une declaration de resource à notre manifest sans rajouter de nouvelle resource au catalogue.
+Ces virtual resources doivent être realized et collected a cette effet.
+Comme un inclusion de classe la realization de la virtual resource peut être ajoutee de manière libre dans notre manifest.
+
+Dans notre exemple precedent on peut donc utiliser une structure plus simple avec une seule classe pour déclarer tous les repos yum comme des virtual resources 
+
+class yumrepos::all {
+  @yumrepo { 'tem_ninja_stable':
+    ensure => present,
+  }
+  @yumrepo { 'team_wizard_experimental':
+    ensure => present,
+  }
+}
+
+Le prefix @ flaggue yumrepo comme virtual resource .Cette classe peut etre ajouter a tous les nodes .Cela n'affectera le catalogue que quand tout sera realized 
+
+realize(Yumrepo['team_ninja_stable'])
+realize(Yumrepo['team_wizard_experimental'])
+  package { 'doombunnies':
+  ensure => installed,
+  require => [
+    Yumrepo['team_ninja_stable'],
+    Yumrepo['team_wizard_experimental']
+  ],
+}
+
+La fonction realized converti la reference a la virtual resource en resource réelle
+
+Cette utilisation rend l'utilisation plus claire 
+On va creer un defined pour améliorer notre conf et realized notre repo directement : 
+
+define curated::package($ensure,$repositories=[]) {
+  if $repositories != [] and $ensure != 'absent' {
+    realize(Yumrepo[$repositories])
+  }
+  package { $name: ensure => $ensure }
+}
 
 
+On peut juste passer les  noms des ressource yumrepo pour realization 
 
+curated::package { 'doombunnies':
+ensure =>'installed',
+repositories => [
+  'team_ninja_stable',
+  'team_wizard_experimental',
+  ],
+}
 
+On peut même créer un hash globalement ou dans le scope curated::package pour créer la substitution de nom.
 
+curated::package peut donc examiner les package et voir si des noms de repo explicites sont passés.On peut utiliser la fonction use_key du module std-lib pour gagner en rapidité 
+if $repositories != [] {
+  realize(Yumrepo[$repositories])
+}
+elsif has_key($default_repos,$name) {
+  $repolist = $default_repos[$name]
+  realize(Yumrepo[$repolist])
+}
 
+On peut utiliser la conf des defined avec les classe en passant le nom de la classe en parametres 
+La fonction include prendra les valeurs des variables 
