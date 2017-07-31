@@ -2509,3 +2509,44 @@ elsif has_key($default_repos,$name) {
 
 On peut utiliser la conf des defined avec les classe en passant le nom de la classe en parametres 
 La fonction include prendra les valeurs des variables 
+
+
+= "Realizing resources" plus simplement avec les collectors : =
+
+On peut utiliser une syntaxe plus simple que le realize avec  les collectors :
+Yumrepo<| title == 'team_ninja_stable' |>
+
+On peut même definir une contrainte en utilisant les chaining :
+
+Yumrepo<| title == 'team_ninja_stable' |> -> Class['...']
+
+Comme le collector est basé sur une expression on peut donc realize tout un range de ressources . C'est assez dynamique
+
+ex : 
+User<| |>  
+sans expression la collection va comporter toutes les virtuals ressources d'un type donné.
+Cela va nous permettre de les collecter toutes sans ce preocupper de leur noms ou attributs.
+Cela peut semblrt rebondant car il n'ya pas d'interet  à declarer les virtuals ressources en premier.
+Cependant on peut avoir les collectors dans certains manifests seulement alors que les virtual ressources peuvent être ajoutées sans pb à tous les nodes.
+
+Pour être plus selectif on peut grouper les virtual ressources par tag :
+
+file { '/etc/sysctl.conf': tag => 'security' }
+
+Le nom du tagg est ajouté à la resource.
+Puppet de base tag les ressources avec le nom de la classe déclarante, le module inclu ou un lot d'autre informations meta utiles.
+Par exemple si notre module user comporte different role administrators , developers , qa ; on va pouvoir permettre a certains nodes ou classes de selectionner seulement certains users definis 
+ex :
+User<| tag == 'developers' |>
+A noter les tags sont sous forme de tableau :
+exemple different pour bien s'en inpregner : 
+@user { 'felix':
+  ensure => present,
+         groups => [ 'power', 'sys' ],
+}
+User<| groups == 'sys' |>
+
+dans ce cas on peut collecter tous les users membres du group sys 
+
+Quelque soit la methode (realize ou collectors ) les virtual ressources peuvent être realized plusieurs fois.
+
