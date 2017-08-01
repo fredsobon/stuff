@@ -30,7 +30,6 @@ On peut egalement utiliser les irules apres le resultat d'une authentification.
 Quand on utilise une irule on doit absolument utiliser le path complet de l'objet.
 
 
-= irule commandes :
 
 Une commande d'irule dans une irule va permettre au ltm de faire une action :
 comme rechercher une donnée, manipuler une donnée, definir une redirection de traffic:
@@ -57,5 +56,62 @@ decode_uri <string>  : on va decoder le nom de la chaine
 
 
 
+- Declaration d'evenements :
+
+On va pouvoir déclencher un evenement en fonction de ce que l'on a defini dans une irule . On a donc une mmodification du comportement en fonction de ce que l'on va definir 
+
+ex : ici le traffic sera dirigé vers le pool de server "aol" si l'url appellée contient le keyword aol :
+when HTTP_REQUEST {
+  if { [HTTP::uri] contains "aol" } {
+    pool aol_pool
+  } else {
+    pool all_pool
+  }
+}
+
+Operateurs :
+une irule compare deux opérandes  dans une expression. 
+
+= Creation d'irule :
+
+Sur l'interface principale du bigip 
+1/ cliquer sur local trafic > irules 
+2/ create 
+3/ Saisir le nom de notre irule (max 255 caracteres)
+4/ dans le champ de définition : saisir notre irule : en suivant la syntaxe du language tcl : http://devcentral.f5.com pour reference.
+5/ finish
+
+
+
+
+== irule commandes : ==
+
+Il y a trois types de commandes irule 
+
+-> statement
+-> requeteset manipulation de données.
+-> fonctions (utilitaires)
+
+
+- Statements :
+
+ces commandes permettent au ltm d'effectuer tout un lot d'actions
+ex redirect de traffic en fonction de nos besoins. 
+D'autres commande vont gérer less translations d'adresses pour gérer les snat
+reference de commandes dispo sur 
+http://devcentral.f5.com .
+
+
+- Requetes et manipulations de données :
+
+On va pouvoir requetter le header ou le contenu de la requette http : on va pouvoir ajouter, remplacer, supprimer des données aussi bien que définir certaines valeur trouvées dans les headers
+et cookies.
+ex : IP::idle_timeout avec cette commande on peut recupérer la valeur idle_timeout settée dans le packet et load balancer le packet en consequence.
+On peut aussi utiliser cette commande pour definir une valeur de idle_timeout comme on le souhaite.
+
+Chaque commande de requetes travaille dans son namespace
+on a par example : IP namespace, HTTP namespace
+pour la liste complete des namespaces :
+http://devcentral.f5.com .
 
 
