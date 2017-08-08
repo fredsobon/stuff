@@ -2550,3 +2550,53 @@ dans ce cas on peut collecter tous les users membres du group sys
 
 Quelque soit la methode (realize ou collectors ) les virtual ressources peuvent être realized plusieurs fois.
 
+
+== Ressources exportées : sur d'autres agents : ==
+On peut avoir besoin de reseignées des conf des qu'une ressource devient dispo : exemple des qu'une machine est up , renseigner son ip dans un fichier de conf.
+Pour permettre d'echanger des informaations de manières sures entre différents nodes puppet utilise les exported ressources.
+Le concept est assez simple :
+le node A peut contenir des ressources virtuelles qui ne seront pas realizées sur le node A mais les nodes B et C pourront importées certaines ou toutes ces ressources : et ces resources 
+font ensuite partie du catalogues des différents nodes.
+
+Une ressource exportée commence par un @@
+
+@@file { 'my-app-psk':
+  ensure => file,
+  path
+    => '/etc/my-app/psk',
+  content => 'nwNFgzsn9n3sDfnFANfoinaAEF',
+  tag
+    => 'cluster02',
+}
+
+pour importer une ressource on utilise les << | et | >> :
+
+File<<| tag == 'cluster02' |>>
+
+L'utilisation de tag est très judicieuse pour gérer précisement nos ressources.
+
+= Configuration pour les resssources exportées : =
+On doit activer les ressources exportées dans la puppetdb
+On peut installer la puppet db via la forge puppet :
+
+puppet module install puppetlabs-puppetdb
+On va ensuite sur notre master invoquer :
+
+puppet apply -e 'include puppetdb, puppetdb::master::config'
+
+ce qui nous donnera une conf a peut pres comme ceci (sachant que le ssl de notre fqdn n'est que pour du test) :
+
+class {
+  'puppetdb::master::config':
+    puppetdb_server => 'master.example.net'
+}
+
+La suite de l'install conmporte l'install de postgresql, jetty etc ..après ce set up on va pouvoir ajouter nos ressources exportées.
+
+
+
+
+
+
+
+
