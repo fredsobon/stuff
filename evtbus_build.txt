@@ -1,0 +1,523 @@
+.sobon@xinfcfgmgt03b /etc/puppetlabs/code/environments/fsobon/hieradata] $ cat certname/xmidevtbusdv00uv.yaml
+--- 
+profile::base::params::ip: "56.131"
+profile::base::params::platform_env: dev
+profile::base::params::kernel_version: os_default
+profile::base::dev_users: true
+profile::base::params::pulp_config: 'true'
+classes: 
+- profile::middleware::eventbus
+#- profile::base
+zookeeper::jdk_package: "jdk1.8.0_121"
+#profile::base::params::backup_bay: xinfback02u.backup
+#profile::base::params::backup_domain: /StandAlone/PCI
+#profile::base::params::backup_group: /StandAlone/Syst_StandAlone_02h
+#profile::base::params::backup: enable
+profile::middleware::eventbus::var_size: "20G" 
+ip_addr_list:
+  admin: '10.101.100.131'
+  frontend: '192.168.52.131'
+  backend: '192.168.56.131'
+  backup: '10.3.100.131'
+
+
+========
+.sobon@xinfcfgmgt03b /etc/puppetlabs/code/environments/fsobon/hieradata] $ cat inventory/dev/role/middleware/eventbus.yaml
+---
+###############################################################################
+#### Sensu related
+################################################################################
+app_monitoring::packages: [ 'sensu-rubygem-sensu-plugins-zookeeper', ]
+
+
+===== puppet : ===
+
+
+[f.sobon@xinfcfgmgt03b /etc/puppetlabs/code/environments/fsobon/modules] $ cat app_eventbus/manifests/init.pp
+# == Class app_eventbus
+# Installs Eventbus stack
+#
+# == Parameters:
+#
+# $zookeeper_hosts   - list of zookeeper nodes.
+# $kafka_hosts       - list of kafka nodes.
+#
+# $dedicated_disk    - if true, the data wil be on dedicated disks Default : false
+#
+class app_eventbus(
+          $zookeeper_hosts,
+          $kafka_hosts,
+          $kafka_topics,
+          $kafka_replica_mapping,
+          $clients,
+          $producers_config               = $app_eventbus::params::producers_config,
+          $kafkaprx_hosts                       = $app_eventbus::params::kafkaprx_hosts,
+          $kafkaprx_topics_routed_to_kafka      = $app_eventbus::params::kafkaprx_topics_routed_to_kafka,
+          $kafkaprx_topics_routed_to_dropwizard = $app_eventbus::params::kafkaprx_topics_routed_to_dropwizard,
+          $kafkaprx_overridden_config           = $app_eventbus::params::kafkaprx_overridden_config,
+          $dedicated_disk                 = $app_eventbus::params::dedicated_disk,
+          $deploy_key                     = $app_eventbus::params::deploy_key,
+          $vip_eventbus_inj               = $app_eventbus::params::vip_eventbus_inj,
+          $dport_eventbus_inj             = $app_eventbus::params::dport_eventbus_inj,
+          $apm_machineagent_monitors      = $app_eventbus::params::apm_machineagent_monitors,
+          $supervisord_minfds             = $app_eventbus::params::supervisord_minfds,
+          $supervisord_minprocs           = $app_eventbus::params::supervisord_minprocs,
+          $collect_kafka_metrics          = $app_eventbus::params::collect_kafka_metrics,
+          $jdk_package                    = $app_eventbus::params::jdk_package,
+          $with_apm                       = $app_eventbus::params::with_apm,
+) inherits  app_eventbus::params {
+
+    class { 'supervisor':
+      minfds    => $supervisord_minfds,
+      minprocs  => $supervisord_minprocs,
+    }
+
+
+    #### Kafka Producers Installation
+    $defaults = { zookeeper_hosts => $zookeeper_hosts, clients => $clients, deploy_key => $deploy_key,}
+    $evaluated_producers_config = eval_file($producers_config)
+    create_resources(kafka_producer::akka, $evaluated_producers_config, $defaults)
+    ####
+
+
+    # Zookeeper
+    class { 'zookeeper::server':  
+        hosts           => $zookeeper_hosts,
+        dedicated_disk  => $dedicated_disk,
+    }
+
+    notify {"BROKERS: ${kafka_hosts}":}
+    # Kafka
+    class { 'kafka::server':  
+        brokers                   => $kafka_hosts,
+        zookeeper_hosts           => $zookeeper_hosts,
+        topics                    => $kafka_topics,
+        replica_mapping           => $kafka_replica_mapping,
+        dedicated_disk            => $dedicated_disk,
+    }
+
+    if $collect_kafka_metrics {
+      class { 'app_metricscollector':
+        mbeans_config   => { mbeans          => $kafka_mbeans,
+                             jmx_port        => $kafka_jmxport,
+                             instance_prefix => 'kafka',
+        }
+      }
+    }
+    
+    if $with_apm {
+      class {'apm_machineagent':
+          apm_machineagent_monitors => $apm_machineagent_monitors,
+      }
+    }
+    class { 'kafka_proxy':
+      kafka_hosts                 => $kafkaprx_hosts,
+      topics_routed_to_kafka      => $kafkaprx_topics_routed_to_kafka,
+      topics_routed_to_dropwizard => $kafkaprx_topics_routed_to_dropwizard,
+      overridden_config           => $kafkaprx_overridden_config,
+      jdk_package                 => $jdk_package,
+    }
+
+    # to avoid ConnectException: Cannot assign requested address
+    # in /var/log/event-notification-handler/event-notification-handler.log
+    sysctl { "net.ipv4.tcp_tw_recycle": value => "1" }
+    sysctl { "net.nf_conntrack_max": value => "655360" }
+
+    # Limitation usage of swap
+    sysctl { 'vm.swappiness': value =>  1 }
+
+
+    # IPTables rules for MVS
+    if $vip_eventbus_inj {
+      firewall {
+          "10-mvs-eventbus-inj":
+              ensure      => present,
+              table       => "nat",
+              chain       => "PREROUTING",
+              proto       => "tcp",
+              jump        => "DNAT",
+              destination => "${app_eventbus::params::vip_eventbus_inj}",
+              dport       => "${app_eventbus::params::dport_eventbus_inj}",
+              todest      => "${profile::base::params::network_backend}.${::ip}";
+      }
+    }
+
+  }
+
+
+
+[f.sobon@xinfcfgmgt03b /etc/puppetlabs/code/environments/fsobon/modules] $ cat app_eventbus/manifests/params.pp
+class app_eventbus::params {
+
+    $producers_config = {}
+
+    $kafkaprx_hosts                       = undef
+    $kafkaprx_topics_routed_to_kafka      = undef
+    $kafkaprx_topics_routed_to_dropwizard = undef
+    $kafkaprx_overridden_config           = undef
+    $jdk_package                          = 'jdk1.8.0_65'
+    $with_apm                             = true  
+
+
+    $kafkaconsumerlog_logstash_pool = undef
+
+    $dedicated_disk             = false
+
+    $deploy_key                 = undef
+
+    $vip_eventbus_inj           = "10.120.102.96"
+    $dport_eventbus_inj         = "8080"
+
+    $apm_machineagent_monitors  = ""
+
+    $supervisord_minfds         = 200000
+    $supervisord_minprocs       = 200000
+
+    $collect_kafka_metrics = true
+    $kafka_jmxport         = '9999'
+    $kafka_mbeans          = {
+      'garbage_collector'                                           => {
+        object_name     => 'java.lang:type=GarbageCollector,*',
+        instance_prefix => '.jvm.gc-',
+        instance_from   => 'name',
+        values          => [
+          {
+            mbean_type => 'invocations',
+            table      => false,
+            attribute  => 'CollectionCount',
+          },
+          {
+            mbean_type      => 'total_time_in_ms',
+            instance_prefix => 'collection_time',
+            table           => false,
+            attribute       => 'CollectionTime',
+          },
+        ],
+      },
+#      'memory-heap'                                                 => {
+#        object_name     => 'java.lang:type=Memory',
+#        instance_prefix => '.jvm.memory-heap',
+#        instance_from   => 'name',
+#        values          => [
+#          {
+#            mbean_type => 'memory',
+#            table      => true,
+#            attribute  => 'HeapMemoryUsage',
+#          },
+#        ],
+#      },
+#      'memory-nonheap'                                              => {
+#        object_name     => 'java.lang:type=Memory',
+#        instance_prefix => '.jvm.memory-nonheap',
+#        instance_from   => 'name',
+#        values          => [
+#          {
+#            mbean_type => 'memory',
+#            table      => true,
+#            attribute  => 'NonHeapMemoryUsage',
+#          },
+#        ],
+#      },
+      'memory_pool'                                                 => {
+        object_name     => 'java.lang:type=MemoryPool,*',
+        instance_prefix => '.jvm.memory_pool-',
+        instance_from   => 'name',
+        values          => [
+          {
+            mbean_type => 'memory',
+            table      => true,
+            attribute  => 'Usage',
+          },
+        ],
+      },
+      'threading'                                                   => {
+        object_name     => 'java.lang:type=Threading',
+        instance_prefix => '.jmx.threading',
+        values          => [
+          {
+            mbean_type      => 'gauge',
+            instance_prefix => 'ThreadsCount',
+            table           => false,
+            attribute       => 'ThreadCount',
+          },
+        ],
+      },
+      'kafka_server-BrokerTopicMetrics_AllTopicsMessagesIn'         => {
+        object_name => 'kafka.server:type=BrokerTopicMetrics,name=MessagesInPerSec',
+        values      => [
+          {
+            mbean_type      => 'counter',
+            instance_prefix => 'server_broker_topics-AllTopicsMessagesIn',
+            table           => false,
+            attribute       => 'Count',
+          },
+        ],
+      },
+      'kafka_server-BrokerTopicMetrics_AllTopicsBytesIn'            => {
+        object_name => 'kafka.server:type=BrokerTopicMetrics,name=BytesInPerSec',
+        values      => [
+          {
+            mbean_type      => 'counter',
+            instance_prefix => 'server_broker_topics-AllTopicsBytesIn',
+            table           => false,
+            attribute       => 'Count',
+          },
+        ],
+      },
+      'kafka_server-BrokerTopicMetrics_AllTopicsBytesOut'           => {
+        object_name => 'kafka.server:type=BrokerTopicMetrics,name=BytesOutPerSec',
+        values      => [
+          {
+            mbean_type      => 'counter',
+            instance_prefix => 'server_broker_topics-AllTopicsBytesOut',
+            table           => false,
+            attribute       => 'Count',
+          },
+        ],
+      },
+      'kafka_log-LogFlushStats_LogFlush'                            => {
+        object_name => 'kafka.log:type=LogFlushStats,name=LogFlushRateAndTimeMs',
+        values      => [
+          {
+            mbean_type      => 'gauge',
+            instance_prefix => 'log-LogFlushStats_LogFlushTimeMs_99thPercentile',
+            table           => false,
+            attribute       => '99thPercentile',
+          },
+          {
+            mbean_type      => 'gauge',
+            instance_prefix => 'log-LogFlushStats_LogFlushTimeMs_Median',
+            table           => false,
+            attribute       => '50thPercentile',
+          },
+
+          {
+            mbean_type      => 'counter',
+            instance_prefix => 'log-LogFlushStats_LogFlushRate',
+            table           => false,
+            attribute       => 'Count',
+          },
+        ],
+      },
+      'kafka_server-BrokerTopicMetrics_FailedProduceRequestsPerSec' => {
+        object_name => 'kafka.server:type=BrokerTopicMetrics,name=FailedProduceRequestsPerSec',
+        values      => [
+          {
+            mbean_type      => 'counter',
+            instance_prefix => 'server_broker_topics-FailedProduceRequestsPerSec',
+            table           => false,
+            attribute       => 'Count',
+          },
+        ],
+      },
+      'kafka_server-BrokerTopicMetrics_FailedFetchRequestsPerSec'   => {
+        object_name => 'kafka.server:type=BrokerTopicMetrics,name=FailedFetchRequestsPerSec',
+        values      => [
+          {
+            mbean_type      => 'counter',
+            instance_prefix => 'server_broker_topics-FailedFetchRequestsPerSec',
+            table           => false,
+            attribute       => 'Count',
+          },
+        ],
+      },
+      'kafka_server-BrokerTopicMetrics_BytesRejectedPerSec'         => {
+        object_name => 'kafka.server:type=BrokerTopicMetrics,name=BytesRejectedPerSec',
+        values      => [
+          {
+            mbean_type      => 'counter',
+            instance_prefix => 'server_broker_topics-BytesRejectedPerSec',
+            table           => false,
+            attribute       => 'Count',
+          },
+        ],
+      },
+      'kafka_network-RequestMetrics_TotalTimeMs_Produce'            => {
+        object_name     => 'kafka.network:type=RequestMetrics,name=TotalTimeMs,request=Produce',
+        values          => [
+          {
+            mbean_type => 'gauge',
+            instance_prefix => 'network_request_metrics_TotalTimeMs_Produce_99thPercentile',
+            table      => false,
+            attribute  => '99thPercentile',
+          },
+          {
+            mbean_type => 'gauge',
+            instance_prefix => 'network_request_metrics_TotalTimeMs_Produce_Median',
+            table      => false,
+            attribute  => '50thPercentile',
+          },
+        ],
+      },
+      'kafka_network-RequestMetrics_TotalTimeMs_Fetch'              => {
+        object_name     => 'kafka.network:type=RequestMetrics,name=TotalTimeMs,request=Fetch',
+        values          => [
+          {
+            mbean_type => 'gauge',
+            instance_prefix => 'network_request_metrics_TotalTimeMs_Fetch_99thPercentile',
+            table      => false,
+            attribute  => '99thPercentile',
+          },
+          {
+            mbean_type => 'gauge',
+            instance_prefix => 'network_request_metrics_TotalTimeMs_Fetch_Median',
+            table      => false,
+            attribute  => '50thPercentile',
+          },
+        ],
+      },
+      'kafka_controller-KafkaController_ActiveControllerCount'      => {
+        object_name => 'kafka.controller:type=KafkaController,name=ActiveControllerCount',
+        values      => [
+          {
+            mbean_type      => 'gauge',
+            instance_prefix => 'controller_kafka-ActiveControllerCount',
+            table           => false,
+            attribute       => 'Value',
+          },
+        ],
+      },
+      'kafka_controller-KafkaController_OfflinePartitionsCount'     => {
+        object_name => 'kafka.controller:type=KafkaController,name=OfflinePartitionsCount',
+        values      => [
+          {
+            mbean_type      => 'gauge',
+            instance_prefix => 'controller_kafka-OfflinePartitionsCount',
+            table           => false,
+            attribute       => 'Value',
+          },
+        ],
+      },
+      'kafka_controller-ControllerStats_LeaderElections'            => {
+        object_name => 'kafka.controller:type=ControllerStats,name=LeaderElectionRateAndTimeMs',
+        values      => [
+          {
+            mbean_type      => 'counter',
+            instance_prefix => 'controller-LeaderElections',
+            table           => false,
+            attribute       => 'Count',
+          },
+        ],
+      },
+      'kafka_controller-ControllerStats_UncleanLeaderElections'     => {
+        object_name => 'kafka.controller:type=ControllerStats,name=UncleanLeaderElectionsPerSec',
+        values      => [
+          {
+            mbean_type      => 'counter',
+            instance_prefix => 'controller-UncleanLeaderElections',
+            table           => false,
+            attribute       => 'Count',
+          },
+        ],
+      },
+      'kafka_server-ReplicaManager_UnderReplicatePartitions'        => {
+        object_name => 'kafka.server:type=ReplicaManager,name=UnderReplicatedPartitions',
+        values      => [
+          {
+            mbean_type      => 'gauge',
+            instance_prefix => 'server_replica_manager_UnderReplicatePartitions',
+            table           => false,
+            attribute       => 'Value',
+          },
+        ],
+      },
+
+
+    }
+
+
+}
+
+
+
+
+[f.sobon@xinfcfgmgt03b /etc/puppetlabs/code/environments/fsobon/modules] $ cat zookeeper/manifests/params.pp
+# == Class zookeeper::params
+# Default zookeeper configs.
+class zookeeper::params 
+    {
+
+    # To configure a dedicated logical volume
+    $dedicated_disk                     = false
+    $disks                              = [ "/dev/sdb" ]
+    $lvsize                             = "16G"
+    $lvname                             = "zookeeper"
+    $vgname                             = "vg1"
+    $mountpoint                         = "/data/zookeeper"
+    $real_datastore                     = "${mountpoint}/store"
+    $real_log_dir                       = "${mountpoint}/log"
+
+
+    $user                               = 'zookeeper'       # user
+    $group                              = 'zookeeper'       # group of the user
+    $uid                                = "2014"            # UID of the user
+    $gid                                = "2014"            # GID of the user
+
+    # Where get the zk package
+    $package_url                        = 'ftp://puppet:suilipuppet@filer/zookeeper/zookeeper-3.4.9.tar.gz'
+    # Directory where store the package
+    $package_dir                        = '/usr/local/src'
+
+    # App Directories
+    $root_dir                           = '/opt'
+    $install_dir                        = "${root_dir}/zookeeper"
+    $conf_dir                           = "${install_dir}/conf"
+
+    # App Config file
+    $cfg_file                           = "${conf_dir}/zoo.cfg"
+    $log4j_file                         = "${conf_dir}/log4j.properties"
+
+    # App Log file
+    $log_dir                            = '/var/log/zookeeper'
+
+    # Pid File
+    $pid_dir                            = '/var/run/zookeeper'
+    $pid_file                           = "${pid_dir}/zookeeper.pid"
+
+    # Data Directory
+    $datastore                          = '/var/lib/zookeeper'
+
+
+    # Server settings
+    $client_port                        = 2181
+    $follow_port                        = 2182
+    $election_port                      = 2183
+
+    $hosts                              = { "${::fqdn}" => { 'id' => 1, } }
+
+    $jdk_package                        = 'jdk1.8.0_101.x86_64'
+    $java_home                          = '/usr/java/default'
+
+    $heap_opts                          = "-Xms2g -Xmx2g"
+
+    $jmx_port                           = 9998
+
+    $snap_count                         = 10000
+    $snapRetainCount                    = 3
+    # interval in hours, purging enabled when >= 1
+    $purgeInterval                      = 1
+
+    # log4j properties
+    $lo4j_prop                          = 'INFO,ROLLINGFILE'
+    $rollingfile_threshold              = 'ERROR'
+    $tracefile_threshold                = 'TRACE'
+
+
+    # cleanup cron
+    $cleanup_count    = 10
+    $cleanup_script   = "${install_dir}/bin/zkCleanup.sh"
+
+
+    # Default puppet paths to template config files.
+    # This allows us to use custom template config files
+    # if we want to override more settings than this
+    # module yet supports.
+    $log4j_template   = "${module_name}/config/log4j.properties.erb"
+    $conf_template    = "${module_name}/config/zoo.cfg.erb"
+    $env_template = "${module_name}/zookeeper-env.sh.erb"
+    $init_template    = "${module_name}/zookeeper.init.erb"
+
+}
+
+
+
