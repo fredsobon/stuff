@@ -1,3 +1,15 @@
+== notes en vrac des modifs : 
+
+
+1/ jdk version : zookeeper : exposition puis setting dans hiera
+2/ jdk version : app_eventbus : exposition puis default setting dans manifests  param
+3/ setting apm_agent : expo en param puis if dans manifest : exposition puis default setting dans manifests app_eventbus param
+4/ var size du profile middleware eventbus à 20G : setting dans hiera
+
+
+
+
+
 .sobon@xinfcfgmgt03b /etc/puppetlabs/code/environments/fsobon/hieradata] $ cat certname/xmidevtbusdv00uv.yaml
 --- 
 profile::base::params::ip: "56.131"
@@ -8,7 +20,7 @@ profile::base::params::pulp_config: 'true'
 classes: 
 - profile::middleware::eventbus
 #- profile::base
-zookeeper::jdk_package: "jdk1.8.0_121"
+-->> setting zookeeper::jdk_package: "jdk1.8.0_121"
 #profile::base::params::backup_bay: xinfback02u.backup
 #profile::base::params::backup_domain: /StandAlone/PCI
 #profile::base::params::backup_group: /StandAlone/Syst_StandAlone_02h
@@ -63,8 +75,8 @@ class app_eventbus(
           $supervisord_minfds             = $app_eventbus::params::supervisord_minfds,
           $supervisord_minprocs           = $app_eventbus::params::supervisord_minprocs,
           $collect_kafka_metrics          = $app_eventbus::params::collect_kafka_metrics,
-          $jdk_package                    = $app_eventbus::params::jdk_package,
-          $with_apm                       = $app_eventbus::params::with_apm,
+-->> setting           $jdk_package                    = $app_eventbus::params::jdk_package,
+-->> setting           $with_apm                       = $app_eventbus::params::with_apm,
 ) inherits  app_eventbus::params {
 
     class { 'supervisor':
@@ -105,7 +117,7 @@ class app_eventbus(
       }
     }
     
-    if $with_apm {
+-->> setting     if $with_apm {
       class {'apm_machineagent':
           apm_machineagent_monitors => $apm_machineagent_monitors,
       }
@@ -115,7 +127,7 @@ class app_eventbus(
       topics_routed_to_kafka      => $kafkaprx_topics_routed_to_kafka,
       topics_routed_to_dropwizard => $kafkaprx_topics_routed_to_dropwizard,
       overridden_config           => $kafkaprx_overridden_config,
-      jdk_package                 => $jdk_package,
+-->> setting       jdk_package                 => $jdk_package,
     }
 
     # to avoid ConnectException: Cannot assign requested address
@@ -155,8 +167,8 @@ class app_eventbus::params {
     $kafkaprx_topics_routed_to_kafka      = undef
     $kafkaprx_topics_routed_to_dropwizard = undef
     $kafkaprx_overridden_config           = undef
-    $jdk_package                          = 'jdk1.8.0_65'
-    $with_apm                             = true  
+-->> setting    $jdk_package                          = 'jdk1.8.0_65'
+-->> setting     $with_apm                             = true  
 
 
     $kafkaconsumerlog_logstash_pool = undef
