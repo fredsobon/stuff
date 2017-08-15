@@ -2594,9 +2594,177 @@ class {
 La suite de l'install conmporte l'install de postgresql, jetty etc ..après ce set up on va pouvoir ajouter nos ressources exportées.
 
 
+= Export de cles ssh =
+On va souvent avoir besoin de ssh pour travailler entre les différents nodes . Chaque host aura une clé ssh echangée sur un réseau sur.
+On peut utiliser puppet facilement :
+
+@@sshkey { $::fqdn:
+    host_aliases => $::hostname,
+    key => $::sshecdsakey,
+    tag  => 'san-nyc'
+}
 
 
+Les nodes intéressés par la clé ssh de ce server pourront donc utiliser le code suivant :
+
+Sshkey<<| tag == 'san-nyc' |>>
 
 
+Ceci n'est qu'un exemple : la forge puppet s'appuiera sur ce type de contruction pour la gestion de module ssh.
+
+
+= Gestion du fichier hosts : =
+pour les petits  systèmes l'echange de fichier hosts peut être suffisant.
+
+@@host { $::fqdn:
+  ip  => $::ipaddress,
+  host_aliases => [ $::hostname ],
+  tag => 'nyc-site',
+}
+
+Chaque node va exporter son adresse ip et son hostname
+La récupération se fera de manière similaire a l'exemple précédent sur les clés ssh.
+
+Host<<| tag == 'nyc-site' |>>
+
+
+= Configuration auto de conf custom =
+
+pour notre exemple précédent sur cacti on a permi de creer simplement tous les devices monitorés dans le server cacti.
+On pourrait ici maintenant permettre aux machines de notre réseau de s'enregistrer directement dans cacti.
+
+On va donc faire que les devices exportent directement leur ressources dans le serveur collecteur 
+
+@@cacti_device { $::fqdn:
+  ensure => present,
+  ip     => $::ipaddress,
+  tag    => 'nyc-site',
+  }
+
+Le serveur cacti incle dans la classe cacti va donc inclure dans le manifest une conf du type :
+
+Cacti_device<<| tag == 'nyc-site' |>>
+
+Si notre serveur cacti recupère tous les devices de tous les serveurs ont pourra donc saisir la conf sans préciser le tag.
+Cacti_device<<| |>> 
+
+
+On va pouvoir procéder aux mêmes méthodes avec les différents autres elements de conf de cacti des la conf de notre module faite.
+
+= Simplification de la config de nagios : =
+
+La gestion de nagios (et fork icinga) est parfaitement gérée dans puppet
+On aura la possibilité dans puppet d'avoir des conf de types :
+nagios_host ou  nagios_service .
+
+Chaque machine va pouvoir exporter sa conf nagios_host comme pour cacti et bien plus.
+En imaginant qu'on a un module ssh, on va pouvoir inclure la prise en compte auto de notre monitoring en l'incluant dans la classe ssh 
+
+class site::ssh {
+# ...actual SSH management...
+@@nagios_service { "${::fqdn}-ssh":
+  use  => 'ssh_template',
+  host_name => $::fqdn,
+  }
+} 
+
+Pour l'import des ressources exportées :
+comme d'habitude : 
+Nagios_service<<| |> 
+
+= Gestion centralisée de notre firewall: =
+
+On va pouvoir gérer notre firewall par l'ajout d'un module iptables de la forge et permettre aux nodes d'exporter leur ressources vers le firewall : 
+
+
+@@firewall { "150 forward port 443 to ${::hostname}":
+ proto => 'tcp',
+ dport => '443',
+ destination => $public_ip_address,
+ jump  => 'DNAT',
+ todest  => $::ipaddress,
+ tag  => 'segment03',
+ }
+
+Attention ici $public_ip_address n'est pas un fact et devra être renseigner au préalable.
+
+L'import se fera simplement :
+Firewall<<| tag == 'segment03' |>>
+
+Le titre de nos regles doivent suivre la regle de nommage de type :
+
+Comme on l'a vu la possibilité de configurer nos servers avec des ressources exportées et des defined ressources permettent une grande souplesse et la creation de systeme qui peuvent interragir de manière très complexe .
+
+ 
+= Suppression de ressources anciennes : =
+
+Quand un node supprime l'export de ses ressources , cette reeeource est supprimée de la puppetdb.
+Si on veut supprimer le node il faut pour supprimer définitivement les ressources avec un node deactivate
+
+puppet node deactivate vax793.example.net
+
+
+== Overriding des paramètres de ressources : ==
+Les resources virtuelles  et exportées sont déclarées  une fois 
+Cependant par moment certaines ressources ne peuvent pas être realisées de manière sures sur la plateforme .
+
+ex : la gestion  des uid des users peut être un tres bon élément a gérer et à ditribuer ..on peut par contre avoir des vieux systemes sur lesquels les uid sont déjà pris.
+
+On va donc devoir  overrider notre conf dans certzains cas exeptionnels .
+On va pouvoir fixer un uid special ex : 2066  pour le user felix en passant une valeur a l'attribut uid 
+
+User<| title == 'felix' |> {
+  uid => '2066'
+}
+
+On peut passer n'importe quel property, parametre, metaparametre  qui s'applique à une ressource donnée mais attention on ne peut OVERRIDER QU'UNE SEULE FOIS DE CETTE MANIÈRE 
+
+Cette manière d'overrider n'est pas spécifique aux ressources exportées mais peut être appliquées a toutes ressources dans nos manifests.
+
+
+Dans l'exemple précedent de notre module cacti on a vu q'on declarait une ressource package qu'on devait avoir pour permettre l'installation du soft devant à la fin posséder l'attribut de type : ensure => installed
+Si chaque user doit avoir ses packets à la derniere versin dans puppet il va falloir se débrouiller  et permettre d'ajouter des parametres a la classe du module de choisir la valeur de la property ensure mais ce n'est pas pratique dans le cas de module comprenant des centaines de manifests
+
+la syntaxe d'override peut être utile et élégante :
+
+ex :
+
+include cacti
+Package<| title == 'cacti' |> { ensure => 'latest' }
+
+Il faut faire cependant très attention et ne pas utiliser sans bien réfléchir a ce mode d'overriding
+
+
+= Utilisation de paramètres par defaut : =
+
+L'ecriture de long manifests peut être fastidieuse et pénible et on voudra souvent définir des valeurs par défault.
+
+Des valeurs par defaut dans des classes composites peut impacter des composants tres différents 
+ex : 
+
+class webserver {
+  File { owner => 'www-data' }
+  include apache, nginx, firewall, logging_client
+  file {
+  ...
+  }
+}
+Les fichiers declarés dans la classe webserver doivent appartenir a un user par defaut ..mais ceci va se faire aussi recursivement des les classes inclues 
+L'attribut owner est une propriété : une ressource qui ne definie aucune valeur pour lui va juste ignorer son etat actuel courant.
+
+On va donc avoir puppet qui va setter les fichiers au user www-data ..pour ne pas avoir ce comportement pour des ressources specifiques on va devoir "overrider" cette valeur par default :
+Avec la valeur undef  :
+File { owner => undef }
+
+O, peut aussi le faire pour des valeurs individuelles ex :
+file { '/etc/motd': content => '...', owner => undef } 
+
+cependant c'est particulièrement non maintenable...
+
+Il faut cependant ce méfier et en principe ne pas en setter pour les ressources de types :
+file mode , owner , et group
+
+
+= Eviter les antipattern : =
 
 
