@@ -90,3 +90,93 @@ on peut definir des variables a des valeurs dans des tableaux si le nombre de va
 Certaines fonctions demandent une liste de valeur en arguments a la place d'element de tableau.On peut utiliser '*' pour convertir les elements d'un tableau en éléments séparés par une virgule avec la syntaxe de type :
 $myfonction(* $array_of_args) { ..}
 
+
+
+
+
+
+==  Class param , hiera by pass ..;= 
+
+on va pouvoir overrider des params dans certains cas via hiera dans d'autres trop anciens directement dans les classes puppet
+
+on a plusieurs astuces pour gérer ces ajustements : 
+
+   
+Dans certains cas le param a une valeur directement , il va falloir l'overrider directement :
+
+ex 
+class zookeeper::params
+    {
+    ...
+    $jdk_package                        = 'jdk1.8.0_101.x86_64'
+
+pour une version différente pour un node, on pourra donc setté dans le hiera notre version désirée : 
+
+
+bus_dev.yaml 
+---
+....
+zookeeper::jdk_package: "jdk1.8.0_121"
+...
+
+
+- hiera :
+
+le plus simple est de passer en arguments de hiera le param a modifier qui lui devra être exposé dans puppet :
+
+ex si on a un node kafka de dev qui doit gérer une version de jdk particulière on la set ainsi dans hiera : 
+
+staging/dev.d/app_bus.yaml
+
+app_bus::jdk_package: 'jdk1.8.0_121'
+
+biensur dans puppet on aura un setting bien parametrable ex :
+
+class app_bus(
+          ...
+          $jdk_package                    = $app_bus::params::jdk_package,
+          $with_apm                       = $app_bus::params::with_apm,
+          ...
+qui correspond dans notre param.pp à 
+
+class app_bus::params {
+    ...
+    $jdk_package                          = 'jdk1.8.0_65'
+    ...
+
+On voit donc qu'on a pour le setting kafka , une version de jdk settée dans les params du module, exposée dans l'init et overridé dans la partie hiera correspondant a l'env de notre server
+
+
+- Dans le manifest :
+
+par moment il n'est pas simple de recupérer une valeur et l'overrider , des situations de contournement sont envisageables :
+ex ici on a de base une conf héritée ex :
+
+     class {'m_agent':
+          m_agent_monitors => $m_agent_monitors,
+      }
+
+On va donc tout d'abord se dire que si cette classe peur être optionnelle alors on va tenter de la bypasser 
+
+    if $with_m {
+      class {'m_agent':
+          m_agent_monitors => $m_agent_monitors,
+      }
+    }
+
+On a donc avec notre if la possibilité d'intercepter un false ou true  du coup on va exposer en parametre la valeur dans notre manifest :
+class app_bus(
+    ...
+    $with_m                             = true
+
+Dans notre conf hiera on va donc passer a false notre classe pour by passer l'install globale :
+
+on va donc pouvoir dans notre yaml bypasser la conf :
+
+app_bus::with_apm: false
+
+
+    
+
+
+
