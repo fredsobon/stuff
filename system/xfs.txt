@@ -1,0 +1,39 @@
+==== xfs notes : ====
+
+= resize en xfs avec lvm = 
+
+/!\ Attention pas de diminution de vol en xfs 
+
+notre filesystem est plein :
+
+
+ df -h /var
+Sys. de fichiers    Taille Utilisé Dispo Uti% Monté sur
+/dev/mapper/vg0-var   3,0G    3,0G   20K 100% /var
+
+1/ on etend quand on a de la place le lv plein : 
+
+lvextend -L +10g /dev/mapper/vg0-var
+  Size of logical volume vg0/var changed from 3,00 GiB (96 extents) to 13,00 GiB (416 extents).
+  Logical volume vg0/var successfully resized.
+
+
+2/ on resize notre filesystem de la taille dispo : on a ajouter 10g au lv on va donc avoir 10g de reallouer a la partition : 
+
+xfs_growfs /dev/mapper/vg0-var 
+meta-data=/dev/mapper/vg0-var    isize=512    agcount=10, agsize=196608 blks
+         =                       sectsz=512   attr=2, projid32bit=1
+         =                       crc=1        finobt=0 spinodes=0
+data     =                       bsize=4096   blocks=1786432, imaxpct=25
+         =                       sunit=0      swidth=0 blks
+naming   =version 2              bsize=4096   ascii-ci=0 ftype=1
+log      =internal               bsize=4096   blocks=2560, version=2
+         =                       sectsz=512   sunit=0 blks, lazy-count=1
+realtime =none                   extsz=4096   blocks=0, rtextents=0
+ 
+3/ check que c'est bon : 
+
+df /var
+Sys. de fichiers    Taille Utilisé Dispo Uti% Monté sur
+/dev/mapper/vg0-var    13G    3,0G   10G  24% /var
+
