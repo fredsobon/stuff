@@ -210,3 +210,257 @@ ansible 2.3.1.0
   python version = 2.7.5 (default, Nov 20 2015, 02:00:19) [GCC 4.8.5 20150623 (Red Hat 4.8.5-4)]
 
 
+== ansible configuration =
+
+Pour nos exemples  on va utiliser une conf speciale de ansible couplée a vagrant . Ansible va être notre provisionner par lequel nos vm pourront être contactée
+On va specifier a vagrant qu'on va utiliser ansible sur notre box et utiliser une arbo présente sur notre server local :
+http://docs.ansible.com/ansible/latest/guide_vagrant.html
+
+on dit a vagrant d'utiliser ansible pour executer le fichier playbook.yml présent dans notre arbo locale provisioning/playbook.yml : qui contiendra notre conf ansible. On ajoute agalement un fichier hosts dans lequel on stockera notre parc server.
+On rajoute egalement l'option verbose qui est particulièrement utile pour le debug ansible pour vagrant.
+  config.vm.provision "ansible" do |ansible|
+  ansible.verbose = "v"
+  ansible.playbook = "provisioning/playbook.yml"
+  end
+
+on va donc creer notre arbo qui nous servira de base de travail sur notre server ansible : 
+ tree working_dir/
+working_dir/
+├── provisioning
+│   └── playbooks
+│       └── hosts
+├── ubuntu-xenial-16.04-cloudimg-console.log
+└── Vagrantfile
+
+cette arbo sera donc visible depuis notre box vagrant via le point de montage : 
+ubuntu@ubuntu-xenial:~$ ls -l /vagrant/
+total 48
+drwxr-xr-x 1 ubuntu ubuntu  4096 Aug 20 09:01 provisioning
+-rw------- 1 ubuntu ubuntu 40390 Aug 20 09:22 ubuntu-xenial-16.04-cloudimg-console.log
+-rw-r--r-- 1 ubuntu ubuntu  3121 Aug 20 08:52 Vagrantfile
+
+
+On va copier la clé pub de notre user dans l'authorized key du user root de notre box
+On renseigne le host de la manière suivante pour effectuer les premiers tests :
+
+/Documents/lab/ansible/ansible_oreilly_video/vm/provisioning/playbooks$ cat hosts 
+ubuntu-ansible ansible_ssh_host=127.0.0.1 ansible_ssh_port=2222 ansible_ssh_user=root ansible_ssh_private_key_file=/home/boogie/.ssh/id_rsa
+
+/!\ on peut overrider la config ansible dont la base se situe dans le fichier /etc/ansible/ansible.cfg
+on peut par exemple setter en direct la clé priv avec laquelle les authent seront faites dans le fichier /etc/ansible/ansible.cfg
+private_key_file = /home/boogie/.ssh/id_rsa
+et donc alleger notre fichier hosts :
+
+ubuntu-ansible ansible_ssh_host=127.0.0.1 ansible_ssh_port=2222 ansible_ssh_user=root
+
+on va donc faire notre premier test :
+on invoque ansible en lui passant comme argument le server renseigné dans le host <ubuntu-ansible> -i fichier d'inventaire <hosts> ici et -ù module utilisé <ping> ici :
+
+ansible ubuntu-ansible -i hosts -m ping
+ubuntu-ansible | SUCCESS => {
+    "changed": false, 
+    "ping": "pong"
+}
+
+= host settings : =
+
+on peut definir dans notre fichier d'inventaire plusieurs type d'info 
+un host, une ip , un host écoutant sur un port particulier , un groupe de server , definir des variables qui seront héritées pour tout un groupe de server .....(même si ce n'est pas une pratique recommandée il peut être utile de le savoir.)
+
+#Making a comment in my hosts file
+
+rainbows.unicorns.com
+
+[testServer]
+52.36.167.137 ansible_user=ec2-user ansible_ssh_user=ec2-user  <<< setting de connection particulier pour notre server
+test1.example.com:5555  <<< port ssh différent du standart 
+
+[testServer:vars]
+ansible_user=ec2-user <<< setting de variables héritées pour le groupe testServer
+
+[webServers]
+apache[01:50].example.com <<< range de server avec range en chiffre
+nginx[50:100].example.com <<< range de server avec range en chiffre.
+
+[appServers]
+app[a:f].example.com    <<< range de server avec range en lettre.
+
+== fichier de conf ansible : =
+
+ordre de priorité de lecture :
+
+$ANSIBLE_CONFIG path de la variable $ANSIBLE_CONFIG si elle est définie
+$PWD repertoire courant
+$HOME_DIR /home/user
+Install par defaut (/etc/ansible)
+
+Ce concept est essentiel dans ansible  : on peut donc overrider notre conf a plusieurs endroits.
+
+les differents blocs de config sont nombreux on peut voir les param généraux, ssh ....
+
+[defaults]  correspondont au param généraux.
+
+ask_pass < permet de demander ou pas un passwd a la connex
+fork < permet de définir le nombre de process lancé pendant la connexion a un host . Plus on a de host a gérer dans notre playbook plus ce param est a augmenter pour améliorer le temps de traitement du run.
+library < permet de définir l'endroit dans lequel sont stockés les modules.on peut biensur en ajouter et modifier ce path 
+remote_user = root < permet de definir le user qui executera le code ansible
+private_key_file = /home/boogie/.ssh/id_rsa < definir la clé priv du user qui gérera la connexion 
+timeout < permet de definir le temps max pour etablir une connexion avec un host 
+transport = smart < permet de definir la maniere dont les run seront traités : openssh en premier sinon on devra définir specifiquement.
+
+inventory      = /etc/ansible/hosts
+library        = /usr/share/my_modules/
+forks          = 5
+ask_pass       = True
+transport      = smart
+remote_port    = 22
+remote_user    = root 
+private_key_file = /home/boogie/.ssh/id_rsa
+
+== commandes integrée : ==
+
+on va pouvoir executer des commandes directement :
+l'enchainement sera toujours a peu pret identique :
+
+ansible <machine/groupe de machine> -i <inventaire pour le run> -m module < option de modules> -b < permet de devenir become root
+
+
+- commandes systeme :
+le module command nous permet de passer des commandes systeme à nos hosts :
+
+ooks$ ansible ubuntu -i hosts -m command -a "w"
+ubuntu | SUCCESS | rc=0 >>
+ 17:27:20 up  8:05,  2 users,  load average: 0.00, 0.00, 0.00
+USER     TTY      FROM             LOGIN@   IDLE   JCPU   PCPU WHAT
+ubuntu   pts/0    10.0.2.2         09:24   16.00s  0.18s  0.18s -bash
+root     pts/1    10.0.2.2         17:27    0.00s  0.07s  0.00s w
+
+boogie@apollo:~/Documents/lab/ansible/ansible_oreilly_video/working_dir/provisioning/playbooks$ ansible ubuntu -i hosts -m command -a "service nginx status"
+ubuntu | SUCCESS | rc=0 >>
+● nginx.service - A high performance web server and a reverse proxy server
+   Loaded: loaded (/lib/systemd/system/nginx.service; enabled; vendor preset: enabled)
+   Active: active (running) since Sun 2017-08-20 17:23:13 UTC; 4min 35s ago
+  Process: 4085 ExecStop=/sbin/start-stop-daemon --quiet --stop --retry QUIT/5 --pidfile /run/nginx.pid (code=exited, status=0/SUCCESS)
+  Process: 4182 ExecStart=/usr/sbin/nginx -g daemon on; master_process on; (code=exited, status=0/SUCCESS)
+  Process: 4179 ExecStartPre=/usr/sbin/nginx -t -q -g daemon on; master_process on; (code=exited, status=0/SUCCESS)
+ Main PID: 4184 (nginx)
+    Tasks: 3
+   Memory: 2.2M
+      CPU: 58ms
+   CGroup: /system.slice/nginx.service
+           ├─4184 nginx: master process /usr/sbin/nginx -g daemon on; master_process on
+           ├─4185 nginx: worker process                           
+           └─4186 nginx: worker process                           
+
+Aug 20 17:23:13 ubuntu-xenial systemd[1]: Starting A high performance web server and a reverse proxy server...
+Aug 20 17:23:13 ubuntu-xenial systemd[1]: Started A high performance web server and a reverse proxy server.
+
+- setup : va nous permettre de récuperer les infos du/des  server(s) 
+ansible ubuntu -i hosts -m setup |head
+ubuntu | SUCCESS => {
+    "ansible_facts": {
+        "ansible_all_ipv4_addresses": [
+            "10.0.2.15"
+        ], 
+        "ansible_all_ipv6_addresses": [
+            "fe80::2b:21ff:fe2a:210d"
+        ], 
+        "ansible_architecture": "x86_64", 
+        "ansible_bios_date": "12/01/2006", 
+
+- apt / yum : va nous permettre de gerer via les providers de packages des install a des versions precises de packages :
+
+ansible ubuntu -i hosts -m apt -a "name=tree state=latest" -b 
+ubuntu | SUCCESS => {
+    "cache_update_time": 1503248938, 
+    "cache_updated": false, 
+    "changed": true, 
+    "stderr": "", 
+    "stdout": "Reading package lists...\nBuilding dependency tree...\nReading state information...\nThe following NEW packages will be installed:\n  tree\n0 upgraded, 1 newly installed, 0 to remove and 5 not upgraded.\nNeed to get 40.6 kB of archives.\nAfter this operation, 138 kB of additional disk space will be used.\nGet:1 http://archive.ubuntu.com/ubuntu xenial/universe amd64 tree amd64 1.7.0-3 [40.6 kB]\nFetched 40.6 kB in 0s (268 kB/s)\nSelecting previously unselected package tree.\r\n(Reading database ... \r(Reading database ... 5%\r(Reading database ... 10%\r(Reading database ... 15%\r(Reading database ... 20%\r(Reading database ... 25%\r(Reading database ... 30%\r(Reading database ... 35%\r(Reading database ... 40%\r(Reading database ... 45%\r(Reading database ... 50%\r(Reading database ... 55%\r(Reading database ... 60%\r(Reading database ... 65%\r(Reading database ... 70%\r(Reading database ... 75%\r(Reading database ... 80%\r(Reading database ... 85%\r(Reading database ... 90%\r(Reading database ... 95%\r(Reading database ... 100%\r(Reading database ... 56949 files and directories currently installed.)\r\nPreparing to unpack .../tree_1.7.0-3_amd64.deb ...\r\nUnpacking tree (1.7.0-3) ...\r\nProcessing triggers for man-db (2.7.5-1) ...\r\nSetting up tree (1.7.0-3) ...\r\n", 
+    "stdout_lines": [
+        "Reading package lists...", 
+        "Building dependency tree...", 
+        "Reading state information...", 
+        "The following NEW packages will be installed:", 
+        "  tree", 
+        "0 upgraded, 1 newly installed, 0 to remove and 5 not upgraded.", 
+        "Need to get 40.6 kB of archives.", 
+        "After this operation, 138 kB of additional disk space will be used.", 
+        "Get:1 http://archive.ubuntu.com/ubuntu xenial/universe amd64 tree amd64 1.7.0-3 [40.6 kB]", 
+        "Fetched 40.6 kB in 0s (268 kB/s)", 
+        "Selecting previously unselected package tree.", 
+        "(Reading database ... ", 
+        "(Reading database ... 5%", 
+        "(Reading database ... 10%", 
+        "(Reading database ... 15%", 
+        "(Reading database ... 20%", 
+        "(Reading database ... 25%", 
+        "(Reading database ... 30%", 
+        "(Reading database ... 35%", 
+        "(Reading database ... 40%", 
+        "(Reading database ... 45%", 
+        "(Reading database ... 50%", 
+        "(Reading database ... 55%", 
+        "(Reading database ... 60%", 
+        "(Reading database ... 65%", 
+        "(Reading database ... 70%", 
+        "(Reading database ... 75%", 
+        "(Reading database ... 80%", 
+        "(Reading database ... 85%", 
+        "(Reading database ... 90%", 
+        "(Reading database ... 95%", 
+        "(Reading database ... 100%", 
+        "(Reading database ... 56949 files and directories currently installed.)", 
+        "Preparing to unpack .../tree_1.7.0-3_amd64.deb ...", 
+        "Unpacking tree (1.7.0-3) ...", 
+        "Processing triggers for man-db (2.7.5-1) ...", 
+        "Setting up tree (1.7.0-3) ..."
+    ]
+}
+
+si on relance notre commande il ne se passera rien car le paquet est dejà installé :
+
+ansible ubuntu -i hosts -m apt -a "name=tree state=latest" 
+ubuntu | SUCCESS => {
+    "cache_update_time": 1503248938, 
+    "cache_updated": false, 
+    "changed": false
+}
+
+ansible est indempotent
+on va installer nginx et verifier si le service est démarré : 
+ansible ubuntu -i hosts -m apt -a "name=nginx state=latest" 
+
+on arrete nginx sur notre host :
+ubuntu@ubuntu-xenial:/vagrant$ sudo service nginx stop
+
+ubuntu@ubuntu-xenial:/vagrant$ pgrep nginx
+ubuntu@ubuntu-xenial:/vagrant$ 
+
+ ansible ubuntu -i hosts -m service -a "name=nginx state=started" -b
+ubuntu | SUCCESS => {
+    "changed": true, 
+    "name": "nginx", 
+    "state": "started", 
+    "status": {
+on voit bien notre service up maintenant :
+
+ubuntu@ubuntu-xenial:/vagrant$ pgrep nginx
+4184
+4185
+4186
+
+
+== help == 
+
+
+- help sur la doc : 
+ansible-doc --help
+
+- recherche de doc sur keyword générique : 
+ansible-doc -l |grep bigip
+bigip_device_dns                   Manage BIG-IP device DNS settings                  
+bigip_device_ntp                   Manage NTP servers on a BIG-IP                     
+...
+- doc sur un module : 
+ansible-doc bigip_device_dns
