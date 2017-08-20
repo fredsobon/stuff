@@ -36,3 +36,177 @@ Dans yaml et ansible tout ce qui est situé après un ":" est considéré comme 
 ex :
 
 cheese: "{{my_cheese}}" < ici on encadre une variable ansible {{}} par des " " 
+
+
+== creation de notre env de test : ==
+
+on va passer par vagrant et virtualbox en provider 
+2 box vont nous servir :
+
+vagrant box add  bento/centos-7.2
+vagrant box add  ubuntu/xenial64
+
+== installation de ansible : ==
+
+1/ sur notre ubuntu 
+
+on se loggue en ssh : vagrant ssh :
+
+on va pouvoir passer par les repos de type ppa: 
+
+apt-add-repository ppa:ansible/ansible
+
+ubuntu@ubuntu-xenial:~$ sudo apt-add-repository ppa:ansible/ansible
+ Ansible is a radically simple IT automation platform that makes your applications and systems easier to deploy. Avoid writing scripts or custom code to deploy and update your applications— automate in a language that approaches plain English, using SSH, with no agents to install on remote systems.
+
+http://ansible.com/
+ More info: https://launchpad.net/~ansible/+archive/ubuntu/ansible
+Press [ENTER] to continue or ctrl-c to cancel adding it
+
+gpg: keyring `/tmp/tmpbrtp7rr4/secring.gpg' created
+gpg: keyring `/tmp/tmpbrtp7rr4/pubring.gpg' created
+gpg: requesting key 7BB9C367 from hkp server keyserver.ubuntu.com
+gpg: /tmp/tmpbrtp7rr4/trustdb.gpg: trustdb created
+gpg: key 7BB9C367: public key "Launchpad PPA for Ansible, Inc." imported
+gpg: Total number processed: 1
+gpg:               imported: 1  (RSA: 1)
+OK
+
+
+on update les repos et on install ansible. On verifie ensuite la version de notre appli :
+
+sudo apt-get update && sudo apt install ansible
+ubuntu@ubuntu-xenial:~$ ansible --version
+ansible 2.3.2.0
+  config file = /etc/ansible/ansible.cfg
+  configured module search path = Default w/o overrides
+  python version = 2.7.12 (default, Nov 19 2016, 06:48:10) [GCC 5.4.0 20160609]
+
+on a donc la derniere version dispo en cours sur notre server
+
+Sur centos / redhat il va falloir gérer un peu différement :
+
+- yum repolist : 
+
+[root@localhost ~]# yum repolist
+Modules complémentaires chargés : fastestmirror
+base                                              | 3.6 kB     00:00     
+extras                                            | 3.4 kB     00:00     
+updates                                           | 3.4 kB     00:00     
+(1/4): base/7/x86_64/group_gz                       | 155 kB   00:01     
+(2/4): extras/7/x86_64/primary_db                   | 191 kB   00:02     
+(3/4): base/7/x86_64/primary_db                     | 5.6 MB   00:13     
+(4/4): updates/7/x86_64/primary_db                  | 7.8 MB   00:18     
+Determining fastest mirrors
+ * base: mirror.guru
+ * extras: mirror.guru
+ * updates: centos.mirrors.ovh.net
+id du dépôt                     nom du dépôt                       statut
+base/7/x86_64                   CentOS-7 - Base                    9 363
+extras/7/x86_64                 CentOS-7 - Extras                    450
+updates/7/x86_64                CentOS-7 - Updates                 2 146
+repolist: 11 959
+
+Nous n'avons pas de paquet ansible, on va devoir ajouter un repo fedora :
+
+[root@localhost ~]# wget https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+
+puis l'installer 
+[root@localhost ~]# rpm -ivh epel-release-latest-7.noarch.rpm
+on update :
+[root@localhost ~]# yum repolist
+puis on install ansible :
+[root@localhost ~]# yum install ansible
+
+[root@localhost ~]# ansible --version
+ansible 2.2.9.0
+  config file = /etc/ansible/ansible.cfg
+  configured module search path = Default w/o overrides
+  python version = 2.7.5 (default, Nov 20 2015, 02:00:19) [GCC 4.8.5 20150623 (Red Hat 4.8.5-4)]
+
+
+
+Si la version n'est pas assez elevée on peut intégrer les versions testing :
+on install le package qui va contenir le binaire nous permettant de gérer les repo "testing" 
+[root@localhost ~]# yum install yum-utils.noarch
+on active le repo testing :
+[root@localhost ~]# yum-config-manager --enable epel-testing
+
+[root@localhost ~]# yum-config-manager --enable epel-testing
+Modules complémentaires chargés : fastestmirror
+========================== repo: epel-testing ===========================
+[epel-testing]
+async = True
+bandwidth = 0
+base_persistdir = /var/lib/yum/repos/x86_64/7
+baseurl = 
+cache = 0
+cachedir = /var/cache/yum/x86_64/7/epel-testing
+check_config_file_age = True
+compare_providers_priority = 80
+cost = 1000
+deltarpm_metadata_percentage = 100
+deltarpm_percentage = 
+enabled = 1
+enablegroups = True
+exclude = 
+failovermethod = priority
+ftp_disable_epsv = False
+gpgcadir = /var/lib/yum/repos/x86_64/7/epel-testing/gpgcadir
+gpgcakey = 
+gpgcheck = True
+gpgdir = /var/lib/yum/repos/x86_64/7/epel-testing/gpgdir
+gpgkey = file:///etc/pki/rpm-gpg/RPM-GPG-KEY-EPEL-7
+hdrdir = /var/cache/yum/x86_64/7/epel-testing/headers
+http_caching = all
+includepkgs = 
+ip_resolve = 
+keepalive = True
+keepcache = False
+mddownloadpolicy = sqlite
+mdpolicy = group:small
+mediaid = 
+metadata_expire = 21600
+metadata_expire_filter = read-only:present
+metalink = https://mirrors.fedoraproject.org/metalink?repo=testing-epel7&arch=x86_64
+minrate = 0
+mirrorlist = 
+mirrorlist_expire = 86400
+name = Extra Packages for Enterprise Linux 7 - Testing - x86_64
+old_base_cache_dir = 
+password = 
+persistdir = /var/lib/yum/repos/x86_64/7/epel-testing
+pkgdir = /var/cache/yum/x86_64/7/epel-testing/packages
+proxy = False
+proxy_dict = 
+proxy_password = 
+proxy_username = 
+repo_gpgcheck = False
+retries = 10
+skip_if_unavailable = False
+ssl_check_cert_permissions = True
+sslcacert = 
+sslclientcert = 
+sslclientkey = 
+sslverify = True
+throttle = 0
+timeout = 30.0
+ui_id = epel-testing/x86_64
+ui_repoid_vars = releasever,
+   basearch
+username = 
+
+on upgrade 
+[root@localhost ~]# yum upgrade ansible
+[root@localhost ~]# ansible --version
+ansible 2.3.1.0
+  config file = /etc/ansible/ansible.cfg
+  configured module search path = Default w/o overrides
+  python version = 2.7.5 (default, Nov 20 2015, 02:00:19) [GCC 4.8.5 20150623 (Red Hat 4.8.5-4)]
+[root@localhost ~]# ansible --version
+ansible 2.3.1.0
+  config file = /etc/ansible/ansible.cfg
+  configured module search path = Default w/o overrides
+  python version = 2.7.5 (default, Nov 20 2015, 02:00:19) [GCC 4.8.5 20150623 (Red Hat 4.8.5-4)]
+
+
