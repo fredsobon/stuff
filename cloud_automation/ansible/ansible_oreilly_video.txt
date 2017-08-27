@@ -464,3 +464,96 @@ bigip_device_ntp                   Manage NTP servers on a BIG-IP
 ...
 - doc sur un module : 
 ansible-doc bigip_device_dns
+
+
+== playbook intro ==
+
+les playbooks sont les blocks de construction de code ansible.On peut faire de la config, de l'orchestration et du deploiement via des playbooks.
+Ils sont rédigés en yaml et on des structures définis : les plays 
+exemple :
+play.yml
+
+---
+- name: ici on decrit ce que notre playbook/play va faire pour avoir du code lisible.
+  hosts: ici on defini notre / nos targer : host, group etc ...
+  remote_user: user_dedie si on ne l'a pas deja renseigné dans notre conf globale ou hosts
+  become: yes : ici on peut definir si notre user dedié pourra executer les cmds en root
+
+  vars:
+    vardefinie: on declare ici des variable qui pourront être alimentée
+  tasks: ici on defini les taches qui seront faite sequentiellement et qui pourront être rejouees tant qu'il y a des erreurs.
+    - name : on decrit les tasks
+      template: src=mylocal_file dst=path_of_file/on_remote_server :on peut utiliser un template : un fichier source qui sera pri de notre env local et poussé dans l'arbo désiree sur notre server.
+      notify: on pourra eventuellement faire une action si notre conf est modifier : restarter un service par exemple : pour cela on devra creer une section handler qui actionnera le redemarrage
+  handlers: 
+  - name : on donne une description
+    service: name=nomduservice state=action voulue 
+
+
+exemple : 
+---
+- name: install and configure mariadb
+  hosts: centos
+  become: yes
+
+  vars:
+    mysql_port: 3307
+
+  tasks:
+    - name: install mariadb server
+      yum: name=mariadb-server state=latest
+      
+    - name: add the config file
+      template: src=my.cnf.j2 dest=/etc/my.cnf
+      notify: restart mariadb
+
+    - name: create mariadb log file
+      file: path=/var/log/mysqld.log state=touch owner=mysql group=mysql mode=0775
+    
+    - name: start mariadb service
+      service: name=mariadb state=started enabled=yes
+
+  handlers:  
+  - name: restart mariadb
+    service: name=mariadb state=restarted
+
+
+On va créer notre template my.cnf 
+
+ ~/Documents/lab/ansible/provisionning  $  cat my.cnf.j2 
+[mysqld)
+datadir=/var/lib/mysql
+socket=/var/lib/mysql/mysql.sock
+user=mysql
+
+# disabled symlinks 
+symbolic-links=0
+port={{mysql_port}}
+
+[mysql_safe]
+log-error=/var/log/mysqld.log
+pid-file=/var/run/mariadb/mysql.pid
+
+Pour executer notre playbook on lance donc :
+ansible-playbook -i fichier_inventaire nom_du_playbook.yml
+
+exemple : 
+
+ansible-playbook -i hosts mariadb.yml 
+
+PLAY [install and configure mariadb] *******************************************
+
+TASK [setup] *******************************************************************
+ok: [centos]
+
+TASK [install mariadb server] **************************************************
+changed: [centos]
+
+TASK [prepare main conf file] **************************************************
+changed: [centos]
+
+TASK [create mariadb log file] *************************************************
+changed: [centos]
+..
+
+
