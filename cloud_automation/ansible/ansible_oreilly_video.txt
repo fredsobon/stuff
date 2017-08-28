@@ -623,7 +623,7 @@ on va donc pouvoir passer notre run sur une selection precise de machine qu'on p
 ansible-playbook -i hosts mariadb.yml --extra-vars "host=centos"  
 
 
-Variables "register" : souvent utilisées avec les commandes du module  shell
+- Variables "register" : souvent utilisées avec les commandes du module  shell
 
 ex :
 
@@ -658,5 +658,84 @@ ok: [centos] => {
 PLAY RECAP *********************************************************************
 centos                     : ok=3    changed=1    unreachable=0    failed=0   
  
+
+- Variables facts : 
+on va pouvoir travailler avec les variables récupérées des facts présents sur nos serveurs : 
+
+ex on peut regrouper nos servers via des facts qui serviront pour le tri : 
+
+  - debug: var=ansible_distribution_version
+  
+  - name: group some machines temporaly
+    group_by: key=rhel_{{ansible_distribution_version}}
+    register: group_result
+ 
+  - debug: var=group_result  
+
+ex : 
+ $  ansible-playbook -i hosts vars_cases.yml 
+..
+
+TASK [debug] *******************************************************************
+ok: [centos] => {
+    "ansible_distribution_version": "7.3.1611"
+}
+
+TASK [group some machines temporaly] *******************************************
+ok: [centos]
+
+TASK [debug] *******************************************************************
+ok: [centos] => {
+    "group_result": {
+        "add_group": "rhel_7.3.1611", 
+        "changed": false
+    }
+}
+
+PLAY RECAP *********************************************************************
+centos                     : ok=6    changed=1    unreachable=0    failed=0   
+
+
+==  conditionals : ==
+
+On peut controler l'execution de nos playbooks avec des tests qui permettront ou pas de realiser l'action 
+ex : 
+
+ ~/Documents/lab/ansible/provisionning  $  cat conditionals.yml 
+---
+- name: testing some conditionals 
+  hosts: centos
+  become: yes
+
+  vars:
+    lapin: True   << on set une variable a vrai 
+
+  tasks:
+  - name: do not check on debian server
+    yum: name=tree state=latest
+    #when: ansible_os_family=="Redhat"   <<< on test si notre os est une red hat 
+    when: (ansible_os_family=="Redhat" and ansible_distribution_major_version=="6")   <<< on peut cumuler avec des opérateurs booleens AND OR ....
+
+  - name: lapin is ral or fake ?
+    shell: echo "lapin is fake!!" 
+    when: not lapin      <<<< on va tester et afficher lapin is fake si on a pas defini lapin en variable 
+
+
+ ansible-playbook -i hosts conditionals.yml 
+
+PLAY [testing some conditionals] ***********************************************
+
+TASK [setup] *******************************************************************
+ok: [centos]
+
+TASK [do not check on debian server] *******************************************
+skipping: [centos]
+
+TASK [lapin is ral or fake ?] **************************************************
+skipping: [centos]
+
+PLAY RECAP *********************************************************************
+centos                     : ok=1    changed=0    unreachable=0    failed=0   
+
 
 
