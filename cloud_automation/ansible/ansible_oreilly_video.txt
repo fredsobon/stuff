@@ -557,3 +557,106 @@ changed: [centos]
 ..
 
 
+== variables : ==
+
+on va pouvoir utiliser des variables dans ansible pour appliquer des conf differentes en fonction de nos serveurs.
+Il y a toute une serie de parcours d'arbo hierarchiques pour appliquer une variable si elle est trouvée :
+on part de la liste suivante
+on override dans l'ordre suivant : 
+
+-> roles par defaut
+-> variables d'inventaire
+-> groupe de variables d'inventaire
+-> variable de host d'inventaire
+-> groupe de variable de playbooks
+-> variable de host d'un playbook
+-> hosts facts
+-> facts enregistrés
+-> facts definis
+-> variable de play
+-> variable de prompt de play
+-> variable de fichier de play
+-> variable de Role et include 
+-> variables de bloc
+-> variables de tasks
+-> extra variables  
+
+
+
+On peut definir des variables au sein de notre playbook .
+
+ex : 
+
+on alimente notre playbook de variables au sein d'une section: 
+...
+vars:
+  log_path: "/var/log"
+
+qu'on appelle ensuite plus loin dans notre conf :
+
+...
+    - name: create mariadb log file
+      file: path={{ log_path }}/mysqld.log state=touch owner=mysql group=mysql mode=0775
+
+On peut pour plus de clarter definir un fichier de variables externe à notre playbook et l'appeller au sein de notre conf :
+
+
+cat maria_vars.yml 
+---
+mysql_port: 3307
+log_path: "/var/log"
+
+
+dans notre playbook on remplacera la section vars par vars_file qui contiendra notre fichier de déclaration de variables; 
+
+  vars_files:
+    - maria_vars.yml
+
+On peut aussi definir les variable dans la section hosts :
+ex : 
+---
+- name: install and configure mariadb
+  hosts: "{{ my_host }}"
+
+qui pourra ensuite être overrider / configurer en cli :
+on va donc pouvoir passer notre run sur une selection precise de machine qu'on passe en argument et qui seront ensuite recupérer pour l'execution de notre playbook : 
+ansible-playbook -i hosts mariadb.yml --extra-vars "host=centos"  
+
+
+Variables "register" : souvent utilisées avec les commandes du module  shell
+
+ex :
+
+---
+- name: testing misc variables
+  hosts: centos
+
+  tasks:
+  - name: get the date of our server
+    shell: date
+    register: output
+     
+  -debug: msg="the date is {{ output.stdout }}" 
+
+on va donc enregister dans la variable output notre date puis l'afficher via une task debug : 
+
+ ansible-playbook -i hosts vars_cases.yml 
+
+PLAY [testing misc variables] **************************************************
+
+TASK [setup] *******************************************************************
+ok: [centos]
+
+TASK [get the date of our server] **********************************************
+changed: [centos]
+
+TASK [debug] *******************************************************************
+ok: [centos] => {
+    "msg": "the date is lun. août 28 11:01:31 UTC 2017"
+}
+
+PLAY RECAP *********************************************************************
+centos                     : ok=3    changed=1    unreachable=0    failed=0   
+ 
+
+
