@@ -1,0 +1,273 @@
+==  Introduction ==
+
+
+systemd est un remplaçant du démon init system V pour Linux. Il a pour but d'offrir une meilleure gestion des dépendances entre services, ainsi que de permettre le chargement en parallèle des services au démarrage.
+Cela permet réduire le temps de démarrage du système et de lancer moins de processus.
+
+Les distributions Fedora, Mageia, Open SUSE et Debian ont adopté ce système par défaut dans leurs distributions respectives.
+Ubuntu utilise upstart et Gentoo utilise OpenRC.
+
+
+== Configurer ses services ==
+
+
+L'outil systemctl permet de configurer les services qui sont lancés au démarrage.
+
+- Activer un service au démarrage
+
+Pour configurer un service pour qu'il soit lancé automatiquement au démarrage du système, utiliser la commande :
+
+ systemctl enable nom_du_service.service
+
+
+Voici un exemple avec le service sshd :
+
+
+# systemctl enable sshd.service
+ln -s '/usr/lib/systemd/system/sshd.service' '/etc/systemd/system/multi-user.target.wants/sshd.service'
+
+
+- Désactiver un service au démarrage
+
+Pour configurer un service pour qu'il ne soit plus lancé automatiquement au démarrage du système, utiliser la commande :
+
+
+ systemctl disable nom_du_service.service
+
+
+Voici un exemple avec le service sshd :
+
+
+# systemctl disable sshd.service
+rm '/etc/systemd/system/multi-user.target.wants/sshd.service'
+
+
+- Services en fonction
+
+
+Statut d'un service
+
+Pour connaître le statut d'un service, utiliser la commande :
+
+# systemctl is-active nom_du_service.service 
+
+
+
+Voici un exemple avec le service sshd
+
+
+# systemctl is-active sshd.service 
+active
+
+
+
+Les informations sont très minimalistes.
+Pour plus de détails, utiliser la commande :
+
+
+systemctl status nom_du_service.service
+
+
+L'auto-complétion fonctionne pour le nom du service; voici un exemple sur le service sshd :
+
+
+# systemctl status sshd.service 
+sshd.service - OpenSSH server daemon
+   Loaded: loaded (/usr/lib/systemd/system/sshd.service; enabled)
+   Active: active (running) since lun. 2013-09-16 17:49:01 CEST; 2 days ago
+ Main PID: 676 (sshd)
+   CGroup: name=systemd:/system/sshd.service
+           &#9492;&#9472;676 /usr/sbin/sshd -D
+sept. 16 17:49:01 fedora systemd[1]: Starting OpenSSH server daemon...
+sept. 16 17:49:01 fedora systemd[1]: Started OpenSSH server daemon.
+sept. 16 17:49:02 fedora sshd[676]: Server listening on 0.0.0.0 port 22.
+sept. 16 17:49:02 fedora sshd[676]: Server listening on :: port 22.
+sept. 18 15:02:34 fedora sshd[28095]: Accepted password for adrienfedo from 192.168.1.11 port 51600 ssh2
+sept. 18 16:22:30 fedora sshd[16864]: Accepted password for adrienfedo from 192.168.1.11 port 51618 ssh2
+ 
+
+Il est possible de lister tous les services actifs :
+
+
+# systemctl list-units --type=service 
+
+
+Voici un extrait du résultat de la commande :
+
+
+#  systemctl list-units --type=service 
+UNIT                         LOAD   ACTIVE SUB     DESCRIPTION
+abrt-ccpp.service            loaded active exited  Install ABRT coredump hook
+abrt-oops.service            loaded active running ABRT kernel log watcher
+abrt-xorg.service            loaded active running ABRT Xorg log watcher
+abrtd.service                loaded active running ABRT Automated Bug Reporting 
+accounts-daemon.service      loaded active running Accounts Service
+alsa-state.service           loaded active running Manage Sound Card State (rest
+atd.service                  loaded active running Job spooling tools
+auditd.service               loaded active running Security Auditing Service
+avahi-daemon.service         loaded active running Avahi mDNS/DNS-SD Stack
+bluetooth.service            loaded active running Bluetooth service
+bumblebee-nvidia.service     loaded active exited  Compiling NVidia Driver
+
+
+
+
+= Exécution de services =
+
+
+- Démarrer un service
+
+Pour démarrer un service, utilisez la commande :
+
+
+# systemctl start nom_du_service.service 
+
+
+Illustration avec le service sshd :
+
+
+# systemctl is-active sshd.service 
+active
+# systemctl stop sshd.service
+# systemctl is-active sshd.service 
+inactive
+
+
+- Arrêter un service
+
+Pour arrêter un service, utilisez la commande :
+
+
+# systemctl stop nom_du_service.service 
+
+Illustration avec le service sshd :
+
+# systemctl is-active sshd.service 
+active
+# systemctl stop sshd.service
+# systemctl is-active sshd.service 
+inactive
+
+
+- Redémarrer un service
+
+Une commande existe pour redémarrer un service (ce qui correspond à un systemctl stop enchaîné d'un systemctl start ) :
+
+
+systemctl restart nom_du_service.service
+
+
+# systemctl restart sshd.service
+
+- Recharger la configuration un service
+
+Redémarrer un service entraîne son arrêt pendant un très court moment.
+Imaginons, on modifie la configuration de samba (partage de fichiers), on souhaite prendre en compte la nouvelle configuration.
+Redémarrer le service entraîne une déconnexion d'utilisateurs, et si un fichier est en cours de transfert, celui-ci s'annule.
+
+On peut recharger la configuration sans interrompre le service avec cette commande :
+
+
+systemctl reload nom_du_service.service
+
+
+Exemple avec le service de samba :
+
+
+# systemctl reload smb.service
+
+= Gérer les niveaux d'exécution (runlevels) =
+
+
+- Connaitre son runlevel
+
+Pour connaitre son niveau d'exécution :
+
+
+systemctl get-default
+
+La réponse est chez moi :
+
+multi-user.target
+
+
+Ce qu'il faut mémoriser, c'est que multi-user.target correspond au runlevel historique 3 (Multi-utilisateurs console) et que graphical.target correspond au runlevel historique 5 (Multi-utilisateurs graphique)
+
+- Basculer temporairement de runlevel
+
+Avant systemd, on utilisait la commande init.
+Ici, on va utiliser la commande systemctl isolate :
+
+
+systemctl isolate nom.target 
+
+
+
+Exemple pour passer en runlevel 5 (graphique) :
+
+systemctl isolate graphical.target
+
+
+Changer de runlevel par défaut
+
+Avant systemd, on modifiait le fichier /etc/inittab.
+Ici, on va utiliser la commande systemctl set-default :
+
+systemctl set-default nom.target 
+
+
+Exemple pour définir le niveau graphique :
+
+
+systemctl set-default graphical.target
+
+
+Le changement sera visible au prochain redémarrage.
+
+
+= Créer un service simple =
+
+
+Il y a peut être mieux, mais j'utilise ceci et cela fonctionne.
+
+Je n'ai testé que des services "simples" qui exécutent une commande au démarrage. Cela permet d'éviter de tout mettre dans le rc.local.
+
+Voici comment créer un service, avec une commande :
+
+Créer le fichier /etc/systemd/system/mon-service.service
+
+
+[Unit]
+Description=Je dis ici à quoi sert le service
+ConditionPathExists=/usr/sbin/commande
+[Service]
+Type=forking
+ExecStart=/bin/sh -c 'commande'
+TimeoutSec=0
+StandardOutput=tty
+RemainAfterExit=yes
+SysVStartPriority=99
+[Install]
+WantedBy=multi-user.target
+ 
+
+Ensuite, rendre exécutable ce service :
+
+
+chmod a+x /etc/systemd/system/mon-service.service
+
+
+On recharge systemd
+
+systemctl --system daemon-reload
+
+
+
+On tente de démarrer le service et on constate que ça marche bien :
+
+systemctl start mon-service.service
+
+
+On peut ajouter ce service au démarrage si on le souhaite :
+
+systemctl enable mon-service.service
