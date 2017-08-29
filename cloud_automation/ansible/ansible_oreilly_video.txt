@@ -244,7 +244,7 @@ On va copier la clé pub de notre user dans l'authorized key du user root de not
 On renseigne le host de la manière suivante pour effectuer les premiers tests :
 
 /Documents/lab/ansible/ansible_oreilly_video/vm/provisioning/playbooks$ cat hosts 
-ubuntu-ansible ansible_ssh_host=127.0.0.1 ansible_ssh_port=2222 ansible_ssh_user=root ansible_ssh_private_key_file=/home/boogie/.ssh/id_rsa
+Debianubuntu-ansible ansible_ssh_host=127.0.0.1 ansible_ssh_port=2222 ansible_ssh_user=root ansible_ssh_private_key_file=/home/boogie/.ssh/id_rsa
 
 /!\ on peut overrider la config ansible dont la base se situe dans le fichier /etc/ansible/ansible.cfg
 on peut par exemple setter en direct la clé priv avec laquelle les authent seront faites dans le fichier /etc/ansible/ansible.cfg
@@ -254,7 +254,9 @@ et donc alleger notre fichier hosts :
 ubuntu-ansible ansible_ssh_host=127.0.0.1 ansible_ssh_port=2222 ansible_ssh_user=root
 
 on va donc faire notre premier test :
-on invoque ansible en lui passant comme argument le server renseigné dans le host <ubuntu-ansible> -i fichier d'inventaire <hosts> ici et -ù module utilisé <ping> ici :
+on invoque ansible en lui passant comme argument le server renseigné dans le host <ubuntu-ansible> -i fichier d'inventaire <hosts> ici et -m module utilisé <ping> ici 
+:
+
 
 ansible ubuntu-ansible -i hosts -m ping
 ubuntu-ansible | SUCCESS => {
@@ -708,7 +710,7 @@ ex :
   become: yes
 
   vars:
-    lapin: True   << on set une variable a vrai 
+    lapin: true   << on set une variable a vrai 
 
   tasks:
   - name: do not check on debian server
@@ -738,4 +740,33 @@ PLAY RECAP *********************************************************************
 centos                     : ok=1    changed=0    unreachable=0    failed=0   
 
 
+on va pouvoir afficher notre message si on enregistre le dans une variable notre commande shell et qu'on l'affiche ensuite ;
 
+  - name: lapin is ral or fake ?
+    shell: echo "lapin is fake!!" 
+    register: output
+    when: lapin
+
+  - debug: msg="for sure "{{ output.stdout }}""
+
+
+ ~/Documents/lab/ansible/provisionning  $  ansible-playbook -i hosts conditionals.yml 
+
+PLAY [testing some conditionals] ***********************************************
+
+TASK [setup] *******************************************************************
+ok: [centos]
+
+TASK [do not check on debian server] *******************************************
+skipping: [centos]
+
+TASK [lapin is ral or fake ?] **************************************************
+changed: [centos]
+
+TASK [debug] *******************************************************************
+ok: [centos] => {
+    "msg": "for sure \"lapin is fake!!\""
+}
+
+PLAY RECAP *********************************************************************
+centos                     : ok=3    changed=1    unreachable=0    failed=0   
