@@ -770,3 +770,48 @@ ok: [centos] => {
 
 PLAY RECAP *********************************************************************
 centos                     : ok=3    changed=1    unreachable=0    failed=0   
+
+
+== loops : ==
+on va  pouvoir se servir des bloucles pour permettre la gestion multiples d'actions.Plusieurs types de boucles existent.
+
+- with_items : est une forme de boucle très utilisée dans ansible.
+On va pouvoir itérer un nombre le nombre de fois nécéssaire sur une liste.
+
+exemple pour l'installation de plusieurs paquets on va definir une variable qui va récupérer chaque entrée d'une liste et procéder à l'install :
+
+  tasks: 
+  - name: install tools 
+    yum: name={{ item }} state=installed
+    with_items: 
+    - lsof
+    - tree
+    - nmap
+- with_dict : va nous permettre d'iterer sur un dictionnaire 
+
+
+- name: testing loops
+host: centos
+
+  tasks:
+  - name: looping other env facts
+    debug: msg={{item.key}}=>>{{item.value}}
+    with_dict: ansible_env
+
+- with_files , with_fileglob etc ..: on va opérer sur les elements de fichier : 
+
+  - name: looping over files
+    copy: src={{item}} dest=/tmp/loops
+    with_fileglob: "/tmp/*.conf"
+
+
+- until : une autre forme de loop :
+
+  - name: do until something 
+    shell: echo hello!!
+    register: output
+    retries: 5
+    delay: 5
+    until: output.stdout.find('hello!!) != -1
+
+    
