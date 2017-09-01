@@ -815,3 +815,60 @@ host: centos
     until: output.stdout.find('hello!!') != -1
 
     
+== blocks : ==
+
+Ils vont nous permettre de regrouper des tasks logiquement entre elles.C'est utile avec les tests condtionnels et les escalades de privileges nécéssaire pour l'execution des taches multiples.
+
+ex : on va pouvoir ici installer toute une conf mariadb si notre os est de type RedHat 
+
+
+
+- name: install and configure mariadb
+  hosts: centos
+  strategy: debug
+
+  vars_files:
+    - maria_vars.yml
+
+  tasks:
+    - blocks:
+       - name: install mariadb server
+         yum: name=mariadb-server state=latest
+ 
+       - name: prepare main conf file
+         template: src='my.cnf.j2' dest='/etc/my.cnf'
+         notify: restart mariadb
+ 
+       - name: create mariadb log file
+         file: path='/var/log/mysqld.log' state=touch owner=mysql group=mysql mode=0775
+ 
+       - name: start mariadb service
+         service: name=mariadb state=started enabled=yes
+     when: ansible_os_family=="Redhat"
+     become: yes
+
+Les blocs permettent egalement une tres bonne gestion des erreurs.
+
+
+
+---
+- name: testing blocks for debug
+  hosts: centos
+  
+
+  tasks:
+  - block: 
+    - name: copy files to dst
+    - copy: src=/tmp/lapin dest=/tmp/loops
+    rescue:   <<<<<<<<<<<<<<<<<<<<<<< ici on pose un rescue 
+    - debug: msg="Always stop for debug"   <<<< le message s'affichera en cas d'erreur
+    always:   <<<<<<<<<<<<<<<<<<<<<< ici on pose un always 
+    - debug: msg="always show the message !" <<<<< le message sera toujours affiché
+
+
+  - block:   <<<<< on peut imbriquer des blocs
+    - block:
+      - block:
+        - debug: msg="nesting some blocs!"
+
+
