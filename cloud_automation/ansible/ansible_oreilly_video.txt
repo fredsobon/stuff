@@ -857,18 +857,364 @@ Les blocs permettent egalement une tres bonne gestion des erreurs.
   
 
   tasks:
-  - block: 
-    - name: copy files to dst
-    - copy: src=/tmp/lapin dest=/tmp/loops
-    rescue:   <<<<<<<<<<<<<<<<<<<<<<< ici on pose un rescue 
-    - debug: msg="Always stop for debug"   <<<< le message s'affichera en cas d'erreur
-    always:   <<<<<<<<<<<<<<<<<<<<<< ici on pose un always 
-    - debug: msg="always show the message !" <<<<< le message sera toujours affiché
+    - block: 
+      - name: copy files to dst
+        copy: src=/tmp/lapin dest=/tmp/loops
+      rescue:   <<<<<<<<<<<<<<<<<<<<<<< ici on pose un rescue 
+        - debug: msg="Always stop for debug"   <<<< le message s'affichera en cas d'erreur
+      always:   <<<<<<<<<<<<<<<<<<<<<< ici on pose un always 
+        - debug: msg="always show the message !" <<<<< le message sera toujours affiché
 
 
-  - block:   <<<<< on peut imbriquer des blocs
-    - block:
-      - block:
-        - debug: msg="nesting some blocs!"
+    - block:   <<<<< on peut imbriquer des blocs
+       - block:
+          - block:
+              - debug: msg="nesting some blocs!"
 
+ce qui nous donne lors de notre run :
+
+ ~/Documents/lab/ansible/provisionning  $  ansible-playbook -i hosts blocks.yml 
+
+PLAY [testing blocks for debug] ************************************************
+
+TASK [setup] *******************************************************************
+ok: [centos]
+
+TASK [copy files to dst] *******************************************************
+changed: [centos]
+
+TASK [debug] *******************************************************************
+ok: [centos] => {
+    "msg": "always show the message !"
+}
+
+TASK [debug] *******************************************************************
+ok: [centos] => {
+    "msg": "nesting some blocs!"
+}
+
+PLAY RECAP *********************************************************************
+centos                     : ok=4    changed=1    unreachable=0    failed=0 
+
+et  en cas d'erreur (ex on supprime notre fichier en src) : le message de debug d'erreur s'affiche bien :
+
+
+ ~/Documents/lab/ansible/provisionning  $  ansible-playbook -i hosts blocks.yml 
+
+PLAY [testing blocks for debug] ************************************************
+
+TASK [setup] *******************************************************************
+ok: [centos]
+
+TASK [copy files to dst] *******************************************************
+fatal: [centos]: FAILED! => {"changed": false, "failed": true, "msg": "Unable to find '/tmp/lapin' in expected paths."}
+
+TASK [debug] *******************************************************************
+ok: [centos] => {
+    "msg": "Always stop for debug"
+}
+
+TASK [debug] *******************************************************************
+ok: [centos] => {
+    "msg": "always show the message !"
+}
+
+TASK [debug] *******************************************************************
+ok: [centos] => {
+    "msg": "nesting some blocs!"
+}
+
+PLAY RECAP *********************************************************************
+centos                     : ok=4    changed=0    unreachable=0    failed=1   
+
+
+=== templates : ==
+
+le templating est tres puissant et il est possible de consulter la doc jinja pour voir l'ensemle des possibilités.
+jinja.pocoo.org
+On prend pour habitude de suffixer nos tpls avec l'extension j2 pour lisibilité.
+
+On va utiliser les templates souvent pour alimenter la creation de fichier de conf avec des variables définies dans nos playbooks.
+ex : 
+ ~/Documents/lab/ansible/provisionning  $  cat my.cnf.j2 
+[mysqld)
+datadir=/var/lib/mysql
+socket=/var/lib/mysql/mysql.sock
+user=mysql
+
+# disabled symlinks 
+symbolic-links=0
+port={{ mysql_port }}
+
+[mysqld_safe]
+log-error=/var/log/mysqld.log
+pid-file=/var/run/mariadb/mysql.pid
+
+
+On va aussi pouvoir être beaucoup plus précis et définir des regles de matching au sein du tpl.
+exemple ici on va pouvoir appliquer des regles iptables en fonctions des infos matchant dans le fichier d'inventaire (ouvrir le port 80 pour les serveurs http, le 3306 pour les db ...)
+$  cat iptables.j2 
+
+# {{ ansible_managed }}   <<< ici on met un flag prouvant que le fichier est poussé par ansible
+# Manual customization of this file is not recommended.
+*filter
+:INPUT ACCEPT [0:0]
+:FORWARD ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+
+{% if (inventory_hostname in groups['webservers']) or (inventory_hostname in groups['monitoring']) %}   <<<  on utilise les fonction décisionnelle de jinja pour appliquer la regle en fonction du group dans lequel se trouve le host avec {% if  .... %}
+-A INPUT -p tcp  --dport 80 -j ACCEPT
+{% endif %}
+
+{% if inventory_hostname in groups['dbservers'] %}
+-A INPUT -p tcp  --dport 3306 -j  ACCEPT
+{% endif %}
+
+{% if inventory_hostname in groups['lbservers'] %}
+-A INPUT -p tcp  --dport {{ listenport }} -j  ACCEPT  <<< on voit ici la definition d'une variable {{ listenport }} qu'il faudra biensur avoir déclarée dans notre playbook.
+{% endif %}
+
+{% for host in groups['monitoring'] %}  <<< ici on a une boucle jinja2 : ici on boucle sur tous les hosts du group monitoring 
+-A INPUT -p tcp -s {{ hostvars[host].ansible_default_ipv4.address }} --dport 5666 -j ACCEPT   <<< ici on va utiliser les variables des hosts correspondant au fact de l'ip recupérée par ansible ( ex fact: 
+        "ansible_default_ipv4": {
+            "address": "10.0.2.15", 
+         ...
+{% endfor %}
+-A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+-A INPUT -p icmp -j ACCEPT
+-A INPUT -i lo -j ACCEPT
+-A INPUT -m state --state NEW -m tcp -p tcp --dport 22 -j ACCEPT
+-A INPUT -j REJECT --reject-with icmp-host-prohibited
+-A FORWARD -j REJECT --reject-with icmp-host-prohibited
+
+
+
+on rempli ensuite notre fichierplaybook yaml pour alimenter notre template avec la variable et proceder aux actions : 
+cat templates.yml
+---
+- name: testing templates
+  hosts: testServer
+  remote_user: ec2-user
+  become: yes
+  
+  vars:
+    listenport: 8888
+
+  tasks:
+  - name: insert iptables template
+    template: src=iptables.j2 dest=/etc/sysconfig/iptables
+    notify: restart iptables
+
+  handlers: 
+  - name: restart iptables
+    service: name=iptables state=restarted  
+
+== jinja2 filters : ==
+
+Les fonctions jinja vont alimenter nos fichiers de conf et tpl : il y a beaucoup de fonctionalités.
+
+On va pouvoir utiliser les filtres jinja dans les playbooks egalement 
+Ex filtre avec structures conditionnelles 
+on va pouvoir utiliser les filtres jinja pour agir avec le contenu d'une variables :
+
+ex :
+... 
+  tasks:
+  - name: quick echo
+    shell: echo $PATH
+    register: result   <<< le resultat de la commande shell est enregitré dans la var result 
+  
+  - debug: msg="The play failed"
+    when: result|failed     <<< on va executer une action en fonction des test de conditions 
+...ce message de debug ne s'affichera que si la commande echo $PATH echoue 
+
+
+on va pouvoir definir des variables par défaut dans la conf de notre playbook : ce qui permet au run de continuer si une variable n'est pas définie en fallbackant sur la valeur de la variable par defaut
+
+  hosts: "{{database_host | default('centos')}}"  <<< ex notre run passera sur le hosts database_host ..mais si celui-ci n'existe pas alors on fallback sur la valeur par default testServer.
+
+
+on va pouvoir egalement grace aux filtres jinja appliquer des traitement sur nos variables 
+ex deux listes de variables dans notre playbook : 
+
+  vars:
+    cheese: ['american', 'cheddar', 'cheddar', 'mozzarella', 'bleu', 'manchego', 'mozzarella', 'brie']
+    pizza_toppings: ['mozzarella', 'anchovies', 'pineapple', 'bleu', 'pepperoni', 'mushrooms', 'ham']
+
+on va pouvoir par ex recupérer les elements unique de la liste "cheese" : 
+en passant a notre liste le | puis la fonctin unique : 
+
+  - debug: msg="{{cheese | unique}}"
+
+on peut recupérer les elements différents entre la liste cheese et pizza_toppings : 
+
+  - debug: msg="{{cheese | difference(pizza_toppings)}}"
+
+et on peut faire la liste globale des elements uniques des deux listes cheese et pizza_toppings : 
+
+  - debug: msg="{{cheese | union(pizza_toppings)}}"
+
+
+
+ cat filters.yml 
+---
+- name: testing filter options
+  hosts: "{{database_host | default('centos')}}"
+  become: yes
+
+  vars:
+    cheese: ['american', 'cheddar', 'cheddar', 'mozzarella', 'bleu', 'manchego', 'mozzarella', 'brie']
+    pizza_toppings: ['mozzarella', 'anchovies', 'pineapple', 'bleu', 'pepperoni', 'mushrooms', 'ham']
+  
+  tasks:
+  - name: quick echo
+    shell: echo $PATH
+    register: result
+
+  - debug: msg="The play failed"
+    when: result|failed
+
+  - debug: msg="The play changed"
+    when: result|changed
+
+  - debug: msg="The play succeeded"
+    when: result|success
+
+  - debug: msg="The play skipped"
+    when: result|skipped
+
+  - debug: msg="{{cheese | unique}}"
+
+  - debug: msg="{{cheese | difference(pizza_toppings)}}"
+
+  - debug: msg="{{cheese | union(pizza_toppings)}}"
+
+ce qui nous donne lors de l'execution du run : 
+
+ ~/Documents/lab/ansible/provisionning  $  ansible-playbook -i hosts filters.yml 
+
+PLAY [testing filter options] **************************************************
+
+TASK [setup] *******************************************************************
+ok: [centos]
+
+TASK [quick echo] **************************************************************
+changed: [centos]
+
+TASK [debug] *******************************************************************
+skipping: [centos]
+
+TASK [debug] *******************************************************************
+ok: [centos] => {
+    "msg": "The play changed"
+}
+
+TASK [debug] *******************************************************************
+ok: [centos] => {
+    "msg": "The play succeeded"
+}
+
+TASK [debug] *******************************************************************
+skipping: [centos]
+
+TASK [debug] *******************************************************************
+ok: [centos] => {
+    "msg": [
+        "american", 
+        "cheddar", 
+        "mozzarella", 
+        "bleu", 
+        "manchego", 
+        "brie"
+    ]
+}
+
+TASK [debug] *******************************************************************
+ok: [centos] => {
+    "msg": [
+        "american", 
+        "cheddar", 
+        "manchego", 
+        "brie"
+    ]
+}
+
+TASK [debug] *******************************************************************
+ok: [centos] => {
+    "msg": [
+        "american", 
+        "cheddar", 
+        "mozzarella", 
+        "bleu", 
+        "manchego", 
+        "brie", 
+        "anchovies", 
+        "pineapple", 
+        "pepperoni", 
+        "mushrooms", 
+        "ham"
+    ]
+}
+
+PLAY RECAP *********************************************************************
+centos                     : ok=7    changed=1    unreachable=0    failed=0   
+
+on recupére bien le status success et changed et le resultat des traitement de liste.
+
+== playbooks best practice : = 
+
+on doit s'assurer que pour chaque projet tous les elements de ce projet sont bien présents dans un seul repertoire ex: 
+├── ampedHostsFile
+├── ansible.cfg
+├── group_vars
+│   ├── all
+│   └── dbservers
+├── hosts
+├── roles
+│   └── mariadb
+│       ├── defaults
+│       │   └── main.yml
+│       ├── files
+│       ├── handlers
+│       │   └── main.yml
+│       ├── meta
+│       │   └── main.yml
+│       ├── README.md
+│       ├── tasks
+│       │   └── main.yml
+│       ├── templates
+│       ├── tests
+│       │   ├── inventory
+│       │   └── test.yml
+│       └── vars
+│           └── main.yml
+
+le fichier d'inventaire
+le fichier playbook principal qu'on peut nommer par convention site.yml
+le fichier de config ansible
+un repertoire comportant les differents variables dédiées a certains hosts/ group
+un repertoire role qui contiendra tous les éléments nécéssaires à notre playbook
+
+on va pouvoir regrouper precisement nos serveurs dans le fichier d'inventaire ex 
+..
+[webServers:children]
+east-webservers.example.com
+west-webservers.example.com
+mais il peut être plus judicieux de grouper les variables correspondantes aux hosts dediés dans les rep group_vars
+ex : les variables des server web , celle des server de l'east ...
+
+on peut definir des variables qui s'appliqeront a tout nos servers matchant se groupe 
+ex : 
+cat group_vars/all
+---
+httpd_port: 80
+
+cat group_vars/dbservers
+---
+mysql_port: 3306
+
+La best practice est cependant d'utiliser l'arbo des roles 
+
+Pour l'ecriture des playbooks il est capital de tout garder simple : less is more 
+-> nommer les playbooks , les tasks, espacer d'une ligne les tasks , toujours utiliser le parametre state et surtout versionner toutes les confs.
 
