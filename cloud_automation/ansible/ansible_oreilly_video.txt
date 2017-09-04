@@ -1218,3 +1218,78 @@ La best practice est cependant d'utiliser l'arbo des roles
 Pour l'ecriture des playbooks il est capital de tout garder simple : less is more 
 -> nommer les playbooks , les tasks, espacer d'une ligne les tasks , toujours utiliser le parametre state et surtout versionner toutes les confs.
 
+
+
+== includes : == 
+
+Il va être possible de rassembler plusieurs playbooks et gérer les actions (tasks etc ...) des differents playbook au sein d'un seul fichier.
+Ansible va executer toutes les playbooks de manière sequentielles du haut vers le bas.
+En fonction de l'endroit ou on place notre include on aura donc des actions differentes 
+
+pour utiliser un include il suffit de placer le keyword include suivi du playbook a jouer à l'endroit precis de notre playbook principal.
+ex :
+on va ajouter un playbook selinux qui va contenir simplement deux taches ,  dans notre playbook mariadb.yml au debut de notre playbook 
+
+mariadb.yml : 
+---
+- name: install and configure mariadb
+  hosts: testServer
+  remote_user: ec2-user
+  become: yes 
+
+  vars_files:
+   - maria_vars.yml
+
+  tasks:
+    - include: selinux.yml  <<< on defini ici notre include : sans preciser le path de notre fichier qui se trouve au même niveau que notre playbook mariadb.yml dans notre ex. Sinon il faut preciser le chemin complet.
+
+    - block:  
+       - name: install mariadb
+         yum: name=mariadb-server state=latest
+
+       - name: create mysql configuration file
+         template: src=my.cnf.j2 dest=/etc/my.cnf
+         notify: restart mariadb
+..
+...
+Biensur si on place l'include a la fin du fichier les taches habituelles de notre playbook mariadb.yml seront executées en premier.
+ex : rajouter le playbook d'un webserver 
+- include: webserver.yml
+
+
+Les includes sont les precurseurs des roles : ont peu utiliser les deux.
+
+Le detail de notre fichier selinux.yml nous montre qu'il ne contient que deux tasks simples.
+
+cat selinux.yml : 
+
+---
+- name: Install python bindings for SE Linux
+  yum: name={{ item }} state=present
+  with_items:
+   - libselinux-python
+   - libsemanage-python
+   
+- name: test to see if selinux is running
+  command: getenforce
+
+
+== roles : ==
+
+
+- structures : 
+
+La structure du repertoire role est très importante car elle va comporter tous les éléments nécéssaires à notre environement et ansible va automatiquement y chercher les variables, tasks, templates et handlers ...et va donc nous permettre de partager differents composants a travers differents groupes.
+Une commande va nous permettre de créer notre arbo automatiquement :
+
+ansible-galaxy -h 
+
+Usage: ansible-galaxy [delete|import|info|init|install|list|login|remove|search|setup] [--help] [options] ...
+
+Options:
+  -h, --help     show this help message and exit
+  -v, --verbose  verbose mode (-vvv for more, -vvvv to enable connection
+                 debugging)
+  --version      show program's version number and exit
+
+
