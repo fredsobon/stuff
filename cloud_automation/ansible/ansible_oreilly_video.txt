@@ -1292,4 +1292,70 @@ Options:
                  debugging)
   --version      show program's version number and exit
 
+On doit pour pouvoir piloter nos roles tout d'abord créer un repertoire "roles" dans notre projet puis s'y déplacer pour pouvoir créer nos roles /modules: 
+
+ ~/Documents/lab/ansible/provisionning  $  mkdir roles ; cd roles
+exemple ici on va créer un role mariadb et y backporter progressivement tous les fichiers de conf crées auparavant 
+
+ansible-galaxy init <nom_du_role> 
+
+ansible-galaxy init mariadb
+
+tree :
+├── roles
+│   └── mariadb
+│       ├── defaults
+│       │   └── main.yml
+│       ├── files
+│       ├── handlers
+│       │   └── main.yml
+│       ├── meta
+│       │   └── main.yml
+│       ├── README.md
+│       ├── tasks
+│       │   └── main.yml
+│       ├── templates
+│       ├── tests
+│       │   ├── inventory
+│       │   └── test.yml
+│       └── vars
+│           └── main.yml
+On a donc un rep principal contenant des sous rep avec très souvent un fichier main.yml egalement (on peut changer le nom de ce fichier ou le changer ceci n'a pas d'importance)
+
+Ces repertoires et fichiers seront apellés directement quand on les definira dans notre playbook principal : tout y sera correctement evalué et dans le même ordre qu'avec l'execution d'un playbook normal.
+Un fichier vide sera tout simplement ignoré.
+
+- defaults : dans ce rep on va setté tout ce qui sera défini par défaut dans notre role  : on va donc ici définir souvent des variables  / valeurs par default en cas de probleme d'evaluation de variables  : ces valeurs serviront de fallback.
+- files : ici on va stocker tout ce qui est nécéssaire pour nos rôles : script, fichiers de conf, rpm etc ...
+- meta : ici on va definir les dépendances de nos roles.
+- tests : ce rep est utiliser pour les tests d'intégration continue avec des outils comme travis etc ...et contient des valeurs par defaut
+- vars  :
+- templates : 
+> pas de surprise pour les deux repertoires précédents qui stockent ce que leur nom indique.
+
+
+
+On va donc maintenant splitter les confs précedentes de mariadb dans les repertoires dédiés de nos roles.
+on va donc laisser dans un fichier main playbook les infos de haut niveau : 
+
+---
+- name: install and configure mariadb
+  hosts: centos
+  strategy: debug 
+
+
+On va placer le contenu de notre fichier :
+cat maria_vars.yml
+---
+mysql_port: 3307
+log_path: "/var/log"
+
+dans le fchier 
+roles/mariadb/vars/main.yml
+
+on supprime donc apres le fichier de vars : maria_vars.yml puis les lignes:
+  vars_files:
+    - maria_vars.yml
+devenues inutiles dans notre fichier de conf.
+
 
