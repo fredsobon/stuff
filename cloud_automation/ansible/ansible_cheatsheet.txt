@@ -184,3 +184,72 @@ bigip_device_sshd                  Manage the SSHD settings of a BIG-IP
 ..
 - doc sur un module :
 ansible-doc bigip_device_dns
+
+
+
+
+
+== environment : ==
+
+on va pouvoir definir pour notre palybook / role des path /variable d'environment à invoquer pour permettre l'excution par exemple d'un binaire dans une arbo particulière.
+
+le keyword "environment"  nous permet de definir ce type d'appel dans notre playbook :
+
+exemple : ici on place un binaire dans /tmp .. ce qui n'est pas forcement un chemin classique ... pour l'executer ..ansible devra charger ce path pour lancer le bianire concerné : 
+
+- name: try so set env and retrieve the correct bin ...
+  hosts : centos
+
+  environment:
+   PATH: "/tmp/"
+
+  tasks:
+    - name: echo env ...
+      shell: echo "$PATH"
+      register: echo
+
+    - debug: msg="our var is {{ echo.stdout }}"
+
+
+    - name: get the content script echoes 
+      shell: "test.sh"
+      register: snake
+
+    - debug: msg="our message platform is  {{ snake }}"
+
+ce qui nous donne :
+
+le script dans le path qui sera executé : 
+[root@localhost ~]# cat /tmp/test.sh 
+#! /bin/bash
+/bin/uptime
+/bin/date
+apres voir integré /tmp dans le path :
+
+ ~/Documents/lab/ansible/provisionning  $  ansible-playbook -i hosts path.yml 
+
+PLAY [try so set env and retrieve the correct bin ...] *************************
+
+TASK [setup] *******************************************************************
+ok: [centos]
+
+TASK [echo env ...] ************************************************************
+changed: [centos]
+
+TASK [debug] *******************************************************************
+ok: [centos] => {
+    "msg": "our var is /tmp"
+}
+
+TASK [get the content script echoes] *******************************************
+changed: [centos]
+
+TASK [debug] *******************************************************************
+ok: [centos] => {
+    "msg": "our message platform is  {u'changed': True, u'end': u'2017-09-07 08:28:06.489879', u'stdout': u' 08:28:06 up 1 min,  2 users,  load average: 0,05, 0,03, 0,01\\njeu. sept.  7 08:28:06 UTC 2017', u'cmd': u'test.sh', u'rc': 0, u'start': u'2017-09-07 08:28:06.482272', u'stderr': u'', u'delta': u'0:00:00.007607', 'stdout_lines': [u' 08:28:06 up 1 min,  2 users,  load average: 0,05, 0,03, 0,01', u'jeu. sept.  7 08:28:06 UTC 2017'], u'warnings': []}"
+}
+
+PLAY RECAP *********************************************************************
+centos                     : ok=5    changed=2    unreachable=0    failed=0  
+
+
