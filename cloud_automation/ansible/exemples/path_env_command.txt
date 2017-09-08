@@ -1,0 +1,28 @@
+==== Misc exemples ===
+
+
+---
+# retrieve sensu_info
+- name: retrieve sensu server infos
+  hosts : sensuserver
+
+  # set env in order to be able to lunch sensu-cli     
+  environment:
+    GEM_PATH: "/opt/sensu/embedded/lib/ruby/gems/2.3.0:/opt/sensu/embedded/lib/ruby/gems/2.4.0:$GEM_PATH"
+    PATH: "/opt/sensu/embedded/bin/:$PATH"
+  
+  # retrieve env  
+   tasks:  
+    - name: echo env ...
+      shell: echo "$PATH"    <<< simple shell command
+      register: shell_echo   <<< recorded in var
+
+    - debug: msg=" our var is {{ shell_echo.stdout }}"  <<< print out our var 
+
+    # Get sensu info and register it 
+    - name: get the sensu-cli info
+      command: sensu-cli info                     <<< exec our command (retrieve our path thanks to our previous task )
+      register: sensu_info    <<<< record our output in a var
+
+    - debug: msg="{{ sensu_info.stdout_lines }}"   <<<  print out our records one line per line 
+
