@@ -1,0 +1,33 @@
+==== notes conntrack : ===
+
+== Description du problème
+
+ip_conntrack est une fonctionnalité du noyau permettant le suivi des connexions, ce qui est utile pour faire du NAT, un firewall stateful, etc.
+
+En revanche, pour un routeur, c'est généralement inutile, et ça consomme potentiellement beaucoup ressources pour rien. On peut assez vite se retrouver avec des tas de messages du genre dans dmesg :
+
+nf_conntrack: table full, dropping packet
+La taille de la table de suivi peut être consultée (taille maximale et taille courante) :
+
+$ cat /proc/sys/net/ipv4/netfilter/ip_conntrack_max
+65536
+$ cat /proc/sys/net/ipv4/netfilter/ip_conntrack_count
+65536
+Désactiver le connection tracking
+
+Il faut blacklister le module nf_conntrack, ainsi que les quelques modules qui en dépendent directement (gestion du NAT, etc).
+
+$ cat /etc/modprobe.d/nf_conntrack-blacklist.conf
+blacklist nf_conntrack
+blacklist nf_conntrack_ipv4
+blacklist nf_nat
+blacklist iptable_nat
+
+En revanche, iptables a la mauvaise habitude de recharger ces modules quand on lui demande d'afficher les règles de firewall... Pour éviter cela, il faut forcer iptables à respecter la blacklist lorsqu'il appelle modprobe :
+
+# echo '/sbin/modprobe -b' > /proc/sys/kernel/modprobe
+Pour tester :
+
+$ sudo iptables -L -v -t nat
+iptables v1.4.21: can't initialize iptables table `nat': Table does not exist (do you need to insmod?)
+
