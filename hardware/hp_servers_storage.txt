@@ -1,0 +1,290 @@
+==== utilitaires hp sur linux :
+
+
+
+http://www.datadisk.co.uk/html_docs/redhat/hpacucli.htm
+
+
+== disks :
+
+HPACUCLI stands for HP Array Configuration Utility CLI.
+
+As the name suggests, this utility is for HP servers.
+
+Hpacucli is used to create, delete and repair the logical and physical drives on the smart array controllers in HP servers.
+
+To use hpacucli, download and install the latest version of hpacucli rpm from the HP website on your Linux server.
+
+= 1. Two ways to execute the command
+
+When you type the command hpacucli, it will display a “=>” prompt as shown below where you can enter all the hpacucli commands explained in the article.
+
+# hpacucli
+HP Array Configuration Utility CLI 9.20.9.0
+Detecting Controllers...Done.
+Type "help" for a list of supported commands.
+Type "exit" to close the console.
+=> rescan
+Or, if you don’t want to get to the hpacucli prompt, you can just enter the following directly in the Linux prompt. The following is exactly same as the above.
+
+# hpacucli rescan
+
+= 2. Display Controller and Disk Status
+
+To display the detailed status of the controller and the disk status, execute the following command.
+
+# hpacucli
+=> ctrl all show config
+
+Smart Array P410i in Slot 0 (Embedded)    (sn: 50014380101D61C0)
+
+   array A (SAS, Unused Space: 0  MB)
+
+      logicaldrive 1 (136.7 GB, RAID 1, OK)
+
+      physicaldrive 1I:1:1 (port 1I:box 1:bay 1, SAS, 146 GB, OK)
+      physicaldrive 1I:1:2 (port 1I:box 1:bay 2, SAS, 146 GB, OK)
+
+   unassigned
+
+      physicaldrive 1I:1:3 (port 1I:box 1:bay 3, SAS, 300 GB, OK)
+      physicaldrive 1I:1:4 (port 1I:box 1:bay 4, SAS, 300 GB, OK)
+      physicaldrive 2I:1:6 (port 2I:box 1:bay 6, SAS, 300 GB, OK)
+      physicaldrive 2I:1:7 (port 2I:box 1:bay 7, SAS, 300 GB, OK)
+      physicaldrive 2I:1:8 (port 2I:box 1:bay 8, SAS, 300 GB, OK)
+
+   SEP (Vendor ID PMCSIERA, Model  SRC 8x6G) 250 (WWID: 50014380101D61CF)
+In this example, as shown in the above output, we have total 7 physical drives. The first RAID group RAID 1 contains 2 physical drives and the remaining physical drives are not assigned to any of the logical drives.
+
+= 3. View Controller Status
+
+To display the status of just the controller, do the following. In this example, the controller is working perfectly without any issues.
+
+=> ctrl all show status
+
+Smart Array P410i in Slot 0 (Embedded)
+   Controller Status: OK
+   Cache Status: OK
+
+= 4. View Drive Status
+
+To display the status of the physical drive, do the following. In this example, we have two 146GB physical drives, and 5 300GB physical drives, and all are in perfect condition.
+
+=> ctrl slot=0 pd all show status
+
+   physicaldrive 1I:1:1 (port 1I:box 1:bay 1, 146 GB): OK
+   physicaldrive 1I:1:2 (port 1I:box 1:bay 2, 146 GB): OK
+   physicaldrive 1I:1:3 (port 1I:box 1:bay 3, 300 GB): OK
+   physicaldrive 1I:1:4 (port 1I:box 1:bay 4, 300 GB): OK
+   physicaldrive 2I:1:6 (port 2I:box 1:bay 6, 300 GB): OK
+   physicaldrive 2I:1:7 (port 2I:box 1:bay 7, 300 GB): OK
+   physicaldrive 2I:1:8 (port 2I:box 1:bay 8, 300 GB): OK
+
+= 5. View Individual Drive Status
+
+To display the detail status of a specific physical drive, do the following.
+In this example, we like to know the status of “pd” (physical disk) in slot 0. The specific disk is “2I:1:6”, which we figured it out from the output of the previous command.
+As shown in the output below, this displays the Serial Number, Make, Model, Size and Fireware version of this specific disk. This can be very helpful during troubleshooting.
+
+=> ctrl slot=0 pd 2I:1:6 show detail
+
+Smart Array P410i in Slot 0 (Embedded)
+
+   unassigned
+
+      physicaldrive 2I:1:6
+         Port: 2I
+         Box: 1
+         Bay: 6
+         Status: OK
+         Drive Type: Unassigned Drive
+         Interface Type: SAS
+         Size: 300 GB
+         Rotational Speed: 10000
+         Firmware Revision: HPD4
+         Serial Number: EB01PC416C4C1214
+         Model: HP      EG0300FBDSP
+         Current Temperature (C): 38
+         Maximum Temperature (C): 56
+         PHY Count: 2
+         PHY Transfer Rate: 6.0Gbps, Unknown
+
+= 6. View All Logical Drives
+
+The following command will display all available logical drives on the system. As shown in the output below, we currently have only one logical drive in RAID 1 with total size of around 136GB.
+
+=> ctrl slot=0 ld all show
+
+Smart Array P410i in Slot 0 (Embedded)
+
+   array A
+
+      logicaldrive 1 (136.7 GB, RAID 1, OK)
+
+= 7. Create New RAID 0 Logical Drive
+
+Execute the following command to create a new logical drive using RAID 0 option.
+
+=> ctrl slot=0 create type=ld drives=1I:1:3 raid=0
+The above command creates a logical drive with the physical drives 1I:1:3 on RAID 0 configuration in slot 0.
+
+= 8. Create New RAID 1 Logical Drive
+
+Execute the following command to create a new logical drive using RAID 1 option.
+
+=> ctrl slot=0 create type=ld drives=1I:1:3,1I:1:4 raid=1
+The above command creates a logical drive with the two physical drives 1I:1:3 and 1I:1:4 on RAID 1 configuration in slot 0.
+
+= 9. Create New RAID 5 Logical Drive
+
+Execute the following command to create a new logical drive using RAID 5 option.
+
+=> ctrl slot=0 create type=ld drives=1I:1:3,1I:1:4,2I:1:6,2I:1:7,2I:1:8 raid=5
+The above command creates a logical drive with the five physical drives on RAID 5 configuration in slot 0.
+
+Once these logical drives are created, you should see the disks from the fdisk and you can format it from there and start using it.
+
+After you create a logical drive, execute the following command to verify that the LD got created. In this example, it shows that the RAID 5 logical drive got created successfully.
+
+=> ctrl slot=0 ld all show status
+
+   logicaldrive 1 (136.7 GB, RAID 1): OK
+   logicaldrive 2 (1.1 TB, RAID 5): OK
+
+= 10. Rescan for New Devices
+
+If you’ve added new physical hard disk, they won’t automatically show-up immediately. You have to scan for new devices as shown below.
+
+=> rescan
+
+= 11. View Detailed Logical Drive Status
+
+To display the detailed status of the logical drive, do the following:
+
+=> ctrl slot=0 ld 2 show
+
+Smart Array P410i in Slot 0 (Embedded)
+
+   array B
+
+      Logical Drive: 2
+         Size: 1.1 TB
+         Fault Tolerance: RAID 5
+         Heads: 255
+         Sectors Per Track: 32
+         Cylinders: 65535
+         Strip Size: 256 KB
+         Full Stripe Size: 1024 KB
+         Status: OK
+         Caching:  Enabled
+         Parity Initialization Status: In Progress
+         Unique Identifier: 600508B1001031303144363143301000
+         Disk Name: /dev/cciss/c0d1
+         Mount Points: None
+         Logical Drive Label: A4967E2950014380101D61C008BE
+         Drive Type: Data
+The above shows the RAID type, the disk name assigned to the logical drive, and other information about the logical drive number 2.
+
+= 12. Delete Logical Drive
+
+To delete a logical drive with the number 2 use the below command.
+
+=> ctrl slot=0 ld 2 delete
+
+Warning: Deleting an array can cause other array letters to become renamed.
+         E.g. Deleting array A from arrays A,B,C will result in two remaining
+         arrays A,B ... not B,C
+
+Warning: Deleting the specified device(s) will result in data being lost.
+         Continue? (y/n) y
+
+= 13. Add New Physical Drive to Logical Volume
+
+To add the new drives to existing logical volume, do the following.
+
+=> ctrl slot=0 ld 2 add drives=2I:1:6,2I:1:7
+In this example, we are adding two additional drives specified above to the logical volume number 2.
+
+= 14. Add Spare Disks
+
+To add the spare disks to arrays that can be used in case of disk failures on one of the logical drives, do the following:
+
+=> ctrl slot=0 array all add spares=2I:1:6,2I:1:7
+In this example, we are adding two spare disks to the array.
+
+= 15. Enable or Disable Cache
+
+The below commands enable or disable cache for the entire slot.
+
+=> ctrl slot=0 modify dwc=disable
+
+=> ctrl slot=0 modify dwc=enable
+
+= 16. Erase Physical Drive
+
+Execute the following command to erase a physical drive in array B on slot 0.
+
+=> ctrl slot=0 pd 2I:1:6 modify erase
+
+= 17. Blink Physical Disk LED
+
+To blink the LED on the physical drives for the logical drive 2, do the following. This will make the LEDs blink on all the physical drives that belongs to logical drive 2.
+
+=> ctrl slot=0 ld 2 modify led=on
+Once you know which drive belongs to logical drive 2, turn the LED blinking off as shown below.
+
+=> ctrl slot=0 ld 2 modify led=off
+
+
+
+
+
+= 16 Diag service hpacucli pour staff Hp :
+
+hpacucli ctrl all diag file=/tmp/IL1579_MC2026.zip ris=on xml=off zip=on
+
+
+
+
+
+======== Attention depsui Hp proliant G9 modificatio nde l'utilitaire hdd : =
+
+
+# hpssacli ctrl all show config
+Smart Array P440ar in Slot 0 (Embedded)   (sn: blabla )
+   Port Name: 1I
+
+   Internal Drive Cage at Port 1I, Box 1, OK
+
+   Internal Drive Cage at Port 2I, Box 1, OK
+   array A (SAS, Unused Space: 0  MB)
+
+
+      logicaldrive 1 (136.7 GB, RAID 1, OK)
+
+      physicaldrive 1I:1:1 (port 1I:box 1:bay 1, SAS, 146 GB, OK)
+      physicaldrive 1I:1:2 (port 1I:box 1:bay 2, SAS, 146 GB, OK)
+..
+...
+=== Verif hardware avec hpasmcli : ==
+
+
+on peut recupérer les infos hard via hpasmcli :
+
+ex : alim :
+
+[root@lapin~] # hpasmcli -s "show powersupply"
+
+Power supply #1
+	Present  : Yes
+	Redundant: No
+	Condition: FAILED
+	Hotplug  : Supported
+Power supply #2
+	Present  : Yes
+	Redundant: No
+	Condition: Ok
+	Hotplug  : Supported
+	Power    : 195 Watts
+
+
