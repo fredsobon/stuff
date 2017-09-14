@@ -1,0 +1,143 @@
+= notes python sqlite : =
+
+# il est nécéssaire de faire l'import du module sqlite 
+
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+import sqlite3
+
+
+# connexion a la db ou creation de la db si elle n'existe pas : 
+conn = sqlite3.connect('test.db')
+
+# fermeture de la connexion a la db quand c'est fini : 
+db.close()
+
+
+# creation d'une table avec sqlite  
+
+cursor = conn.cursor()
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS users(
+     id INTEGER PRIMARY KEY AUTOINCREMENT UNIQUE,
+     name TEXT,
+     age INTERGER
+)
+""")
+conn.commit()
+
+
+# suppression de la table : 
+
+cursor = conn.cursor()
+cursor.execute("""
+DROP TABLE users
+""")
+conn.commit()
+
+
+
+# insert de data dans la table : 
+
+# methode1
+cursor.execute("""
+INSERT INTO users(name, age) VALUES(?, ?)""", ("olivier", 30))
+
+
+# methode2  par un dictionnaire 
+
+data = {"name" : "olivier", "age" : 30}
+cursor.execute("""
+INSERT INTO users(name, age) VALUES(:name, :age)""", data)
+
+
+# Vous pouvez récupérer l'id de la ligne que vous venez d'insérer de cette manière:
+id = cursor.lastrowid
+print('dernier id: %d' % id)
+
+# Il est également possible de faire plusieurs insert en une seule fois avec la fonction executemany:
+
+users = []
+users.append(("olivier", 30))
+users.append(("jean-louis", 90))
+cursor.executemany("""
+INSERT INTO users(name, age) VALUES(?, ?)""", users)
+
+## Récupérer des données
+
+#Vous pouvez récupérer la première ligne correspondant à votre recherche à l'aide de la fonction fetchone.
+
+cursor.execute("""SELECT name, age FROM users""")
+user1 = cursor.fetchone()
+print(user1)
+
+# Le résultat est un tuple:
+
+('olivier', 30)
+
+
+# Vous pouvez récupérer plusieurs données de la même recherche en utilisant la fonction fetchall().
+
+cursor.execute("""SELECT id, name, age FROM users""")
+rows = cursor.fetchall()
+for row in rows:
+    print('{0} : {1} - {2}'.format(row[0], row[1], row[2]))
+
+# L'objet curseur fonctionne comme un itérateur, invoquant la méthode fetchall() automatiquement:
+
+cursor.execute("""SELECT id, name, age FROM users""")
+for row in cursor:
+    print('{0} : {1}, {2}'.format(row[0], row[1], row[2]))
+Pour la recherche spécifique,on utilise la même logique vu précédemment:
+
+id = 2
+cursor.execute("""SELECT id, name FROM users WHERE id=?""", (id,))
+response = cursor.fetchone()
+Modifier des entrées
+Pour modifier des entrées:
+
+cursor.execute("""UPDATE users SET age = ? WHERE id = 2""", (31,))
+SQLite transactions : rollback
+Pour revenir au dernier commit, utilisez la méthode rollback.
+
+conn.rollback()
+
+# Gestion des erreurs
+Il est recommandé de toujours encadrer les opérations sur des bases de données et d'anticiper des erreurs:
+
+import sqlite3
+
+try:
+    conn = sqlite3.connect('data/users.db')
+    cursor = conn.cursor()
+    cursor.execute("""
+CREATE TABLE users(
+    id INTEGER PRIMARY KEY AUTOINCREMENT UNIQUE,
+    name TEXT,
+    age INTERGER
+)
+""")
+    conn.commit()
+except sqlite3.OperationalError:
+    print('Erreur la table existe déjà')
+except Exception as e:
+    print("Erreur")
+    conn.rollback()
+    # raise e
+finally:
+    conn.close()
+
+# Les erreurs que vous pouvez intercepter:
+
+Error
+DatabaseError
+DataError
+IntegrityError
+InternalError
+NotSupportedError
+OperationalError
+ProgrammingError
+InterfaceError
+Warning
+
