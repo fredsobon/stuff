@@ -244,6 +244,7 @@ On va copier la clé pub de notre user dans l'authorized key du user root de not
 On renseigne le host de la manière suivante pour effectuer les premiers tests :
 
 /Documents/lab/ansible/ansible_oreilly_video/vm/provisioning/playbooks$ cat hosts 
+server {{ ntpserver }}
 Debianubuntu-ansible ansible_ssh_host=127.0.0.1 ansible_ssh_port=2222 ansible_ssh_user=root ansible_ssh_private_key_file=/home/boogie/.ssh/id_rsa
 
 /!\ on peut overrider la config ansible dont la base se situe dans le fichier /etc/ansible/ansible.cfg
@@ -1333,7 +1334,7 @@ Un fichier vide sera tout simplement ignoré.
 - templates : 
 > pas de surprise pour les deux repertoires précédents qui stockent ce que leur nom indique.
 
-
+ -split de config de playbook existant dans une structure de role : 
 
 On va donc maintenant splitter les confs précedentes de mariadb dans les repertoires dédiés de nos roles.
 on va donc laisser dans un fichier main playbook les infos de haut niveau : 
@@ -1343,6 +1344,8 @@ on va donc laisser dans un fichier main playbook les infos de haut niveau :
   hosts: centos
   strategy: debug 
 
+
+- vars : on commence par deplacer le contenu de notre fichier maria_vars.yaml dans le fichier main.yml dédié dans le rep vars :
 
 On va placer le contenu de notre fichier :
 cat maria_vars.yml
@@ -1358,4 +1361,153 @@ on supprime donc apres le fichier de vars : maria_vars.yml puis les lignes:
     - maria_vars.yml
 devenues inutiles dans notre fichier de conf.
 
+- tasks : on va maintenant opérer la même conf pour les tasks présentes dans notre fichier mariadb.yml qu'on va injecter dans le fichier main.yaml du rep tasks :
+
+ ~/Documents/lab/ansible/provisionning/roles/mariadb  $  cat tasks/main.yml 
+---
+# tasks file for mariadb
+- name: install mariadb server
+  yum: name=mariadb-server state=latest
+
+- name: prepare main conf file
+  template: src='my.cnf.j2' dest='/etc/my.cnf'
+  notify: restart mariadb
+
+- name: create mariadb log file
+  file: path='/var/log/mysqld.log' state=touch owner=mysql group=mysql mode=0775
+
+- name: start mariadb service 
+  service: name=mariadb state=started enabled=yes
+
+- templates : on va deplacer le template my.cnf.j2 présent au même niveau que notre playbook initial dans le repertoire dédié :
+
+ mv my.cnf.j2 roles/mariadb/templates/
+
+- handlers : on va maintenant déplacer notre conf de handler dans la section dédiée du role :
+
+/Documents/lab/ansible/provisionning  $  cat roles/mariadb/handlers/main.yml 
+---
+# handlers file for mariadb
+- name: restart mariadb 
+  service: name=mariadb state=restarted
+
+
+on peut donc s'inspirer de cet exemple pour l'organisation de nos roles.
+
+
+- creation de role from scratch : 
+
+on va pour l'exemple créer un role common  qui va servir de base a tous nos servers quelques soient leur fonctions.
+
+ ~/Documents/lab/ansible/provisionning/roles  $  ansible-galaxy init common 
+- common was created successfully
+ 
+on va creer plusieurs section dans ce role qui seront héritées par tous nos servers :
+
+- install et conf de ntp :
+
+ ~/Documents/lab/ansible/provisionning/roles  $  cat common/tasks/ntp.yml
+---
+- name: install ntp 
+  yum: name=ntp state=present
+
+- name: configure ntp file
+  template: src=ntp.conf.j2 dest=/etc/ntp.conf
+  notify: restart ntp
+
+- name: start the ntp service
+  service: name=ntp state=started enabled=yes
+
+on renseigne notre fichier de variable avec l'adresse de notre ntp : 
+
+ ~/Documents/lab/ansible/provisionning/roles  $  cat common/vars/main.yml 
+---
+# vars file for common
+ntpserver: 0.fr.pool.ntp.org
+
+on definie notre handler ( on recupere le nom defini dans la section notify de nos tasks : )  
+ ~/Documents/lab/ansible/provisionning/roles  $  cat common/handlers/main.yml 
+---
+# handlers file for common
+- name: restart ntp
+  service: name=ntpd state=restarted
+
+on renseigne notre template avec le nom de la variable définie dans le fichier main.yaml du rep vars : 
+cat ntp.conf.j2 
+driftfile /var/lib/ntp/drift
+
+restrict 127.0.0.1 
+restrict -6 ::1
+
+server {{ ntpserver }}
+
+includefile /etc/ntp/crypto/pw
+
+keys /etc/ntp/keys
+~                    
+
+on va maintenant inclure une section selinux :
+
+
+ $  cat common/tasks/selinux.yml 
+---
+- name: Install python bindings for SE Linux
+  yum: name={{ item }} state=present
+  with_items:
+   - libselinux-python
+   - libsemanage-python
+   
+- name: test to see if selinux is running
+  command: getenforce
+
+
+
+
+on va pouvoir ajouter differentes taches, action dans notre role et si on veut les appeller il suffira de les inclure dans notre fichier main.yml du rep task : ex ici on ajoute nos task selinuxet ntp : 
+
+ ~/Documents/lab/ansible/provisionning/roles  $  cat common/tasks/main.yml 
+---
+# tasks file for common
+- include selinux.yml 
+- include: ntp.yml
+
+
+== Declaration de roles dans un playbook : 
+
+On va pouvoir déclarer plusieurs roles dans notre palybook :
+
+ ~/Documents/lab/ansible/provisionning  $  cat site.yml 
+---
+- name : deploy common and mariadb role 
+  hosts: centos
+  become: yes
+
+  roles:   <<< on place donc ici le keyword role qui contiendra la liste des roles que l'on veux executer sur notre / nos hosts :
+  - common
+  - mariadb
+
+Quand on lance notre run avec notre playbook on a donc le resultat désiré : 
+ ~/Documents/lab/ansible/provisionning  $  ansible-playbook -i hosts site.yml 
+
+PLAY [deploy common and mariadb role] ******************************************
+
+TASK [setup] *******************************************************************
+ok: [centos]
+
+TASK [common : install ntp] ****************************************************
+changed: [centos]
+
+TASK [common : configure ntp file] *********************************************
+changed: [centos]
+
+TASK [common : start the ntp service] ******************************************
+changed: [centos]
+
+RUNNING HANDLER [common : restart ntp] *****************************************
+changed: [centos]
+
+PLAY RECAP *********************************************************************
+centos                     : ok=5    changed=4    unreachable=0    failed=0 
+
+( ici on a commenté la partie mariadb : pour voir juste le run de l'install config ntp. ) 
 
