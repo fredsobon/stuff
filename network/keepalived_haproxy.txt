@@ -1,0 +1,51 @@
+== notes keepalived et haproxy : =
+
+
+
+= pour modifier le traffic dirigé vers des haproxy on peurt decider de changer le poid des priorité des instances vrrp dans le keepalived 
+
+on aura par exemple une instance définie comme telle : 
+
+
+less /etc/keepalived/keepalived.conf : 
+
+vrrp_instance VI_104 {  <<< definition d'une instance vrrp 
+  interface                 bond0.50
+  state                     BACKUP
+  virtual_router_id         104   <<< routeur id unique 
+  priority                  101   <<< priorité qui elle doit être la plus haute pour avoir le service on sur ce serveur 
+  advert_int                1
+  garp_master_delay         5
+
+
+
+
+sur le serveur de backup ( en cas d'actif passif ) ou le server hebergant une partie du traffic (actif /actif ) 
+
+
+
+  notify /usr/local/bin/keepalived_update_status
+
+
+  track_script {
+    check_haproxy
+  }
+ on a donc une ip virtuelle qui bascullera  d'un server a un autre en cas de défaillance 
+
+  virtual_ipaddress {
+    10.120.2.121 dev bond0.50   <<< l'ip flottante  qui basculle 
+  }
+
+
+}
+vrrp_instance VI_104 {
+  interface                 bond0.50
+  state                     BACKUP
+  virtual_router_id         104
+  priority                  98   <<< ici la conf de notre vrrp avec une priorité plus faible : ce server ne porte pas le traffic de cette vip 
+  advert_int                1
+  garp_master_delay         5
+
+
+en cas de modif de poids ou de conf un service keepalived  reload / restart est nécéssaire.
+
