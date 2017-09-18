@@ -1,0 +1,160 @@
+==== notes dd  ===
+
+
+=SYNTAX OF DD COMMAND : =
+Before we start with some practical work we need to talk about it’s syntax.
+
+dd if=<source file name> of=<target file name> [Options]
+We normally do not explain about syntax but this command syntax require some explanation. The syntax is totally different when compared to many Linux commands we know. In this syntax dd is followed by two things
+
+if=<source> –This is a source from where you want to copy data and ‘if’ stands for input-file.
+
+of=<destination> –This is a source from where you want to write/paste data and ‘of’ stands for output-file.
+
+[options] –These options include, how fast data should be written, what format etc.
+
+ dd if=/dev/sda of=/dev/sdb
+
+
+== backup and resto example : = 
+Example 2: We can take backup of a partition/complete HDD for future restoration.
+
+Backing up a partition to a file(to my home directory as hdadisk.img)
+
+dd if =/dev/sda2 of=~/hdadisk.img
+
+Restoring this image file in to other machine
+
+dd if=hdadisk.img of=/dev/sdb3
+
+
+= compress image when creating : = 
+
+Example 3: Do you feel hdadisk.img is bit big? Use gzip or bzip2 to compress when creating image.
+
+dd if =/dev/sda2 | bzip2 hdadisk.img.bz2
+
+
+
+Example 4: Do you know dd command can be used as file copier as well? Yes, if you don’t have cp command use dd command to copy a file from one location to other.
+
+dd if=/home/imran/abc.txt of=/mnt/abc.txt
+
+Ok, that is fine for basic use of dd command. But the beauty of dd command lies in advanced usages like wiping of disks, complete wiping of disks, MBR backups etc.
+
+
+ADVANCED USAGE OF LINUX DD COMMAND
+From here you should be careful when using this command and you should first try these commands on a test machine before getting familiarity.
+
+
+= delete - wipe disk : = 
+
+Example 5: Wipe/delete content of a disk so that it will be empty for some one to use it.
+
+dd if=/dev/zero of=/dev/sdb
+This will wipe out your second hard disk and every bit is written with zero. you may be interested in learning /dev/null and /dev/zero files which do similar stuff but there is a bit of difference.
+
+HOW WRITING OF A FILE  ON HARD DISK WITH DATA HAPPEN?
+Normally what ever you write on to a disk at the block level it will write combination of zeros and ones. Hope you know this and what we are doing here is that we are just writing zeros which will clear all 1’s from the hard disk. This eventually makes your disk empty.
+
+Example 6: What to hide your ass by deleting your personal data. Many people think if we do rm -rf /<your data> will do the needful. But we can recover those deletion by using disk recovery tools like Photorec or some forensic tools. But if you want some not to recover your data you have to write random data on your partition where you data resides.
+
+dd if=/dev/random of=/dev/sdb
+Do above command multiple times so that it is real hard to recover data. If I am in your place, I will write below shell script to do that.
+
+for i in {1..10};do dd if=/dev/random of=/dev/sdb;done
+This will execute dd command 10 times in a row one after the other.
+
+Example 7: We can create virtual file system with dd command which can be used as swap. To know more about you should know on how to create virtual swap space in Linux.
+
+dd if=/dev/zero of=/swapfile bs=1024 count=200000
+
+where bs stands for block size and count is nothing but number of such blocks used to crate this swap file.
+
+Make sure you use block sizes in multiples of 1024 bytes which is equal to 1KB. Ff you do not specify block size, dd use a default block size of 512 bytes. Below conventions will work for block sizes.
+
+N and BYTES may be followed by the following multiplicative suffixes: c =1, w =2, b =512,
+
+kB =1000, K =1024, 
+Mb =1000*1000, MB=1024*1024, 
+Gb =1000*1000*1000, GB =1024*1024*1024, 
+and so on for T, P, E, Z, Y.
+Example 8: We can even create ISO files from a CD-ROM or DVD-ROM using dd command.
+
+dd if=/dev/dvd of=/opt/my_linux_image.iso
+or with more
+
+dd if=/dev/sr0 of=/home/$user/mycd_image.iso bs=2048 conv=sync
+Some other examples:
+
+dd if=/dev/sda1 of=/dev/sdb1 bs=4096 conv=noerror,sync
+This will make clone of one partition sda1 to other sdb1 partition, also used sync option to synchronize the partition
+
+dd if=/dev/sdx of=/dev/sdy bs=64k conv=noerror,sync
+This will clone the entire drive, including MBR, all partitions and data where noerrr instructs dd to ignore all read errors while continuing operations. The snyc data offsets stay in sync And bs=sets block size which is set to 64k.
+Example 9: We can even check disk quota using dd command by creating huge files which eats up HDD in no time.
+
+dd if=/dev/zero of=/usr/disk-img/disk-quota.ext3 count=40960 
+This will create 20MB file (disk image) at said path.
+
+Example 10: We can even create bootable USB’s using dd command.
+
+dd if=/home/$user/bootimage.img of=/dev/sdc
+
+This will create boot-able USB drive where /dev/sdc is an USB drive.
+Example 11: Data recovery using ddrescue command.
+ddrescue tool is used for cloning and recovering data. this is not installed by default in many Linux machines. Below are the commands to install for respective distributions.
+
+
+
+INSTALLING DDRESCUE IN DEBIAN BASED MACHINES
+apt-get install gddrescue
+INSTALLING DDRESCUE IN REDHAT BASED MACHINES
+yum install gddrescue
+It can copy data from one file/block device(hard disk or CD-ROM) to another while trying to rescue the data i.e read error to maximizing the recovered data. To recover data ddrescue command needs to run in two steps followed by running fsck command.
+
+Step 1: It copies each and every block without reading errors and logging these errors in log file.
+
+Step 2: It will copy only bad block and try to read 3 times to source before it gives up. Than you can run command to check file system for corruption.
+
+Step 3: Running fsck command.
+
+ddrescue –f –n /dev/sdX /dev/sdY rescue.log
+ ddrescue –d –f –r3 /dev/sdX /dev/sdY rescue.log
+ fsck –f /dev/sdY
+Example 12: Computer forensics using dcfldd
+dcfldd is the enhanced version of dd having useful features used for computer forensics and security as well. It takes dd’s parameters. You can use dcfldd command when you need to know that a copy and subsequent copies are identical to the original. dcfldd has some additional features like;
+
+Hashing on-the-fly
+Status output
+Image/wipe verify
+Split output
+hashing
+Again We have to install this command as well, if that is not present.
+
+INSTALLING DCFLDD IN DEBIAN BASED MACHINES
+apt-get install dcfldd
+INSTALLING DCFLDD IN REDHAT BASED MACHINES
+yum install dcfldd
+Example
+
+dcfldd if=/dev/source hash=md5,sha512 hashwindow=1G md5log=md5.txt sha512log=sha512.txt \hashconv=after bs=512 conv=noerror,sync split=1G splitformat=aa of=image.dd
+
+
+
+
+== exemples prod : == 
+
+
+ dd if=/dev/zero of=./largefile bs=1M count=1024
+1024+0 enregistrements lus
+1024+0 enregistrements écrits
+1073741824 octets (1,1 GB) copiés, 0,752345 s, 1,4 GB/s
+ 
+
+read
+
+dd if=./largefile of=/dev/null bs=4k
+262144+0 enregistrements lus
+262144+0 enregistrements écrits
+1073741824 octets (1,1 GB) copiés, 0,901919 s, 1,2 GB/s

@@ -1,0 +1,62 @@
+=== ipmi hp : ==
+
+hp a une couche ipmi qui peut être interrogée via la commande 
+
+[root@xodbpay01b hp-snmp-agents]# hpasmcli
+HP management CLI for Linux (v2.0)
+Copyright 2008 Hewlett-Packard Development Group, L.P.
+
+--------------------------------------------------------------------------
+NOTE: Some hpasmcli commands may not be supported on all Proliant servers.
+      Type 'help' to get a list of all top level commands.
+--------------------------------------------------------------------------
+
+Si le prompt ne repond pas : il est possible de devoir reset la carte ipmi/ilo :
+
+
+1 / On essaye de decharger / recharger le module :
+
+[root@xodbpay01b hp-snmp-agents]# modinfo hpilo
+filename:       /lib/modules/2.6.18-348.el5/kernel/drivers/misc/hpilo.ko
+license:        GPL v2
+author:         David Altobelli <david.altobelli@hp.com>
+description:    hpilo
+alias:          hpilo
+version:        1.2
+srcversion:     5A0E9B428CF9CFCF3887B84
+alias:          pci:v0000103Cd00003307sv*sd*bc*sc*i*
+alias:          pci:v00000E11d0000B204sv*sd*bc*sc*i*
+depends:        
+vermagic:       2.6.18-348.el5 SMP mod_unload gcc-4.1
+module_sig:	883f35050b6c8811fe58725e3e141a611213fb09d14adef1edfcdae73e5c74bf5dc486fc43f493760a0c233d548ff20cd5d852d5b982c5e5e125cc9317c
+
+
+[root@lapin hp-snmp-agents]# rmmod hpilo
+
+[root@lapin hp-snmp-agents]# insmod /lib/modules/2.6.18-348.el5/kernel/drivers/misc/hpilo.ko
+ 
+Si la console ne répond pas on doit eventuellement reset la carte ipmi :
+
+boogie@boogie:~$ ssh admin@lapin.ilo
+Received disconnect from 10.1.0.1: 2: Client Disconnect
+Disconnected from 10.1.0.1
+boogie@boogie:~$ telnet lapin.ilo
+Trying 10.1.0.1...
+Connected to lapin.ilo.
+Escape character is '^]'.
+Login Name:  admin
+Password:    *********
+User:admin logged-in to ILOCZ3120FNM8.(10.102.0.118)
+iLO 2 Advanced 2.29 at 16:52:36 Jul 16 2015
+Server Name: lapin
+Server Power: On
+
+</>hpiLO-> reset map1
+status=0
+status_tag=COMMAND COMPLETED
+Resetting iLO.
+
+CLI session stopped
+Connection closed by foreign host.
+boogie@boogie:~$ 
+
