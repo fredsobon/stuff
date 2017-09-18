@@ -1511,3 +1511,111 @@ centos                     : ok=5    changed=4    unreachable=0    failed=0
 
 ( ici on a commenté la partie mariadb : pour voir juste le run de l'install config ntp. ) 
 
+
+== Dependance de roles  : ==
+
+On peut biensur avoir des dependances entre différents roles .Pour les définir on devra passer par l'edition du fichier main.yml ( si on ne l'a pas renommé) de notre repertoire meta
+en cherchant le keyword dependencies on tombe sur la section que l'on devra renseigner : 
+dependencies: []
+  # List your role dependencies here, one per line.
+  # Be sure to remove the '[]' above if you add dependencies
+  # to this list.
+~
+exemple ici on va vouloir mettre une dependance du role apache dans le role mariadb , on va donc editer le fichier role/mariadb/meta/main.yaml pour renseigner notre dépendances 
+
+on va pouvoir renseigner directement notre role dans un cas basique : 
+  - role: apache 
+
+ou on peut également pouvoir saisir des paramètres ex : ici on utilise le role apache que pour les os redhat 
+  - {role: apache, when : "ansible_os_family=='RedHat'"}
+
+Les dependance de roles sont executées avant les roles qui dependent d'elles.
+
+Les dependances de roles sont une best practice.
+
+On va donc créer un role apache 
+
+ansible-galaxy init apache 
+
+
+ tree apache
+apache
+├── defaults
+│   └── main.yml
+├── files
+├── handlers
+│   └── main.yml
+├── meta
+│   └── main.yml
+├── README.md
+├── tasks
+│   └── main.yml
+├── templates
+├── tests
+│   ├── inventory
+│   └── test.yml
+└── vars
+    └── main.yml
+on va inclure des taches :
+
+cat tasks/main.yml 
+---
+- name: install httpd and firewalld
+  yum: name={{item}} state=present
+  with_items:
+  - httpd
+  - firewalld
+
+- name: start firewalld 
+  service: name=firewalld state=started enabled=yes
+
+- name: insert firewalld rule for httpd
+  firewalld: port={{httpd_port}}/tcp permanent=true state=enabled immediate=yes
+
+- name: start httpd
+  service: name=httpd state=started enabled=yes
+
+on defini le port du service http en variable :
+
+cat vars/main.yml 
+---
+httpd_port: 80
+
+et on joue notre playbook 
+
+ansible-playbook -i hosts site.yml
+
+on voit notre role common , avec le selinux, le role apache puis le role mariadb se jouer : apache avant mariadb car c'est une dépendance que l'on a fixé.
+
+== Escalade de privilèges : ==
+
+On peut setter les privileges à plusieurs niveaux comme c'est le cas avec beaucoup de param dans ansible.
+
+dans le fichier de conf principal /etc/ansible/ansible.conf une section est réservée : 
+elle est de base commentée car la granularité permet de definir finement les privileges dans les rep courant, le home etc...
+
+[privilege_escalation]
+#become=True
+#become_method=sudo
+#become_user=root
+#become_ask_pass=False
+
+
+on peut biensur egalement definir ces privileges dans le fichier d'inventaire ou meme passer le privilege sur la ligne de commande avec -b comme option.
+
+on peut donc saisir comme on la vu nos params dans le playbook :
+---
+- name : deploy common and mariadb role 
+  hosts: centos
+  become: yes  <<< comme on l'a vu on devient root avec  ce param.
+  become_user: pqsql  << exemple on execute le playbook en tant que user pgsql 
+  become_user: michelle
+  roles:
+  - common
+
+en lancant notre playbook avec l'option -vvvv on voit les  modifs de users s'executer : c'est bien pour le debug.
+ansible-playbook -i hosts site.yml
+
+
+
+
