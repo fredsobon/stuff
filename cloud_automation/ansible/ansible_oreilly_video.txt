@@ -1618,4 +1618,69 @@ ansible-playbook -i hosts site.yml
 
 
 
+=== delegation et actions locales  ==
+
+on va pouvoir utiliser ce type de configuration typiquement pour permettre la désactivation d'un node du monitoring, une sortie ded loadbalancer .
+on va donc pouvoir executer une tache qui se lancera sur un server particulier qui lui meme traitera une action sur un autre node.
+
+on va donc deleguer notre action a effectuer depuis un autre node : ce ne sera pas le/les nodes de l'inventaires sur lequel la delagation est faite 
+
+ex : on delegue a un load balancer la tache de sortir un node :
+
+ex: ici on peut bancal de restart de machine et recup de facts apres le reboot de celle ci : 
+on met un timeout et notre playbook reprend apres le reboot de la machine : 
+ $  cat testdelegate.yml 
+---
+- name: test delegate
+  hosts: centos
+  become: yes
+
+  tasks:
+  - name: restart machine
+    shell: sleep 2 && shutdown -r now "Ansible updates have happened" 
+    async: 1
+    poll: 0
+    ignore_errors: True
+
+  - name: waiting for server to come back
+    wait_for: host={{inventory_hostname}} state=started delay=30 timeout=300
+    become: no
+    delegate_to: 127.0.0.1
+
+- name: testing delegate facts
+  hosts: centos
+  become: yes
+  
+  tasks: 
+  - name: gather local facts
+    setup: 
+    delegate_to: 127.0.0.1
+    delegate_facts: true 
+
+on lance le run et on a donc bien la reprise de notre playbook apres le reboot de la machine : 
+
+ ~/Documents/lab/ansible/provisionning  $  ansible-playbook -i hosts delegate.yml 
+
+PLAY [test delegate] ***********************************************************
+
+TASK [setup] *******************************************************************
+ok: [centos]
+
+TASK [restart machine] *********************************************************
+ok: [centos]
+
+TASK [waiting for server to come back] *****************************************
+ok: [centos -> 127.0.0.1]
+
+PLAY [testing delegate facts] **************************************************
+
+TASK [setup] *******************************************************************
+ok: [centos]
+
+TASK [gather local facts] ******************************************************
+fatal: [centos -> 127.0.0.1]: FAILED! => {"changed": false, "failed": true, "module_stderr": "sudo: il est nécessaire de saisir un mot de passe\n", "module_stdout": "", "msg": "MODULE FAILURE"}
+	to retry, use: --limit @/home/boogie/Documents/lab/ansible/provisionning/delegate.retry
+
+PLAY RECAP *********************************************************************
+centos                     : ok=4    changed=0    unreachable=0    failed=1   
 
