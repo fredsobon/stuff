@@ -1684,3 +1684,45 @@ fatal: [centos -> 127.0.0.1]: FAILED! => {"changed": false, "failed": true, "mod
 PLAY RECAP *********************************************************************
 centos                     : ok=4    changed=0    unreachable=0    failed=1   
 
+
+=== gestion des erreurs : ==
+
+on va pouvoir avoir a gérer des erreurs pendant nos run et pouvoir adapter le comportement de nos runs en fonction de ce qui est rencontré.
+
+
+on va pouvoir decider de continuer a executer le run en cas d'erreur rencontrée par ex :
+
+ ~/Documents/lab/ansible/provisionning  $  cat testErrors.yml 
+---
+- name: testing error handling
+  hosts: centos
+  become: yes
+
+  tasks:
+  - name: testing ignore errors
+    user: name=boogie password={{uPassword}}
+    ignore_errors: yes
+
+  - name: next task even if there was a mistake :
+    shell: echo hello world  
+
+ici on decide de volontairement mettre une valeur non définie dans notre playbook et donc de générer une erreur ..le run va cependant continuer et passer a la tache suivante 
+
+ ansible-playbook -i hosts testErrors.yml 
+
+PLAY [testing error handling] **************************************************
+
+TASK [setup] *******************************************************************
+ok: [centos]
+
+TASK [testing ignore errors] ***************************************************
+fatal: [centos]: FAILED! => {"failed": true, "msg": "the field 'args' has an invalid value, which appears to include a variable that is undefined. The error was: 'uPassword' is undefined\n\nThe error appears to have been in '/home/boogie/Documents/lab/ansible/provisionning/testErrors.yml': line 7, column 5, but may\nbe elsewhere in the file depending on the exact syntax problem.\n\nThe offending line appears to be:\n\n  tasks:\n  - name: testing ignore errors\n    ^ here\n"}
+...ignoring
+
+TASK [next task ..even if there was a previous error ...] **********************
+changed: [centos]
+
+PLAY RECAP *********************************************************************
+centos                     : ok=3    changed=1    unreachable=0    failed=0 
+
+
