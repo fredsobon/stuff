@@ -1,0 +1,310 @@
+==== exemples concrets de code : ===
+
+= gestion de point de montage sous lvm : =
+
+on va pouvoir ajouter dans une section de notre certname des blocs qui seront repris dans puppet.
+
+- on defini les blocs dans hiera avec les params :
+
+on défini deux sections :
+> 1 vg 
+> 1 lv 
+
+
+
+certname/server.yml
+...
+lvm_volume_group:
+  vg1:
+    physical_volumes:
+      - '/dev/sdb'
+lvm_logical_volume:
+  data:
+    fs_type: 'xfs'
+    size: '99.9G'
+    volume_group: 'vg1'
+    mountpath: '/data'
+...
+
+Le manifest lvm de base  va crééer les ressources identifiées dans le hiera 
+
+notamment avec : 
+  # Dynamic lvm
+  create_resources('lvm::volume_group',   lookup('lvm_volume_group',   Hash, 'hash', {}) )
+  # on a dans le manifest deux entrées l'une ou l'autre seront jouée selon les cas   create_resources('lvm::logical_volume', lookup('lvm_logical_volume', Hash, 'hash', {}) )
+
+
+ici on a dans hiera 
+
+lvm_volume_group > qui va donc être récupérer et créer les ressources 
+dans profile/manifests/base/lvm.pp 
+create_resources('lvm::volume_group',   lookup('lvm_volume_group',   Hash, 'hash', {}) )
+
+et qui va donc utiliser le module lvm et la section volume_group qui lui même utilisera le manifest logical_volume
+
+
+
+define lvm::volume_group (
+  $physical_volumes,
+  $ensure           = present,    <<<<<<< on s'assure qu'on a un disque physique ( '/dev/sdb' dans hiera )
+  $logical_volumes  = {},
+) {
+
+  physical_volume { $physical_volumes:
+    ensure => $ensure,
+  } ->
+
+  volume_group { $name:   <<<<<<<<<<  ici on va donc avoir vg1 le nom donné dans notre hiera
+    ensure           => $ensure,
+    physical_volumes => $physical_volume  <<< reprend le nom du define précedant 
+
+  create_resources(
+    'lvm::logical_volume',     <<<< ici on fait un create ressource de notre lv 
+    $logical_volumes,
+    {
+      ensure       => $ensure,
+      volume_group => $name,
+    }
+  )
+}
+
+
+
+
+
+cat modules/profile/manifests/base/lvm.pp 
+#
+class profile::base::lvm (
+  $var_size    = undef,
+  $var_disks   = undef,
+  $var_fs      = $profile::base::params::var_fs,
+  $var_options = $profile::base::params::var_options,
+  $root_size   = undef,
+  $root_disks  = undef,
+  $root_fs     = $profile::base::params::root_fs,
+  $root_options = $profile::base::params::root_options,
+)
+{
+  $_var_size = $var_size ? {
+    'max'   => undef,
+    default => $var_size,
+  }
+
+  lvm::volume_group { 'vg0':
+    ensure           => present,
+    physical_volumes => $var_disks,
+  }
+
+  if $_var_size {
+    lvm::logical_volume { 'var':
+      ensure       => present,
+      volume_group => 'vg0',
+      size         => $_var_size,
+      fs_type      => $var_fs,
+      mountpath    => '/var',
+      dump         => '0',
+      pass         => '2',
+      options      => $var_options,
+    }
+  }
+
+  if $root_size {
+    lvm::logical_volume { 'root':
+      ensure       => present,
+      volume_group => 'vg0',
+      size         => $root_size,
+      fs_type      => $root_fs,
+      mountpath    => '/',
+      dump         => '0',
+      pass         => '0',
+      options      => $root_options,
+    }
+  }
+
+  # Dynamic lvm
+  create_resources('lvm::volume_group',   lookup('lvm_volume_group',   Hash, 'hash', {}) )
+  create_resources('lvm::logical_volume', lookup('lvm_logical_volume', Hash, 'hash', {}) )
+
+
+cat modules/lvm/manifests/volume_group.pp 
+# == Define: lvm::volume_group
+#
+define lvm::volume_group (
+  $physical_volumes,
+  $ensure           = present,
+  $logical_volumes  = {},
+) {
+
+  validate_hash($logical_volumes)
+
+  if ($name == undef) {
+    fail("lvm::volume_group \$name can't be undefined")
+  }
+
+  physical_volume { $physical_volumes:
+    ensure => $ensure,
+  } ->
+
+  volume_group { $name:
+    ensure           => $ensure,
+    physical_volumes => $physical_volumes,
+  }
+
+  create_resources(
+    'lvm::logical_volume',
+    $logical_volumes,
+    {
+      ensure       => $ensure,
+      volume_group => $name,
+    }
+  )
+}
+
+
+[/etc/puppetlabs/code/environments/bla] $ cat modules/lvm/manifests/logical_volume.pp 
+# == Define: lvm::logical_volume
+#
+define lvm::logical_volume (
+  $volume_group,
+  $size              = undef,
+  $initial_size      = undef,
+  $ensure            = present,
+  $options           = 'defaults',
+  $pass              = '2',
+  $dump              = '1',
+  $fs_type           = 'ext4',
+  $mkfs_options      = undef,
+  $mountpath         = "/${name}",
+  $mountpath_require = false,
+  $mounted           = true,
+  $createfs          = true,
+  $extents           = undef,
+  $stripes           = undef,
+  $stripesize        = undef,
+  $readahead         = undef,
+  $range             = undef,
+  $size_is_minsize   = undef,
+  $type              = undef,
+  $thinpool          = undef,
+  $poolmetadatasize  = undef,
+  $mirror            = undef,
+  $mirrorlog         = undef,
+  $no_sync           = undef,
+  $region_size       = undef,
+  $alloc             = undef,
+) {
+
+  validate_bool($mountpath_require)
+
+  if ($name == undef) {
+    fail("lvm::logical_volume \$name can't be undefined")
+  }
+
+  $lvm_device_path = "/dev/${volume_group}/${name}"
+
+  if $mountpath_require and $fs_type != 'swap' {
+    Mount {
+      require => File[$mountpath],
+    }
+  }
+
+  if $fs_type == 'swap' {
+    $mount_title     = $lvm_device_path
+    $fixed_mountpath = "swap_${lvm_device_path}"
+    $fixed_pass      = 0
+    $fixed_dump      = 0
+    $mount_ensure    = $ensure ? {
+      'absent' => absent,
+      default  => present,
+    }
+  } else {
+    $mount_title     = $mountpath
+    $fixed_mountpath = $mountpath
+    $fixed_pass      = $pass
+    $fixed_dump      = $dump
+    $mount_ensure    = $ensure ? {
+      'absent' => absent,
+      default  => $mounted ? {
+        true      => mounted,
+        false     => present,
+      }
+    }
+  }
+
+  if $ensure == 'present' and $createfs {
+    Logical_volume[$name] ->
+    Filesystem[$lvm_device_path] ->
+    Mount[$mount_title]
+  } elsif $ensure != 'present' and $createfs {
+    Mount[$mount_title] ->
+    Filesystem[$lvm_device_path] ->
+    Logical_volume[$name]
+  }
+
+  logical_volume { $name:
+    ensure           => $ensure,
+    volume_group     => $volume_group,
+    size             => $size,
+    initial_size     => $initial_size,
+    stripes          => $stripes,
+    stripesize       => $stripesize,
+    readahead        => $readahead,
+    extents          => $extents,
+    range            => $range,
+    size_is_minsize  => $size_is_minsize,
+    type             => $type,
+    thinpool         => $thinpool,
+    poolmetadatasize => $poolmetadatasize,
+    mirror           => $mirror,
+    mirrorlog        => $mirrorlog,
+    no_sync          => $no_sync,
+    region_size      => $region_size,
+    alloc            => $alloc
+  }
+
+  if $createfs {
+    filesystem { $lvm_device_path:
+      ensure  => $ensure,
+      fs_type => $fs_type,
+      options => $mkfs_options,
+    }
+  }
+
+  if $createfs or $ensure != 'present' {
+    if $fs_type == 'swap' {
+      if $ensure == 'present' {
+        exec { "swapon for '${mount_title}'":
+          path      => [ '/bin', '/usr/bin', '/sbin' ],
+          command   => "swapon ${lvm_device_path}",
+          unless    => "grep `readlink -f ${lvm_device_path}` /proc/swaps",
+          subscribe => Mount[$mount_title],
+        }
+      } else {
+        exec { "swapoff for '${mount_title}'":
+          path    => [ '/bin', '/usr/bin', '/sbin' ],
+          command => "swapoff ${lvm_device_path}",
+          onlyif  => "grep `readlink -f ${lvm_device_path}` /proc/swaps",
+          notify  => Mount[$mount_title],
+        }
+      }
+    } else {
+      exec { "ensure mountpoint '${fixed_mountpath}' exists":
+        path    => [ '/bin', '/usr/bin' ],
+        command => "mkdir -p ${fixed_mountpath}",
+        unless  => "test -d ${fixed_mountpath}",
+        before  => Mount[$mount_title],
+      }
+    }
+    mount { $mount_title:
+      ensure  => $mount_ensure,
+      name    => $fixed_mountpath,
+      device  => $lvm_device_path,
+      fstype  => $fs_type,
+      options => $options,
+      pass    => $fixed_pass,
+      dump    => $fixed_dump,
+      atboot  => true,
+    }
+  }
+}
+
