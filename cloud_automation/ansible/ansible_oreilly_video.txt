@@ -1957,9 +1957,122 @@ PLAY RECAP *********************************************************************
 centos                     : ok=2    changed=1    unreachable=0    failed=1   
 
 
+Il est aussi tout a fait possible de tester  un playbook sequentiellement avec un "--step" :
+
+ce qui va noous permettre de tester toutes les sections de notre playbook une par une : un prompt nous demandant  de continuer ou non apparait : 
+ ansible-playbook -i hosts testErrors.yml --step
+
+PLAY [testing error handling] **************************************************
+Perform task: TASK: setup (N)o/(y)es/(c)ontinue: y
+
+Perform task: TASK: setup (N)o/(y)es/(c)ontinue: *******************************
+
+TASK [setup] *******************************************************************
+ok: [centos]
+Perform task: TASK: testing ignore errors (N)o/(y)es/(c)ontinue: y
+
+Perform task: TASK: testing ignore errors (N)o/(y)es/(c)ontinue: ***************
+
+TASK [testing ignore errors] ***************************************************
+fatal: [centos]: FAILED! => {"failed": true, "msg": "the field 'args' has an invalid value, which appears to include a variable that is undefined. The error was: 'uPassword' is undefined\n\nThe error appears to have been in '/home/boogie/Documents/lab/ansible/provisionning/testErrors.yml': line 7, column 5, but may\nbe elsewhere in the file depending on the exact syntax problem.\n\nThe offending line appears to be:\n\n  tasks:\n  - name: testing ignore errors\n    ^ here\n"}
+...ignoring
+Perform task: TASK: next task ..even if there was a previous error ... (N)o/(y)es/(c)ontinue: y
+
+Perform task: TASK: next task ..even if there was a previous error ... (N)o/(y)es/(c)ontinue: ***
+
+TASK [next task ..even if there was a previous error ...] **********************
+changed: [centos]
+Perform task: TASK: put the word ko in clear ..in order to fail when found .... (N)o/(y)es/(c)ontinue: N
 
 
+Ne jamais hésiter sinon a utiliser le module debug ...
 
 
+==== ansible + windows : ===
+
+ cat ../ressources/Introduction_to_ansible_working_files/chapter6/windows.yml 
+---
+- name: testing windows module
+  hosts: windows
+  
+  vars:
+    uPassword: w!ndowS
+
+  tasks: 
+  - name: run ipconfig
+    raw: ipconfig
+    register: ipconfig
+
+  - debug: var=ipconfig
+
+  - name: test stat module on file
+    win_stat: path="C:/Windows/win.ini"
+    register: stat_file
+
+  - debug: var=stat_file
+
+  - name: add a local group
+    win_group: name=TestWindowsGroup description="My Windows group" state=present
+
+  - name: add a local user
+    win_user: name=TestUser password={{uPassword}} groups=TestWindowsGroup group_action=add
+
+  - name: give my local user some permissions
+    win_acl: 
+      path: "C:\\Users\\Public"
+      user: TestUser
+      rights: FullControl
+      type: allow 
+
+exemple de playbook :
+
+
+cat ../ressources/Introduction_to_ansible_working_files/chapter6/playbook.yml 
+---
+- name: launching an ec2 instance
+  hosts: localhost
+  connection: local
+  gather_facts: false 
+
+  vars_files:
+   - keypair.yml 
+
+  tasks: 
+  - name: search for the latest rhel 7 ami
+    ec2_ami_find:
+      region: us-east-1
+      owner: "309956199498"
+      name: "RHEL-7.2*"
+    register: find_results
+
+  - debug: var=find_results
+
+  - name: find a subnet id
+    ec2_vpc_subnet_facts:
+      aws_access_key: "{{ec2_access_key}}"
+      aws_secret_key: "{{ec2_secret_key}}"
+      region: us-east-1
+    register: subnet_ids
+
+  - debug: var=subnet_ids
+
+  - name: launch an ec2 instance
+    ec2:
+      aws_access_key: "{{ec2_access_key}}"
+      aws_secret_key: "{{ec2_secret_key}}"
+      instance_type: t2.micro
+      region: us-east-1
+      image: "{{find_results.results[0].ami_id}}"
+      instance_tags:
+         Name: mperz
+      wait: yes
+      vpc_subnet_id: "{{subnet_ids.subnets[0].id}}"
+      assign_public_ip: yes 
+
+il faut  examiner ansible galaxy car il n'y a pas beaucoup de modules ....
+
+
+=== dynamic inventory : ===
+specific au travail sur les instances amazon
 
 
