@@ -1726,3 +1726,240 @@ PLAY RECAP *********************************************************************
 centos                     : ok=3    changed=1    unreachable=0    failed=0 
 
 
+Il va être possible d'arrêter un run dans certaines conditions : ex : quand on trouve la presence d'un pattern précis ... :
+
+
+cat testErrors.yml
+---
+- name: testing error handling
+  hosts: centos
+  become: yes
+
+  tasks:
+  - name: testing ignore errors
+    user: name=boogie password={{uPassword}}
+    ignore_errors: yes
+
+  - name: next task ..even if there was a previous error ...
+    shell: echo hello world  
+
+  - name: put the word ko in clear ..in order to fail when found ....
+    shell: echo "yopyop ko"
+    register: result
+
+
+  - debug: msg="Ok for sure we gonna stop the playbook ...as keyword is found."
+    failed_when: result.stdout.find('ko')!=-1
+
+  - name: just add another test ..just to see that the play stopped before ..
+    shell: echo "yes ??"
+    register: output
+
+  - debug: msg="heres the word that shoulb be printed {{output.stdout}}"
+
+
+
+on va tester et donc avoir notre run qui s'arrête a la detection du keyword trouvé : 
+la derniere action afficher "yes??" ne s'executera pas puisque la tache précedante a arrêter le run .. 
+
+
+PLAY [testing error handling] **************************************************
+
+TASK [setup] *******************************************************************
+ok: [centos]
+
+TASK [testing ignore errors] ***************************************************
+fatal: [centos]: FAILED! => {"failed": true, "msg": "the field 'args' has an invalid value, which appears to include a variable that is undefined. The error was: 'uPassword' is undefined\n\nThe error appears to have been in '/home/boogie/Documents/lab/ansible/provisionning/testErrors.yml': line 7, column 5, but may\nbe elsewhere in the file depending on the exact syntax problem.\n\nThe offending line appears to be:\n\n  tasks:\n  - name: testing ignore errors\n    ^ here\n"}
+...ignoring
+
+TASK [next task ..even if there was a previous error ...] **********************
+changed: [centos]
+
+TASK [put the word ko in clear ..in order to fail when found ....] *************
+changed: [centos]
+
+TASK [debug] *******************************************************************
+fatal: [centos]: FAILED! => {
+    "changed": false, 
+    "failed": true, 
+    "failed_when_result": true, 
+    "msg": "Ok for sure we gonna stop the playbook ...as keyword is found."
+}
+	to retry, use: --limit @/home/boogie/Documents/lab/ansible/provisionning/testErrors.retry
+
+PLAY RECAP *********************************************************************
+centos                     : ok=4    changed=2    unreachable=0    failed=1  
+
+
+=== test et debug : ===
+
+on va pouvoir tester nos playbooks avec un mode dry run : "--check" pour voir le comportement de nos plays.
+
+on va créer pour l'exemple un role php très simple qui ne va comporter qu'une task qui installe trois packets : 
+
+cat  ../../roles/php/tasks/main.yml 
+---
+- name: install  php and git 
+  yum: name={{item}} state=present
+  with_items:
+  - php
+  - php-mysql
+  - git
+puis on inclu ce role dans notre site.yaml pour testet :
+
+cat site.yml 
+---
+- name : deploy common and mariadb role 
+  hosts: centos
+  become: yes
+
+  roles:
+  - php
+
+On lance ensuite notre dry run :
+
+ansible-playbook -i hosts site.yml --check
+
+PLAY [deploy common and mariadb role] ******************************************
+
+TASK [setup] *******************************************************************
+ok: [centos]
+
+TASK [php : install  php and git] **********************************************
+changed: [centos] => (item=[u'php', u'php-mysql', u'git'])
+
+PLAY RECAP *********************************************************************
+centos                     : ok=2    changed=1    unreachable=0    failed=0   
+
+Ici on a la sortie de notre dry run ..on peut verifier que les packets n'ont pas été installé en checkant directement sur notre node la présence de php : 
+
+ ansible centos  -i hosts -m yum -a "name=php state=absent" -b
+centos | SUCCESS => {
+    "changed": false, 
+    "msg": "", 
+    "rc": 0, 
+    "results": [
+        "php is not installed"
+    ]
+}
+
+
+En erreur classique on peut avoir des erreurs de connections ssh (user  non defini pour la connexion ou autres ..) 
+
+L'erreur peut être de type :
+ansible centos  -i hosts -m setup
+centos | UNREACHABLE! => {
+    "changed": false, 
+    "msg": "Failed to connect to the host via ssh: Permission denied (publickey,password).\r\n", 
+    "unreachable": true
+
+
+on peut s'aider au debug en passant plusieurs "v" (verbose) en param de notre test :
+
+ansible centos  -i hosts -m setup -vvv
+Using /home/boogie/Documents/lab/ansible/provisionning/ansible.cfg as config file
+Using module file /usr/lib/python2.7/dist-packages/ansible/modules/core/system/setup.py
+<127.0.0.1> ESTABLISH SSH CONNECTION FOR USER: root
+<127.0.0.1> SSH: EXEC ssh -C -o ControlMaster=auto -o ControlPersist=60s -o Port=22 -o 'IdentityFile="/home/boogie/.ssh/id_rsa"' -o KbdInteractiveAuthentication=no -o PreferredAuthentications=gssapi-with-mic,gssapi-keyex,hostbased,publickey -o PasswordAuthentication=no -o User=root -o ConnectTimeout=10 -o ControlPath=/home/boogie/.ansible/cp/ansible-ssh-%h-%p-%r 127.0.0.1 '/bin/sh -c '"'"'( umask 77 && mkdir -p "` echo ~/.ansible/tmp/ansible-tmp-1506586580.53-135159726548874 `" && echo ansible-tmp-1506586580.53-135159726548874="` echo ~/.ansible/tmp/ansible-tmp-1506586580.53-135159726548874 `" ) && sleep 0'"'"''
+centos | UNREACHABLE! => {
+    "changed": false, 
+    "msg": "Failed to connect to the host via ssh: Permission denied (publickey,password).\r\n", 
+    "unreachable": true
+}
+on a donc la plus de détails et on peut donc plus facilement débugguer.
+
+On va aussi pouvoir avoir des erreurs de syntaxe a debugguer : 
+
+> indentation 
+> quoting mal fermé ( " manquant par exemple )
+> variable, bloc  non définie : toujours vérifier la cohérence des noms et checker les eventuelles typo
+
+Pour proceder a du debug on peut définir un point de depart a notre playbook : exemple commencer le test a partir d'une task définie : 
+
+exemple notre playbook de tests comporte plusieurs tasks :
+
+ ~/Documents/lab/ansible/provisionning  $  cat testErrors.yml
+---
+- name: testing error handling
+  hosts: centos
+  become: yes
+
+  tasks:
+  - name: testing ignore errors
+    user: name=boogie password={{uPassword}}
+    ignore_errors: yes
+
+  - name: next task ..even if there was a previous error ...
+    shell: echo hello world  
+
+  - name: put the word ko in clear ..in order to fail when found ....
+    shell: echo "yopyop ko"
+    register: result
+
+
+  - debug: msg="Ok for sure we gonna stop the playbook ...as keyword is found."
+    failed_when: result.stdout.find('ko')!=-1
+  
+  - name: just add another test ..just to see that the play stopped before ..
+    shell: echo "yes ??"
+    register: output
+
+  - debug: msg="heres the word that shoulb be printed {{output.stdout}}"
+
+on va lancer notre play a partir d'une tache specifique : ce qui va skipper les tasks précédentes :
+
+ ansible-playbook -i hosts testErrors.yml --start-at-task="put the word ko in clear ..in order to fail when found ...."
+
+PLAY [testing error handling] **************************************************
+
+TASK [setup] *******************************************************************
+ok: [centos]
+
+TASK [put the word ko in clear ..in order to fail when found ....] *************
+changed: [centos]
+
+TASK [debug] *******************************************************************
+fatal: [centos]: FAILED! => {
+    "changed": false, 
+    "failed": true, 
+    "failed_when_result": true, 
+    "msg": "Ok for sure we gonna stop the playbook ...as keyword is found."
+}
+	to retry, use: --limit @/home/boogie/Dme: testing error handling
+  hosts: centos
+  become: yes
+
+  tasks:
+  - name: testing ignore errors
+    user: name=boogie password={{uPassword}}
+    ignore_errors: yes
+
+  - name: next task ..even if there was a previous error ...
+    shell: echo hello world  
+
+  - name: put the word ko in clear ..in order to fail when found ....
+    shell: echo "yopyop ko"
+    register: result
+
+
+  - debug: msg="Ok for sure we gonna stop the playbook ...as keyword is found."
+    failed_when: result.stdout.find('ko')!=-1
+  
+  - name: just add another test ..just to see that the play stopped before ..
+    shell: echo "yes ??"
+    register: output
+
+  - debug: msg="heres the word that shoulb be printed {{output.stdout}}"
+
+ocuments/lab/ansible/provisionning/testErrors.retry
+
+PLAY RECAP *********************************************************************
+centos                     : ok=2    changed=1    unreachable=0    failed=1   
+
+
+
+
+
+
+
+
