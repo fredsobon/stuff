@@ -2127,6 +2127,48 @@ anotherblabla
 
 on va pouvoir jouer un playbook utilisant un fichier crypté en passant en argument la commande nous demandant le password vault setté pour notre fichier sensible :
 
+
+
+ cat testVault.yml 
+---
+- name: testing error handling
+  hosts: centos
+  become: yes
+
+  tasks:
+  
+  - name: copy encrypt file
+    copy: src=test_passwd.yml dest=/tmp/
+  
+  - name:  test to read encrypted file with vault 
+    shell: cat /tmp/test_passwd.yml
+    register: output
+
+  - debug: msg="heres the word that shoulb be printed {{output.stdout}}"
+
+
  ansible-playbook -i hosts testVault.yml --ask-vault-pass 
 
+
+ ansible-playbook -i hosts testVault.yml --ask-vault-pass
+Vault password: 
+
+PLAY [testing error handling] **************************************************
+
+TASK [setup] *******************************************************************
+ok: [centos]
+
+TASK [copy encrypt file] *******************************************************
+changed: [centos]
+
+TASK [test to read encrypted file with vault] **********************************
+changed: [centos]
+
+TASK [debug] *******************************************************************
+ok: [centos] => {
+    "msg": "heres the word that shoulb be printed # test file with fake word to test encryption with \nvault :\n\nblabla1\ntesto44\nanotherblabla"
+}
+
+PLAY RECAP *********************************************************************
+centos                     : ok=4    changed=2    unreachable=0    failed=0   
 
