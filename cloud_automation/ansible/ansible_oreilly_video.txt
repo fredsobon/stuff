@@ -1726,3 +1726,557 @@ PLAY RECAP *********************************************************************
 centos                     : ok=3    changed=1    unreachable=0    failed=0 
 
 
+Il va être possible d'arrêter un run dans certaines conditions : ex : quand on trouve la presence d'un pattern précis ... :
+
+
+cat testErrors.yml
+---
+- name: testing error handling
+  hosts: centos
+  become: yes
+
+  tasks:
+  - name: testing ignore errors
+    user: name=boogie password={{uPassword}}
+    ignore_errors: yes
+
+  - name: next task ..even if there was a previous error ...
+    shell: echo hello world  
+
+  - name: put the word ko in clear ..in order to fail when found ....
+    shell: echo "yopyop ko"
+    register: result
+
+
+  - debug: msg="Ok for sure we gonna stop the playbook ...as keyword is found."
+    failed_when: result.stdout.find('ko')!=-1
+
+  - name: just add another test ..just to see that the play stopped before ..
+    shell: echo "yes ??"
+    register: output
+
+  - debug: msg="heres the word that shoulb be printed {{output.stdout}}"
+
+
+
+on va tester et donc avoir notre run qui s'arrête a la detection du keyword trouvé : 
+la derniere action afficher "yes??" ne s'executera pas puisque la tache précedante a arrêter le run .. 
+
+
+PLAY [testing error handling] **************************************************
+
+TASK [setup] *******************************************************************
+ok: [centos]
+
+TASK [testing ignore errors] ***************************************************
+fatal: [centos]: FAILED! => {"failed": true, "msg": "the field 'args' has an invalid value, which appears to include a variable that is undefined. The error was: 'uPassword' is undefined\n\nThe error appears to have been in '/home/boogie/Documents/lab/ansible/provisionning/testErrors.yml': line 7, column 5, but may\nbe elsewhere in the file depending on the exact syntax problem.\n\nThe offending line appears to be:\n\n  tasks:\n  - name: testing ignore errors\n    ^ here\n"}
+...ignoring
+
+TASK [next task ..even if there was a previous error ...] **********************
+changed: [centos]
+
+TASK [put the word ko in clear ..in order to fail when found ....] *************
+changed: [centos]
+
+TASK [debug] *******************************************************************
+fatal: [centos]: FAILED! => {
+    "changed": false, 
+    "failed": true, 
+    "failed_when_result": true, 
+    "msg": "Ok for sure we gonna stop the playbook ...as keyword is found."
+}
+	to retry, use: --limit @/home/boogie/Documents/lab/ansible/provisionning/testErrors.retry
+
+PLAY RECAP *********************************************************************
+centos                     : ok=4    changed=2    unreachable=0    failed=1  
+
+
+=== test et debug : ===
+
+on va pouvoir tester nos playbooks avec un mode dry run : "--check" pour voir le comportement de nos plays.
+
+on va créer pour l'exemple un role php très simple qui ne va comporter qu'une task qui installe trois packets : 
+
+cat  ../../roles/php/tasks/main.yml 
+---
+- name: install  php and git 
+  yum: name={{item}} state=present
+  with_items:
+  - php
+  - php-mysql
+  - git
+puis on inclu ce role dans notre site.yaml pour testet :
+
+cat site.yml 
+---
+- name : deploy common and mariadb role 
+  hosts: centos
+  become: yes
+
+  roles:
+  - php
+
+On lance ensuite notre dry run :
+
+ansible-playbook -i hosts site.yml --check
+
+PLAY [deploy common and mariadb role] ******************************************
+
+TASK [setup] *******************************************************************
+ok: [centos]
+
+TASK [php : install  php and git] **********************************************
+changed: [centos] => (item=[u'php', u'php-mysql', u'git'])
+
+PLAY RECAP *********************************************************************
+centos                     : ok=2    changed=1    unreachable=0    failed=0   
+
+Ici on a la sortie de notre dry run ..on peut verifier que les packets n'ont pas été installé en checkant directement sur notre node la présence de php : 
+
+ ansible centos  -i hosts -m yum -a "name=php state=absent" -b
+centos | SUCCESS => {
+    "changed": false, 
+    "msg": "", 
+    "rc": 0, 
+    "results": [
+        "php is not installed"
+    ]
+}
+
+
+En erreur classique on peut avoir des erreurs de connections ssh (user  non defini pour la connexion ou autres ..) 
+
+L'erreur peut être de type :
+ansible centos  -i hosts -m setup
+centos | UNREACHABLE! => {
+    "changed": false, 
+    "msg": "Failed to connect to the host via ssh: Permission denied (publickey,password).\r\n", 
+    "unreachable": true
+
+
+on peut s'aider au debug en passant plusieurs "v" (verbose) en param de notre test :
+
+ansible centos  -i hosts -m setup -vvv
+Using /home/boogie/Documents/lab/ansible/provisionning/ansible.cfg as config file
+Using module file /usr/lib/python2.7/dist-packages/ansible/modules/core/system/setup.py
+<127.0.0.1> ESTABLISH SSH CONNECTION FOR USER: root
+<127.0.0.1> SSH: EXEC ssh -C -o ControlMaster=auto -o ControlPersist=60s -o Port=22 -o 'IdentityFile="/home/boogie/.ssh/id_rsa"' -o KbdInteractiveAuthentication=no -o PreferredAuthentications=gssapi-with-mic,gssapi-keyex,hostbased,publickey -o PasswordAuthentication=no -o User=root -o ConnectTimeout=10 -o ControlPath=/home/boogie/.ansible/cp/ansible-ssh-%h-%p-%r 127.0.0.1 '/bin/sh -c '"'"'( umask 77 && mkdir -p "` echo ~/.ansible/tmp/ansible-tmp-1506586580.53-135159726548874 `" && echo ansible-tmp-1506586580.53-135159726548874="` echo ~/.ansible/tmp/ansible-tmp-1506586580.53-135159726548874 `" ) && sleep 0'"'"''
+centos | UNREACHABLE! => {
+    "changed": false, 
+    "msg": "Failed to connect to the host via ssh: Permission denied (publickey,password).\r\n", 
+    "unreachable": true
+}
+on a donc la plus de détails et on peut donc plus facilement débugguer.
+
+On va aussi pouvoir avoir des erreurs de syntaxe a debugguer : 
+
+> indentation 
+> quoting mal fermé ( " manquant par exemple )
+> variable, bloc  non définie : toujours vérifier la cohérence des noms et checker les eventuelles typo
+
+Pour proceder a du debug on peut définir un point de depart a notre playbook : exemple commencer le test a partir d'une task définie : 
+
+exemple notre playbook de tests comporte plusieurs tasks :
+
+ ~/Documents/lab/ansible/provisionning  $  cat testErrors.yml
+---
+- name: testing error handling
+  hosts: centos
+  become: yes
+
+  tasks:
+  - name: testing ignore errors
+    user: name=boogie password={{uPassword}}
+    ignore_errors: yes
+
+  - name: next task ..even if there was a previous error ...
+    shell: echo hello world  
+
+  - name: put the word ko in clear ..in order to fail when found ....
+    shell: echo "yopyop ko"
+    register: result
+
+
+  - debug: msg="Ok for sure we gonna stop the playbook ...as keyword is found."
+    failed_when: result.stdout.find('ko')!=-1
+  
+  - name: just add another test ..just to see that the play stopped before ..
+    shell: echo "yes ??"
+    register: output
+
+  - debug: msg="heres the word that shoulb be printed {{output.stdout}}"
+
+on va lancer notre play a partir d'une tache specifique : ce qui va skipper les tasks précédentes :
+
+ ansible-playbook -i hosts testErrors.yml --start-at-task="put the word ko in clear ..in order to fail when found ...."
+
+PLAY [testing error handling] **************************************************
+
+TASK [setup] *******************************************************************
+ok: [centos]
+
+TASK [put the word ko in clear ..in order to fail when found ....] *************
+changed: [centos]
+
+TASK [debug] *******************************************************************
+fatal: [centos]: FAILED! => {
+    "changed": false, 
+    "failed": true, 
+    "failed_when_result": true, 
+    "msg": "Ok for sure we gonna stop the playbook ...as keyword is found."
+}
+	to retry, use: --limit @/home/boogie/Dme: testing error handling
+  hosts: centos
+  become: yes
+
+  tasks:
+  - name: testing ignore errors
+    user: name=boogie password={{uPassword}}
+    ignore_errors: yes
+
+  - name: next task ..even if there was a previous error ...
+    shell: echo hello world  
+
+  - name: put the word ko in clear ..in order to fail when found ....
+    shell: echo "yopyop ko"
+    register: result
+
+
+  - debug: msg="Ok for sure we gonna stop the playbook ...as keyword is found."
+    failed_when: result.stdout.find('ko')!=-1
+  
+  - name: just add another test ..just to see that the play stopped before ..
+    shell: echo "yes ??"
+    register: output
+
+  - debug: msg="heres the word that shoulb be printed {{output.stdout}}"
+
+ocuments/lab/ansible/provisionning/testErrors.retry
+
+PLAY RECAP *********************************************************************
+centos                     : ok=2    changed=1    unreachable=0    failed=1   
+
+
+Il est aussi tout a fait possible de tester  un playbook sequentiellement avec un "--step" :
+
+ce qui va noous permettre de tester toutes les sections de notre playbook une par une : un prompt nous demandant  de continuer ou non apparait : 
+ ansible-playbook -i hosts testErrors.yml --step
+
+PLAY [testing error handling] **************************************************
+Perform task: TASK: setup (N)o/(y)es/(c)ontinue: y
+
+Perform task: TASK: setup (N)o/(y)es/(c)ontinue: *******************************
+
+TASK [setup] *******************************************************************
+ok: [centos]
+Perform task: TASK: testing ignore errors (N)o/(y)es/(c)ontinue: y
+
+Perform task: TASK: testing ignore errors (N)o/(y)es/(c)ontinue: ***************
+
+TASK [testing ignore errors] ***************************************************
+fatal: [centos]: FAILED! => {"failed": true, "msg": "the field 'args' has an invalid value, which appears to include a variable that is undefined. The error was: 'uPassword' is undefined\n\nThe error appears to have been in '/home/boogie/Documents/lab/ansible/provisionning/testErrors.yml': line 7, column 5, but may\nbe elsewhere in the file depending on the exact syntax problem.\n\nThe offending line appears to be:\n\n  tasks:\n  - name: testing ignore errors\n    ^ here\n"}
+...ignoring
+Perform task: TASK: next task ..even if there was a previous error ... (N)o/(y)es/(c)ontinue: y
+
+Perform task: TASK: next task ..even if there was a previous error ... (N)o/(y)es/(c)ontinue: ***
+
+TASK [next task ..even if there was a previous error ...] **********************
+changed: [centos]
+Perform task: TASK: put the word ko in clear ..in order to fail when found .... (N)o/(y)es/(c)ontinue: N
+
+
+Ne jamais hésiter sinon a utiliser le module debug ...
+
+
+==== ansible + windows : ===
+
+ cat ../ressources/Introduction_to_ansible_working_files/chapter6/windows.yml 
+---
+- name: testing windows module
+  hosts: windows
+  
+  vars:
+    uPassword: w!ndowS
+
+  tasks: 
+  - name: run ipconfig
+    raw: ipconfig
+    register: ipconfig
+
+  - debug: var=ipconfig
+
+  - name: test stat module on file
+    win_stat: path="C:/Windows/win.ini"
+    register: stat_file
+
+  - debug: var=stat_file
+
+  - name: add a local group
+    win_group: name=TestWindowsGroup description="My Windows group" state=present
+
+  - name: add a local user
+    win_user: name=TestUser password={{uPassword}} groups=TestWindowsGroup group_action=add
+
+  - name: give my local user some permissions
+    win_acl: 
+      path: "C:\\Users\\Public"
+      user: TestUser
+      rights: FullControl
+      type: allow 
+
+exemple de playbook :
+
+
+cat ../ressources/Introduction_to_ansible_working_files/chapter6/playbook.yml 
+---
+- name: launching an ec2 instance
+  hosts: localhost
+  connection: local
+  gather_facts: false 
+
+  vars_files:
+   - keypair.yml 
+
+  tasks: 
+  - name: search for the latest rhel 7 ami
+    ec2_ami_find:
+      region: us-east-1
+      owner: "309956199498"
+      name: "RHEL-7.2*"
+    register: find_results
+
+  - debug: var=find_results
+
+  - name: find a subnet id
+    ec2_vpc_subnet_facts:
+      aws_access_key: "{{ec2_access_key}}"
+      aws_secret_key: "{{ec2_secret_key}}"
+      region: us-east-1
+    register: subnet_ids
+
+  - debug: var=subnet_ids
+
+  - name: launch an ec2 instance
+    ec2:
+      aws_access_key: "{{ec2_access_key}}"
+      aws_secret_key: "{{ec2_secret_key}}"
+      instance_type: t2.micro
+      region: us-east-1
+      image: "{{find_results.results[0].ami_id}}"
+      instance_tags:
+         Name: mperz
+      wait: yes
+      vpc_subnet_id: "{{subnet_ids.subnets[0].id}}"
+      assign_public_ip: yes 
+
+il faut  examiner ansible galaxy car il n'y a pas beaucoup de modules ....
+
+
+=== dynamic inventory : ===
+specific au travail sur les instances amazon
+
+
+== vault : ==
+
+module permettant d'encrypter les données sensibles d'un fichier ..pour eviter de les passer en clair dans les runs.
+
+- crypter un fichier existant :
+
+pour encrypter un fichier sensible existant :
+
+ansible-vault encrypt fichier_sensible.yaml
+
+on creer un fichier test avec des entrées pour test :
+
+vi test_passwd.yml
+
+t file with fake word to test encryption with 
+vault :
+
+blabla1
+testo44
+
+on encrypt avec vault : un password nous est demandé :
+
+ ~/Documents/lab/ansible/provisionning  $  ansible-vault encrypt test_passwd.yml 
+Vault password: 
+Encryption successful
+
+on a maintenant un fichier crypté :
+ ~/Documents/lab/ansible/provisionning  $  cat test_passwd.yml 
+$ANSIBLE_VAULT;1.1;AES256
+63316563353532366463323962363430303933383137336435356663303861306534383363336335
+3134356635326466616131623065373532396665636231610a336538646166333738356162363563
+38323861343762343866363135656264303862383264313131333334323462353139653537663932
+6633353763316362330a326235636634663564353664653436303766393636386539636563336230
+64336661353138333263656633313939303830333532646231653934333830323135623232373531
+37376136656362396431616332663139613464343835313230623632363134343739386462646563
+32343563633833343231363931636262343965366130303465653763333163656666613339663833
+62373030393537666639
+
+on va pouvoir si on veut éditer le fichier : 
+ansible-vault edit test_passwd.yml 
+Vault password: 
+# test file with fake word to test encryption with 
+vault :
+
+blabla1
+testo44
+anotherblabla
+
+
+on va pouvoir jouer un playbook utilisant un fichier crypté en passant en argument la commande nous demandant le password vault setté pour notre fichier sensible :
+
+
+
+ cat testVault.yml 
+---
+- name: testing error handling
+  hosts: centos
+  become: yes
+
+  tasks:
+  
+  - name: copy encrypt file
+    copy: src=test_passwd.yml dest=/tmp/
+  
+  - name:  test to read encrypted file with vault 
+    shell: cat /tmp/test_passwd.yml
+    register: output
+
+  - debug: msg="heres the word that shoulb be printed {{output.stdout}}"
+
+
+ ansible-playbook -i hosts testVault.yml --ask-vault-pass
+Vault password: 
+
+PLAY [testing error handling] **************************************************
+
+TASK [setup] *******************************************************************
+ok: [centos]
+
+TASK [copy encrypt file] *******************************************************
+changed: [centos]
+
+TASK [test to read encrypted file with vault] **********************************
+changed: [centos]
+
+TASK [debug] *******************************************************************
+ok: [centos] => {
+    "msg": "heres the word that shoulb be printed # test file with fake word to test encryption with \nvault :\n\nblabla1\ntesto44\nanotherblabla"
+}
+
+PLAY RECAP *********************************************************************
+centos                     : ok=4    changed=2    unreachable=0    failed=0   
+
+
+
+On va pouvoir egalement nous servir de vault pour  protéger un fichier sensible dont le contenu sera utilisé par ansible poue jouer un playbook.
+ex :
+
+on cree un fichier dans lequel on va ajouter des varuiables settés dans un fichier encrypté par vault :
+
+cat secret 
+user: lapin
+passwd: 32
+
+ansible-vault encrypt secret
+Vault password: 
+Encryption successful
+ /tmp  $  cat secret 
+$ANSIBLE_VAULT;1.1;AES256
+34383531303638323965626230303139306464356436386364306237636438626262656533356335
+3036393639643737636435356538613834353831326464630a656133613662616433643532616462
+32613139393734633033646337373034356564383437666432653364356364356536663332643536
+6262376632626566610a653434353035643239633863633161613964343961613563636134353865
+32306232333136313030323965646233333963353539376132313238323933316230
+
+on defini un template dans lequel les données secretes seront insérées : 
+
+cat text.j2 
+ok let us try
+
+user = {{ user }}  <<< ici on va donc recupérer la valeur de la variable user du secret ici lapin 
+passwd = {{ passwd }} <<< idem pour le champ passwd : 32
+
+ 
+on va maintenant definir notre fichier secret comme fichier contenant les variables à inserer dans un fichier :
+notre playbook va donc contenir une section var_files comprenant notre fichier crypté , un template qui contiendra les données secretes décryptées et qui servira de modele defichier final qu'on affichera par defaut.
+
+Pas d'interet "productif" ni concert pour cet exemple mais juste pour montrer la possibilité d'utilisation de données cryptées , recupérees et insérer dans un fichier standart :
+
+cat tmp.yml 
+---
+- name: test 
+  hosts: 192.168.0.43
+  become: yes
+  vars_files:
+  - secret
+
+  tasks :
+
+  - name: get secret content in file
+    template: 
+      src: /tmp/text.j2 
+      dest: /tmp/text
+
+  - name : printout final text 
+    shell: cat /tmp/text
+    register: output
+
+  - debug: msg={{output.stdout}}   
+
+on passe notre run avec la commande vault : 
+
+$  ansible-playbook -i hosts tmp.yml --ask-vault-pass
+
+Vault password: 
+
+PLAY [test] ********************************************************************
+
+TASK [setup] *******************************************************************
+ok: [192.168.0.43]
+
+TASK [get secret content in file] **********************************************
+changed: [192.168.0.43]
+
+TASK [printout final text] *****************************************************
+changed: [192.168.0.43]
+
+TASK [debug] *******************************************************************
+ok: [192.168.0.43] => {
+    "msg": "ok let us try\n\nuser = lapin\npasswd = 32"
+}
+
+PLAY RECAP *********************************************************************
+192.168.0.43               : ok=4    changed=2    unreachable=0    failed=0 
+
+on voit bien le contenu de notre fichier créer avec les données cryptées :
+
+
+ /tmp  $  cat text
+ok let us try
+
+user = lapin
+passwd = 32
+
+issu de notre template :
+cat text.j2 
+ok let us try
+
+user = {{ user }}
+passwd = {{ passwd }}
+
+
+avec le fichier crypté illisible sans donner le mdp pour le lire normalement :
+cat secret 
+
+$ANSIBLE_VAULT;1.1;AES256
+34383531303638323965626230303139306464356436386364306237636438626262656533356335
+3036393639643737636435356538613834353831326464630a656133613662616433643532616462
+32613139393734633033646337373034356564383437666432653364356364356536663332643536
+6262376632626566610a653434353035643239633863633161613964343961613563636134353865
+32306232333136313030323965646233333963353539376132313238323933316230
+
+
+
