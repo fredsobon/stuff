@@ -2176,14 +2176,107 @@ ex :
 
 on cree un fichier dans lequel on va ajouter des varuiables settés dans un fichier encrypté par vault :
 
-cat vault_clear.txt
-echo "Hello {{ user_from_vault_file }}"
-echo "hey secret "{{ passwd_from_vault_file }}"
+cat secret 
+user: lapin
+passwd: 32
 
-cat vaulted_file.txt
-user_from_vault_file: lapin
-passwd_from_vault_file: 32
+ansible-vault encrypt secret
+Vault password: 
+Encryption successful
+ /tmp  $  cat secret 
+$ANSIBLE_VAULT;1.1;AES256
+34383531303638323965626230303139306464356436386364306237636438626262656533356335
+3036393639643737636435356538613834353831326464630a656133613662616433643532616462
+32613139393734633033646337373034356564383437666432653364356364356536663332643536
+6262376632626566610a653434353035643239633863633161613964343961613563636134353865
+32306232333136313030323965646233333963353539376132313238323933316230
 
-ansible-vault encrypt vaulted_file.txt
+on defini un template dans lequel les données secretes seront insérées : 
+
+cat text.j2 
+ok let us try
+
+user = {{ user }}  <<< ici on va donc recupérer la valeur de la variable user du secret ici lapin 
+passwd = {{ passwd }} <<< idem pour le champ passwd : 32
 
  
+on va maintenant definir notre fichier secret comme fichier contenant les variables à inserer dans un fichier :
+notre playbook va donc contenir une section var_files comprenant notre fichier crypté , un template qui contiendra les données secretes décryptées et qui servira de modele defichier final qu'on affichera par defaut.
+
+Pas d'interet "productif" ni concert pour cet exemple mais juste pour montrer la possibilité d'utilisation de données cryptées , recupérees et insérer dans un fichier standart :
+
+cat tmp.yml 
+---
+- name: test 
+  hosts: 192.168.0.43
+  become: yes
+  vars_files:
+  - secret
+
+  tasks :
+
+  - name: get secret content in file
+    template: 
+      src: /tmp/text.j2 
+      dest: /tmp/text
+
+  - name : printout final text 
+    shell: cat /tmp/text
+    register: output
+
+  - debug: msg={{output.stdout}}   
+
+on passe notre run avec la commande vault : 
+
+$  ansible-playbook -i hosts tmp.yml --ask-vault-pass
+
+Vault password: 
+
+PLAY [test] ********************************************************************
+
+TASK [setup] *******************************************************************
+ok: [192.168.0.43]
+
+TASK [get secret content in file] **********************************************
+changed: [192.168.0.43]
+
+TASK [printout final text] *****************************************************
+changed: [192.168.0.43]
+
+TASK [debug] *******************************************************************
+ok: [192.168.0.43] => {
+    "msg": "ok let us try\n\nuser = lapin\npasswd = 32"
+}
+
+PLAY RECAP *********************************************************************
+192.168.0.43               : ok=4    changed=2    unreachable=0    failed=0 
+
+on voit bien le contenu de notre fichier créer avec les données cryptées :
+
+
+ /tmp  $  cat text
+ok let us try
+
+user = lapin
+passwd = 32
+
+issu de notre template :
+cat text.j2 
+ok let us try
+
+user = {{ user }}
+passwd = {{ passwd }}
+
+
+avec le fichier crypté illisible sans donner le mdp pour le lire normalement :
+cat secret 
+
+$ANSIBLE_VAULT;1.1;AES256
+34383531303638323965626230303139306464356436386364306237636438626262656533356335
+3036393639643737636435356538613834353831326464630a656133613662616433643532616462
+32613139393734633033646337373034356564383437666432653364356364356536663332643536
+6262376632626566610a653434353035643239633863633161613964343961613563636134353865
+32306232333136313030323965646233333963353539376132313238323933316230
+
+
+
