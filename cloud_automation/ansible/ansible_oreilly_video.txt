@@ -2147,9 +2147,6 @@ on va pouvoir jouer un playbook utilisant un fichier crypté en passant en argum
   - debug: msg="heres the word that shoulb be printed {{output.stdout}}"
 
 
- ansible-playbook -i hosts testVault.yml --ask-vault-pass 
-
-
  ansible-playbook -i hosts testVault.yml --ask-vault-pass
 Vault password: 
 
@@ -2172,3 +2169,21 @@ ok: [centos] => {
 PLAY RECAP *********************************************************************
 centos                     : ok=4    changed=2    unreachable=0    failed=0   
 
+
+
+On va pouvoir egalement nous servir de vault pour  protéger un fichier sensible dont le contenu sera utilisé par ansible poue jouer un playbook.
+ex :
+
+on cree un fichier dans lequel on va ajouter des varuiables settés dans un fichier encrypté par vault :
+
+cat vault_clear.txt
+echo "Hello {{ user_from_vault_file }}"
+echo "hey secret "{{ passwd_from_vault_file }}"
+
+cat vaulted_file.txt
+user_from_vault_file: lapin
+passwd_from_vault_file: 32
+
+ansible-vault encrypt vaulted_file.txt
+
+ 
