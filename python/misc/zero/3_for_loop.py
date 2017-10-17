@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 #-*-coding: utf8 -*-
 
-word = "lapin"
+word = "ragoutoutou"
 
 for w in word:
     if w in "aeiouy":
