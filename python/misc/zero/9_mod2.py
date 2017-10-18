@@ -14,5 +14,7 @@ else:
 
 
 os.system("date")
+print("here's the content of tmp folder : " )
+os.system("ls -lh /tmp")
 
  
