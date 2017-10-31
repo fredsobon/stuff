@@ -12,12 +12,12 @@ mise = 5
 
 while True:    
 # let's gonna play 
-    ans = input("Do you wanna play ? " )
+    ans = input("== Do you wanna play ? == " )
     lst = [ "y", "yes", "Yes", "Y" ] 
     if ans in lst:
         print("ok let's gambling !!!")
         # recupere la valeur du number saisi par user et converti en entier : 
-        number = int(input("gimme a number between 0 and 49 : " ))
+        number = int(input("Gimme a number between 0 and 49 : " ))
         # num gagnant entre 0 et 50 : 
         win = random.randint(0,49)
         # color 
