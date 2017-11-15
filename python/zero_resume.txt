@@ -1934,4 +1934,82 @@ c'est là qu'intervienne les différents espaces :
 quand on fait reference à une variable dans la fonction : python va regarder si elle est définie dans l'espace local de la fonction ( cet espace contient les param passés à la fonction et les variables définies dans son corps. 
 Python voit que cette variable n'existe pas dans l'espace local de la fonction.Il va donc regarder dans l'espace local dans lequel la fonction a été appellée : et là il trouve la variable : il peut donc l'afficher. 
 
+Il est déconseiller d'appeller des variables qui ne sont pas dans l'espace local : dans l'absolu il vaut mieux travailler avec une variable globale.
 
+-> portée des variables :
+Que deviennent les variables définies dans une fonction ?
+
+>>> def set_var(x):
+...     try: 
+...         print("avant affectation notre variable var vaut {}".format(var))
+...     except NameError:
+...         print("la variable n'existe pas encore!")
+...     var = x
+...     print("apres la nouvelle affectation var vaut {}".format(var))
+... 
+>>> set_var(4)
+la variable n'existe pas encore!
+apres la nouvelle affectation var vaut 4
+>>> var
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+NameError: name 'var' is not defined
+
+
+Decomposition : 
+quand on appelle la premiere fois la fonction set_var : la variable n'existe pas encore: on ne l'a pas défini dans le corps de la fonction ou du programme.
+ensuite python affecte 4 à la variable var , l'affiche et s'arrête.
+Quand on essaye d'afficher la variable var après la sortie de la fonction : python ne la trouve pas : c'est  normal elle n'est présente que dans la fonction et est détruite ensuite.
+
+python a une regle pour les acces exterrieurs aux variables locales : on peut les afficher mais pas les modifier.Si on modifie une valeur dans le corps de notre fonction : on ne modifiera en aucun cas la variable exterrieure à la fonction portant le même nom.
+
+Une fonction ne peut modifier par affectation la valeur d'une variable exterrieure a son espace local.
+
+->  une fonction modifiant un object :
+
+quand on passe des params à une fonction : on passe des objects (pas des valeurs).on pourrait donc essayer d'appeller une methode  qui modifie l'object que l'on passe à notre fonction ...
+
+>>> def add(liste, valeur_to_add):
+...     liste.append(valeur_to_add)
+... 
+>>> m = ["a","e","i","o"]
+>>> add(m,"u")
+>>> m
+['a', 'e', 'i', 'o', 'u']
+
+Pour résumer on aura donc :
+parametre = nouvelle_valeur, le paramètre ne sera modifié que dans le corps de la fonction. Alors que si vous faites parametre.methode_pour_modifier(...), l’objet
+derrière le paramètre sera bel et bien modifié.
+
+- les reférences : 
+
+en fait une variable est un nom identifiant pointant vers la référence d'un object : sa position en mémoire.
+donc deux variables ne peuvent pas pointer sur le même object.
+
+>>> m = ["a","e","i","o"]
+>>> n = m
+>>> n.append("Z")
+>>> print(n)
+['a', 'e', 'i', 'o', 'Z']
+>>> print(m)
+['a', 'e', 'i', 'o', 'Z']
+
+ on voit ici que m et n contiennent une reférence vers le même object ( puisque m est aussi modifier quand on change n)
+
+Cela ne fonctionne pas sur les entiers, chaine et float qui n'ont pas de methode pour modifier l'objet.
+
+Si on veut modifier une liste sans toucher à l'autre on va devoir faire autrement : 
+>>> m = ["a","e","i","o"]
+# cela revient a copier le contenu de la liste dans un nouvel object :
+>>> n = list(m)
+>>> n.append("Z")
+>>> print(n)
+['a', 'e', 'i', 'o', 'Z']
+>>> print(m)
+['a', 'e', 'i', 'o']
+
+les deux objects ne pointent plus sur la même référence.
+On utilise les constructeurs pour faire une copie : ex list, dict ..
+
+
+ 
