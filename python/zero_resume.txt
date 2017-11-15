@@ -1793,6 +1793,7 @@ Nous devons pour lire un fichier l'ouvrir : on utilise donc  la fonction open qu
 - 'r' : read - lecture 
 - 'w' : write - ecriture : le contenu du fichier est ecrasé.Si le fichier n'existe pas il est créee
 - 'a' : append - ajout : le texte saisi sera ajouté au contenu du fichier existant. Si le fichier n'existe pas il sera créee.
+- 'b' : binary on va ici utiliser conjointement à  w et a le mode binaire b si nos data doivent être sous forme bruts ( cf module pickle plus bas )  
 
 ->pour lire simplement le fichier  :
 
@@ -1822,6 +1823,9 @@ testo
 - Ecriture dans un fichier :
 
 on doit biensur ouvrir le fichier d'abord . On peut utiliser le mode "w" ou "a" en fonction de nos besoins.
+Puis on utilise la methode write qui va nous servir à inserer du contenu. Une fois saisi on a le nombre caractère inséré dans le texte : qui peut donc être récupérer si besoin .
+Attention la méthode write ne permet de saisir que des chaines de caractères : il faudra donc convertir nos autres types si besoin .
+
 # on passe en mode append :
 >>> file = open("test_file.py", "a")
 # on rajoute le texte voulu à notre fichier 
@@ -1834,6 +1838,70 @@ on doit biensur ouvrir le fichier d'abord . On peut utiliser le mode "w" ou "a" 
 >>> content = file.read()
 >>> print(content)
 testo
-okokok ! let's gonna write in our python file from python code ! okokok ! let's gonna write in our python file from python code ! 
+okokok ! let's gonna write in our python file from python code !
+
+- keyword "with" :
+
+il est fondamental de toujours fermer le fichier sur lequel on a travailler.
+On peut faire des erreurs en ecriture etc..Si notre programme a besoin d'acceder au fichier et que celui ci est deja ouvert : il ne pourra pas le faire.
+Le mot clé "with" permet d'eviter ce pb.
+on va donc créer si elle n'existe pas une  variable apres avoir utiliser le keyword with , ouvert notre fichier dans le mode que l'on veut et utiliser le keyword "as" devant le nom de la variable que l'on veut utiliser : 
+
+le keyword "with" permet de créer un context manager qui vérifie que le fichier est ouvert ou fermé même si des erreurs apparaissent pendant le bloc.
+Le fichier serao automatiquement fermé à la fin du bloc et on peut le vérifier avec la méthode  closed.
+
+>>> with open("test_file.py", "r") as file:
+...     content = file.read()
+... 
+>>> content
+'hey!!welcome[1, 4]'
+# on vérifie que le fichier a bien été fermé par le contexte manager : 
+>>> file.closed
+True
+
+Cela va nous permettre de garantir que si une exeption se produit : notre fichier sera quand même fermé à la fin du bloc.
+python le fait automatiquement.
+
+- Enregistrer des objets dans un fichier : module pickle.
+
+on va pouvoir enregistrer nos objects dans un fichier pour les récupérer plus tard.
+on va utiliser deux classes du module : Pickler et Unpickler 
+
+/!\ Attention on va devoir écrire nos data en mode binaire : on passe donc en modeb apres w 
+
+
+On créer d'abord notre pickler :
+>>> import pickle
+>>> with open("data","wb") as file:
+...     my_pickle = pickle.Pickler(file)
+... 
+>>>
+
+On va maintenant pouvoir injecter un object  avec la méthode dump 
+ex : dico = {"singer": "bob", "guitar": "bebert"}
+
+>>> dico = {"singer": "bob", "guitar": "bebert"}
+>>> with open("data","wb") as file:
+...     my_pickle = pickle.Pickler(file)
+...     my_pickle.dump(dico)
+...
+>>>
+on a maintenant quand on examine un fichier nommé data dans notre repertoire courant :
+
+>>> os.listdir()
+['tp_casino', 'test_file.py', 'algo_tp', 'data', 'test_dir', 'casino.py']
+
+- Recupérer un objet enregistré : 
+
+on va cette fois utiliser la classe Unpickler : on va créer un object "deplicker"
+on va ouvrir notre fichier data en mode lecture binaire ( c'est le format dans lequel sont ecrites nos data), on creer un objet deplickler et on utilise la méthode load pour charger le contenu de notre fichier.
+Quand on appelle notre variable on voit quelle contient les data en provenance de notre fichier : 
+>>> with open("data","rb") as file:
+...     my_depickler = pickle.Unpickler(file)
+...     get_member = my_depickler.load()
+... 
+>>> get_member
+{'guitar': 'bebert', 'singer': 'bob'}
+
 
 
