@@ -1848,7 +1848,7 @@ Le mot clé "with" permet d'eviter ce pb.
 on va donc créer si elle n'existe pas une  variable apres avoir utiliser le keyword with , ouvert notre fichier dans le mode que l'on veut et utiliser le keyword "as" devant le nom de la variable que l'on veut utiliser : 
 
 le keyword "with" permet de créer un context manager qui vérifie que le fichier est ouvert ou fermé même si des erreurs apparaissent pendant le bloc.
-Le fichier serao automatiquement fermé à la fin du bloc et on peut le vérifier avec la méthode  closed.
+Le fichier sera automatiquement fermé à la fin du bloc et on peut le vérifier avec la méthode  closed.
 
 >>> with open("test_file.py", "r") as file:
 ...     content = file.read()
@@ -1867,7 +1867,7 @@ python le fait automatiquement.
 on va pouvoir enregistrer nos objects dans un fichier pour les récupérer plus tard.
 on va utiliser deux classes du module : Pickler et Unpickler 
 
-/!\ Attention on va devoir écrire nos data en mode binaire : on passe donc en modeb apres w 
+/!\ Attention on va devoir écrire nos data en mode binaire : on passe donc en mode b apres w 
 
 
 On créer d'abord notre pickler :
@@ -2011,5 +2011,77 @@ Si on veut modifier une liste sans toucher à l'autre on va devoir faire autreme
 les deux objects ne pointent plus sur la même référence.
 On utilise les constructeurs pour faire une copie : ex list, dict ..
 
+on peut vérifier la reference d'un object avec la fonction id qui prend en param nun objet et renvoie un nombre entier représentant la position de l'objet en mémoire : 
+# on creee deux listes et on verifie laref de l'object :
+>> a = [1,2]
+>>> b = [1,2]
+>>> id(a)
+140074665253896
+>>> id(b)
+140074665272648
+# on associe une liste à l'autre ( on copie son contenu) et on verifie les references : cette fois elles sont identiques : 
+>>> b = a
+>>> id(b)
+140074665253896
+>>> id(a)
+140074665253896
+# on recrée un nouvel objet : on retrouve deux references diff"érentes : 
+>>> b = list(a)
+>>> id(b)
+140074665273224
+>>> id(a)
+140074665253896
 
- 
+/!\ Attention pour la comparaison de liste :
+-> avec "==" on va comparer le contenu des listes : 
+>>> a == b
+True
+-> avec is on compare la réference des objects : 
+>>> a is  b
+False
+
+
+Bien être prudent avec l'utilisation de is  :
+
+
+- les variables globales : 
+
+il est tout a fait possible dans une fonction de modifier les variables exterrieures à celle-ci : pour cela on v modifier les variables globales :
+/!\ il est déconseillé de trop travailler avec les globales.
+
+principe : on déclare dans le corps de notre programme une variable.Dans notre fonction on declare que la modif de variable touche à une globale (hors de la fonction donc).
+Python pour l'affectation de la variable va examiner les différents espaces ( en partant de l'espace local puis en remontant ) jusqu'a ce qu'il trouve la variable à modifier : et donner la possibilité à la fonction de modifier celle-ci.
+on doit pour permettre ce mecanisme utiliser dans le corps de notre fonction le  keyword "global" qu'on place générallement sous la def de fonction, sous le docstring.
+
+
+>>> nb = 2
+>>> def fonct(nb):
+...     """function in order to test the modification of a var set outside the function , using global spec"""
+...     nb += 1
+...     print("ok for now our var value is {}".format(nb))
+... 
+>>> fonct(3)
+ok for now our var value is 4
+>>> 
+
+
+== Tp "hangman" =
+
+Un jeu du pendu
+Le premier point de la mission est de réaliser un jeu du pendu. Je rappelle brièvement
+les règles, au cas où : l’ordinateur choisit un mot au hasard dans une liste, un mot
+de huit lettres maximum. Le joueur tente de trouver les lettres composant le mot. À
+chaque coup, il saisit une lettre. Si la lettre figure dans le mot, l’ordinateur affiche le
+mot avec les lettres déjà trouvées. Celles qui ne le sont pas encore sont remplacées par
+des étoiles (*). Le joueur a 8 chances. Au delà, il a perdu.
+On va compliquer un peu les règles en demandant au joueur de donner son nom, au
+début de la partie. Cela permettra au programme d’enregistrer son score.
+Le score du joueur sera simple à calculer : on prend le score courant (0 si le joueur
+n’a aucun score déjà enregistré) et, à chaque partie, on lui ajoute le nombre de coups
+restants comme points de partie. Si, par exemple, il me reste trois coups au moment
+où je trouve le mot, je gagne trois points.
+Par la suite, vous pourrez vous amuser à faire un décompte plus poussé du score, pour l’instant cela suffira bien. 
+
+
+
+
