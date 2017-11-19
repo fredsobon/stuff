@@ -11,3 +11,26 @@ when HTTP_REQUEST {
                    pool lapin_web
                }
         }
+
+
+- redirection vers un pool quand la requette concerne un domaine suivi de l'uri contenant un pattern inclu dans un wildcard :
+
+when HTTP_REQUEST { 
+ switch -glob [string tolower [HTTP::host][HTTP::uri]] {
+  "www.lapin.*/carotte*" {
+    HTTP::header insert X-Forwarded-Proto "https"
+    pool lapin_pool 
+    }
+  }
+}
+
+
+- redirection vers un pool quand la requette concerne un domaine strict et une url contenant un pattern suivi d'un wildcard : 
+
+A check ! 
+when HTTP_REQUEST {
+    if { [HTTP::host] equals "www.lapin.net" and [HTTP::uri] contains "/carotte*" }
+               {    
+                   HTTP::header insert X-Forwarded-Proto "https"
+                   pool lapin_pool
+               }
