@@ -1,0 +1,273 @@
+== The iRule Cookbook
+
+CONTENTS
+
+How do I split a URL and assign them to separate variables ?
+How do I perform DNS Lookups ?
+What is the easiest way to Rewrite the uri ?
+Return vs Event Disable
+Debugging
+Equal HTTP Request distribution
+X-Forwarded-For via TCP Options
+
+
+== HOW DO I SPLIT A URL AND ASSIGN THEM TO SEPARATE VARIABLES ?
+
+There's a number of ways to perform string splitting/parsing (i.e regex, getfield etc). However in this recipe we use the 'scan' command. The has the benefit of using less over head then regex whilst also allowing you to split the string only using the first instance of '/' which is not possible via 'getfield'.
+
+when HTTP_REQUEST {
+     set url "www.bbc.com/sales/pictures/monkey.jpg"
+     set uri ""
+     scan $url {%[^/]%s} host uri
+     log local0. "host = $host ; uri = $uri"
+}
+This produces the following log entry,
+
+Nov  4 20:26:10 local/tmm info tmm[4917]: Rule IRULE-NEWTEST <HTTP_REQUEST>: host = www.bbc.com ; uri = /sales/pictures/monkey.jpg
+Further information on the 'scan' command can be found at https://devcentral.f5.com/articles/irules-101-16-parsing-strings-with-the-tcl-scan-command
+
+
+== HOW DO I PERFORM DNS LOOKUPS ?
+
+When performing DNS lookups within your iRule (in conjunction with the node command) it is recommended that you split the response and only use the first IP (column) provided.
+
+This is to prevent situations where multiple IP`s are provided within the response to a DNS lookup. As the node command only takes a single IP, at the point it trys to execute the node command, the iRule will throw an error and a reset is sent back to the client.
+
+Below shows you an example of the code,
+
+set lookup [RESOLV::lookup @8.8.8.8 -a www.domainname.com] 
+set ip [getfield $lookup " " 1]                            
+node $ip 80                                                
+Below provides details of what each command does,
+
+perform lookup, assign answer to var $lookup
+split $lookup var (space as delim), assign column 1 to var $ip
+send traffic to node
+WHAT IS THE EASIEST WAY TO REWRITE THE URI ?
+
+A great method for quickly and rewriting a URI without the need to issue a redirect back to the client is to reassign the new uri back to HTTP:uri.
+
+As shown below,
+
+when HTTP_REQUEST {
+    if {[HTTP::uri] eq "/"}{
+        HTTP::uri "/newuri"
+    }
+}
+
+
+== RETURN VS EVENT DISABLE
+
+There may be times within your iRule that you may need to prevent further execution of your iRule(s). There are 2 key commands that allow to you achieve this. They are, event and return.
+
+Event - Allows you to disable event(s) across all iRules for the duration of a connection across. The most common use of this command is 'event disable', which disables the particular event (as previously mentioned) for the lifetime of the connection. (more info)
+Return - Exits the current event within the current iRule. (more info)
+When is this useful ? One example may be if you have multiple iRules assigned to a virtal server. Each one preforming a redirect. Once the first redirect is performed you may want to prevent any further event execution. For a more advanced example please read here.
+
+!! Note !! When using "event disable" be careful. If you are redirecting the client back to the same virtual server, you may face situations where the client uses the same connection. This in turn means no further events will be executed, because of disabling all events for that given connection.
+
+== DEBUGGING
+
+One of the best ways to debug an iRule is by adding log lines at various steps within your iRule. These logs are then added to the /var/log/ltm logfile.
+
+Using the method below we can enable or disable logging (debugging) via a single variable ($DEBUG). The line if { if DEBUG } { log local0. "$LOG_PREFIX: <ACTION>" } is then placed before each action within the iRule.
+
+In addition to this the client IP address is also added. To make log parsing easier during troubleshooting.
+
+when HTTP_REQUEST {
+    set LOG_PREFIX [IP::client_addr]
+    set DEBUG 0
+    
+    if { if $DEBUG } { log local0. "$LOG_PREFIX: <ACTION>" }
+    <ACTION>
+ 
+    unset LOG_PREFIX DEBUG
+} 
+
+== CORRECT HTTP REQUEST DISTRIBUTION
+
+By default the F5 will balance traffic on a per connection basis. However in instances where multiple requests are sent over a single connection (i.e when using HTTP 1.1 KeepAlive) you may observe that each request is not sent to the correct pool member based on the logic of your iRule.
+
+To ensure the correct selection is made mid-connection the default pool is defined within the 3WHS. And then a final else statement is added to the iRule.
+
+when CLIENT_ACCEPTED {
+    # assign default pool to variable once 3WHS is complete.
+    set default_pool [LB::server pool]
+}
+
+when HTTP_REQUEST {
+    if { [HTTP::uri] starts_with "/abc" } {
+        pool pool_abc
+    } else {
+        pool $default_pool
+    }
+ }
+Further details can be found at http://support.f5.com/kb/en-us/solutions/public/9000/800/sol9800.html.
+
+Note : You can also use OneConnect instead of the method above. However as OneConnect SNATs the traffic the above method is favored.
+
+== X-FORWARDED-FOR VIA TCP OPTIONS
+
+To allow for CDN providers to add the true client IP to an encrypted (HTTPS) packet the IP address can be placed into the TCP options header. The IP can then be pulled from the header and placed into the XFF header within the HTTP request.
+
+To do this you first need to instruct the F5 to examine the necessary TCP option via the command.
+
+Note : 22 is the hex based number. So in this case this will examine TCP option 34 (i.e 0x22)
+
+bigpipe db Rules.Tcpoption.settings [22,first]
+ In terms of the iRule. We ensure the length of the TCP option (as a string) is 4.  We then parse the option into an IP address and pass this to the HTTP Request event to place into a X-Forwarded-For header.
+
+when CLIENT_ACCEPTED {
+    set opt34 [TCP::option get 34]  
+    if { [string length $opt34] == 4 } {
+        set optaddr [ IP::addr parse $opt34  ]
+    }
+}
+
+when HTTP_REQUEST {
+    if { [info exists optaddr] } {
+        HTTP::header insert "X-Forwarded-For" $optaddr
+    }
+} 
+Note : If you using a Cisco ASA in front of your F5 you will need to permit the TCP option. Details on how to configure this can be found here.
+
+
+
+==== Exemples : ===
+
+
+Below shows a number of iRule examples that you may find useful when creating or deploying iRules on the BIGIP F5 device.
+
+For the latest in iRule tips and tricks hop over to our iRule Cookbook  - click here
+
+== WWW REDIRECT
+
+This simple iRule redirects any HTTP traffic without the prepending www to a www address. 
+
+when HTTP_REQUEST { 
+   if { [HTTP::host] starts_with "fir3net.com" } { 
+     HTTP::redirect http://www.fir3net.com[HTTP::uri] 
+   } 
+}
+
+== HTTP REDIRECT
+
+This iRule will action a HTTP redirect response when a HTTP request URI contains the string 'Secure'.
+
+when HTTP_REQUEST {
+  if { [HTTP::uri] contains "Secure" } { 
+    HTTP::redirect https://[HTTP::host][HTTP::uri]
+     } 
+}
+
+== HTTP REDIRECT (USING 2 CONDITIONS)
+
+This iRule will action a HTTP redirect response when a HTTP request URI ends with the string '/sendmesomewhereelse' and the host header contains the domain 'mydomain.com'.
+
+when HTTP_REQUEST {
+if { ([HTTP::host] equals "mydomain.com") and ([HTTP::uri] ends_with "/sendmesomewhereelse") } {
+  HTTP::redirect http://google.com
+  }
+}
+
+== URI POOL SELECTION
+
+This iRule will distribute traffic to Pool2 when the HTTP Request URI ends with 'txt'.
+
+when HTTP_REQUEST {
+  if {[HTTP::uri] ends_with "txt"} {
+     pool Pool1
+     }
+     else { pool Pool2 }
+}
+
+== SWITCH
+
+This iRule will distrubte traffic to the nessecary pool based on the URL.
+
+when HTTP_REQUEST {
+   switch -glob [HTTP::host] {
+     example-url1                            { pool POOL-172.16.1.35-80-1 }
+     example-url2                            { pool POOL-172.16.1.35-80-2 }
+     example-url3                            { pool POOL-172.16.1.35-80-3 }
+     example-url4                            { pool POOL-172.16.1.35-80-4
+                                                persist source_addr 255.255.255.248 1800 }
+     example-url5                            { pool POOL-172.16.1.35-80-5
+                                                persist source_addr 255.255.255.248 1800 }
+     example-url6                            { pool POOL-172.16.1.35-80-7
+                                                persist source_addr 255.255.255.248 1800 }
+     default                                 { pool POOL-172.16.1.35-80-8 }
+   }
+}
+
+== SNAT
+
+This iRule will translate the source address for any traffic originating from any address defined within the data group net-group and destined for TCP port 8181.
+
+when CLIENT_ACCEPTED { 
+      if { [TCP::local_port] == 8181 and [class match [IP::client_addr] equals net-group ] } { 
+         snat 192.168.1.131 
+         } 
+      else { 
+         forward 
+      } 
+}
+
+== INSERT HEADER
+
+The following iRule inserts a custom header named SOURCE_IP containing the client source IP address.
+
+when HTTP_REQUEST {
+     HTTP::header insert SOURCE_IP [IP::remote_addr]
+} 
+
+== CREATE HTTP SESSION ID
+
+The following iRule creates a unique id for each HTTP request. The unique id is generated by using the IP/Port of the Local/Remote host and a random number between 1 and 100,000,000. This value is then hashed.
+This unique id is then appended to the HTTP request via a custom HTTP header named X-SESSIONID.
+
+when HTTP_REQUEST {
+    set id "[IP::client_addr][TCP::client_port][IP::local_addr][TCP::local_port][expr { int(100000000 * rand()) }]" 
+    binary scan [md5 $id] H* md5var junk 
+    HTTP::header insert X-SESSIONID $md5var
+}
+
+== SSL SERVER SIDE
+
+This iRule allows you to only perform server side SSL on a selection of pool members. These pool members are defined within a datagroup (named 'poolmember-group').
+
+when LB_SELECTED { 
+      SSL::disable serverside 
+      if {[class match [LB::server addr] equals poolmember-group ]} { 
+         SSL::enable serverside 
+      } 
+}
+
+== TROUBLESHOOTING
+
+This iRule is used to troubleshoot connections. It creates a log for the HTTP Request and HTTP Response. Within these logs the following is recorded,
+
+Source IP address
+X-Forwarded-For, in case you are coming from a CDN
+A unique ID so that you can match the HTTP Request and Response.
+The HTTP Response code returned by the server.
+The backend Server IP.
+Time between the F5 receiving the HTTP Request and sending on the HTTP Request.
+Time between the F5 sending the HTTP Request and receiving the HTTP Response.
+when HTTP_REQUEST {
+    set CLIENT_ADDR [IP::client_addr]
+    set XFF [HTTP::header X-Forwarded-For]
+    set ID "[TCP::local_port][expr { int(100000000 * rand()) }]"
+    set REQUEST_RECEIVE [clock clicks -milliseconds]
+}
+
+when HTTP_REQUEST_SEND {
+    set REQUEST_SEND [clock clicks -milliseconds]
+    set REQUEST_WAIT [expr {$REQUEST_SEND - $REQUEST_RECEIVE}]
+    log local0. "SRC:$CLIENT_ADDR  XFF:$XFF ID:$ID"
+}
+
+when HTTP_RESPONSE {
+    set RESPONSE_TIME [expr {[clock clicks -milliseconds] - $REQUEST_SEND}]
+    log local0. "SRC:$CLIENT_ADDR XFF:$XFF ID:$ID - HTTP[HTTP::status] $RESPONSE_TIME\ms/$REQUEST_WAIT\ms [LB::server addr]"
+}
