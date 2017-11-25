@@ -10,14 +10,14 @@ import random , pickle
 liste = ["lapin", "coco" ]
 file = "data.py"
 
-def dump_list(file):
+def dump_list(liste):
     with open("data.py", "wb") as file:
         send_data = pickle.Pickler(file)
         send_data.dump(liste)
         
 # retrieve the word liste from the data file and then get the secret word using random func :
 
-def get_list(file):
+def get_list(liste):
     with open("data.py", "rb") as file:
         get_data = pickle.Unpickler(file)
         get = get_data.load()
@@ -53,7 +53,7 @@ def game():
 
 ## test func inside the module itself :
 if __name__ == "__main__":
-    get_list(file)
+    get_list(liste)
     test(word)       
     fonc(letter) 
     game()
