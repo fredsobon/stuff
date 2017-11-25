@@ -53,6 +53,7 @@ def game():
 
 ## test func inside the module itself :
 if __name__ == "__main__":
+    dump_list(file)
     get_list(liste)
     test(word)       
     fonc(letter) 
