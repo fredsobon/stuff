@@ -1,0 +1,60 @@
+
+=== gestion des process sans fil linux via rfkill ===
+
+
+on peut avoir des soucis de connections avec les devices sans fils :
+
+ex : plus de perif reconnus dans notre  gestion de devices bluethooth 
+
+ ~  $  bluetoothctl -a
+Agent registered
+[bluetooth]# devices
+No default controller available
+
+Un utilitaire permet de gérer le sans fil :  rfkill 
+
+on doit installer rfkill 
+
+apt-get install rfkill 
+
+- on list les differents perifs sans fils : 
+sudo rfkill list all
+0: dell-wifi: Wireless LAN
+	Soft blocked: no
+	Hard blocked: no
+1: dell-bluetooth: Bluetooth
+	Soft blocked: yes
+	Hard blocked: no
+3: phy0: Wireless LAN
+	Soft blocked: no
+	Hard blocked: no
+
+on voit donc ici que le   le process bluethoot est coupé en soft :
+
+- on  débloque tous les process : 
+ ~  $  sudo rfkill unblock all
+ ~  $  sudo rfkill list all
+
+En verifiant on voit que c'est cool : 
+0: dell-wifi: Wireless LAN
+	Soft blocked: no
+	Hard blocked: no
+1: dell-bluetooth: Bluetooth
+	Soft blocked: no
+	Hard blocked: no
+3: phy0: Wireless LAN
+	Soft blocked: no
+	Hard blocked: no
+4: hci0: Bluetooth
+	Soft blocked: no
+	Hard blocked: no
+
+
+On peut tester ensuite par exemple notre connexion bluetooth 
+on voit que notre controller et les paerif enregistrés apparaissent désormais : 
+ ~  $  bluetoothctl -a
+[NEW] Controller F0:D5:BF:A6:FC:DD boogie-stuff [default]
+[NEW] Device B8:69:C2:5A:06:27 JBL Everest 110
+[NEW] Device 00:05:CD:3F:21:F9 DENON AH-GC20
+Agent registered
+
