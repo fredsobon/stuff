@@ -1,0 +1,140 @@
+== description d'en de lab /test =
+
+on va récupérer une vagrant box sur laquelle on va installer ansible et docker
+on va ensuite lancer pour nos tests différents containers
+
+
+1 / vagrant : on instancie une box vagrant sur notre laptop puis on s'y connecte :
+
+vagrant init ubuntu/xenial64
+vagrant box update
+vagrant up
+vagrant ssh
+
+- install de nos applis : 
+
+apt-get install ansible
+apt-get install docker.io
+
+
+
+- on recupere un container ubuntu du repo officiel pour notre lab 
+
+/ attention on va recupérer un container avec ssh installé : pas de choix pour ansible 
+
+root@ansible:~# docker pull rastasheep/ubuntu-sshd
+
+
+root@ubuntu-xenial:~# docker run -it -d ubuntu
+14ac8552d97a887f4f60a7c4798cc539c49633cfedfa6a524248855f4320fe6a
+root@ubuntu-xenial:~# docker ps
+CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS               NAMES
+14ac8552d97a        ubuntu              "/bin/bash"         3 seconds ago       Up 2 seconds                            infallible_galileo
+
+
+- on recupere un container centos du repo officiel pour notre lab puis on l'instacnie deux fois 
+
+même obligation loadé un container qui embarque ssh pour travailler avec ansible
+
+root@ansible:~# docker pull kinogmt/centos-ssh
+Using default tag: latest
+latest: Pulling from library/centos
+
+root@ubuntu-xenial:~# docker run -it -d kinogmt/centos-ssh
+fe34e5e58e668a21806df46b81d2430e1cae866d9cdc9612c1e4225a20dcb878
+root@ubuntu-xenial:~# docker run -it -d centos
+24d6034797296a0ad7fd03d25e50542bf1e7ac4261910c19af19ebcbe640bc03
+root@ubuntu-xenial:~# docker ps
+CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS               NAMES
+fe34e5e58e66        centos              "/bin/bash"         6 seconds ago       Up 5 seconds                            condescending_hypatia
+14ac8552d97a        ubuntu              "/bin/bash"         13 minutes ago      Up 13 minutes                           infallible_galileo
+
+- on controle que pour notre lab on a bien un container ubuntu et 2 centos de lancés : 
+
+root@ubuntu-xenial:~# docker ps
+CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS               NAMES
+24d603479729        centos              "/bin/bash"         2 seconds ago       Up 2 seconds                            wizardly_einstein
+fe34e5e58e66        centos              "/bin/bash"         45 seconds ago      Up 45 seconds                           condescending_hypatia
+14ac8552d97a        ubuntu              "/bin/bash"         13 minutes ago      Up 13 minutes                           infallible_galileo
+
+
+2/ settings des infos pour notre inventaire ansible :
+
+on va recupérer les ip attribuées pour les containers en inspectant ceux ci par leur numero d'id ( les deux premiers digit suffisent ) 
+
+on aura donc 
+> ubuntu : 
+sudo docker inspect 14 |grep "IPAddress"
+            "SecondaryIPAddresses": null,
+            "IPAddress": "172.17.0.2",
+                    "IPAddress": "172.17.0.2",
+
+> centos1 :
+ubuntu@ansible:~$ sudo docker inspect fe |grep "IPAddress"
+            "SecondaryIPAddresses": null,
+            "IPAddress": "172.17.0.3",
+                    "IPAddress": "172.17.0.3",
+> centos2 :
+ubuntu@ansible:~$ sudo docker inspect 24 |grep "IPAddress"
+            "SecondaryIPAddresses": null,
+            "IPAddress": "172.17.0.4",
+                    "IPAddress": "172.17.0.4",
+
+
+on crée donc  à présent notre fichier d'inventaire qui va contenir les infos du parc que l'on va gérer dans notre lab :
+
+
+on va d'abord devoir nous connecter sur chacun des containers et modifiler le mdp root  : mettre lapin comme mdp partout 
+
+
+root@ansible:~# docker exec -u 0 -it infallible_galileo bash
+root@14ac8552d97a:/# passwd 
+Enter new UNIX password: 
+Retype new UNIX password: 
+passwd: password updated successfully
+root@14ac8552d97a:/# exit
+
+on va créer a la racine de notre serveur notre fichier d'inventaire et la conf ansible qui overridera la globale de /etc/ansible :
+
+root@ansible:~# cat inventory 
+target1 ansible_host=172.17.0.2 ansible_ssh_pass=lapin
+target2 ansible_host=172.17.0.3 ansible_ssh_pass=lapin
+target3 ansible_host=172.17.0.4 ansible_ssh_pass=lapin
+root@ansible:~# 
+
+
+on set ici une conf by passant le check de conf cle ssh pour nos tests : 
+
+root@ansible:~# cat ansible.cfg 
+[defaults]
+host_key_checking = false
+
+
+
+Le premier  test de notre lab est ok : 
+
+root@ansible:~# ansible target1 -i inventory -m ping -vv
+Using /root/ansible.cfg as config file
+target1 | SUCCESS => {
+    "changed": false, 
+    "ping": "pong"
+}
+
+
+
+
+
+
+== docker :
+
+docker ps 
+docker  ps -q
+
+docker rm idcontainer
+docker rmi image
+
+
+
+docker run -u 0 -it mycontainer bash 
+
+
