@@ -269,3 +269,86 @@ PLAY RECAP *********************************************************************
 centos                     : ok=5    changed=2    unreachable=0    failed=0  
 
 
+
+
+==   gestion d'action sur serveur en fonction de groupe ==
+
+on va pouvoir en fonction des nodes presents dans notre inventaire effectuer des actions ciblées :
+
+
+ex : afficher un message si le serveur est dans le groupe ubuntu 
+
+
+root@ansible:~# cat inventory 
+[target:children]
+centos
+ubuntu
+
+[ubuntu] 
+target1 ansible_host=172.17.0.2 ansible_ssh_pass=lapin
+
+[centos]
+target2 ansible_host=172.17.0.3 ansible_ssh_pass=lapin
+target3 ansible_host=172.17.0.4 ansible_ssh_pass=lapin
+
+
+on crée notre playbook 
+
+root@ansible:~# cat draft.yml 
+- name: behaviour on some special nodes
+  hosts: target
+
+  tasks:
+    - name: give me the date
+      shell: date
+      register: echo
+
+    - debug: msg="our var is {{ echo.stdout }}"
+
+    - debug: msg="OKEY"
+      when: "'ubuntu' not in group_names"   <<<<< on crée ici notre condition qui va donc s'executer pour les nodes pas dans le groupe ubuntu ( donc les serveurs du groupe centos : target1 target2 )
+
+
+
+
+- name: behaviour on some special nodes
+  hosts: target
+
+  tasks:
+    - name: give me the date
+      shell: date
+      register: echo
+
+    - debug: msg="our var is {{ echo.stdout }}"
+      when: "'ubuntu' not in group_names"
+
+
+root@ansible:~# ansible-playbook draft.yml  -i inventory
+
+PLAY [behaviour on some special nodes] *****************************************
+
+TASK [setup] *******************************************************************
+ok: [target1]
+ok: [target3]
+ok: [target2]
+
+TASK [give me the date] ********************************************************
+changed: [target2]
+changed: [target1]
+changed: [target3]
+
+TASK [debug] *******************************************************************
+skipping: [target1]
+ok: [target2] => {
+    "msg": "our var is Fri Dec 15 12:20:26 UTC 2017"
+}
+ok: [target3] => {
+    "msg": "our var is Fri Dec 15 12:20:26 UTC 2017"
+}
+
+PLAY RECAP *********************************************************************
+target1                    : ok=2    changed=1    unreachable=0    failed=0   
+target2                    : ok=3    changed=1    unreachable=0    failed=0   
+target3                    : ok=3    changed=1    unreachable=0    failed=0   
+
+
