@@ -79,3 +79,26 @@ Ensuite taper cette commande :
 
 postqueue -s example.com
 
+
+
+=== exam conf main.cf : ===
+
+
+lapin # cat /etc/postfix/main.cf 
+smtpd_banner = $myhostname ESMTP $mail_name (Debian/GNU)
+biff = no
+# appending .domain is the MUA's job.
+append_dot_mydomain = no
+# Uncomment the next line to generate "delayed mail" warnings
+#delay_warning_time = 4h
+alias_maps = hash:/etc/aliases
+alias_database = hash:/etc/aliases               <<<<< alias de redirection compte local va être redirigé vers un compte domaine géré en local sur le server 
+smtp_generic_maps = hash:/etc/postfix/generic    <<<<< parsing de regles de redirection vers domaine externe : exemple compte root: lapin@lapin.org 
+myorigin = /etc/mailname                         <<<<< nom d'envoi : sera ecrit dans les headers  
+mydestination = $myhostname, localhost.localdomain, localhost, sinfstash00uv.ilius.net, sinfstash00uv.tlb.secret.de  <<< destination du mail : en local si un nom match
+relayhost = 192.168.0.10                         <<<< relay smtp vers lequel on va envoyé les mails si la destination n'est pas trouvé dans les definitions precedentes
+mynetworks = 127.0.0.0/8                         <<<< reseau authorisé : "acl" héritant de param définis d'autres conf postfix
+mailbox_size_limit = 0
+recipient_delimiter = +
+inet_interfaces = all
+
