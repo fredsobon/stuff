@@ -1,0 +1,48 @@
+Synthèse des commandes SFTP en CLI
+
+
+Pour se connecter, rien de sorcier, c’est quasi comme en ssh : sftp [-P port] login@host.
+
+Vous verrez que les commandes sont les mêmes que celles que vous connaissez déjà en bash. La seule différence est que sftp permet de gérer deux dimensions à la fois : les fichiers distants (sur le serveur) et les fichiers locaux (sur le client).
+
+Lorsque nous voulons effectuer une action en local, il suffit de préfixer la commande avec l. Les détails dans le tableau ci-dessous.
+
+Commande	Description
+pwd	Affiche le dossier courant
+lpwd	Affiche le dossier courant local (client)
+cd	Change de répertoire
+lcd	Change de répertoire en local
+ls	Liste les fichiers et répertoires du dossier courant
+lls	Liste les fichiers et répertoires du dossier courant sur le client
+mkdir	Créer un répertoire
+lmkdir	Créer un répertoire en local
+get	Télécharger des fichiers depuis le serveur vers le client (l’option -r permet d’envoyer un répertoire)
+put	Envoyer des fichiers depuis le client vers le serveur (l’option -r permet d’envoyer un répertoire)
+rm	Supprime un fichier
+rmdir	Supprime un répertoire
+exit	Je pense que celui-ci se passe d’explications
+help	Afficher l’aide
+LFTP, le client qui vous veut du bien
+
+Conseillé par @BXT dans les commentaires, LFTP est un client bien plus puissant que le sftp natif. Ce client supporte de nombreux protocoles, mais le cas qui nous intéresse ici est bien l’usage du sftp. Pour se connecter avec ce protocole, il va falloir lui spécifier dans l’url :
+
+lftp [-p port] protocol://login:password@host
+
+# exemple
+lftp sftp://buzut:azerty@127.0.0.10
+Chose assez étrange, même si vous utilisez une connexion par clef (et que vous ne spécifiez pas de mot de passe), l’oiseau vous le demande quand même, vous n’avez cas spécifier n’importe quoi ou juste « entrer ».
+
+Mais alors, pourquoi utiliser lftp plutôt que sftp ? Le premier supporte l’auto-complétion, l’effacement récursif (vous pouvez faire rm -r un_dossier/, sans vous embêter à d’abord effacer manuellement tout son contenu. Il supporte aussi le mirrorring un peu à la rsync en upload et en download. Pratique pour ne répercuter que les modifications !
+
+# -R pour inverser (de la machine locale vers le serveur)
+lftp > mirror [-R] repertoire_source repertoire_dest
+On n’hésitera donc pas longtemps à troquer sftp contre lftp pour tout autre chose qu’un trivial upload.
+
+
+
+=== exemples : ===
+
+-connexion sur un port dédié en cli :
+on charge une clé précise puis notre port 
+-o : option  essentiel en sftp.
+sftp -oIdentityFile=id_rsa_test -o Port=2444 lapin@sftp

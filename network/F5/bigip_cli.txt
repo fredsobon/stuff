@@ -9,6 +9,8 @@ ltm rule i_rule_to_exam {
     when HTTP_REQUEST {
         if { [HTTP::host] contains "bla.net" } {
                 use pool  pool_bla
+                # log connection info
+                log local0.info "ok pool are correctly set"
         } else {
                 use pool  pool_bla_other
         }
@@ -33,4 +35,18 @@ ltm pool lapin {
     }
     monitor tcp_half_open 
 }
+
+
+
+== logging : 
+
+on peut examiner avec le shell bash le contenu des log du bigip et les pool / vs : log ltm 
+tail -f /var/log/ltm
+
+On va pouvoir forger un log dans une irule pour voir si le log est bien catché : 
+    when HTTP_REQUEST {
+        if { [HTTP::host] contains "bla.net" } {
+                use pool  pool_bla
+                # log connection info
+                log local0.info "ok pool are correctly set"
 
