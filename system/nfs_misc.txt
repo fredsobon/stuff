@@ -1,0 +1,79 @@
+=== notes on nfs ===
+
+
+
+
+
+= exports =
+
+fichier présent sur le server nfs contenant la liste des clients  ayant acces au montage nfs  et des différentes options liées au montage : 
+
+lapin # cat /etc/exports 
+# /etc/exports: the access control list for filesystems which may be exported
+#		to NFS clients.  See exports(5).
+#
+# Example for NFSv2 and NFSv3:
+# /srv/homes       hostname1(rw,sync,no_subtree_check) hostname2(ro,sync,no_subtree_check)
+#
+# Example for NFSv4:
+# /srv/nfs4        gss/krb5i(rw,sync,fsid=0,crossmnt,no_subtree_check)
+# /srv/nfs4/homes  gss/krb5i(rw,sync,no_subtree_check)
+#
+#/data/test              *(rw,async,no_subtree_check,no_root_squash,fsid=2)
+#/data/data		*(rw,async,no_subtree_check,no_root_squash,fsid=1)
+
+/data/data              192.168.0.2(rw,async,no_subtree_check,root_squash,fsid=1)
+/data/data              192.168.0.5(rw,async,no_subtree_check,root_squash,fsid=1)
+
+Detail principales options : 
+
+>rw permet d'exporter en lecture-écriture (utiliser ro pour exporter en lecture seule). 
+
+>async async : permet au serveur NFS de bypasser le protocole NFS et de répondre aux requêtes avant que les changements effectués par la requête aient été appliqués sur l'unité de stockage : données flushées sur disque. Cette option améliore les performances mais a un coût au niveau de l'intégrité des données (données corrompues ou perdues) 
+
+>root_squash spécifie que le root de la machine ordi2.exemple.org n'a pas les droits de root sur le répertoire partagé (l'option no_root_squash spécifie que le root de la machine sur laquelle le répertoire est monté a les droits de root sur le répertoire). L'option root_squash est l'option par défaut.
+
+Options de mapping
+Attention, il s'agit d'un point délicat : l'UID de l'utilisateur de la machine cliente est utilisé sur le serveur. Aussi, pour créer un partage respectueux, il faut qu'il y ait correspondance exacte des UIDs/GIDs des utilisateurs/groupes entre le serveur et les clients. Pour contourner cette limitation, des options de mapping sont donc disponibles.
+
+Par défaut, les utilisateurs mappés reçoivent l'uid/gid 65534. On peut écraser ces valeurs grâce aux options anonuid et anongid.
+
+ROOT_SQUASH/no_root_squash : root_squash mappe root en utilisateur anonyme.
+all_squash/NO_ALL_SQUASH : mappe tous les utilisateurs en utilisateur anonyme.
+On peut résoudre le problème plus proprement en mettant en place un service d'annuaire typiquement NIS, basé lui aussi sur RPC, ou LDAP.
+
+
+>all_squash : force le mapping de tous les utilisateurs vers l'utilisateur anonyme.
+
+>anonuid : indique au serveur NFS l'UID de l'utilisateur anonyme (considéré comme tel dans les précédentes options de mapping).
+
+>anongid : indique au serveur NFS le GID de l'utilisateur anonyme (considéré comme tel dans les précédentes options de mapping).
+
+>subtree_check : Si un sous-répertoire dans un système de fichiers est partagé, mais que le système de fichiers ne l'est pas, alors chaque fois qu'une requête NFS arrive, le serveur doit non seulement vérifier que le fichier accédé est dans le système de fichiers approprié (ce qui est facile), mais aussi qu'il est dans l'arborescence partagée (ce qui est plus compliqué). Cette vérification s'appelle subtree_check.
+>no_subtree_check : Cette option neutralise la vérification de sous-répertoires, ce qui a des subtiles implications au niveau de la sécurité, mais peut améliorer la fiabilité dans certains ca
+
+> fsid
+The fsid=0 signals the NFS server that this export is the root.
+/ *(ro,fsid=0)
+/home *(rw,sync,nohide)
+Now with these exports, both "mount server:/home /mnt/home" and "mount -t nfs server:/home /mnt/home" will work as expected.
+Remember that the fsid is meant to uniquely identify devices when the underlying filesystem driver doesn't provide its own unique IDs. And in particular, fsid=0 has a special meaning:
+
+Pour NFSv4, il existe un système de fichiers dédies / particulier qui est la racine de tous les systèmes de fichiers exportés. Ceci est spécifié avec fsid = root ou fsid = 0 qui signifient exactement la même chose.
+
+on va donc setter un numéro fsid différent de 0 pour l'export d'une resources pas à la racine du fs root 
+ex :
+/data/lapin              192.168.0.2(rw,async,no_subtree_check,root_squash,fsid=1)
+
+
+= commande de check de partage nfs : =
+
+-> sur le serveur nfs :
+showmount -e 
+permet de voir les arbo partagées et les clients ayant acces 
+
+
+-> exportfs -a 
+permet de mettre a jour une modification faite dans le fichier /etc/exports
+
+
