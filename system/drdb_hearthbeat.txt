@@ -1,0 +1,298 @@
+
+=== Quick and dirty notes for drdb : ===
+
+Requirements on each node:
+nfs-common + nfs-kernel-server
+software-properties-common + kernel headers
+drbd9-stack: drbd-utils python-drbdmanage drbd-dkms
+heartbeat
+
+== Overview of the installed services on each node: ==
+
+= The NFS server:
+The service is not allowed to autostart by boot or reboot - this handles heartbeat, which steer the NFS service and virt. IP on the nodes (later more);
+To disable autostart please use following commands:
+- insserv --remove nfs-common
+- insserv --remove nfs-kernel-server
+
+= DRBD service:
+This DRBD service (Distributed Replicated Block Device) allows to mirror a block device from a production server to another node server. In touch with a management software you're able to to use the same storage on distributed hosts.
+Debian comes with the old version 8 which is not flexible and user-friendly (1 primary, cluster with only 2 nodes and so on...) - so I decided to to use the Ubuntu repository, which is compatible with Debian:
+- deb http://ppa.launchpad.net/linbit/linbit-drbd9-stack/ubuntu xenial main
+
+Heartbeat service:
+A service which controls a network connection between two or more nodes in a cluster. The service checks if a node is up (keepalive) and ready for the assignment. It is also able to stop and start service on a cluster node and move a  virtual IP between the nodes in a cluster.
+
+Overview of the installed services on the different systems:
+
+DRBD Cluster:
+filer01 - 192.168.0.1 (Primary)
+filer02 - 192.168.0.2 (Secondary)
+
+Installation and configuration of DRBD (Sample):
+apt-get install software-properties-common
+
+add-apt-repository ppa:linbit/linbit-drbd9-stack  -> /etc/apt/sources.list.d/linbit-linbit-drbd9-stack-jessie.list:
+deb http://ppa.launchpad.net/linbit/linbit-drbd9-stack/ubuntu xenial main
+# deb-src http://ppa.launchpad.net/linbit/linbit-drbd9-stack/ubuntu xenial main
+apt-get update
+apt-get install drbd-utils python-drbdmanage drbd-dkms
+
+
+= config exemples : 
+
+-> Autostart for nfs :
+insserv --remove nfs-common  
+insserv --remove nfs-kernel-server
+
+-> loading module :
+modprobe drbd
+echo 'drbd' >> /etc/modules
+update-rc.d drbd defaults
+lsmod | grep drbd
+
+
+= drdb config :
+
+-> global config :
+
+/etc/drbd.d/global_common.conf:
+
+# DRBD is the result of over a decade of development by LINBIT.
+# In case you need professional services for DRBD or have
+# feature requests visit http://www.linbit.com
+
+global {
+    usage-count no;
+    # minor-count dialog-refresh disable-ip-verification
+    # cmd-timeout-short 5; cmd-timeout-medium 121; cmd-timeout-long 600;
+}
+
+common {
+   protocol C;
+
+    handlers {
+        # These are EXAMPLE handlers only.
+        # They may have severe implications,
+        # like hard resetting the node under certain circumstances.
+        # Be careful when chosing your poison.
+
+        # pri-on-incon-degr "/usr/lib/drbd/notify-pri-on-incon-degr.sh; /usr/lib/drbd/notify-emergency-reboot.sh; echo b > /proc/sysrq-trigger ; reboot -f";
+        # pri-lost-after-sb "/usr/lib/drbd/notify-pri-lost-after-sb.sh; /usr/lib/drbd/notify-emergency-reboot.sh; echo b > /proc/sysrq-trigger ; reboot -f";
+        # local-io-error "/usr/lib/drbd/notify-io-error.sh; /usr/lib/drbd/notify-emergency-shutdown.sh; echo o > /proc/sysrq-trigger ; halt -f";
+        # fence-peer "/usr/lib/drbd/crm-fence-peer.sh";
+        # split-brain "/usr/lib/drbd/notify-split-brain.sh root";
+        # out-of-sync "/usr/lib/drbd/notify-out-of-sync.sh root";
+        # before-resync-target "/usr/lib/drbd/snapshot-resync-target-lvm.sh -p 15 -- -c 16k";
+        # after-resync-target /usr/lib/drbd/unsnapshot-resync-target-lvm.sh;
+    }
+
+    startup {
+        # wfc-timeout degr-wfc-timeout outdated-wfc-timeout wait-after-sb
+        # wfc-timeout 15;
+            # degr-wfc-timeout 60;
+        # outdated-wfc-timeout 5;
+        degr-wfc-timeout 10;
+        wfc-timeout 15;
+        become-primary-on both;
+    }
+
+    options {
+        # cpu-mask on-no-data-accessible
+    }
+
+    disk {
+        # size on-io-error fencing disk-barrier disk-flushes
+        # disk-drain md-flushes resync-rate resync-after al-extents
+                # c-plan-ahead c-delay-target c-fill-target c-max-rate
+                # c-min-rate disk-timeout
+    }
+
+    net {
+        # protocol timeout max-epoch-size max-buffers unplug-watermark
+        # connect-int ping-int sndbuf-size rcvbuf-size ko-count
+        # allow-two-primaries cram-hmac-alg shared-secret after-sb-0pri
+        # after-sb-1pri after-sb-2pri always-asbp rr-conflict
+        # ping-timeout data-integrity-alg tcp-cork on-congestion
+        # congestion-fill congestion-extents csums-alg verify-alg
+        # use-rle
+        cram-hmac-alg sha256;
+                shared-secret "lapin-password-secret";
+                allow-two-primaries;
+    }
+
+    syncer {
+             #rate 100M;
+             # c-plan-ahead 10;
+             # c-min-rate 50M;
+             # c-max-rate 100M;
+             # c-fill-target 2M;
+             # verify-alg md5;
+             # al-extents 3389;
+        }
+
+}
+
+
+-> resources config : 
+
+/etc/drbd.d/drbd0.res:
+
+resource drbd0 {
+  device /dev/drbd0;
+  disk /dev/sdc;
+  meta-disk internal;
+  protocol C; 
+
+    net {
+    cram-hmac-alg sha256;
+        shared-secret "lapin-password-secret";
+    allow-two-primaries yes;
+    }
+
+    on server1 {
+        address   192.168.0.1:7788;
+    }
+
+    on server2 {
+        address   192.168.0.2:7788;
+    }
+
+}
+
+
+-> resources creation / service starting and config on nodes :
+drbdadm create-md drbd0
+/etc/init.d/drbd start
+
+drbdadm -- --force primary all
+
+
+(apt-get install xfsprogs)
+mkfs.xfs /dev/drbd0
+
+-> mount 
+
+-> restart nfs-kernel-server
+
+
+
+= heartbeat : 
+
+gonna check nodes status and allocate vip on master node : 
+
+apt-get install heartbeat
+
+/etc/heartbeat/ha.cf:
+
+logfacility     local0  
+keepalive 2  
+deadtime 10  
+bcast   eth0  
+auto_failback off  
+node server1 server2
+
+/etc/heartbeat/haresources:
+
+server1  IPaddr::192.168.1.100/24/eth0 drbddisk::drbd0 Filesystem::/dev/drbd0::/data2::xfs nfs-kernel-server
+
+/etc/heartbeat/authkeys:
+
+auth 3 lapin-password-secret  
+3 md5 
+
+chmod 600 /etc/ha.d/authkeys
+
+/etc/init.d/heartbeat start
+
+# if the second node is configurated on server 1 :
+
+-> drbdadm -- --overwrite-data-of-peer primary drbd0
+
+#######################################################
+
+Bug:debian/openhpid.service
+
+create File: /lib/systemd/system/openhpid.service
+
+[Unit]
+Description=Daemon providing access to the SAF Hardware Platform Interface
+
+[Service]
+Type=simple
+ExecStart=/usr/sbin/openhpid -n -c /etc/openhpi/openhpi.conf
+
+[Install]
+WantedBy=multi-user.target
+ 
+
+
+= Commands to check DRBD cluster: 
+
+#drbdsetup status drbd0 --verbose --statistics
+drbd0 node-id:1 role:Secondary suspended:no
+    write-ordering:drain
+  volume:0 minor:0 disk:UpToDate
+      size:5274164256 read:792 written:378051939 al-writes:9387982 bm-writes:0 upper-pending:0 lower-pending:0 al-suspended:no blocked:no
+  filer02 node-id:0 connection:Connected role:Primary congested:no
+    volume:0 replication:Established peer-disk:UpToDate resync-suspended:no
+        received:378052059 sent:0 out-of-sync:0 pending:0 unacked:0
+#drbdsetup show
+resource drbd0 {
+    _this_host {
+        node-id            1;
+        volume 0 {
+            device            minor 0;
+            disk            "/dev/sdb1";
+            meta-disk            internal;
+            disk {
+                disk-flushes        no;
+                md-flushes          no;
+            }
+        }
+    }
+    connection {
+        _peer_node_id 0;
+        path {
+            _this_host ipv4 192.168.0.1:7788;
+            _remote_host ipv4 192.168.0.2:7788;
+        }
+        net {
+            allow-two-primaries    yes;
+            cram-hmac-alg       "sha256";
+            shared-secret       "lapin-password-secret";
+            after-sb-0pri       discard-zero-changes;
+            after-sb-1pri       discard-secondary;
+            _name               "filer02";
+        }
+    }
+}
+#drbdsetup status
+drbd0 role:Secondary
+  disk:UpToDate
+  sinffiler04u role:Primary
+    peer-disk:UpToDate
+
+#drbd-overview
+NOTE: drbd-overview will be deprecated soon.
+Please consider using drbdtop.
+0:drbd0/0  Connected(2*) Second/Primar UpToDa/UpToDa
+ 
+= How to fix DRBD recovery from split brain
+
+Solution:
+ 
+Step 1: Start drbd manually on both nodes
+ 
+Step 2: Define one node as secondary and discard data on this
+ 
+drbdadm secondary all
+drbdadm disconnect all
+drbdadm -- --discard-my-data connect all
+ 
+Step 3: Define anoher node as primary and connect
+ 
+drbdadm primary all
+drbdadm disconnect all
+drbdadm connect all
+
