@@ -46,6 +46,8 @@ on voit ici le retour chariot "\n" qui s'affiche ...
 <type 'bool'>
 
 
+
+
 = if / else / elif =
 
 #!/usr/bin/env python3
@@ -302,6 +304,94 @@ print(b.split(","))
 # nous affiche bien les mots , puis une liste dont le sep est la ","
 #lapin,lulu,lili
 #['lapin', 'lulu', 'lili']
+
+
+= Remplacements : replace
+replace est très pratique pour remplacer une sous-chaîne par une autre
+￼
+"abcdefabcdefabcdef".replace("abc", "zoo")
+'zoodefzoodefzoodef'
+on peut même définir une limite éventuelle sur le nombre de remplacements :
+"abcdefabcdefabcdef".replace("abc", "zoo", 2)
+'zoodefzoodefabcdef'
+
+Plusieurs appels à replace peuvent être chaînés comme ceci
+￼
+"les [x] qui disent [y]".replace("[x]", "chevaliers").replace("[y]", "Ni")
+Out[7]:
+'les chevaliers qui disent Ni'
+
+=Nettoyage : strip
+On pourrait par exemple utiliser replace pour enlever les espaces dans une chaîne, ce qui peut être utile pour "nettoyer" comme ceci
+￼
+" abc:def:ghi ".replace(" ", "")
+'abc:def:ghi'
+Toutefois bien souvent on préfère utiliser strip qui ne s'occupe que du début et de la fin de la chaîne, et gère aussi les tabulations et autres retour à la ligne
+￼
+" \tune chaine avec des trucs qui dépassent \n".strip()
+'une chaine avec des trucs qui dépassent'
+
+On peut appliquer strip avant split pour éviter le problème du dernier élément vide.
+ex : ici on utilise pas strip : on se retrouve avec un élément vide dans notre liste : si le séparateur est un terminateur : 
+￼
+'abc;def;ghi;jkl;'.split(';')
+['abc', 'def', 'ghi', 'jkl', '']
+
+Avec l'utilisation de commune de strip et split plus de souci : 
+￼
+'abc;def;ghi;jkl;'.strip(';').split(';')
+['abc', 'def', 'ghi', 'jkl']
+
+
+= Rechercher une sous-chaîne
+Plusieurs outils permettent de chercher une sous-chaîne. Il existe find qui renvoie le plus petit index où on trouve la sous-chaîne
+-> find￼
+# l'indice du début de la première occurrence
+"abcdefcdefghefghijk".find("def")
+3
+￼
+# ou -1 si la chaine n'est pas présente:
+"abcdefcdefghefghijk".find("zoo")
+-1
+-> rfind 
+rfind fonctionne comme find mais en partant de la fin de la chaîne
+# en partant de la fin
+"abcdefcdefghefghijk".rfind("fgh")
+13
+￼
+# notez que le résultat correspond
+# tout de même toujours au début de la chaine
+"abcdefcdefghefghijk"[13]
+'f'
+
+La méthode index se comporte comme find
+￼
+"abcdefcdefghefghijk".index("def")
+3
+En cas d'absence elle lève une exception (nous verrons ce concept plus tard) plutôt que de renvoyer -1
+try:
+    "abcdefcdefghefghijk".index("zoo")
+except Exception as e:
+    print("OOPS", type(e), e)
+OOPS <class 'ValueError'> substring not found
+
+Mais le plus simple pour chercher si une sous-chaîne est dans une autre chaîne est d'utiliser l'instruction in sur laquelle nous reviendrons lorsque nous parlerons des séquences.
+
+"def" in "abcdefcdefghefghijk"
+True
+La méthode count compte le nombre d'occurrences d'une sous-chaîne
+
+"abcdefcdefghefghijk".count("ef")
+3
+Signalons enfin les méthodes de commodité suivantes
+
+"abcdefcdefghefghijk".startswith("abcd")
+True
+
+"abcdefcdefghefghijk".endswith("ghijk")
+True
+
+
 
 
 
@@ -988,8 +1078,50 @@ Pour décoder en utf8 un binaire on utilise la méthode decode
 
 = formatage de chaine = 
 
-on va pouvoir utiliser une fonction/ methode  elegante du modele objet pour afficher notre texte : c'est la methode format :
+- print :
 
+La fonction print
+Nous avons jusqu'à maintenant presque toujours utilisé la fonction print pour afficher nos résultats. Comme on l'a vu, celle-ci réalise un formatage sommaire : elle insère un espace entre les valeurs qui lui sont passées.
+￼
+print(1, 'a', 12 + 4j)
+1 a (12+4j)
+La seule subtilité notable concernant print est que par défaut, elle ajoute un saut de ligne à la fin. Pour éviter ce comportement, on peut passer à la fonction un argument end, qui sera inséré au lieu du saut de ligne. Ainsi par exemple
+￼
+# une première ligne
+print("une", "seule", "ligne")
+une seule ligne
+￼
+# une deuxième ligne en deux appels à print
+print("une", "autre", end=' ')
+print("ligne")
+une autre ligne
+# on peut imprimer par exemple un objet 'module' 
+import math
+print('le module math est', math)
+le module math est <module 'math' from '/opt/conda/lib/python3.6/lib-dynload/math.cpython-36m-x86_64-linux-gnu.so'>
+
+voici comment print présente les instances de classe (ne vous inquiétez pas, nous apprendrons dans une semaine ultérieure ce que sont les classes et les instances).
+￼
+# pour définir la classe Personne
+class Personne: 
+    pass
+# et pour créer une instance de cette classe
+personne = Personne()
+￼
+# voila comment s'affiche une instance de classe
+print(personne)
+<__main__.Personne object at 0x7f5824cd7b00>
+
+On rencontre assez vite les limites de print.
+D'une part, il peut être nécessaire de formater une chaîne de caractères sans nécessairement vouloir l'imprimer, ou en tous cas pas immédiatement.
+D'autre part, les espaces ajoutés peuvent être plus néfastes qu'utiles.
+Enfin, on peut avoir besoin de préciser un nombre de chiffres significatifs, ou de choisir comment présenter un date.
+C'est pourquoi il est plus courant de formatter les chaines - c'est à dire de calculer des chaines en mémoire, sans nécessairement les imprimer de suit
+
+
+
+-> format :
+on va pouvoir utiliser une fonction/ methode  elegante du modele objet pour afficher notre texte : c'est la methode format :
 - utilisation 1 de format : 
 
 >>> name = "Bob"
@@ -1041,6 +1173,97 @@ Traceback (most recent call last):
 TypeError: Can't convert 'int' object to str implicitly
 >>> print(" yop happy birthday! you are " + str(a) + " " + "years now!!")
  yop happy birthday! you are 21 years now!!
+
+
+-> f-strings :
+
+Depuis la version 3.6 de python, on peut utiliser les f-strings, le premier mécanisme de formatage que nous étudierons. C'est le mécanisme de formatage le plus simple et le plus agréable à utiliser.
+Je vous recommande tout de même de lire les sections à propos de format et de %, qui sont encore massivement utilisées dans le code existant (surtout % d'ailleurs, bien que essentiellement obsolète).
+Mais définissons d'abord quelques données à afficher.
+￼
+# donnons-nous quelques variables
+prenom, nom, age = 'Jean', 'Dupont', 35
+￼
+# mon premier f-string
+f"{prenom} {nom} a {age} ans"
+'Jean Dupont a 35 ans'
+Vous remarquez d'abord que le string commence par f", c'est bien sûr pour cela qu'on l'apelle un f-string.
+On peut bien entendu ajouter le f devant toutes les formes de strings, qu'ils commencent par  ' ou " ou ''' ou """.
+Ensuite vous remarquez que les zones délimitées entre {} sont remplacées. La logique d'un f-string, c'est tout simplement de considérer l'intérieur d'un {} comme du code python (une expression pour être précis), de l'évaluer, et d'utiliser le résultat pour remplir le {}.
+Ça veut dire, en clair, que je peux faire des calculs à l'intérieur des {}
+￼
+# toutes les expressions sont autorisées à l'intérieur d'un {}
+f"dans 10 ans {prenom} aura {age + 10} ans"
+'dans 10 ans Jean aura 45 ans'
+￼
+# on peut donc aussi mettre des appels de fonction
+notes = [12, 15, 19]
+f"nous avons pour l'instant {len(notes)} notes"
+"nous avons pour l'instant 3 notes"
+
+Comme vous le voyez, les f-strings fournissent une méthode très simple et expressive pour formatter des données dans des chaines de caractère. Redisons-le pour être bien clair : un f-string ne réalise pas d'impression, il faut donc le passer à print si l'impression est souhaitée.
+
+-> % : obsolete
+
+La toute première version du formatage : l'opérateur %
+format a été en fait introduite assez tard dans python, pour remplacer la technique que nous allons présenter maintenant.
+Étant donné le volume de code qui a été écrit avec l'opérateur %, il nous a semblé important d'introduire brièvement cette construction ici. Vous ne devez cependant pas utiliser cet opérateur dans du code moderne, la manière pythonique de formatter les chaînes de caractères est le f-string.
+Le principe de l'opérateur % est le suivant. On élabore comme ci-dessus un "format" c'est-à-dire le patron de ce qui doit être rendu, auquel on passe des arguments pour "remplir" les trous. Voyons les exemples de tout à l'heure rendus avec l'opérateur %
+￼
+# l'ancienne façon de formatter les chaînes avec %
+# est souvent moins lisible
+"%s %s a %s ans" % (prenom, nom, age)
+'Jean Dupont a 35 ans'
+On pouvait également avec cet opérateur recourir à un mécanisme de liaison par nommage, en passant par un dictionnaire. Pour anticiper un tout petit peu sur cette notion que nous verrons très bientôt, voici comment
+￼
+variables =  {'le_nom' : nom, 'le_prenom' : prenom, 'l_age' : age}
+"%(le_nom)s, %(le_prenom)s, %(l_age)s ans" % variables
+'Dupont, Jean, 35 ans'
+
+
+-> Complément - niveau avancé
+De retour aux f-strings et à la fonction format, il arrive qu'on ait besoin de spécifier plus finement la façon dont une valeur doit être affichée.
+
+-Précision des arrondis
+C'est typiquement le cas avec les valeurs flottantes pour lesquelles la précision de l'affichage vient au détriment de la lisibilité. Voici deux formes équivalentes pour obtenir une valeur de pi arrondie:
+￼
+from math import pi
+￼
+# un f-string
+f"pi avec seulement 2 chiffres apres la virgule {pi:.2f}"
+'pi avec seulement 2 chiffres apres la virgule 3.14'
+￼
+# avec format avec liaison par nom
+"pi avec seulement 2 chiffres apres la virgule {flottant:.2f}".format(flottant=pi)
+'pi avec seulement 2 chiffres apres la virgule 3.14'
+Dans ces deux exemples, la partie à l'intérieur des {} et à droite du : s'appelle le format, ici  :.2f; vous remarquez que c'est le même pour les f-strings et pour format, et c'est toujours le cas. C'est pourquoi on ne verra plus à partir d'ici que des exemples avec les f-strings.
+
+- 0 en début de nombre
+Pour forcer un petit entier à s'afficher sur 4 caractères, avec des 0 ajoutés au début si nécessaire
+x = 15
+f"{x:04d}"
+'0015'
+Ici on utilise le format d (toutes ces lettres d, f, g viennent des formats ancestraux de la libc comme printf). Ici avec :04d on précise qu'on veut une sortie sur 4 caractères et qu'il faut remplir avec des 0.
+>>> x=15
+>>> "ok x avec un 0 devant {dec:04d}".format(dec=x) 
+'ok x avec un 0 devant 0015'
+>>> 
+
+-Largeur fixe
+Dans certains cas, on a besoin d'afficher des données en colonnes de largeurs fixes, on utilise pour cela les formats < ^ et > pour afficher à gauche, au centre, ou à droite d'une zone de largeur fixe
+￼
+# les données à afficher
+comptes = [
+ ('Apollin', 'Dupont', 127),
+ ('Myrtille', 'Lamartine', 25432),
+ ('Prune', 'Soc', 827465),
+]
+for prenom, nom, solde in comptes:
+    print(f"{prenom:<10} -- {nom:^12} -- {solde:>8} €")
+
+Apollin    --    Dupont    --      127 €
+Myrtille   --  Lamartine   --    25432 €
+Prune      --     Soc      --   827465 €
 
 = parcours et selection de chaines =
 une chaine de caractere est une serie /sequence de caractere .
