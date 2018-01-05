@@ -2434,9 +2434,11 @@ on recupere les valeurs des indices et leur contenu!
 
 = tuples = 
 
-Sequence immutable.
+Sequence immutable : une fois crée on ne peut modifier.
 On utilise en separateur des () au lieu des [] des listes.
+On peut utiliser les test d'appartenance, faire du slicing ,acceder aux différents elements avec un "[]"
 Attention si on veut créer un tuple d'un seul élément il faut quand même mettre une virgule à la fin : sinon python supprime automatiquement les parentheses et on a une variable "classique"
+
 
 >>> a = ()
 >>> type(a)
@@ -2448,12 +2450,44 @@ Attention si on veut créer un tuple d'un seul élément il faut quand même met
 >>> a
 (1, 2, 5)
 
+Les parenthèses pour les tuples sont optionnelles :
+>>> a = 1,2,5
+>>> type(a)
+<class 'tuple'>
+
+>>> 2 in a
+True
+>>> a[1]
+2
+>>> a[:2]
+(1, 2)
+
+On peut convertir un tuple en liste :
+
+>>> a = list(a)
+>>> a
+[1, 2, 5]
+>>> type(a)
+<class 'list'>
+
+on peut modifier la liste ..et la reconvertir en tuple 
+>>> a[0] = 7
+>>> a
+[7, 2, 5]
+>>> a = tuple(a)
+>>> a
+(7, 2, 5)
+>>> type(a)
+<class 'tuple'>
+
 
 C'est dont un type qu'on ne peut pas modifier 
 Quand python trouve des valeurs séparées par une virgule il va les mettre entre () et les associer à des tuples.
 
 On s'en sert quand on est sur que les data en entrées ne doivent pas être modifiées .
 
+On se sert du tuple tres souvent pour se qu'on appelle le tuple unpacking :
+on declare une sequence qui doit avoir des élements  associés à une liste de même nombre d'éléments :
 
 On s'en sert en cas d'affectation multiple : c'est très utile : 
 
@@ -2462,6 +2496,343 @@ On s'en sert en cas d'affectation multiple : c'est très utile :
 3
 >>> b
 4 
+
+
+on peut s'en servir aussi pour l'extended tuple unpacking : on va regrouper des éléments dans une valeur du tuple et le reste de nos éléments dans une autre valeur de tuple 
+
+ex :
+
+on defini une liste de 10 elements , on associe le premier element à notre premier elem de tuple et le reste au second elem :
+>>> a = list((range(10)))
+>>> a
+[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+>>> x, *y = a
+>>> x
+0
+>>> y
+[1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+on peut biensur associer plusieurs elem au premier elem de tuple et un seul dans le second :
+>>> *x, y = a
+>>> x
+[0, 1, 2, 3, 4, 5, 6, 7, 8]
+>>> y
+9
+
+on peut donc construire un tuple à deux éléments - un couple - de quatre façons:
+￼
+# sans parenthèse ni virgule terminale
+couple1 = 1, 2
+# avec parenthèses
+couple2 = (1, 2)
+# avec virgule terminale
+couple3 = 1, 2,
+# avec parenthèse et virgule
+couple4 = (1, 2,)
+￼
+# toutes ces formes sont équivalentes; par exemple
+couple1 == couple4
+True
+Comme on le voit:
+en réalité la parenthèse est parfois superflue; mais il se trouve qu'elle est largement utilisée pour améliorer la lisibilité des programmes, sauf dans le cas du tuple unpacking; nous verrons aussi plus bas qu'elle est parfois nécessaire selon l'endroit où le tuple apparaît dans le programme;
+la dernière virgule est optionnelle aussi, c'est le cas pour les tuples à au moins 2 éléments - nous verrons plus bas le cas des tuples à un seul élément.
+Conseil pour la présentation sur plusieurs lignes
+En général d'ailleurs, la forme avec parenthèses et virgule terminale est plus pratique. Considérez par exemple l'initialisation suivante; on veut créer un tuple qui contient des listes (naturellement un tuple peut contenir n'importe quel objet python), et comme c'est assez long on préfère mettre un élément du tuple par ligne:
+￼
+mon_tuple = ([1, 2, 3],
+             [4, 5, 6],
+             [7, 8, 9],
+            )
+L'avantage lorsqu'on choisit cette forme (avec parenthèses, et avec virgule terminale), c'est que d'abord il n'est pas nécessaire de mettre un backslash à la fin de chaque ligne; parce que l'on est à l'intérieur d'une zone parenthésée, l'interpréteur python "sait" que l'instruction n'est pas terminée et va se continuer sur la ligne suivante.
+Deuxièmement, si on doit ultérieurement ajouter ou enlever un élément dans le tuple, il suffira d'enlever ou d'ajouter toute une ligne, sans avoir à s'occuper des virgules; si on avait choisi de ne pas faire figurer la virgule terminale, alors pour ajouter un item dans le tuple après le dernier, il ne faut pas oublier d'ajouter une virgule à la ligne précédente. Cette simplicité se répercute au niveau du gestionnaire de code source, ou les différences dans le code sont plus faciles à visualiser.
+Signalons enfin que ceci n'est pas propre aux tuples. La virgule terminale est également optionnelle pour les listes, ainsi d'ailleurs que pour tous les types python où cela fait du sens, comme les dictionnaires et les ensembles que nous verrons bientôt. Et dans tous les cas où on opte pour une présentation multi-lignes, il est conseillé de faire figurer une virgule terminale.
+
+Tuples à un élément
+Pour revenir à présent sur le cas des tuples à un seul élément, c'est un cas particulier, parmi les 4 syntaxes qu'on a vues ci-dessus, on obtiendrait dans ce cas
+￼
+# ATTENTION: ces deux premières formes ne construisent pas un tuple !
+simple1 = 1
+simple2 = (1)
+# celles-ci par contre construisent bien un tuple
+simple3 = 1,
+simple4 = (1,)
+Il est bien évident que la première forme ne crée pas de tuple;
+et en fait la seconde non plus, car python lit ceci comme une expression parenthésée, avec seulement un entier.
+Et en fait ces deux premières formes créent un entier simple:
+type(simple2)
+int
+Les deux autres formes créent par contre toutes les deux un tuple à un élément comme on cherchait à le faire:
+type(simple3)
+tuple
+simple3 == simple4
+True
+Pour conclure, disons donc qu'il est conseillé de toujours mentionner une virgule terminale lorsqu'on construit des tuples.
+Parenthèse parfois obligatoire
+Dans certains cas vous vous apercevrez que la parenthèse est obligatoire. Par exemple on peut écrire:
+x = (1,)
+(1,) == x
+True
+Mais si on essaie d'écrire le même test sans les parenthèses:
+# ceci provoque une SyntaxError
+1, == x
+  File "<ipython-input-9-219921aa55c4>", line 2
+    1, == x
+        ^
+SyntaxError: invalid syntax
+Python lève une erreur de syntaxe; encore une bonne raison pour utiliser les parenthèses.
+
+- Addition de tuples
+Bien que le type tuple soit immuable, il est tout à fait légal d'additionner deux tuples, et l'addition va produire un nouveau tuple.
+
+tuple1 = (1, 2,)
+tuple2 = (3, 4,)
+print('addition', tuple1 + tuple2)
+addition (1, 2, 3, 4)
+Ainsi on peut également utiliser l'opérateur += avec un tuple qui va créer, comme précédemment, un nouvel objet tuple:
+tuple1 = (1, 2,)
+tuple1 += (3, 4,)
+print('apres ajout', tuple1)
+apres ajout (1, 2, 3, 4)
+
+- Construire des tuples élaborés
+Malgré la possibilité de procéder par additions successives, la construction d'un tuple peut s'avérer fastidieuse.
+Une astuce utile consiste à penser aux fonctions de conversion, pour construire un tuple à partir de - par exemple - une liste. Ainsi on peut faire par exemple ceci:
+
+# on fabrique une liste pas à pas
+liste = list(range(10))
+liste[9] = 'Inconnu'
+del liste [2:5]
+liste
+[0, 1, 5, 6, 7, 8, 'Inconnu']
+
+# on convertit le résultat en tuple
+mon_tuple = tuple(liste)
+mon_tuple
+(0, 1, 5, 6, 7, 8, 'Inconnu')
+
+- Sequence unpacking
+Déjà rencontré
+L'affectation dans python peut concerner plusieurs variables à la fois. ex :
+for i in range(2, n + 1):
+    f2, f1 = f1, f1 + f2
+Nous allons dans ce complément décortiquer les mécanismes derrière cette phrase
+Un exemple simple
+Commençons par un exemple simple à base de tuple. Imaginons qu'on dispose d'un tuple couple dont on sait qu'il a deux éléments:
+￼
+couple = (100, 'spam')
+On souhaite à présent extraire les deux valeurs, et les affecter à deux variables distinctes. Une solution naïve consiste bien sûr à faire simplement:
+￼
+gauche = couple[0]
+droite = couple[1]
+print('gauche', gauche, 'droite', droite)
+gauche 100 droite spam
+Cela fonctionne naturellement très bien, mais n'est pas très pythonique - comme on dit ;) Vous devez toujours garder en tête qu'il est rare en python de manipuler des indices. Dès que vous voyez des indices dans votre code, vous devez vous demander si votre code est pythonique.
+On préfèrera la formulation équivalente suivante:
+￼
+(gauche, droite) = couple
+print('gauche', gauche, 'droite', droite)
+gauche 100 droite spam
+
+La logique ici consiste à dire, affecter les deux variables de sorte que le tuple (gauche, droite ) soit égal à couple. On voit ici la supériorité de cette notion d'unpacking sur la manipulation d'indices: vous avez maintenant des variables qui expriment la nature de l'objet manipulé, votre code devient expressif, c'est-à-dire auto-documenté.
+Remarquons que les parenthèses ici sont optionnelles - comme lorsqu'on construit un tuple - et on peut tout aussi bien écrire, et c'est le cas d'usage le plus fréquent d'omission des paranthèses pour le tuple:
+￼
+gauche, droite = couple
+print('gauche', gauche, 'droite', droite)
+gauche 100 droite spam
+
+-> Autres types
+Cette technique fonctionne aussi bien avec d'autres types. Par exemple je peux utiliser:
+une syntaxe de liste à gauche du =
+une liste comme expression à droite du =
+￼
+# comme ceci
+liste = [1, 2, 3]
+[gauche, milieu, droit] = liste
+print('gauche', gauche, 'milieu', milieu, 'droit', droit)
+gauche 1 milieu 2 droit 3
+
+Et on n'est même pas obligés d'avoir le même type à gauche et à droite du signe =, comme ici:
+￼
+# membre droit: une liste
+liste = [1, 2, 3]
+# membre gauche : un tuple
+gauche, milieu, droit = liste
+print('gauche', gauche, 'milieu', milieu, 'droit', droit)
+gauche 1 milieu 2 droit 3
+
+En réalité, les seules contraintes fixées par python sont que
+le terme à droite du signe = est un iterable (tuple, liste, string, etc.),
+le terme à gauche soit écrit comme un tuple ou une liste - notons tout de même que l'utilisation d'une liste à gauche est rare et peu pythonique,
+les deux termes aient la même longueur - en tous cas avec les concepts que l'on a vus jusqu'ici, mais voir aussi plus bas l'utilisation de *arg avec le extended unpacking.
+La plupart du temps le terme de gauche est écrit comme un tuple. C'est pour cette raison que les deux termes tuple unpacking et sequence unpacking sont en vigueur.
+La façon pythonique d'échanger deux variables
+Une caractéristique intéressante de l'affectation par sequence unpacking est qu'elle est sûre; on n'a pas à se préoccuper d'un éventuel ordre d'évaluation, les valeurs à droite de l'affectation sont toutes évaluées en premier, et ainsi on peut par exemple échanger deux variables comme ceci:
+a = 1
+b = 2
+a, b = b, a
+print('a', a, 'b', b)
+a 2 b 1
+
+-> Extended unpacking
+Le extended unpacking a été introduit en python3; commençons par en voir un exemple:
+￼
+reference = [1, 2, 3, 4, 5]
+a, *b, c = reference
+print(f"a={a} b={b} c={c}")
+a=1 b=[2, 3, 4] c=5
+Comme vous le voyez, le mécanisme ici est une extension de sequence unpacking; python vous autorise à mentionner une seule fois, parmi les variables qui apparaissent à gauche de l'affectation, une variable précédée de *, ici *b.
+Cette variable est interprétée comme une liste de longueur quelconque des éléments de reference. On aurait donc aussi bien pu écrire:
+￼
+reference = range(20)
+a, *b, c = reference
+print(f"a={a} b={b} c={c}")
+a=0 b=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18] c=19
+Ce trait peut s'avérer pratique, lorsque par exemple on s'intéresse seulement aux premiers éléments d'une structure:
+￼
+# si on sait que data contient prenom, nom, et un nombre inconnu d'autres informations
+data = [ 'Jean', 'Dupont', '061234567', '12', 'rue du chemin vert', '57000', 'METZ', ]
+# on peut utiliser la variable _ qui véhicule l'idée qu'on ne s'y intéresse pas vraiment
+prenom, nom, *_ = data
+print(f"prenom={prenom} nom={nom}")
+prenom=Jean nom=Dupont
+
+
+
+On a vu les principaux cas d'utilisation de la sequence unpacking, voyons à présent quelques subtilités.
+Plusieurs occurrences d'une même variable
+On peut utiliser plusieurs fois la même variable dans la partie gauche de l'affectation.
+￼
+# ceci en toute rigueur est legal
+# mais en pratique on évite de le faire
+entree = [1, 2, 3]
+a, a, a = entree
+print(f"a = {a}")
+a = 3
+Attention toutefois, comme on le voit ici, python n'impose pas que les différentes occurrences de a correspondent à des valeurs identiques (en langage savant, on dirait que cela ne permet pas de faire de l'unification). De manière beaucoup plus pragmatique, l'interpréteur se contente de faire comme s'il faisait l'affectation plusieurs fois de gauche à droite, c'est-à-dire comme s'il faisait:
+￼
+a = 1; a = 2; a = 3
+Cette technique n'est utilisée en pratique que pour les parties de la structure dont on n'a que faire dans le contexte. Dans ces cas-là, il arrive qu'on utilise le nom de variable _, dont on rappelle qu'il est légal, ou tout autre nom comme ignored pour manifester le fait que cette partie de la structure ne sera pas utilisée, par exemple:
+￼
+entree = [1, 2, 3]
+_, milieu, _ = entree
+print('milieu', milieu)
+ignored, ignored, right = entree
+print('right', right)
+
+milieu 2
+right 3
+
+En profondeur
+Le sequence unpacking ne se limite pas au premier niveau dans les structures, on peut extraire des données plus profondément imbriquées dans la structure de départ; par exemple avec en entrée la liste:
+￼
+structure = ['abc', [(1, 2), ([3], 4)], 5]
+structure = ['abc', [(1, 2), ([3], 4)], 5]
+Si on souhaite extraire la valeur qui se trouve à l'emplacement du 3, on peut écrire:
+￼
+(a, (b, ((trois,), c)), d) = structure
+print('trois', trois)
+trois 3
+Ou encore, sans doute un peu plus lisible:
+￼
+(a, (b, ([trois], c)), d) = structure
+print('trois', trois)
+trois 3
+Naturellement on aurait aussi bien pu écrire ici quelque chose comme:
+￼
+trois = structure[1][1][0][0]
+print('trois', trois)
+trois = structure[1][1][0][0]
+print('trois', trois)
+trois 3
+
+-> Plusieurs variables dans une boucle for
+Nous avons vu précédemment ('Sequence unpacking')la possibilité d'affecter plusieurs variables à partir d'un seul objet, comme ceci:
+
+item = (1, 2)
+a, b = item
+print(f"a={a} b={b}")
+a=1 b=2
+D'une façon analogue, il est possible de faire une boucle for qui itère sur une seule liste mais qui agit sur plusieurs variables, comme ceci:
+
+entrees = [(1, 2), (3, 4), (5, 6)]
+for a, b in entrees:
+    print(f"a={a} b={b}")
+a=1 b=2
+a=3 b=4
+a=5 b=6
+À chaque itération, on trouve dans entree un tuple (d'abord (1, 2), puis à l'iteration suivante (3, 4), etc..).
+A ce stade les variables a et b vont être affectées à, respectivement, le premier et le deuxième élément du tuple, exactement comme dans le sequence unpacking. Cette mécanique est massivement utilisée en python.
+
+
+- La fonction zip
+Voici un exemple très simple qui utilise la technique qu'on vient de voir.
+Imaginons qu'on dispose de deux listes de longueurs égales, dont on sait que les entrées correspondent une à une, comme par exemple:
+
+villes = ["Paris", "Nice", "Lyon"]
+populations = [2*10**6, 4*10**5, 10**6]
+Afin d'écrire facilement un code qui "associe" les deux listes entre elles, python fournit une fonction built-in baptisée zip; voyons ce qu'elle peut nous apporter sur cet exemple:
+
+list(zip(villes, populations))
+[('Paris', 2000000), ('Nice', 400000), ('Lyon', 1000000)]
+
+
+On le voit, on obtient en retour une liste composée de tuples. On peut à présent écrire une boucle for comme ceci:
+
+for ville, population in zip(villes, populations):
+    print(population, "habitants à", ville)
+
+2000000 habitants à Paris
+400000 habitants à Nice
+1000000 habitants à Lyon
+
+Qui est, nous semble-t-il, beaucoup plus lisible que ce que l'on serait amené à écrire avec des langages plus traditionnels.
+Tout ceci se généralise naturellement à plus de deux variables.
+
+for i, j, k in zip(range(3), range(100, 103), range(200, 203)):
+    print(f"i={i} j={j} k={k}")
+i=0 j=100 k=200
+i=1 j=101 k=201
+i=2 j=102 k=202
+
+Remarque: lorsqu'on passe à zip des listes de tailles différentes, le résultat est tronqué, c'est l'entrée de plus petite taille qui détermine la fin du parcours.
+
+# on n'itère que deux fois 
+# car le premier argument de zip est de taille 2
+for units, tens in zip( [1, 2], [10, 20, 30, 40]):
+    print(units, tens)
+1 10
+2 20
+
+-> La fonction enumerate
+Une autre fonction très utile permet d'itérer sur une liste avec l'indice dans la liste, il s'agit de enumerate:
+
+for i, ville in enumerate(villes):
+    print(i, ville)
+0 Paris
+1 Nice
+2 Lyon
+
+
+Cette forme est plus simple et plus lisible que les formes suivantes qui sont équivalentes, mais qui ne sont pas pythoniques:
+
+for i in range(len(villes)):
+    print(i, villes[i])
+
+0 Paris
+1 Nice
+2 Lyon
+
+
+
+for i, ville in zip(range(len(villes)), villes):
+    print(i, ville)
+
+0 Paris
+1 Nice
+2 Lyon
+
+
+
 
 Un fonction peut renvoyer deux valeurs : 
 
