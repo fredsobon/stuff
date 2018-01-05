@@ -1435,23 +1435,15 @@ if year % 400 == 0 or (year % 4 == 0 and year % 100 != 0):
 else:
     print(year , "classic year")
 
-
-
 os.system("date")
 print("here's the content of tmp folder : " )
 os.system("ls -lh /tmp")
 
- 
-
-
-
 #!/usr/bin/env python3
 # -*- coding: utf8 -*-
-
 import os 
 
 from dix_10_multipli import *
-
 # test de la fonction table
 
 table(3,20)
@@ -1476,6 +1468,11 @@ def table (nb, max =10):
 if __name__ == "__main__":
     table(5)
     os.system("date +%F")
+
+
+
+
+
 
 
 = espace de nommage =
@@ -2867,6 +2864,68 @@ Voici >> un >> exemple >> d ’ appel -
 
 == les fichiers ==
 
+Des notions à comprendre sont nécéssaire pour une bonne gestion des fichiers :
+
+-> l'encodage :
+
+c'est l'objet fichier qui va se charger d'encoder et décoder les chaines de caractères pour nous.
+
+# ex ici on crée un fichier ( s'il n'existe pas déjà) en raw ( on recupère tel quel les caratères saisis), en mode w (write) avec un encodage qu'on set en utf8 ( à toujours privilégier ) 
+fichier = open(r"/tmp/testo", "w", encoding = "utf8")
+pour ecrire dans le fichier on a juste besoin de passer la methode write à notre objet fichier créer et injecter du texte dedans 
+ex :
+fichier = open(r"/tmp/testo", "w", encoding="utf8")
+for i in range(10):
+    fichier.write("Ligne number {}\n".format(i))
+
+cat /tmp/testo 
+Ligne number 0
+Ligne number 1
+Ligne number 2
+Ligne number 3
+Ligne number 4
+Ligne number 5
+Ligne number 6
+Ligne number 7
+Ligne number 8
+Ligne number 9
+Il va juste falloir à la fin de notre ecriture bien fermer le fichier avec la methode close
+fichier.close()
+
+Les fichiers sont des iterateurs ont peu les mettre dans une boucle "for"
+Pour lire un fichier et ecrire dans un nouveau fichier : 
+
+#on va injecter le contenu de fichier dans fichier2 tout en modifiant du texte :
+fichier = open(r"/tmp/testo", "r", encoding="utf8")
+fichier2 = open(r"/tmp/testa", "w", encoding="utf8")
+# on parcours fichier
+for line in fichier:
+    # maintenant on transforme notre chaine en liste avec la methode split
+    line = line.split()
+    # on va maintenant passer en maj la premiere colonne de notre liste avec la methode upper
+    line[0] = line[0].upper()
+    # puis on ecrit dans le fichier2 chacune de nos lignes reconverties de liste en str avec la methode join suivi \
+    # d'un "\n" pour un retour chariot propre
+    fichier2.write(" ".join(line) + "\n")
+    # on ferme nos  fichiers :
+    fichier.close()
+    fichier2.close()
+
+cat /tmp/testa
+LIGNE number 0
+LIGNE number 1
+LIGNE number 2
+LIGNE number 3
+LIGNE number 4
+LIGNE number 5
+LIGNE number 6
+LIGNE number 7
+LIGNE number 8
+LIGNE number 9
+
+Il est important de toujours gérer la fermeture des fichiers sous python : quand on gere les fichiers on correspond avec l'os : qui lui est limité en nombre maximum de fichiers ouvert : il est donc fondamental de ne pas se retrouver en saturation de l'os à cause de fichiers non fermés.
+
+
 - Changer de repertoire courant :
 il va être forcement utile quand on veut travailler sur les fichiers de définir un repertoire de travail courant .
 Pour cela on va importer le module os et indiquer le repertoire de dest dans lequel on veut aller . Noter que le chemin se précise avec des "/" même sous microsoft.
@@ -2955,7 +3014,12 @@ Attention la méthode write ne permet de saisir que des chaines de caractères :
 testo
 okokok ! let's gonna write in our python file from python code !
 
-- keyword "with" :
+
+
+- context manager : 
+c'est un protocole interne à python qui permet de gérer automatiquement la fermeture des fichiers : qui sont des objects dès qu'on n'en a plus besoin : c'est la methode à utiliser sous python  
+
+- "with" : ce keyword permet de gérer le contexte manager des fichiers : 
 
 il est fondamental de toujours fermer le fichier sur lequel on a travailler.
 On peut faire des erreurs en ecriture etc..Si notre programme a besoin d'acceder au fichier et que celui ci est deja ouvert : il ne pourra pas le faire.
@@ -2965,7 +3029,11 @@ on va donc créer si elle n'existe pas une  variable apres avoir utiliser le key
 le keyword "with" permet de créer un context manager qui vérifie que le fichier est ouvert ou fermé même si des erreurs apparaissent pendant le bloc.
 Le fichier sera automatiquement fermé à la fin du bloc et on peut le vérifier avec la méthode  closed.
 
->>> with open("test_file.py", "r") as file:
+On commence par le keyword with ensuite on ouvre notre fichier en tant qu'objet avec (as) fichier que l'on nomme comme on veut puis on met un ":" pour montrer la creation d'un bloc d'instructions:
+A la sortie du bloc de code la methode exit est automatiquement appellée et le fichier est fermé 
+De plus en cas d'exeption le fichier est automatiquement fermé
+
+>>> with open(r"test_file.py", "r", encoding="utf8") as file:
 ...     content = file.read()
 ... 
 >>> content
@@ -2977,7 +3045,402 @@ True
 Cela va nous permettre de garantir que si une exeption se produit : notre fichier sera quand même fermé à la fin du bloc.
 python le fait automatiquement.
 
+on peut ecrire dans un fichier en mode binaire  : dans ce cas on ecrit des objects de type binaire 
+# ouverture d'un fichier en mode binaire : on rajoute b devant notre mode , l'encodage n'est pas necessaire en binaire
+with open(r"/tmp/testu", "bw") as binaryfile:
+    for i in range(10):
+        binaryfile.write(b'\x3d')
+# ce qui nous donne le carractere "=" ecris 10 fois : 
+cat /tmp/testu
+==========
+
+Il est important de pouvoir consulter les différents mode d'ouverture de fichier sous python :
+https://docs.python.org/3/library/functions.html#open
+
+
+Un fichier - qui donc est itérable puisqu'on peut le lire par une boucle for - est aussi son propre itérateur. Cela implique que l'on ne peut le parcourir qu'une fois dans une boucle for. Pour le reparcourir, il faut le fermer et l'ouvrir de nouveau.
+Par conséquent, écrire deux boucles for imbriquées sur le même objet fichier ne fonctionnerait pas comme on pourrait s'y attendre.
+
+with open(r"/tmp/testu", "bw") as binaryfile:
+    for i in range(10):
+        binaryfile.write(b'\x3d')
+    # test la methode iter est ok sur l'objet fichier binaryfile
+    print(binaryfile.__iter__() is binaryfile)
+
+True
+
+Methodes bas niveau / os pour lecture de fichier / texte :
+
+-> repr()
+
+# construisons à la main une chaine qui contient deux lignes
+lines = "abc"+ "\n" + "def"  + "\n"
+print(lines, end="")
+abc
+def
+# avec repr() 
+print(repr(lines))
+'abc\ndef\n'
+
+-> read() : permet de lire le contenu de tout un fichier en buffer . Attention ne pas utiliser sur les gros fichiers.
+
+# read() retourne TOUT le contenu
+# une autre façon de montrer tout le contenu du fichier
+with open("foo.txt", encoding='utf-8') as entree:
+    full_contents = entree.read()
+    print(f"Contenu complet\n{full_contents}", end="")
+Contenu complet
+0
+1
+100
+101
+￼
+# lire dans le fichier deux blocs de 4 caractères
+with open("foo.txt", encoding='utf-8') as entree:
+    for bloc in range(2):
+        print(f"Bloc {bloc} >>{repr(entree.read(4))}<<")
+Bloc 0 >>'0\n1\n'<<
+Bloc 1 >>'100\n'<<
+
+On voit donc que chaque bloc contient bien 4 caractères en comptant les sauts de ligne
+bloc #		contenu
+0		un 0, un newline, un 1, un newline
+1		un 1, deux 0, un newline
+
+
+-> flush()
+La méthode flush
+Les entrées-sortie sur fichier sont bien souvent bufferisées par le système d'exploitation. Cela signifie qu'un appel à write ne provoque pas forcément une écriture immédiate, car pour des raisons de performance on attend d'avoir suffisamment de matière avant d'écrire sur le disque.
+Il y a des cas où ce comportement peut s'avérer gênant, et où on a besoin d'écrire immédiatement (et donc de vider le buffer), et c'est le propos de la méthode flush().
+
+
+iers textuels et fichiers binaires
+De la même façon que le langage propose les deux types str et bytes, il est possible d'ouvrir un fichier en mode textuel ou en mode binaire.
+Les fichiers que nous avons vus jusqu'ici étaient ouverts en mode textuel (c'est le défaut), et c'est pourquoi quand nous avons interagi avec eux avec des objets de type str:
+In [14]:
+￼
+# un fichier ouvert en mode textuel nous donne des str
+with open('foo.txt', encoding='utf-8') as input:
+    for line in input:
+        print("on a lu un objet de type", type(line))
+on a lu un objet de type <class 'str'>
+on a lu un objet de type <class 'str'>
+on a lu un objet de type <class 'str'>
+on a lu un objet de type <class 'str'>
+Lorsque ce n'est pas le comportement souhaité, on peut
+ouvrir le fichier en mode binaire - pour cela on ajoute le caractère b au mode d'ouverture
+et on peut alors interagir avec le fichier avec des objets de type bytes
+Pour illustrer ce trait, nous allons:
+créer un fichier en mode texte, et y insérer du texte en UTF-8
+relire le fichier en mode binaire, et retrouver le codage des différents caractères.
+In [15]:
+￼
+# phase 1 : on écrit un fichier avec du texte en UTF-8
+# on ouvre le donc le fichier en mode texte
+# en toute rigueur il faut préciser l'encodage, 
+# si on ne le fait pas il sera déterminé 
+# à partir de vos réglages système
+with open('strbytes', 'w', encoding='utf-8') as output:
+    output.write("déjà l'été\n")
+In [17]:
+￼
+# phase 2: on rouvre le fichier en mode binaire
+with open('strbytes', 'rb') as rawinput:
+    # on relit tout le contenu
+    octets = rawinput.read()
+    # qui est de type bytes
+    print("on a lu un objet de type", type(octets))
+    # si on regarde chaque octet un par un
+    for i, octet in enumerate(octets):
+        print(f"{i} → {repr(chr(octet))} [{hex(octet)}]")
+on a lu un objet de type <class 'bytes'>
+0 → 'd' [0x64]
+1 → 'Ã' [0xc3]
+2 → '©' [0xa9]
+3 → 'j' [0x6a]
+4 → 'Ã' [0xc3]
+5 → '\xa0' [0xa0]
+6 → ' ' [0x20]
+7 → 'l' [0x6c]
+8 → "'" [0x27]
+9 → 'Ã' [0xc3]
+10 → '©' [0xa9]
+11 → 't' [0x74]
+12 → 'Ã' [0xc3]
+13 → '©' [0xa9]
+14 → '\n' [0xa]
+Vous retrouvez ainsi le fait que l'unique caractère unicode "é", a été encodé par UTF-8 sous la forme de deux octets de code hexadécimal 0xc3 et 0xa9.
+Vous pouvez également consulter ce site qui visualise l'encodage UTF-8, avec notre séquence d'entrée :
+
+https://mothereff.in/utf-8#d%C3%A9j%C3%A0%20l%27%C3%A9t%C3%A9%0A
+
+# on peut comparer le nombre d'octets et le nombre de caractères
+with open('strbytes', encoding='utf-8') as textfile:
+    print(f"en mode texte, {len(textfile.read())} caractères")
+with open('strbytes', 'rb') as binfile:
+    print(f"en mode binaire, {len(binfile.read())} octets")
+en mode texte, 11 caractères
+en mode binaire, 15 octets
+Ce qui correpond au fait que nos 4 caractères non-ASCII (3 é et 1 à) sont tous encodés par UTF-8 comme 2 octets, comme vous pouvez vous en assurer ici pour é et  à.
+é => \xC3\xA9
+à => \xC3\xA0
+
+urls : 
+
+https://docs.python.org/3/glossary.html#term-file-object
+https://docs.python.org/3/library/io.html#module-io
+
+= Utilitaires fichiers :
+
+
+Outre les objets fichiers créés avec la fonction open et qui servent à lire et écrire à un endroit précis, une application a besoin d'un minimum d'utilitaires pour parcourir l'arborescence de répertoires et fichiers, c'est notre propos dans ce complément.
+-> Le module os.path (obsolète) : avant python3.4 :
+Avant la version python-3.4, la librairie standard offrait une conjonction d'outils pour ce type de fonctionnalités:
+le module os.path, pour faire des calculs sur les les chemins et noms de fichiers doc,
+le module os pour certaines fonctions complémentaires comme renommer ou détruire un fichier doc,
+et enfin le module glob pour la recherche de fichiers, par exemple pour trouver tous les fichiers en *.txt doc.
+Cet ensemble un peu disparate a été remplacé par une librairie unique pathlib, qui fournit toutes ces fonctionnalités sous un interface unique et moderne, que nous recommandons évidemment d'utiliser pour du nouveau code.
+Bref aperçu de ces trois anciens modules :  tous les noms qui suivent correspondent à des fonctions - par opposition à pathlib qui comme nous allons le voir offre une interface orientée objet:
+
+os.path.join ajoute '/' ou '\' entre deux morceaux de chemin, selon l'OS
+
+os.path.basename trouve le nom de fichier dans un chemin
+>>> os.path.basename("/home/boogie/Documents")
+'Documents'
+os.path.dirname trouve le nom du directory dans un chemin
+>>> os.path.dirname("/home/boogie/Documents")
+'/home/boogie'
+os.path.abspath calcule un chemin absolu, c'est-à-dire à partir de la racine du filesystem
+>>> os.path.abspath("/home/boogie/Documents")
+'/home/boogie/Documents'
+os.path.exists pour savoir si un chemin existe ou pas (fichier ou répertoire)
+>>> os.path.exists("/home/boogie/Documents")
+True
+os.path.isfile (et isdir) pour savoir si un chemin est un fichier (et un répertoire)
+>>> os.path.isfile("/home/boogie/Documents")
+False
+>>> os.path.isdir("/home/boogie/Documents")
+True
+os.path.getsize pour obtenir la taille du fichier
+>>> os.path.getsize("/tmp/testo")
+150
+os.path.getatime et aussi getmtime et getctime pour obtenir les dates de création/modification d'un fichier
+>>> os.path.getatime("/tmp/testo")
+1515162196.7593696
+os.remove (ou son ancien nom os.unlink), qui permet de supprimer un fichier
+>>> os.remove("/tmp/testo")
+>>> os.remove("/tmp/testo")
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+OSError: [Errno 2] No such file or directory: '/tmp/testo'
+
+os.rmdir pour supprimer un répertoire (mais qui doit être vide)
+mkdir /tmp/bla
+>>> os.rmdir('/tmp/bla')
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+OSError: [Errno 2] No such file or directory: '/tmp/bla'
+os.removedirs pour supprimer tout un répertoire avec son contenu, récursivement si nécessaire
+mkdir /tmp/bla
+>>> os.removedirs('/tmp/bla')
+>>> os.removedirs('/tmp/bla')
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+  File "/usr/lib/python2.7/os.py", line 170, in removedirs
+    rmdir(name)
+OSError: [Errno 2] No such file or directory: '/tmp/bla'
+
+os.rename pour renommer un fichier
+os.rename("/tmp/testu","/tmp/tata")
+>>> os.path.getsize("/tmp/tata")
+10
+glob.glob comme dans par exemple glob.glob("*.txt")
+for i in $(seq 1 4) ; do touch $i.txt ;done 
+>>> import glob
+>>> glob.glob("/tmp/*.txt")
+['/tmp/3.txt', '/tmp/2.txt', '/tmp/4.txt', '/tmp/1.txt']
+
+
+= Le module pathlib
+Orienté Objet : et correspond aux manières recentes d'utiliser les outils pour les fichiers en python : 
+De même que le langage nous propose les types builtin int et str, le module pathlib nous expose un type (on dira plutôt une classe) qui s'appelle Path, que nous allons importer comme ceci:
+￼
+from pathlib import Path
+#Nous allons faire tourner un petit scénario qui va créer un fichier:
+nom = 'fichier-temoin'
+Pour commencer, nous allons vérifier si le fichier en question existe.
+Pour ça nous créons un objet qui est une instance de la classe Path, comme ceci:
+￼
+# on crée un objet de la classe Path, associé au nom de fichier
+path = Path(nom)
+i = int(3.5)
+en ce sens que le type (int ou Path) se comporte comme une usine pour créer des objets du type en question.
+Quoi qu'il en soit, cet objet path offre un certain nombre de méthodes; pour les voir il suffit d'appuyer  sur la touche 'Tabulation' après avoir ajouté un . comme si vous alliez envoyer une méthode à cet objet
+path.[taper la touch TAB ]
+# ajouter un . et utilisez la touche <Tabulation>
+Ainsi par exemple on peut savoir si le fichier existe avec la méthode exists()
+￼
+# au départ le fichier n'existe pas
+path.exists()
+False
+￼
+# si j'écris dedans je le crée
+with open(nom, 'w', encoding='utf-8') as output:
+    output.write('0123456789\n')
+￼
+# et maintenant il existe
+path.exists()
+True
+
+-> métadonnées
+Voici quelques exemples qui montrent comment accéder aux métadonnées de ce fichier:
+￼
+# cette méthode retourne (en un seul appel système) les métadonnées agrégées
+path.stat()
+os.stat_result(st_mode=33188, st_ino=2155977, st_dev=43, st_nlink=1, st_uid=37068, st_gid=37068, st_size=11, st_atime=1515167973, st_mtime=1515167973, st_ctime=1515167973)
+l'objet retourné par cette méthode stat est un namedtuple.On accède aux différentes informations comme ceci:
+￼
+# la taille du fichier en octets est de 11 
+# car il faut compter un caractère "newline" en fin de ligne 
+path.stat().st_size
+11
+￼
+# la date de dernière modification, sous forme d'un entier
+# c'est le nombre de secondes depuis le 1er Janvier 1970
+mtime = path.stat().st_mtime
+mtime
+1515167973.4433136
+￼
+# que je peux rendre lisible comme ceci
+# en anticipant sur le module datetime
+from datetime import datetime
+mtime_datetime = datetime.fromtimestamp(mtime)
+mtime_datetime
+datetime.datetime(2018, 1, 5, 15, 59, 33, 443314)
+￼
+# ou encore, si je formatte pour n'obtenir que
+# l'heure et la minute
+f"{mtime_datetime:%H:%M}"
+re un fichier
+In [20]:
+￼
+# je peux maintenant détruire le fichier
+path.unlink()
+￼
+# ou encore mieux, si je veux détruire 
+# seulement dans le cas où il existe je peux aussi faire
+try: 
+    path.unlink()
+except FileNotFoundError:
+    print("no need to remove")
+no need to remove
+￼
+# et maintenant il n'existe plus
+path.exists()
+False
+￼
+# je peux aussi retrouver le nom du fichier comme ceci
+# attention ce n'est pas une méthode mais un attribut 
+# c'est pourquoi il n'y a pas de parenthèses
+path.name
+'fichier-temoin'Out[19]:
+'15:59'
+
+-> Recherche de fichiers
+Maintenant je voudrais connaître la liste des fichiers de nom *.json dans le directory data.
+La méthode la plus naturelle consiste à créer une instance de Path associée au directory lui-même:
+￼
+dirpath = Path('./data/')
+Sur cet objet la méthode glob nous retourne un itérable qui contient ce qu'on veut:
+￼
+# tous les fichiers *.json dans le répertoire data/
+for json in dirpath.glob("*.json"):
+    print(json)
+data/cities_europe.json
+data/cities_france.json
+data/cities_idf.json
+data/cities_world.json
+data/marine-e1-abb.json
+data/marine-e1-ext.json
+data/marine-e2-abb.json
+data/marine-e2-ext.json
+
+voir :  https://docs.python.org/3/library/pathlib.html
+
+Le type de notre objet path
+￼
+type(path)
+pathlib.PosixPath
+qui n'est pas Path, mais en fait une sous-classe de Path qui fonctionne sous linux - un objet de type PosixPath, qui est une sous-classe de Path, comme on peut  le voir:
+￼
+from pathlib import PosixPath
+issubclass(PosixPath, Path)
+True
+Ce qui fait que mécaniquement, path est bien une instance de Path
+isinstance(path, Path)
+True
+
+= format fichiers  json  /csv / pickle ...  
+
+Voici quelques mots sur des outils python fournis dans la librairie standard, et qui permettent de lire ou écrire des données dans des fichiers.
+Le problème : les données dans un programme python sont stockés en mémoire (la RAM), sous une forme propice aux calculs. Par exemple un petit entier est fréquemment stocké en binaire dans un mot de 64 bits, qui est prêt à être soumis au processeur pour faire une opération arithmétique.
+Ce format ne se prête pas forcément toujours à être transposé tel quel lorsqu'on doit écrire des données sur un support plus pérenne, comme un disque dur, ou encore sur un réseau pour transmission distante - ces deux supports étant à ce point de vue très voisins.
+Ainsi par exemple il pourra être plus commode d'écrire notre entier sur disque, ou de le transmettre à un programme distant, sous une forme décimale qui sera plus lisible, sachant que par ailleurs toutes les machines ne codent pas un entier de la même façon.
+Il convient donc de faire de la traduction dans les deux sens entre représentations d'une part en mémoire, et d'autre part sur disque ou sur réseau (à nouveau, on utilise en général les mêmes formats pour ces deux usages).
+
+-> Le format JSON
+Le format sans aucun doute le plus populaire à l'heure actuelle est le format JSON pour JavaScript Object Notation.
+Sans trop nous attarder nous dirons que JSON est un encodage - en anglais marshalling - qui se prête bien à la plupart des types de base qu'on trouve dans les langages modernes comme python, ruby ou JavaScript.
+La librairie standard python contient le module json que nous illustrons très rapidement ici:
+￼
+import json
+# En partant d'une donnée construite à partir de types de base
+data = [
+    # des types qui ne posent pas de problème
+    [1, 2, 'a', [3.23, 4.32], {'eric': 32, 'jean': 43}],
+    # un tuple
+    (1, 2, 3),
+]
+# sauver ceci dans un fichier
+with open("s1.json","w", encoding='utf-8') as json_output:
+    json.dump(data, json_output)
+    
+# et relire le résultat 
+with open("s1.json", encoding='utf-8') as json_input:
+    data2 = json.load(json_input)
+
+Limitations de json :
+Certains types de base ne sont pas supportés par le format JSON (car ils ne sont pas natifs en JavaScript), c'est le cas notamment de:
+tuple, qui se fait encoder comme une liste;
+complex, set et frozenset, qu'on ne peut pas encoder du tout (sans étendre la librairie).
+C'est ce qui explique ce qui suit:
+￼
+# le premier élément de data est intact, 
+# comme si on avait fait une *deep copy* en fait
+print("première partie de data", data[0] == data2[0])
+première partie de data True
+￼
+# par contre le `tuple` se fait encoder comme une `list`
+print("deuxième partie", "entrée", type(data[1]), "sortie", type(data2[1]))
+deuxième partie entrée <class 'tuple'> sortie <class 'list'>
+Malgré ces petites limitations, ce format est de plus en plus populaire, notamment parce qu'on peut l'utiliser pour communiquer avec des applications web écrites en JavaScript, et aussi parce qu'il est très léger, et supporté par de nombreux langages.
+
+
+
+-> Le format csv
+Le format csv pour Comma Separated Values, originaire du monde des tableurs, peut rendre service à l'occasion, il est proposé dans le module csv.
+
+https://docs.python.org/3/library/csv.html
+
+
+-> Le format pickle
+Le format pickle remplit une fonctionnalité très voisine de JSON, mais est spécifique à python. C'est pourquoi, malgré des limites un peu moins sévères, son usage tend à rester plutôt marginal pour l'échange de données, on lui préfère en général le format JSON.
+Par contre, pour la sauvegarde locale d'objets python (pour, par exemple, faire des points de reprises d'un programme), il est très utile. Il est implémenté dans le module pickle.
+
+https://docs.python.org/3/library/pickle.html
+
 - Enregistrer des objets dans un fichier : module pickle.
+
 
 on va pouvoir enregistrer nos objects dans un fichier pour les récupérer plus tard.
 on va utiliser deux classes du module : Pickler et Unpickler 
@@ -3017,6 +3480,84 @@ Quand on appelle notre variable on voit quelle contient les data en provenance d
 ... 
 >>> get_member
 {'guitar': 'bebert', 'singer': 'bob'}
+
+
+
+-> le format xml :
+XML est un format assez populaire également.
+Cela dit, la puissance, et donc le coût, de XML et JSON ne sont pas du tout comparables, XML étant beaucoup plus flexible mais au prix d'une complexité de mise en œuvre très supérieure.
+Il existe plusieurs souches différentes de librairies prenant en charge le format XML, qui sont introduites ici.
+https://docs.python.org/3/library/xml.html
+
+
+= Fichiers systèmes
+python interagit avec ce qu'il est convenu d'appeler le système d'entrées-sorties standard du système d'exploitation.
+Dans un ordinateur, le système d'exploitation (Windows, Linux, ou MacOS) est un logiciel (kernel) qui a l'exclusivité pour interagir physiquement avec le matériel (CPU, mémoire, disques, périphériques, etc.); il offre aux programmes utilisateur (userspace) des abstractions pour interagir avec ce matériel.
+La notion de fichier correspond à une de ces abstractions; elle repose principalement sur les 4 opérations élémentaires
+open
+close
+read
+write
+Parmi les autres conventions d'interaction entre le système (pour être précis: le shell) et une application, il y a les notions de
+entrée standard (standard input, en abrégé stdin)
+sortie standard (standard output, en abrégé stdout)
+erreur standard (standard error, en abrégé stderr)
+Ceci est principalement pertinent dans le contexte d'un terminal. L'idée c'est qu'on a envie de pouvoir rediriger les entrées-sorties d'un programme sans avoir à le modifier. De la sorte, on peut également chaîner des traitements à l'aide de pipes, sans avoir besoin de sauver les résultats intermédiaires sur disque.
+Ainsi par exemple lorsqu'on écrit
+
+$ monprogramme < fichier_entree > fichier_sortie
+les deux fichiers en question sont ouverts par le shell, et passés à monprogramme - que celui-ci soit écrit en C, en python ou en Java - sous la forme des fichiers stdin et stdout respectivement, et donc déjà ouverts.
+- Le module sys
+L'interpréteur python vous expose ces trois fichiers sous la forme d'attributs du module sys:
+
+import sys
+for channel in (sys.stdin, sys.stdout, sys.stderr):
+    print(channel)
+import sys
+for channel in (sys.stdin, sys.stdout, sys.stderr):
+    print(channel)
+<_io.TextIOWrapper name='<stdin>' mode='r' encoding='UTF-8'>
+<_io.TextIOWrapper name='<stdout>' mode='w' encoding='UTF-8'>
+<_io.TextIOWrapper name='<stderr>' mode='w' encoding='UTF-8'>
+On n'a pas extrêmement souvent besoin d'utiliser ces variables en règle générale, mais elles peuvent s'avérer utiles dans des contextes spécifiques.
+Par exemple, l'instruction print écrit dans sys.stdout (c'est-à-dire la sortie standard). Et comme sys.stdout est une variable (plus exactement stdout est un attribut dans le module référencé par la variable sys) et qu'elle référence un objet fichier, on peut lui faire référencer un autre objet fichier et ainsi rediriger depuis notre programme tous les sorties, qui sinon iraient sur le terminal, vers un fichier de notre choix:
+
+# ici je fais exprès de ne pas utiliser un `with`
+# car très souvent les deux redirections apparaissent
+# dans des fonctions différentes
+import sys
+# on ouvre le fichier destination
+autre_stdout = open('ma_sortie.txt', 'w', encoding='utf-8')
+# on garde un lien vers le fichier sortie standard
+# pour le réinstaller plus tard si besoin. 
+tmp = sys.stdout
+# 
+print('sur le terminal')
+# première redirection
+sys.stdout = autre_stdout
+# 
+print('dans le fichier')
+# on remet comme c'était au début
+sys.stdout = tmp
+# et alors pour être propre on n'oublie pas de fermer 
+autre_stdout.close()
+# 
+print('de nouveau sur le terminal')
+sur le terminal
+de nouveau sur le terminal
+
+# et en effet, dans le fichier on a bien
+with open("ma_sortie.txt", encoding='utf-8') as check:
+    print(check.read())
+dans le fichier
+
+
+
+
+
+
+
+
 
 
 
