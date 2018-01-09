@@ -443,3 +443,58 @@ webws03
   - { role: 'xcode', when: ansible_os_family == 'Darwin' }
 
 
+
+== variables : ===
+
+settings de variables liée a des groupe de serveur :
+
+on va poouvir setter des var liées a des roles de serveurs :
+
+ex: 
+
+[] $ cat app_java_inventory
+[app-java:children]
+ws
+back
+bat
+
+[ws]
+ws01b
+ws02u
+ws03b
+ws04u
+
+[back]
+backoffice01
+
+[bat]
+bat01
+
+
+on def ici des variables dédiées aux groupes 
+
+cat group_vars/back 
+TYPE=BACK
+cat group_vars/bat 
+TYPE=BATCH
+cat group_vars/ws 
+TYPE=WEB
+
+
+- > recupération de variable 
+
+ex on va recupérer une variable systeme qu'on appelle via shell puis on l'enregistre dans une variable ansible qu'on utilise ensuite : 
+
+[] $ cat draft.yml 
+---
+- hosts: all
+  vars:
+    - role: delivery_type  
+  tasks:
+    - name: retrieve role and define it
+      command: /bin/bash -l -c "echo $DELIVERY_TYPE"
+      register:  delivery_type
+
+    - debug: msg="this node has the "{{ delivery_type.stdout }}" role"
+
+
