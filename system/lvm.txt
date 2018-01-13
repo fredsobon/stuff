@@ -137,3 +137,41 @@ If the disk is installed in the server, but still unknown, the LVM meta data may
 NOTE: Make sure you use the correct UUID, as displayed by pvscan. Otherwise, the vgcfgrestore may fail.
 
 
+ex : on a un hdd rajouté dans un lvm cependant souci 
+
+
+[root@xodbrmancat01b ~]# fdisk  -l
+
+Disque /dev/cciss/c0d0: 146.7 Go, 146778685440 octets
+255 heads, 63 sectors/track, 17844 cylinders
+Unités = cylindres de 16065 * 512 = 8225280 octets
+
+   Périphérique Amorce    Début         Fin      Blocs    Id  Système
+/dev/cciss/c0d0p1   *           1          16      128488+  83  Linux
+/dev/cciss/c0d0p2              17       17844   143203410   8e  Linux LVM
+
+Disque /dev/cciss/c0d1: 146.7 Go, 146778685440 octets
+255 heads, 32 sectors/track, 35132 cylinders
+Unités = cylindres de 8160 * 512 = 4177920 octets
+
+Disque /dev/cciss/c0d1 ne contient pas une table de partition valide
+
+de plus on a une erreur sur l'uid :
+[root@xodbrmancat01b ~]# pvs
+  Couldn't find device with uuid 'HjTWAP-FM3I-8waL-kawy-5U6e-KgT6-2QaPj4'.
+  Couldn't find device with uuid 'HjTWAP-FM3I-8waL-kawy-5U6e-KgT6-2QaPj4'.
+  Couldn't find device with uuid 'HjTWAP-FM3I-8waL-kawy-5U6e-KgT6-2QaPj4'.
+  PV                VG   Fmt  Attr PSize   PFree  
+  /dev/cciss/c0d0p2 vg0  lvm2 a-   136,56G      0 
+  unknown device    vg0  lvm2 a-   136,69G 106,69G
+
+on va donc essayer d'integrer le disque dans le lvm 
+on crée un pv en associant l'uid au disque 
+pvcreate --uuid HjTWAP-FM3I-8waL-kawy-5U6e-KgT6-2QaPj4 /dev/cciss/c0d1  
+vgcfgrestore /dev/mapper/vg0-u01
+vgchange -ay /dev/mapper/vg0-u01
+fsck /dev/mapper/vg0-u01
+
+
+
+
