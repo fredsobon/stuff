@@ -1,0 +1,114 @@
+=  UTILISER LES PÉRIPHÉRIQUES DE LOOP  =
+Lors de la réalisation de test nécessitant l’utilisation de périphériques de blocs il est possible, plutôt que de d’effectuer les tests directement avec des disques ou des clés USB, d’utiliser les périphériques de loop.
+
+Les périphériques de loop (loopback file interface) sont des pseudo périphérique permettant d’utiliser un fichier comme un périphérique de blocs.
+
+L’outil de prédilection de gestion des périphériques de loop est « losetup ».
+
+Première étape, création d’un conteneur (fichier servant de base) par la commande « dd » :
+
+fhh@mafalda ~ $ dd if=/dev/zero of=hd-temp.1 bs=1024 count=1024000
+1024000+0 records in
+1024000+0 records out
+1048576000 bytes (1,0 GB) copied, 27,2359 s, 38,5 MB/s
+fhh@mafalda ~ $ ls -hl
+total 1002M
+...
+-rw-r--r--  1 fhh users  1000M 2009-09-21 16:57 hd-temp.1
+...
+… ensuite, on détermine un périphérique de loop disponible (en root) :
+
+mafalda fhh # losetup -a
+/dev/loop/0: [0803]:6177 (/usr/portage.container)
+mafalda fhh # losetup -f
+/dev/loop/1
+« losetup -a » Liste les périphériques utilisés, ici « /dev/loop0 » est utilisée par le fichier « /usr/portage.container ».
+
+« losetup -f » donne le numéro du prochain périphérique utilisable (dans notre exemple, le « 1 »).
+
+… enfin, association du fichier au pseudo device :
+
+mafalda fhh # losetup /dev/loop1 ./hd-temp.1
+mafalda fhh # losetup -s /dev/loop1
+/dev/loop1: [fd00]:2957384 (/home/fhh/hd-temp.1)
+Désormais, le périphérique est accessible comme un périphérique de blocs et bénéficie de toutes les caractéristiques d’un tel matériel. Il est possible de le partitionner ou de créer un système de fichier :
+
+mafalda fhh # fdisk -l /dev/loop1
+ 
+Disk /dev/loop1: 1048 MB, 1048576000 bytes
+255 heads, 63 sectors/track, 127 cylinders
+Units = cylinders of 16065 * 512 = 8225280 bytes
+Disk identifier: 0x00000000
+ 
+Disk /dev/loop1 doesn't contain a valid partition table
+mafalda fhh # mkfs.xfs /dev/loop1 
+meta-data=/dev/loop1             isize=256    agcount=4, agsize=64000 blks
+         =                       sectsz=512   attr=2
+data     =                       bsize=4096   blocks=256000, imaxpct=25
+         =                       sunit=0      swidth=0 blks
+naming   =version 2              bsize=4096   ascii-ci=0
+log      =internal log           bsize=4096   blocks=1200, version=2
+         =                       sectsz=512   sunit=0 blks, lazy-count=0
+realtime =none                   extsz=4096   blocks=0, rtextents=0
+mafalda fhh # cd
+mafalda ~ # mount /dev/loop1 /mnt/key/
+mafalda ~ # df -h
+Filesystem            Size  Used Avail Use% Mounted on
+...
+/dev/loop1            996M  4,2M  992M   1% /mnt/key
+Une fois les test terminé, « losetup -d /dev/loopX » libère le device :
+
+mafalda ~ # losetup -a
+/dev/loop/0: [0803]:6177 (/usr/portage.container)
+/dev/loop/1: [fd00]:2957384 (/home/fhh/hd-temp.1)
+mafalda ~ # losetup -d /dev/loop1
+mafalda ~ # losetup -a
+/dev/loop/0: [0803]:6177 (/usr/portage.container)
+
+
+Le périphérique de loop peut également être utilisé pour garder des informations sensibles dans un conteneur crypté. « cryptoloop » qui fait parti du kernel depuis un moment déjà fournit une interface simple à ce type d’outils.
+
+mafalda ~ # modprobe cryptoloop
+mafalda ~ # losetup -e aes /dev/loop1 ~fhh/hd-temp.1 
+Password: # Un mot de passe ici
+mafalda ~ # mount /dev/loop1 /mnt/key/
+mount: you must specify the filesystem type
+La partition étant maintenant cryptée avec l’algorithme « aes » le système de fichier créé précédemment n’a plus aucun sens.
+
+mafalda ~ # mkfs.xfs /dev/loop1 
+...
+mafalda ~ # mount /dev/loop1 /mnt/key/
+Enfin il est possible d’utiliser fstab pour le montage automatique du conteneur crypté ou non :
+
+fhh@mafalda ~ $ cat /etc/fstab
+...
+/home/fhh/hd-temp.1     /mnt/crypted/fhh  auto    loop,user,encryption=aes  0 0
+fhh@mafalda ~ $ mount /mnt/crypted/fhh
+Password: 
+fhh@mafalda ~ $ df -h
+...
+/dev/loop2            996M  4,2M  992M   1% /mnt/crypted/fhh
+Notons également la possibilité de définir un offset sur la partition cryptée afin d’accroitre la sécurité du device (offset = int * taille de bloc) :
+
+mafalda ~ # echo "30 * 512" | bc -q
+15360
+mafalda ~ # losetup /dev/loop1 ~fhh/hd-temp.1 -o 15360 -e aes
+Password: # mot de passe choisi
+mafalda ~ # mkfs.xfs /dev/loop1 
+meta-data=/dev/loop1             isize=256    agcount=4, agsize=63498 blks
+         =                       sectsz=512   attr=2
+data     =                       bsize=4096   blocks=253991, imaxpct=25
+         =                       sunit=0      swidth=0 blks
+naming   =version 2              bsize=4096   ascii-ci=0
+log      =internal log           bsize=4096   blocks=1200, version=2
+         =                       sectsz=512   sunit=0 blks, lazy-count=0
+realtime =none                   extsz=4096   blocks=0, rtextents=0
+mafalda ~ # mount /dev/loop1 /mnt/crypted/fhh
+mafalda ~ # df -h
+Filesystem            Size  Used Avail Use% Mounted on
+...
+/dev/loop1            988M  4,2M  984M   1% /mnt/crypted/fhh
+… et dans fstab :
+
+/home/fhh/hd-temp.1     /mnt/crypted/fhh  auto    loop,user,encryption=aes,offset=15360  0 0
+
