@@ -175,3 +175,30 @@ fsck /dev/mapper/vg0-u01
 
 
 
+= pvremove - suppression du label posé par pvcreate : = 
+
+"wipe the label from an old storage device to prevent it from being detected as a physical volume"
+
+LVM will continue to recognise the old storage device as a physical volume  unless you take explicit action to wipe the label that was written by pvcreate. This can be done using the pvremove command:
+
+pvremove /dev/sdb
+If successful you should see a response of the form:
+
+Labels on physical volume "/dev/sdb" successfully wiped
+Leaving the label in place is not necessarily harmful, but it can cause confusion in some circumstances. For example, repartitioning a hard drive can result in LVM discovering physical volumes that are the wrong size for the drive layout. Use of pvremove is therefore recommended unless there is a reason not to.
+
+On supprime le label du device qui n'appartient plus au lvm : pvremove --ff (force)  
+~ # pvremove -ff /dev/sda5
+Labels on physical volume "/dev/sda5" successfully wiped
+
+On recrée un physical volume avec son uid ( on utilise la commande blkid pour trouver l'id du disque si on ne l'a pas ) puis on utilise l'archive auto faite par lvm dans l'arbo de la conf lvm /etc/lvm/archive en prenant le fichier le plus récent comme point de restauration 
+~ # pvcreate --uuid=8x38hf-mzd7-xTes-y6IV-xRMr-qrNP-0dNnLi /dev/sda5 --restorefile=/etc/lvm/archive/of1-dev-server_00000.vg
+Couldn't find device with uuid '8x38hf-mzd7-xTes-y6IV-xRMr-qrNP-0dNnLi'.
+  Physical volume "/dev/sda5" successfully created
+
+
+On change mantenant les attributs du vg avec vgchange -a (activate ) y (pour repondre yes a toutes les questions automatiquement ) : 
+
+"To activate all known volume groups in the system:" -> vgchange -a y
+ # vgchange -a y
+2 logical volume(s) in volume group "of1-dev-server" now active"
