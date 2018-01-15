@@ -1,0 +1,95 @@
+== notes sur les hard drive disks ==
+
+= voir les id de nos disks avec blkid :
+
+boogie@apollo:~$ sudo blkid
+/dev/sda1: UUID="5b4c12c4-1570-4a84-8a1a-46064c8cc526" TYPE="ext2" PARTUUID="fab15f8b-01"
+/dev/sda5: UUID="N48ieg-iC8x-tuEI-j8XK-sT0y-BVe7-BRRRVO" TYPE="LVM2_member" PARTUUID="fab15f8b-05"
+/dev/mapper/apollo--vg-root: UUID="430be0ee-fa33-4d47-981f-1b5fbfde89b8" TYPE="ext4"
+/dev/mapper/apollo--vg-var: UUID="bc099822-665d-49a7-870b-cc25590ee393" TYPE="ext4"
+/dev/mapper/apollo--vg-swap_1: UUID="dc7710d2-5c4e-4f3f-bac8-7bd9a074b1c8" TYPE="swap"
+/dev/mapper/apollo--vg-tmp: UUID="744e2da4-d3a6-4bd3-84e3-54e874d6a68f" TYPE="ext4"
+/dev/mapper/apollo--vg-home: UUID="b5887641-aff7-45b9-a65d-373160bdb556" TYPE="ext4"
+
+
+= Recupérer les infos de superblocs dumpe2fs 
+
+pour n'avoir que les infos de superbloc utiliser  avec l'option -h 
+boogie@apollo:~$ sudo dumpe2fs -h /dev/sda1
+sudo: impossible de déterminer le nom de l'hôte apollo
+dumpe2fs 1.43.4 (31-Jan-2017)
+Filesystem volume name:   <none>
+Last mounted on:          /boot
+Filesystem UUID:          5b4c12c4-1570-4a84-8a1a-46064c8cc526
+Filesystem magic number:  0xEF53
+Filesystem revision #:    1 (dynamic)
+Filesystem features:      ext_attr resize_inode dir_index filetype sparse_super large_file
+Filesystem flags:         signed_directory_hash 
+Default mount options:    user_xattr acl
+Filesystem state:         not clean
+Errors behavior:          Continue
+Filesystem OS type:       Linux
+Inode count:              62248
+Block count:              248832
+Reserved block count:     12441
+Free blocks:              203678
+Free inodes:              61911
+First block:              1
+Block size:               1024
+Fragment size:            1024
+Reserved GDT blocks:      256
+Blocks per group:         8192
+Fragments per group:      8192
+Inodes per group:         2008
+Inode blocks per group:   251
+Filesystem created:       Sat Aug 19 11:59:57 2017
+Last mount time:          Fri Jan 12 18:10:14 2018
+Last write time:          Fri Jan 12 18:10:14 2018
+Mount count:              76
+Maximum mount count:      -1
+Last checked:             Sat Aug 19 11:59:57 2017
+Check interval:           0 (<none>)
+Lifetime writes:          160 MB
+Reserved blocks uid:      0 (user root)
+Reserved blocks gid:      0 (group root)
+First inode:              11
+Inode size:	          128
+Default directory hash:   half_md4
+Directory Hash Seed:      8293e7de-1674-43e0-8d77-045019478acb
+
+
+= utilisation d'un autre superbloc que celui utilisé normalement (corrompu ) avec e2fsck 
+on recupere la liste des superblocs avec mke2fs (voir plus bas) 
+e2fsck -b <num de superbloc > /device
+
+ex :
+e2fsck -b 32768 /dev/vg0/data
+
+
+= Recuperation de la liste des superbloc avec 
+Attention ne doit être fait que sur un volume demonté : 
+
+
+root@localhost:~# mke2fs /dev/xvdf
+mke2fs 1.42.9 (4-Feb-2014)
+Filesystem label=
+OS type: Linux
+Block size=4096 (log=2)
+Fragment size=4096 (log=2)
+Stride=0 blocks, Stripe width=0 blocks
+6553600 inodes, 26214400 blocks
+1310720 blocks (5.00%) reserved for the super user
+First data block=0
+Maximum filesystem blocks=4294967296
+800 block groups
+32768 blocks per group, 32768 fragments per group
+8192 inodes per group
+Superblock backups stored on blocks:
+    32768, 98304, 163840, 229376, 294912, 819200, 884736, 1605632, 2654208,
+    4096000, 7962624, 11239424, 20480000, 23887872
+ 
+Allocating group tables: done                            
+Writing inode tables: done                            
+Writing superblocks and filesystem accounting information: done
+
+
