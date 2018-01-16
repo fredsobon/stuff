@@ -1,0 +1,162 @@
+= vault notes =
+on va gérer 
+
+
+
+L'initialisation de vault chez nous va générer 3 clés :
+
+ /tmp  $  ./vault init -address=http://127.0.0.1:8200
+Unseal Key 1: rTm2MhoWVPtLb9jPcnjGh62ynq4+SZShWQqF0YMLXjtC
+Unseal Key 2: VyQglqEkCchV0bnOxPmNCbW0SXwY9f4LL2tonFf+9ivk
+Unseal Key 3: zJjwQ9v3ya90WuIG5sQamNOgV3y1a/rYpkJ+E/dP2Asj
+Unseal Key 4: rDSiX9KScDxV1yjs4HiSrRd5TF+a9a6Pv72+DQ7kufi1
+Unseal Key 5: iFHzk74eqOuswuWFqR2IzSW1YNkTvibcH+/d9qYTvEX8
+Initial Root Token: de6c41ad-be7d-8405-7e2c-2b5daa586dc9
+
+Vault initialized with 5 keys and a key threshold of 3. Please
+securely distribute the above keys. When the vault is re-sealed,
+restarted, or stopped, you must provide at least 3 of these keys
+to unseal it again.
+
+Vault does not store the master key. Without at least 3 keys,
+your vault will remain permanently sealed.
+
+
+verif du status de vault : 
+
+ /tmp  $  ./vault status -address=http://127.0.0.1:8200
+Type: shamir
+Sealed: true
+Key Shares: 5
+Key Threshold: 3
+Unseal Progress: 0
+Unseal Nonce: 
+Version: 0.9.0
+
+High-Availability Enabled: true
+	Mode: sealed
+
+
+
+on va forcer un export pour facilier 
+
+
+export VAULT_ADDR=http://127.0.0.1:8200
+
+
+Quand on va deceller : on le fait que pour un cluster : le cluster vault est composé par un serveur consul egalement : 
+
+on va deceller maintenant quand c'est locker :
+
+ /tmp  $   ./vault unseal 
+Key (will be hidden): 
+Sealed: true
+Key Shares: 5
+Key Threshold: 3
+Unseal Progress: 1
+Unseal Nonce: 9f53f8b4-ff9e-0f3e-4110-c552016f1ea2
+
+ /tmp  $  ./vault unseal 
+Key (will be hidden): 
+Sealed: true
+Key Shares: 5
+Key Threshold: 3
+Unseal Progress: 2
+Unseal Nonce: 9f53f8b4-ff9e-0f3e-4110-c552016f1ea2
+ /tmp  $  ./vault unseal 
+
+Key (will be hidden): 
+Sealed: false
+Key Shares: 5
+Key Threshold: 3
+Unseal Progress: 0
+Unseal Nonce: 
+
+On verifie que le status est bien délocker : 
+ /tmp  $  ./vault status -address=http://127.0.0.1:8200
+Type: shamir
+Sealed: false
+Key Shares: 5
+Key Threshold: 3
+Unseal Progress: 0
+Unseal Nonce: 
+Version: 0.9.0
+Cluster Name: vault-cluster-f1f40934
+Cluster ID: 55d2c9db-66bc-78c0-367c-3188adf935e7
+
+High-Availability Enabled: false
+
+On va maintenant receller notre appli :
+pour cela on utilise le token root definie à l'init (sinon on a l'erreur suivante :) 
+
+ /tmp  $  ./vault seal 
+Error sealing: Error making API request.
+
+URL: PUT http://127.0.0.1:8200/v1/sys/seal
+Code: 500. Errors:
+
+* 1 error occurred:
+
+* missing client token
+ /tmp  $  export VAULT_TOKEN=de6c41ad-be7d-8405-7e2c-2b5daa586dc9
+ /tmp  $  ./vault seal 
+Vault is now sealed.
+
+
+On verifie le status :
+ /tmp  $  ./vault status
+Type: shamir
+Sealed: true
+Key Shares: 5
+Key Threshold: 3
+Unseal Progress: 0
+Unseal Nonce: 
+Version: 0.9.0
+
+High-Availability Enabled: true
+	Mode: sealed
+
+Ajout d'un path specifique : il faut que vault soit unsealed avant . 
+
+ /tmp  $  cat <<EOF >myroute-acl.json
+> path "myroute/*" {
+>   policy = "write"
+> }
+> EOF
+
+
+ /tmp  $  ./vault policy-write myroute myroute-acl.json
+Policy 'myroute' written.
+ /tmp  $  ./vault mount -path=myroute generic
+Successfully mounted 'generic' at 'myroute'!
+
+ /tmp  $  ./vault mounts
+Path        Type       Accessor            Plugin  Default TTL  Max TTL  Force No Cache  Replication Behavior  Description
+cubbyhole/  cubbyhole  cubbyhole_c39a304c  n/a     n/a          n/a      false           local                 per-token private secret storage
+identity/   identity   identity_297d1c0e   n/a     n/a          n/a      false           replicated            identity store
+myroute/    generic    generic_c1b8c784    n/a     system       system   false           replicated            
+secret/     kv         kv_6f216211         n/a     system       system   false           replicated            key/value secret storage
+sys/        system     system_243c7fac     n/a     n/a          n/a      false           replicated            system endpoints used for control, policy and debugging
+
+on peut updater les data : 
+-> on peut le faire en cli :
+Attention on presupose que en cli le token root est chargé dans l'env 
+ /tmp  $  ./vault write myroute/test1 value=hello value2=lapin
+Success! Data written to: myroute/test1
+On peut verifier notre data :
+
+ /tmp  $   ./vault read myroute/test1
+Key             	Value
+---             	-----
+refresh_interval	768h0m0s
+value           	hello
+value2          	lapin
+-> on peut le faire via l'api : 
+curl -v -H "X-Vault-Token: ${VAULT_TOKEN}" -H "Content-Type: application/json" -X POST -d '{"value":"bar"}' http://127.0.0.1:8200/v1/myroute/test2
+
+
+En cas de plantage de serveur on aura donc a unseal les clés .
+
+
+on a en archi 
+un HA qui va loadbalancer vers 2 vms chacune va porter le service vault 
