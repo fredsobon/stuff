@@ -1,0 +1,67 @@
+== notes depuis video gitlab udemy ==
+
+
+= setup =
+
+Community edition -> version cible : free
+machine de test vm / vagrant / docker(?) -> todo
+
+une fois les pre requi systeme rempli sur notre vm et l'install de notre gitlab, on va lancer une commande de reconfiguration : des utilitaires en cli sont dispos pour manager gitlab
+- reconfigure : 
+sudo gitlab-ctl reconfigure
+-status : 
+on peut voir le status de notre gitlab : 
+sudo gitlab-ctl status 
+
+Maintenant on ouvre un browser et on saisi l'ip de notre gitlab 
+on arrive sur une page "change password" : ce qu'on fait. : le user est root 
+on arrive donc ensuite sur le dashboard gitlab
+
+
+= dns et https setting = 
+
+-> dns : on peut binder sur un domain acheter ou autre bien sur 
+
+une fois loggé sur notre gitlab on va pouvoir creer un projet 
+> clic sur projet nouveau projet : on saisi le nom de notre projet
+Dans la page du projet on peut voir l'url du repo git de notre projet
+
+pour modifier la conf de notre serveur gitlab : exemple modifier l'url on va editer le fichier de conf :
+/etc/gitlab/gitlab.rb 
+ex : modifier la ligne :
+external_ur 'http://notre_url'
+a chaque modif de notre conf on va recharger la conf avec :
+gitlab-ctl reconfigure
+
+on  peut voir si on a modifier dans notre conf la section external_url : la modification de l'url en rafraichissant la page de notre projet
+
+= ssl sur gitlab =
+on va maintenant gérer le https sur notre server (certif ssl acheté, let's encrypt utilisé ,un autosigné ..) une fois notre certif ok , on va modifier notre fichier de conf gitlab :
+
+gitlab embarque nginx en serveur http 
+
+on va modifier quelques conf dans le fichier /etc/gitlab/gitlab.rb 
+
+on active la redir http /https :
+nginx['redirect_http_to_https'] = true 
+
+on va faire pointer la conf sur le certif ssl qu'on aura posé ( exemple arbo classique /etc/ssl ..) 
+nginx['ssl_certificate'] = "/etc/ssl/server.crt"
+nginx['ssl_certificate_key'] = "/etc/ssl/server.key"
+on reload notre conf 
+gitlab-ctl reconfigure
+
+NB : si on a un firewall ne pas oublier de modifier la conf pour https / port 443
+
+= email options = 
+
+
+
+
+
+
+
+
+
+
+
