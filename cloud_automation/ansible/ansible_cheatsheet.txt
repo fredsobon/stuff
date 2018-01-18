@@ -1,8 +1,6 @@
 === ansible cheatsheet : ===
 
 
-
-
 = test ping =
 ansible hosttoping -i inventory file -m module 
 ansible ubuntu-ansible -i hosts -m ping
@@ -86,9 +84,10 @@ Aug 20 17:23:13 ubuntu-xenial systemd[1]: Starting A high performance web server
 Aug 20 17:23:13 ubuntu-xenial systemd[1]: Started A high performance web server and a reverse proxy server.
 
 
-- Multiples commandes :
 
-on doit utiliser le module shell :
+= module shell = 
+
+pour passer des  commandes multiples  on doit utiliser le module shell :
 
 ansible lapin -i  prod_hosts -m shell -a "rpm -qa |grep magick " -b
 lapin | SUCCESS | rc=0 >>
@@ -96,12 +95,9 @@ php5-magickwand-8.x86_64
 
 
 
+= module setup = 
 
-
-
-
-
-- setup : va nous permettre de récuperer les infos du/des  server(s)
+- setup : va nous permettre de récuperer les infos du/des  server(s) : ce sont des facts 
 ansible ubuntu -i hosts -m setup |head
 ubuntu | SUCCESS => {
     "ansible_facts": {
@@ -113,6 +109,9 @@ ubuntu | SUCCESS => {
         ],
         "ansible_architecture": "x86_64",
         "ansible_bios_date": "12/01/2006",
+
+
+= module apt / yum  (providers) =
 
 - apt / yum : va nous permettre de gerer via les providers de packages des install a des versions precises de packages :
 
@@ -175,6 +174,9 @@ ubuntu | SUCCESS => {
 
 ansible est indempotent
 
+
+= module service = 
+
 - gerer le demarrage d'un service : 
 ansible ubuntu -i hosts -m service -a "name=nginx state=started" -b
 ubuntu | SUCCESS => {
@@ -203,11 +205,9 @@ ansible-doc bigip_device_dns
 
 
 
-
-
 == environment : ==
 
-on va pouvoir definir pour notre palybook / role des path /variable d'environment à invoquer pour permettre l'excution par exemple d'un binaire dans une arbo particulière.
+on va pouvoir definir pour notre playbook / role des path /variable d'environment à invoquer pour permettre l'excution par exemple d'un binaire dans une arbo particulière.
 
 le keyword "environment"  nous permet de definir ce type d'appel dans notre playbook :
 
@@ -270,14 +270,12 @@ centos                     : ok=5    changed=2    unreachable=0    failed=0
 
 
 
-
 ==   gestion d'action sur serveur en fonction de groupe ==
 
 on va pouvoir en fonction des nodes presents dans notre inventaire effectuer des actions ciblées :
 
 
 ex : afficher un message si le serveur est dans le groupe ubuntu 
-
 
 root@ansible:~# cat inventory 
 [target:children]
@@ -307,8 +305,6 @@ root@ansible:~# cat draft.yml
 
     - debug: msg="OKEY"
       when: "'ubuntu' not in group_names"   <<<<< on crée ici notre condition qui va donc s'executer pour les nodes pas dans le groupe ubuntu ( donc les serveurs du groupe centos : target1 target2 )
-
-
 
 
 - name: behaviour on some special nodes
@@ -352,11 +348,9 @@ target2                    : ok=3    changed=1    unreachable=0    failed=0
 target3                    : ok=3    changed=1    unreachable=0    failed=0   
 
 
-
 ====  conditionals / roles exemples : ===
 
 exemple de gestion de playbooks et actions d'un role sur conditions :
-
 
 ex: ici on veut executer un playbook chargeant un role en fonction de la presence ou non d'un node dans un groupe de l'inventaire :
 
@@ -437,12 +431,8 @@ webws02
 webws03
 
 
-
-
 -- notes sur gestion actions via conditions : 
   - { role: 'xcode', when: ansible_os_family == 'Darwin' }
-
-
 
 == variables : ===
 
@@ -472,9 +462,16 @@ bat01
 
 
 on def ici des variables dédiées aux groupes 
+group_vars : on va definir dans un repertoire group_vars des variables liées aux différents serveurs inclus dans les groupes de l'inventaire
+
+Des variables communes à tous nos serveurs seront à mettre dans un fichier all du repertoire group_vars , on pourra overrider ces vars dans le group nécéssaire si besoin 
+
+cat group_vars/all
+ntp="ntp.lapin.com"
 
 cat group_vars/back 
 TYPE=BACK
+ntp="ntp2.lapin.net"
 cat group_vars/bat 
 TYPE=BATCH
 cat group_vars/ws 
@@ -540,3 +537,40 @@ ici on peut vérifier que ça a foiré, on se contente d'un message d'erreur mai
 - name: war_path Extract
   command: chdir={{ home }}/{{ target }}-tomcat/webapps/{{ foobar }} {{ java_home }}/bin/jar xf /temp/{{ war_path.stdout | basename }}
   when: war_path
+
+
+=== run / tests / debug ===
+
+on peut limiter nos run en fonction de certain param passés en arguments popur faciliter le debug et le temps de traitement :
+
+- limit :
+on peut cibler le run sur un ou des server en passant l'argument "--limit"
+ex : tester le playbook deploy-app uniquement sur le serveur backoffice01 :
+ansible-playbook deploy-app.yml --limit backoffice01
+les wildcard ou regexp peuvent être utilisées : 
+ansible-playbook deploy-app.yml --limit back*
+
+
+- tags :
+on va pouvoir dans le cas de playbook long comprenant des taches , roles cibler nos tests sur des blocs flaggués par un tag :
+
+ex :
+on va setter ici dans l'appel d'un role de check de service un tag [services_check] qui pourra donc être appelé unitairement : 
+- { role: check_services , tags: [services_check] }
+
+ansible-playbook deploy-app.yml --tags "services_check"
+
+comme pour beaucoup d'élements dans ansible , on peut définir les tags dans différents endroits ( tasks, roles ..) 
+ex : 
+- hosts: batch
+  tasks:
+    - name: "check batch running status"
+      # use stat module in order to watch a lock file presence : meaning that batch is running 
+      stat:
+        path: /usr/libexec/batchs/data/batch.lock
+      register: lock
+      tags: [tests]
+ansible-playbook deploy-app.yml --tags "tests"
+
+
+
