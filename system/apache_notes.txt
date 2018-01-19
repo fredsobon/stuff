@@ -1,7 +1,9 @@
 === notes apache ===
 
-- modules :
+= modules : =
 
+
+- gestion : 
 on va pouvoir lister nos modules avec la commande :
 
 apachectl -t -D DUMP_MODULES
@@ -14,3 +16,162 @@ apachectl -t -D DUMP_MODULES |grep -i proxy
 Syntax OK
  proxy_module (shared)
 
+
+== reverse proxy  : =
+
+https://httpd.apache.org/docs/2.2/fr/mod/mod_proxy.html
+https://httpd.apache.org/docs/2.4/fr/mod/mod_proxy.html
+
+exemples : 
+
+- on veut rediriger toutes les requettes entrantes sur le serveur web domain.tld vers 123.456.7.89 
+<VirtualHost *:80>
+ ServerName domain.tld
+ ServerAlias www.domain.tld
+ ProxyRequests Off <<<< coupe la fonction proxy simple : securise quand on est en mode reeverse proxy 
+ ProxyPass / http://123.456.7.89/   <<<< definie la redirection : on renvoie tout ce qui arrive sur domain.tld/ vers http://123.456.7.89/
+ ProxyPassReverse / http://123.456.7.89/   <<<< definie des regles d'ecriture de la redirection pour les headers http : on securise les transactions http en ajustant les urls dans les headers
+</VirtualHost>
+
+- on va définir un reverse proxy pour une url précise : on peut donc dans ce cas insérer notre conf dans un bloc de balise <location> ( voir plus bas ou site apache pour explication )
+dans ce cas il est important de setter le ProxyRequests off en dehors de la <location> 
+<VirtualHost *:80>
+    ServerAdmin admin@bla.net
+    ProxyRequests off
+    DocumentRoot /var/www
+    SSLProxyEngine on
+    ProxyPreserveHost On
+    ServerName www.bla.net
+    ErrorLog ${APACHE_LOG_DIR}/error.log
+    CustomLog ${APACHE_LOG_DIR}/access.log combined
+    # Possible values include: debug, info, notice, warn, error, crit,
+    # alert, emerg.
+    LogLevel error
+    <Location />
+        ProxyPass http://backend.bla.net/
+        ProxyPassReverse http://backend.bla.net/
+        Order allow,deny
+        Allow from all
+    </Location>
+</VirtualHost>
+
+autre exemple : 
+  ## Proxy rules
+  ProxyRequests Off
+  ProxyPass / http://www.bla.net/
+  <Location />
+    ProxyPassReverse http://bla.net/
+  </Location>
+
+-> Directive ProxyRequests :
+Description:	Active la fonctionnalité (standard) de mandataire direct
+Syntaxe:	ProxyRequests On|Off
+Défaut:	ProxyRequests Off
+Contexte:	configuration du serveur, serveur virtuel
+Statut:	Extension
+Module:	mod_proxy
+Cette directive permet d'activer/désactiver la fonctionnalité de serveur mandataire direct d'Apache. Définir ProxyRequests à Off n'interdit pas l'utilisation de la directive ProxyPass.
+Pour une configuration typique de mandataire inverse ou passerelle, cette directive doit être définie à Off.
+Afin d'activer la fonctionnalité de mandataire pour des sites HTTP et/ou FTP, les modules mod_proxy_http et/ou mod_proxy_ftp doivent aussi être chargés dans le serveur.
+mod_proxy_connect doit être activé pour pouvoir mandater (en direct) des sites HTTPS.
+Avertissement
+N'activez pas la fonctionnalité de mandataire avec la directive ProxyRequests avant d'avoir sécurisé votre serveur. Les serveurs mandataires ouverts sont dangereux non seulement pour votre réseau, mais aussi pour l'Internet au sens large.
+
+-> Directive ProxyPass
+Description:	Référencer des serveurs distants depuis l'espace d'URLs du serveur local
+Syntaxe:	ProxyPass [chemin] !|url [clé=valeur [clé=valeur ...]] [nocanon] [interpolate]
+Contexte:	configuration du serveur, serveur virtuel, répertoire
+Statut:	Extension
+Module:	mod_proxy
+Cette directive permet référencer des serveurs distants depuis l'espace d'URLs du serveur local ; le serveur local n'agit pas en tant que mandataire au sens conventionnel, mais plutôt comme miroir du serveur distant. Le serveur local est souvent nommé mandataire inverse ou passerelle. L'argument chemin est le nom d'un chemin virtuel local ; url est une URL partielle pour le serveur distant et ne doit pas contenir de chaîne d'arguments.
+En général, la directive ProxyRequests doit être définie à off lorsqu'on utilise la directive ProxyPass.
+Supposons que le serveur local a pour adresse http://example.com/ ; alors la ligne
+
+ProxyPass /miroir/foo/ http://backend.example.com/
+va convertir en interne toute requête pour http://example.com/miroir/foo/bar en une requête mandatée pour http://backend.example.com/bar.
+
+Si le premier argument se termine par un slash /, il doit en être de même pour le second argument et vice versa. Dans le cas contraire, il risque de manquer des slashes nécessaires dans la requête résultante vers le serveur d'arrière-plan et les résulats ne seront pas ceux attendus.
+Lorsque cette directive est utilisée dans une section <Location>, le premier argument est omis et le répertoire local est obtenu à partir de l'argument de la directive <Location>. Il en est de même à l'intérieur d'une section <LocationMatch>, mais le résultat ne sera probablement pas celui attendu car ProxyPassReverse va interpréter l'expression rationnelle littéralement comme un chemin ; si besoin est dans ce cas, définissez la directive ProxyPassReverse en dehors de la section, ou dans une section <Location> séparée.
+La directive ProxyPass ne peut pas être placée dans une section <Directory> ou <Files>.
+Si vous avez besoin d'un configuration de mandataire inverse plus souple, reportez-vous à la documentaion de la directive RewriteRule et son drapeau [P].
+Le drapeau ! permet de soustraire un sous-répertoire du mandat inverse, comme dans l'exemple suivant :
+
+ProxyPass /miroir/foo/i !
+ProxyPass /miroir/foo http://backend.example.com
+va mandater toutes les requêtes pour /miroir/foo vers backend.example.com, sauf les requêtes pour /miroir/foo/i.
+
+-> Directive ProxyPassReverse
+Description:	Ajuste l'URL dans les en-têtes de la réponse HTTP envoyée par un serveur mandaté en inverse
+Syntaxe:	ProxyPassReverse [chemin] url [interpolate]
+Contexte:	configuration du serveur, serveur virtuel, répertoire
+Statut:	Extension
+Module:	mod_proxy
+Cette directive permet de faire en sorte qu'Apache ajuste l'URL dans les en-têtes Location, Content-Location et URI des réponses de redirection HTTP. Ceci est essentiel lorsqu'Apache est utilisé en tant que mandataire inverse (ou passerelle), afin d'éviter de court-circuiter le mandataire inverse suite aux redirections HTTP sur le serveur d'arrière-plan qui restent derrière le mandataire inverse.
+Seuls les en-têtes de réponse HTTP spécialement mentionnés ci-dessus seront réécrits. Apache ne réécrira ni les autres en-têtes de réponse, ni les références d'URLs dans les pages HTML. Cela signifie que dans le cas où un contenu mandaté contient des références à des URLs absolues, elles court-circuiteront le mandataire. Le module mod_proxy_html de Nick Kew est un module tiers qui parcourt le code HTML et réécrit les références d'URL.
+chemin est le nom d'un chemin virtuel local. url est une URL partielle pour le serveur distant. Ces paramètres s'utilisent de la même façon qu'avec la directive ProxyPass.
+
+Supposons par exemple que le serveur local a pour adresse http://example.com/ ; alors
+
+ProxyPass /miroir/foo/ http://backend.example.com/
+ProxyPassReverse /miroir/foo/ http://backend.example.com/
+ProxyPassReverseCookieDomain backend.example.com public.example.com
+ProxyPassReverseCookiePath / /miroir/foo/
+ne va pas seulement provoquer la conversion interne d'une requête locale pour http://example.com/miroir/foo/bar en une requête mandatée pour http://backend.example.com/bar (la fonctionnalité fournie par ProxyPass). Il va aussi s'occuper des redirections que le serveur backend.example.com envoie lorsqu'il redirige http://backend.example.com/bar vers http://backend.example.com/quux. Apache corrige ceci en http://example.com/miroir/foo/quux avant de faire suivre la redirection HTTP au client. Notez que le nom d'hôte utilisé pour construire l'URL est choisi en respectant la définition de la directive UseCanonicalName.
+
+Notez que la directive ProxyPassReverse peut aussi être utilisée en conjonction avec la fonctionnalité de mandataire (RewriteRule ... [P]) du module mod_rewrite, car elle ne dépend pas d'une directive ProxyPass correspondante.
+
+Le mot-clé optionnel interpolate (disponible depuis httpd 2.2.9), utilisé en combinaison avec la directive ProxyPassInterpolateEnv, permet l'interpolation des variables d'environnement spécifiées en utilisant le format ${VARNAME} Notez que l'interpolation n'est pas supportée dans la partie protocole d'une URL.
+
+Lorsque cette directive est utilisée dans une section <Location>, le premier argument est omis et le répertoire local est obtenu à partir de l'argument de la directive <Location>. Il en est de même à l'intérieur d'une section <LocationMatch>, mais le résultat ne correspondra probablement pas à ce que vous attendez, car ProxyPassReverse interprète l'expression rationnelle littéralement comme un chemin ; si nécessaire dans cette situation, spécifiez la directive ProxyPassReverse en dehors de la section, ou dans une section <Location> séparée.
+Cette directive ne peut pas être placée dans une section <Directory> ou <Files>.
+
+= location : =
+
+Directive <Location>
+
+Description:	N'applique les directives contenues qu'aux URLs spécifiées
+Syntaxe:	<Location chemin URL|URL> ... </Location>
+Contexte:	configuration du serveur, serveur virtuel
+Statut:	Core
+Module:	core
+La directive <Location> limite la portée des directives contenues aux URLs définies par l'argument URL. Elle est similaire à la directive <Directory>, et marque le début d'une section qui se termine par une directive </Location>. Les sections <Location> sont traitées selon l'ordre dans lequel elles apparaissent dans le fichier de configuration, mais après les sections <Directory> et la lecture des fichiers .htaccess, et après les sections <Files>.
+
+Les sections <Location> agissent complètement en dehors du système de fichiers. Ceci a de nombreuses conséquences. Parmi les plus importantes, on ne doit pas utiliser les sections <Location> pour contrôler l'accès aux répertoires du système de fichiers. Comme plusieurs URLs peuvent correspondre au même répertoire du système de fichiers, un tel contrôle d'accès pourrait être contourné.
+
+Les directives que contient cette section seront appliquées aux requêtes si la partie chemin de l'URL satisfait à l'un au moins de ces critères :
+
+Le chemin spécifié correspond exactement à la partie chemin de l'URL.
+Le chemin spécifié, qui se termine par un slash, est un préfixe de la partie chemin de l'URL (traité comme une racine du contexte).
+Le chemin spécifié, si on lui ajoute un slash de fin, est un préfixe de la partie chemin de l'URL (aussi traité comme une racine du contexte).
+Dans l'exemple ci-dessous, où aucun slash de fin n'est utilisé, les directives contenues dans la section s'appliqueront à /private1, /private1/ et /private1/file.txt, mais pas à /private1other.
+
+<Location /private1> ...
+De même, dans l'exemple ci-dessous, où l'on utilise un slash de fin, les directives contenues dans la section s'appliqueront à /private2/ et à /private2/file.txt, mais pas à /private2other.
+
+<Location /private2/> ...
+Quand utiliser la section <Location>
+
+Vous pouvez utiliser une section <Location> pour appliquer des directives à des contenus situés en dehors du système de fichiers. Pour les contenus situés à l'intérieur du système de fichiers, utilisez plutôt les sections <Directory> et <Files>. <Location /> constitue une exception à cette règle et permet d'appliquer aisément une configuration à l'ensemble du serveur.
+Pour toutes les requêtes originales (non mandatées), l'argument URL est un chemin d'URL de la forme /chemin/. Aucun protocole, nom d'hôte, port, ou chaîne de requête ne doivent apparaître. Pour les requêtes mandatées, l'URL spécifiée doit être de la forme protocole://nom_serveur/chemin, et vous devez inclure le préfixe.
+
+L'URL peut contenir des caractères génériques. Dans une chaîne avec caractères génériques, ? correspond à un caractère quelconque, et * à toute chaîne de caractères. Les caractères génériques ne peuvent pas remplacer un / dans le chemin URL.
+
+On peut également utiliser les Expressions rationnelles, moyennant l'addition d'un caractère ~. Par exemple :
+
+<Location ~ "/(extra|special)/data">
+concernerait les URLs contenant les sous-chaîne /extra/data ou /special/data. La directive <LocationMatch> présente un comportement identique à la version avec expressions rationnelles de la directive <Location>.
+
+La directive <Location> s'utilise principalement avec la directive SetHandler. Par exemple, pour activer les requêtes d'état, mais ne les autoriser que depuis des navigateurs appartenant au domaine example.com, vous pouvez utiliser :
+
+<Location /status>
+SetHandler server-status
+Order Deny,Allow
+Deny from all
+Allow from .example.com
+</Location>
+Note à propos du slash (/)
+
+La signification du caractère slash dépend de l'endroit où il se trouve dans l'URL. Les utilisateurs peuvent être habitués à son comportement dans le système de fichiers où plusieurs slashes successifs sont souvent réduits à un slash unique (en d'autres termes, /home///foo est identique à /home/foo). Dans l'espace de nommage des URLs, ce n'est cependant pas toujours le cas. Pour la directive <LocationMatch> et la version avec expressions rationnelles de la directive <Location>, vous devez spécifier explicitement les slashes multiples si telle est votre intention.
+Par exemple, <LocationMatch ^/abc> va correspondre à l'URL /abc mais pas à l'URL //abc. La directive <Location> sans expression rationnelle se comporte de la même manière lorsqu'elle est utilisée pour des requêtes mandatées. En revanche, lorsque la directive <Location> sans expression rationnelle est utilisée pour des requêtes non mandatées, elle fera correspondre implicitement les slashes multiples à des slashes uniques. Par exemple, si vous spécifiez <Location /abc/def>, une requête de la forme /abc//def correspondra.
+Voir aussi
+Comment fonctionnent les sections <Directory>, <Location> et <Files> pour une explication de la manière dont ces différentes sections se combinent entre elles à la réception d'une requête.
