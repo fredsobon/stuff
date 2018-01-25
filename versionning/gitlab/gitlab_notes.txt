@@ -521,16 +521,82 @@ gitlab-ctl restart
 
 === Gitlab CI / CD ===
 
-gitlab continious integration et deployment 
+== gitlab continious integration et deployment  concepts ==
 
 ->  CI :
-on va integrer les changements de notre conf en equipe tres frequemment , des tests auto seront fait pour assurer la cohérence du code 
+on va integrer les changements de notre conf / notre developpemnt  en equipe tres frequemment , des tests auto seront fait pour assurer la cohérence du code 
 on va donc avoir besoin d'outils pour automatiser les builds
 
-on peut lancer des tests en cli (outil grit) 
+on peut lancer des tests en cli via des scripts .. 
+on utilise une repo de code git : gitlab 
 on va utiliser gitlab-ci pour construire automatiquement nos builds : gitlab-ci est integré à gitlab 
 
 
 -> CD :
+on dis aussi par moment continious delivery : permet de s'assurer qu'on deploy du code propre et fonctionnel sur tout nos environmments  
 
-continious deployment 
+on va avoir des pipelines qui vont builder automatiquement notre code 
+on a shematiquement :
+
+continious build -> code repo -> provisionning d'infra de build -> test auto -> reports on builds results ->  de -provisionning de l'infra de build
+si notre build est ok :
+integration continue : test auto -> provisionning d'infra de test ->builds ->  reeports on builds results ->  de -provisionning de l'infra de test
+continious delivery -> test ok -> provisionning d'une infra de prod en staging -> test aceeptance -> ok pour déployement en prod .
+
+pour permettre de gérer nos builds on va installer gitlab-runner ( ecrits en go ) : il peut tourner sur toutes  les plateformes et peut tester plein de language 
+
+
+== gitlab runner setup ==
+
+on va monter une vm , puis on install docker sur notre vm . On ajoute ensuite le repo sur notre host puis on installe l'appli :
+gitlab-ci-multi-runner 
+
+on verifie ensuite que le process tourne en background 
+service gitlab-ci-multi-runner status 
+
+on va ensuite dans notre gitlab configurer un projet specifique pour tourner sur notre gitlab-runner :
+
+on va dans notre projet -> settings -> ci/cd pipelines 
+on va ensuite choisir un specific runner :
+
+on va enregistrer notre runner :
+on lance : 
+gitlab-ci-multi-runner register 
+: on saisi notre serveur gitlab
+on saisi le token présenté dans l'interface gitlab 
+on va ensuite definir des "tags" pour notre runner : ex python2.7 
+on choisi enfin un executeur : ex ici docker qui va lancer nos builds
+on défini ensuite une image docker pour builder notre projet ex python2.7
+quand on a fini la conf sur notre runner on refresh la page de gitlab et on voit apparaitre notre gitlab runner de dispo 
+
+== starting with gitlab ci ==
+
+si on veut utiliser gitlab en ci : on doit faire 2 choses :
+
+ajouter un fichier .gitlab-ci.yaml a la racine de notre repo 
+ajouter un runner pour ce projet. ( on reprend le runner defini par exemple dans notre exemple précédent)
+
+dans le fichier .gitlab-ci.yaml on va définir plusieurs sections : 
+ex : 
+variables:
+  GIT_SSL_NO_VERIFY: "1"
+
+stages:
+  - test
+
+pep8:
+  stages: test
+  image: python2.7
+  script:
+    - pip install tox
+    - tox -e pep8
+
+
+
+
+
+
+
+
+
+
