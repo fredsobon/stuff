@@ -444,4 +444,93 @@ BUG.md et feature.md avec du contenu
 on pousse notre modif et ensuite quand on cree une issue on peut selectionner le template que l'on vient de créer pour la description de notre issue 
  
 
+=== gitlab administration ===
 
+== gitlab upgrade ==
+
+la communauté sort une versin tous les mois environ idem pour les bugfix 
+la mise a jour de l'appli est simple : 
+
+apt-get install gitlab-ce  / yum install gitlab-ce 
+si une nouvelle version de l'appli est dispo : une mise a jour est proposée.
+
+pendant la phase d'update un backup est fait automatiquement.
+
+== gitlab backup ==
+
+des directives concernant les backups sont présentes dans le fichier de conf principal :
+
+/etc/gitlab/gitlab.rb 
+on va pouvoir définir notre datapath , le serveur sur lequel on va uploader nos backups etc ....
+
+
+Attention la conf suivante est issue du fichier gitmlab.yml présent sur une debian 9 : le fichier gitlab.rb n'existant pas dans /etc/gitlab. c'est juste à titre informatif et descriptif : 
+
+
+exemple : ici 
+  ## Backup settings
+  backup:
+    path: "tmp/backups"   # Relative paths are relative to Rails.root (default: tmp/backups/)
+    # archive_permissions: 0640 # Permissions for the resulting backup.tar file (default: 0600)
+    # keep_time: 604800   # default: 0 (forever) (in seconds)
+    # pg_schema: public     # default: nil, it means that all schemas will be backed up
+    # upload:
+    #   # Fog storage connection settings, see http://fog.io/storage/ .
+    #   connection:
+    #     provider: AWS
+    #     region: eu-west-1
+    #     aws_access_key_id: AKIAKIAKI
+    #     aws_secret_access_key: 'secret123'
+    #   # The remote 'directory' to store your backups. For S3, this would be the bucket name.
+    #   remote_directory: 'my.s3.bucket'
+    #   # Use multipart uploads when file size reaches 100MB, see
+    #   #  http://docs.aws.amazon.com/AmazonS3/latest/dev/uploadobjusingmpu.html
+    #   multipart_chunk_size: 104857600
+
+-> generation de backup :
+
+attention dispo que sur certains os pour certaines versions ( pas presents en debian 9 : gitlab version 8.13.11 )
+
+l'execution du binaire suivant va gérer l'integralité du déroulement du bck en s'appuyant sur la conf definie au préalable.
+gitlab-rake gitlab:backup:create
+
+on va pouvoir caller le backup en crontab.
+
+/!\ Attention on ne peut reinjecter le backup que sur la même version de gitlab-server.
+
+
+-> restauration :
+
+on va reinjecter notre backup : 
+tout d'abord checker la version de l'appli.
+
+on arrete ensuite deux process et on check que tout est correctement stoppé : 
+
+gitlab-ctl stop unicorn
+gitlab-ctl stop sidekiq
+gitlab-ctl status 
+on lance notre commande de restore : 
+gitlab-rake gitlab:backup:restore NOTRE_BACKUP_FILE 
+
+
+on relance ensuite notre appli :
+gitlab-ctl restart 
+
+
+
+
+=== Gitlab CI / CD ===
+
+gitlab continious integration et deployment 
+
+->  CI :
+on va integrer les changements de notre conf en equipe tres frequemment , des tests auto seront fait pour assurer la cohérence du code 
+on va donc avoir besoin d'outils pour automatiser les builds
+
+on peut lancer des tests en cli (outil grit) 
+on va utiliser gitlab-ci pour construire automatiquement nos builds : gitlab-ci est integré à gitlab 
+
+
+-> CD :
+
+continious deployment 
