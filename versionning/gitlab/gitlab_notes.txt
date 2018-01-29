@@ -640,9 +640,50 @@ on va générer une erreur volontaire dans notre code pour voir le comportement 
 on pousse sur le master ..on voit donc a l'arrivée de notre commit le declenchement d'un build : qui va failed : on recoit par la meme une mail de notif avec le détail de notre build en echec.
 
 
+== auto-deployments : ==
+
+on va ici utiliser notre gitlab ci pour faire du continous deployment
+on va dans notre projet et on clic sur l'onglet ci/cd pipeline 
+
+on peut avoir des plans de ci qui utilise docker en executeur (comme pour des tests de syntaxe python qu'on a vu précedemmment )
+on peut combiner et avoir un autre runner qui utilise le shell en executeur ( et auquel on peut associer un tag shell egalement)
+
+on peut rajouter dans notre conf de projet (gitlab-ci.yaml) 2 stages sous le test précedemment set :
+
+ex :
+stages:
+  - test
+  - build
+  - deploy
+
+on rajoute des blocs de codes pour chaque stages , chacun va utiliser le shell pour le deployment de notre webservice 
+
+ex : 
+
+build:
+  stage : build
+  tags :
+    - shell
+  
+  script:
+    - docker build -t skeleton     <<<<< on utilise ici docker pour builder notre ressource de code .
+
+  only: 
+    - master
+
+deploy:
+  stage : deploy
+  tags:
+    - shell
+  script :
+    - scripts/deploy.sh
+    - export 
+  only: 
+    - master
 
 
 
+on va donc avoir un docker file de setté pour notre stage build et un script pour le deployment.
 
 
 
