@@ -48,3 +48,41 @@ http://lapin.com/a/123/documents/bla
 
 Apres : 
 http://lapin.com/new/documents/bla
+
+
+
+
+
+= datagrouplist =
+
+on va pouvoir utiliser un data group list  pour faciliter la lecture d'irule 
+
+ex : 
+on creer un fichier allowed_ip dans le quel on met des ip ou adresse reseau 
+192.168.22.5
+10.2.5.5/27
+
+et on va pouvoir rediriger nos requettes dans les irules et les faire pointer sur un pool dédié par ex :
+
+when CLIENT_ACCEPTED {
+
+ # Comparing a customer source IP to a list of entries in a LTM data-group.
+ if { [class match [IP::remote_addr] equals allowed_ip ] } {
+   pool my_pool1
+ } else {
+   pool my_pool2
+ }
+
+}
+
+
+et même etablir des filtres plus complexes :
+
+when HTTP_REQUEST {
+## 
+  if {[HTTP::host] equals "blabla.net"  and [ class match [IP::client_addr] equals allowed_qview ] } {
+    pool www
+  } 
+
+ici on filtre les requettes qui vont concerner le nom blabla.net et on va les rediriger vers le server www si l'ip du client est contenue dans le datagroupe list allowed_qview
+
