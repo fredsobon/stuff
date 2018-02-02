@@ -75,6 +75,22 @@ Redirection des headers : on va pouvoir forwarder les headers de la requette ori
         ProxyPassReverse /url http://bla.net/
 
 
+Attention si on veut conserver le chemin complet de l'uri sur notre destination il faudra le preciser dans notre conf :
+
+ex : 
+
+si on veut par exemple rediriger notre url vers un autre serveur examctement dans le même path : 
+        ## Proxy rules in order to handle Letsencrypt cert validation process : 
+        ProxyPreserveHost On
+        ProxyRequests Off
+        ProxyPass /.well-known/acme-challenge/ http://lapin.net/.well-known/acme-challenge/
+        ProxyPassReverse /.well-known/acme-challenge/ http://lapin.net/.well-known/acme-challenge/
+
+on a un comportement différent, nous n'arrivons pas au même endroit et dans nos logs on  voit une différence : 
+ "GET /balabla.txt HTTP/1.1" 404 22846 "-" "curl/7.38.0" http www.lapin.net 1.606
+je devrais voir :
+"GET /.well-known/acme-challenge/blabla.txt  HTTP/1.1" 404 22846 "-" "curl/7.38.0" http www.lapin.net 1.606
+
 
 -> Directive ProxyRequests :
 Description:	Active la fonctionnalité (standard) de mandataire direct
