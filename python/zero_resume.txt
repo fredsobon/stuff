@@ -4437,3 +4437,115 @@ comment vous vous organisez, mais le but est aussi de chercher ! Encore une fois
 un exercice pratique, ne sautez pas à la correction tout de suite, cela ne vous apprendra
 pas grand chose.
 Bonne chance !
+
+
+=================================================================================
+
+correction trouvée sur le net :  https://github.com/John361/jeu_du_pendu.git :
+
+## -- Ce fichier contient les variables de base nécessaires à l'application -- ##
+
+liste_mots = ["abri", "accable", "accord", "accroc",
+    "avion", "aveugle", "canard", "candide",
+    "ciment", "chouchou", "cheval", "chaud",
+    "banlieue", "banque", "balai", "bague"
+]
+
+coups_total = 8
+liste_mots_joueur = list() #Contiendra les mots entrés par le joueur au cours d'une partie
+## -- Ce fichier contient toutes les fonctions nécessaires à l'application -- ##
+from random import choice as random_choice
+import pickle
+
+
+## -- Fonctions relatives aux mots -- ##
+def choisir_mot_hasard(ma_liste):
+    """ Cette fonction permet de choisir un mot au hasard dans une liste et la retourne """
+    mot_choisi = str(random_choice(ma_liste))
+    return mot_choisi
+
+def coder_mot(mot):
+    """ Cette fonction, pour la taille d'un mot, retourne son mot codé """
+    mot_code = str()
+    for lettre in mot:
+        mot_code += "*"
+    return mot_code
+
+def decoder_mot(mot, lettres_trouvees):
+    """ Cette fonction décode un mot en fonction des lettres trouvées si elles font parti du mot """
+    nouveau_mot_code = str()
+    for une_lettre in mot:
+        if une_lettre in lettres_trouvees:
+            nouveau_mot_code += une_lettre
+        else:
+            nouveau_mot_code += "*"
+    return nouveau_mot_code
+
+
+## -- Fonctions relatives au joueur -- ##
+def demander_nom_joueur():
+    """ Cette fonction demande un nom au joueur et le retourne seulement si il est correct """
+    nom_correct = False
+    while(nom_correct == False):
+        nom_joueur = input("Veuillez entrer votre nom de joueur : ")
+        nom_joueur = str(nom_joueur)
+        nom_joueur = nom_joueur.capitalize()
+
+        if(nom_joueur.isalpha() and len(nom_joueur) >= 3):
+            nom_correct = True
+        else:
+            print("Vous ne pouvez choisir que des lettres avec une longueur de trois mots minimum pour le nom de votre joueur.")
+
+    return nom_joueur
+
+def enregistrer_joueur(joueur_score):
+    """ Cette fonction enregistre un joueur dans le fichier scores """
+    with open("scores", "wb") as mon_fichier_score:
+        mon_pickler = pickle.Pickler(mon_fichier_score)
+        mon_pickler.dump(joueur_score)
+# -*-coding:utf-8 -*
+from donnees import *
+from fonctions import *
+
+
+## -- On demande un nom de joueur et on choisi un mot au hasard et on le code -- ##
+nom_joueur = demander_nom_joueur()
+mot_a_trouve = choisir_mot_hasard(liste_mots)
+mot_code = coder_mot(mot_a_trouve)
+
+
+## -- On commence la partie -- ##
+partie_terminee = False
+while partie_terminee == False:
+    print("Le mot à trouver est : {0} et il vous reste {1} coup(s) à jouer".format(mot_code, coups_total))
+
+    ## -- On demande au joueur une lettre -- ##
+    try:
+        lettre_choix_joueur = str(input("Faites votre choix de lettre : ")).lower()
+        if len(lettre_choix_joueur) != 1:
+            print("Entrez une lettre et seulement une")
+            continue
+    except:
+        print("Veuillez entrez une lettre")
+        continue
+
+    ## -- On cherche la lettre dans le mot -- ##
+    liste_mots_joueur.append(lettre_choix_joueur)
+    mot_code = decoder_mot(mot_a_trouve, liste_mots_joueur)
+
+    coups_total -= 1
+    if coups_total == 0 or mot_code == mot_a_trouve:
+        partie_terminee = True
+
+
+## -- Lorsque la partie est terminée -- ##
+if partie_terminee == True:
+    if mot_code == mot_a_trouve:
+        print("Félicitations, vous avez trouvé le mot, votre score est de {0}".format(coups_total))
+    else:
+        print("Dommage, vous n'avez pas trouvé que le mot était : {0}, votre score est de : {1}.".format(mot_a_trouve, coups_total))
+
+    ## -- On enregistre le joueur -- ##
+    dico_joueur = {nom_joueur: coups_total}
+    enregistrer_joueur(dico_joueur)
+====================================================================================  
