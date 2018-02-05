@@ -539,6 +539,33 @@ ici on peut vérifier que ça a foiré, on se contente d'un message d'erreur mai
   when: war_path
 
 
+On peut définir des variables par default qui ne seront utilisées que si elles sont définie 
+
+ex on defini dans un group_vars web et cache la var :
+check_status: "True"
+
+on est pas obliger de definir la variable dans d'autre groupe a "False" pour pouvoir utiliser le play :
+
+  - { role: check_node, when: "(( check_status|d()|bool ))", tags: [maintenance_check] } 
+on recupere la variable check_status quand elle existe sinon, elle est definie à vide avec d() et on passe le tout a un resultat qui doit être booleen |bool : le role s'execute quand c'est vrai et sinon ne fait rien car la variable par defaut definie a vide retourne un False
+
+
+
+
+- hosts: all-xpayhdws
+  roles:
+    - { role: mvs_check_node_enabled, when: "(( check_mvs_status|d()|bool ))", tags: [maintenance_check_mvs] }
+
+
+
+- hosts: all-xpayhdws
+  roles:
+    - { role: mvs_check_node_enabled, when: "(( check_mvs_status|d()|bool ))", tags: [maintenance_check_mvs] }
+
+
+
+
+
 === run / tests / debug ===
 
 on peut limiter nos run en fonction de certain param passés en arguments popur faciliter le debug et le temps de traitement :
@@ -592,3 +619,15 @@ on pourra ensuite ren
 
 ->  lancement du playbook 
 ansible-playbook deploy-xpayhdws.yml --ask-vault-pass PASSWORD_TO_PROVIDE
+
+
+
+== facts : ==
+
+on peut bypasser les facts qui consomme pas mal de cpu e tde temps avant les run :
+
+> on peut setter la conf dans le playbook 
+> en cli directement en passant l'option en argument : "-e gather_facts=no"
+>  ansible-playbook deploy.yml --ask-vault-pass -e gather_facts=no --tags "maintenance_check"
+
+
