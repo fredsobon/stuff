@@ -80,9 +80,22 @@ et même etablir des filtres plus complexes :
 
 when HTTP_REQUEST {
 ## 
-  if {[HTTP::host] equals "blabla.net"  and [ class match [IP::client_addr] equals allowed_qview ] } {
+  if {[HTTP::host] equals "blabla.net"  and [ class match [IP::client_addr] equals allowed_ips ] } {
     pool www
   } 
 
-ici on filtre les requettes qui vont concerner le nom blabla.net et on va les rediriger vers le server www si l'ip du client est contenue dans le datagroupe list allowed_qview
+ici on filtre les requettes qui vont concerner le nom blabla.net et on va les rediriger vers le server www si l'ip du client est contenue dans le datagroupe list allowed_ips
+
+
+on va pouvoir filtrer sur différents noms de hosts et autoriser l'acces en fonction des ip clients référencées dans le datagroupliste puis  mettre un log pour observer le traffic , si l'ip client vaut 10.10.2.10/27 (->255.255.255.224)  au envoie sur un autre pool 
+
+when HTTP_REQUEST {
+
+if { ([HTTP::host] equals "blabla.net" or [HTTP::host] equals "bloublou.net") and  [ class match [IP::client_addr] equals allowed_ips ]  } {
+   #log local0. "irule prod_ips  here 1"
+    pool server_1
+  } 
+    elseif {[IP::addr [IP::client_addr] equals "10.10.2.10 mask 255.255.255.224" ] } {
+    pool server_2
+
 
