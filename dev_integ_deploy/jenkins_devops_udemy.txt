@@ -1,0 +1,217 @@
+=== notes sur cours jenkins ci / cd  devops udemy : ===
+
+== introduction : ==
+jenkins est un outil de ci (continous integration) et cd (continious delivery) ecrit en java.
+C'est un serveur d'automatisation pour le build et deployment d'appli.
+une des grandesforces de jenkins est le nombre des plugins dispo.
+Dans la pratique on va vetifier et publier le code en declenchant des builds et des tests.
+Classiquement on va pousser notre code dans notre outil de versioning de code (git ..), ce code sera ensuite buildé et tester par jenkins.
+NB :jenkins ne merge pas le code et ne resoud pas les conflits : cela reste a la charge du dev.
+L'avantage est de pouvoir fixer imédiatement les erreurs apres les erreurs de builds : le code est encore frais dans la tête.
+Il est possible de publier chaque commit par un build .
+
+on va donc pouvoir améliorer le SDLC : software developement life cycle. (le fait de produire du code sur les envs dev/test/qa/prod ..par ex)
+
+dev ->  build                   ->  tests                 ->   releases -> deploy / provision ->  customer
+        features                    unit tests                 package                        
+        master branches             integration tests
+        compile                     regression tests 
+                                    user acceptance tests (uat) 
+                                    ...
+
+== installation : ==
+on va utiliser une vm vagrant dans laquelle on va installer docker 
+
+vagrant 
+ $ vagrant init 
+ $ vagrant up
+ $ vagrant ssh
+puis en root sur notre vm :
+
+apt-get update && apt-get upgrade -y
+apt-get install docker.io 
+systemctl enable docker
+systemctl start docker
+ps fauxw |grep docker
+root@ubuntu-xenial:~# usermod -aG docker ubuntu
+
+
+# run jenkins :
+
+on recupere un docker contenant jenkins : https://hub.docker.com/_/jenkins/ :on a ici le repo officiel du docker jenkins : 
+docker pull jenkins  
+puis on applique les settings suivants :
+mkdir -p /var/jenkins_home
+chown -R 1000:1000 /var/jenkins_home
+
+
+docker run -p 8080:8080 -p 50000:50000 -v /var/jenkins_home:/var/jenkins_home -d --name jenkins jenkins
+on lance donc ici le container jenkins downloader (docker run jenkins en s'assurant que le port 8080 est bien exposé, et on mappe le volume /var/jenkins_home de notre container sur le repertoire qu'on a créer précédemment. ) 
+ 
+
+NB : dans notre cas comme on est sur une vm vagrant on va rediriger le port jenkins pour cela on ajoute dans notre ficher Vagrantfile à la racine de notre projet :
+ config.vm.network "forwarded_port", guest: 8080, host: 8181
+
+pour pouvoir attaquer  depuis notre navigateur notre jenkins via :
+http://localhost:8181
+
+
+on doit pouvoir acceder à jenkins via notre navigateur : normalement sur une install "normale" :
+curl -I http://ip:8080
+
+on arrive sur une page qui nous demande de saisir le mdp setté dans la conf jenkins :
+
+root@ubuntu-xenial:~# cat /var/jenkins_home/secrets/initialAdminPassword 
+blabllasdqsdqdqsdq
+
+
+on saisit le mdp puis on choisis select installed plugins.
+
+on cree un nouveau user pour l'administration de jenkins :
+
+admin
+admin
+
+puis on valide : la premiere page de jenkins apparait.
+
+
+== build et deployment d'une premiere application : ==
+
+pour l'exemple une appli node.js va être utilisée :
+javascript runtime, cross platform et executée coté server 
+la force est la reactivité car ce langage implemente des events asynchrones : ex peut retourner immédiatement le resultat d'une requette a un client et en asynchrone update la db : ce qui prend plus de temps.
+pour notre exemple celasera parfait car le projet est tres simple à comprendre, prend peu de ressources et ne requiert pas de temps de compilation comme pour java.
+cet exemple pourra servir de bonne base pour un gros projet.
+
+- Comment build une appli node.js :
+
+-> installer les dependances :downloade et installer tous les compoasants npm install
+-> tester tous les cas npm tests : ex si un test echoue : le build failed et les devs sont notifiés.
+
+une fois que c'est ok il va falloir packager pour déployer 
+
+-> package :
+
+on va pouvoir utiliser docker : creer un container qui contiendra tous nos binaires, codes etc ...
+on peut preferer cette methode plutot que faire un tgz de toute notre appli et ses dependances .
+On s'assure dans ce cas que le comportement est identique quelque soit l'environement sur lequel on travail (dev/prod ...)
+
+-> distribution :
+on va pouvoir ensuite mettre a dispo sur un repo (registry, hub docket public ..etc) notre container.
+
+
+- tuto :
+
+le code de l'appli est dispo sur le repos :
+https://github.com/wardviaene/docker-demo
+
+1 / via la gui :
+on va pour commencer configurer notre appli via la gui.
+
+pour notre projet il va falloir installer des dépendances node js : il faut donc installer un plugin :
+
+depuis la home 
+administrer jenkins
+gestions des plugins 
+> plugins  disponibles : 
+on cherche notre plugin :￼	
+NodeJS Plugin
+on installe sans  redemarrer puis dans la seconde page on clic sur redémarrer ( pas clair ..)
+
+on retourne sur la home :
+
+
+Avant de configurer notre job on va definir le path de nodejs pour que les binaires soient correctement utilisés par jenkins 
+home 
+> administration jenkins > gestion global des  outils ->  dans la section NodeJs on clic et on donne le nom nodejs :qui servira d'alias pour notre env dans le setting de notre job : on clic sur save .
+
+creer a new job 
+-> nodejs_exemple_app
+freestyle project : ok
+
+dans la nouvelle page :
+
+dans la section gestion du code on selectionne git 
+puis on rentre l'url du code du projet : 
+https://github.com/wardviaene/docker-demo.git
+
+on va ensuite selectionner nodejs dans la  section environnement de notre build :
+on voit automatiquement que le path est rempli par l'alias qu'on a defini plus tôt dans la conf des outils 
+
+on va ensuite ajouter une action a notre build 
+dans la section build on va ajouter un script shell : dans notre cas 
+npm install 
+
+qui se chargera d'installer les dependances que l'on a dans le source de notre appli nodejs .
+la commande est bien installée et le path bien dispo maintenant pour jenkins.
+
+maintenant on peut sauver notre conf, puis lancer le build via le bouton built now / lancer le build . on peut voir la sortie de console : console output de notre build
+
+on a donc si notre build se passe bien notre app de prete :
+
+on peut aller sur le serveur jenkins et voir que notre appli est bien créee : on a recupérer les sources sur le repo, puis lancer l'install des dependances via notre commande npm install :
+
+root@ubuntu-xenial:/var/jenkins_home/workspace/nodejs_exemple_app# ls
+docker-compose.yml  index-db.js  misc          package.json       test
+Dockerfile          index.js     node_modules  package-lock.json
+
+
+t@ubuntu-xenial:/var/jenkins_home/workspace/nodejs_exemple_app# cat  Dockerfile FROM node:4.6
+WORKDIR /app
+ADD . /app
+RUN npm install
+EXPOSE 3000
+CMD npm start
+root@ubuntu-xenial:/var/jenkins_home/workspace/nodejs_exemple_app# cat package.json 
+{
+  "name": "myapp",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "start": "node index.js",
+    "test": "mocha"
+  },
+  "engines": {
+    "node": "^4.6.1"
+  },
+  "dependencies": {
+    "express": "^4.14.0",
+    "mysql": "^2.10.2"
+  },
+  "devDependencies": {
+    "mocha": "^3.4.2"
+  }
+}
+
+root@ubuntu-xenial:/var/jenkins_home/workspace/nodejs_exemple_app# ls node_modules/accepts               graceful-readlink       ms
+array-flatten         growl                   mysql
+balanced-match        has-flag                negotiator
+bignumber.js          he                      once
+body-parser           http-errors             on-finished
+brace-expansion       iconv-lite              parseurl
+browser-stdout        inflight                path-is-absolute
+bytes                 inherits                path-to-regexp
+commander             ipaddr.js               process-nextick-args
+concat-map            isarray                 proxy-addr
+content-disposition   json3                   qs
+content-type          lodash._baseassign      range-parser
+cookie                lodash._basecopy        raw-body
+cookie-signature      lodash._basecreate      readable-stream
+core-util-is          lodash.create           safe-buffer
+debug                 lodash._getnative       send
+depd                  lodash.isarguments      serve-static
+destroy               lodash.isarray          setprototypeof
+diff                  lodash._isiterateecall  sqlstring
+ee-first              lodash.keys             statuses
+encodeurl             media-typer             string_decoder
+escape-html           merge-descriptors       supports-color
+escape-string-regexp  methods                 type-is
+etag                  mime                    unpipe
+express               mime-db                 util-deprecate
+finalhandler          mime-types              utils-merge
+forwarded             minimatch               vary
+fresh                 minimist                wrappy
+fs.realpath           mkdirp
+glob                  mocha
+
+
