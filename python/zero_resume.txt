@@ -1152,11 +1152,85 @@ Traceback (most recent call last):
   File "<stdin>", line 1, in <module>
 TypeError: test() missing 1 required positional argument: 'c'
 
-on peut définir une valeur par défaut si un arg n'est pas fourni (voir exemple aprs avec docstring :
+quand on créee une fonction on associe l'objet fonction a une variable. on peut copier la variable 
+dans une autre variable et utiliser la fonction via cette nouvelle variable.
+>>> def a(a,b):
+...     print(a +b)   
+... 
+>>> a(2,3)
+5
+>>> a
+<function a at 0x7f2a6c41c840>
+>>> b = a
+>>> b(2,3)
+5
+
+Les appels aux arguments des fonctions sont toujours par références.Il n'y a pas de copie sauf si la demande de copie est explicite.
+ex:  ici on cree une liste vide puis une fonction qui ajoute le mot youki dans une liste . quand on passe notre liste en argument de la fonction : celle ci est modifiée sans qu'on ait réaffecter quoi que ce soit
+>>> a = []
+>>> def f(l):
+...     l.append("youki")
+... 
+>>> f(a)
+>>> a
+['youki']
+
+Si on veut travailler sur une copie de la liste il faudra la preciser : ex on passe une shallow copie de la liste en argument de notre fonction :
+>>> f(a[:])
+>>> a
+['youki']
+..par contre on a pas le retour de la shallow copie : qui est perdue.
+
+Il faut donc si on veut travailler sur une copie specifier la copie dans notre fonction :
+
+>>> def f(l):
+...     l = l[:] <<< on fait une copie de notre liste originale 
+...     l.append("youki")
+...     return l
+... 
+>>> a   <<<< l'appel anotre liste originale n'est pas changé
+['youki']
+>>> f(a)  <<<< on a bien par contre le résultat du travail sur notre copie qui est effectué correctement 
+['youki', 'youki']
+si on veut réinjecter le retour dans notre liste originale on a plus qu'a lui affecter la fonction : 
+>>> a = f(a)
+>>> a
+['youki', 'youki']
+
+
+Les fonctions utilisent le polymorphysme : on peut utiliser implicitement différents types d'arguments dans notre fonction et les opérations incluent dans celle ci se feront correctement si elles sont biensur
+utilisable par les types en arguments : 
+>>> def f(a,b,c):
+...     print("ok here is the sum of {}, {} and {}".format(a,b,c))
+...     return a + b + c 
+... 
+>>> f(2,4,5)
+ok here is the sum of 2, 4 and 5
+11
+>>> f(1.2,2.55,5.77)
+ok here is the sum of 1.2, 2.55 and 5.77
+9.52
+>>> f("bob", " est" , " trop cool")
+ok here is the sum of bob,  est and  trop cool
+'bob est trop cool'
+
+
+
+on peut définir une valeur par défaut si un arg n'est pas fourni (voir exemple aprs avec docstring :)
 
 = docstring = 
 
 on ajoute une petite explication de texte à notre fonction que l'on encadre par des triple " , qui pourra être consulter via l'appel à la fonction help(nom_de_fonction) : c'est une très bonne habitude il faut documenter nos fonctions . 
+Pour rappel, il est recommandé de toujours documenter les fonctions en ajoutant une chaîne comme première instruction.
+
+L'usage est d'utiliser une chaîne simple (délimitée par « " » ou « ' ») lorsque le docstring tient sur une seule ligne, comme ci-dessus.
+Lorsque ce n'est pas le cas - et pour du vrai code, c'est rarement le cas - on utilise des chaînes multi-lignes (délimitées par « """ » ou « ''' »). Dans ce cas le format est très flexible, car le docstring est normalisé.
+http://legacy.python.org/dev/peps/pep-0257/
+
+
+
+
+
 
 
 #!/usr/bin/env python3
