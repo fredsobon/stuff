@@ -75,7 +75,7 @@ admin
 puis on valide : la premiere page de jenkins apparait.
 
 
-== build et deployment d'une premiere application : ==
+== build et deployment d'une premiere application via la gui :  ==
 
 pour l'exemple une appli node.js va être utilisée :
 javascript runtime, cross platform et executée coté server 
@@ -183,35 +183,287 @@ root@ubuntu-xenial:/var/jenkins_home/workspace/nodejs_exemple_app# cat package.j
   }
 }
 
-root@ubuntu-xenial:/var/jenkins_home/workspace/nodejs_exemple_app# ls node_modules/accepts               graceful-readlink       ms
-array-flatten         growl                   mysql
-balanced-match        has-flag                negotiator
-bignumber.js          he                      once
-body-parser           http-errors             on-finished
-brace-expansion       iconv-lite              parseurl
-browser-stdout        inflight                path-is-absolute
-bytes                 inherits                path-to-regexp
-commander             ipaddr.js               process-nextick-args
-concat-map            isarray                 proxy-addr
-content-disposition   json3                   qs
-content-type          lodash._baseassign      range-parser
-cookie                lodash._basecopy        raw-body
-cookie-signature      lodash._basecreate      readable-stream
-core-util-is          lodash.create           safe-buffer
-debug                 lodash._getnative       send
-depd                  lodash.isarguments      serve-static
-destroy               lodash.isarray          setprototypeof
-diff                  lodash._isiterateecall  sqlstring
-ee-first              lodash.keys             statuses
-encodeurl             media-typer             string_decoder
-escape-html           merge-descriptors       supports-color
-escape-string-regexp  methods                 type-is
-etag                  mime                    unpipe
-express               mime-db                 util-deprecate
-finalhandler          mime-types              utils-merge
-forwarded             minimatch               vary
-fresh                 minimist                wrappy
-fs.realpath           mkdirp
-glob                  mocha
+Une fois que notre build est pret nous allons pouvoir packager notre appli et enfin la distribuer.
+
+le packaging utilisé pour notre exemple est docker : on va donc builder une image docker avec notre app et uploader cette img sur la registry docker pour la rendre accessible en la publiant.
+
+Nous allons devoir du fait de notre installation de jenkins (elle même dockerisée ) faire des petites bidouilles pour permettre a jenkins (docker) de builder notre app (docker) : une installation jenkins classique ne demande pas ces bidouilles mais ici il va falloir rendre dispo le socket de communication docker  accessible pour jenkins docker et le build de l'image docker .
+
+on va devoir rajouter un plugin à jenkins pour gérer docker 
+
+on relance notre container s'il est eteint 
+
+docker jenkins start 
+
+administration jenkins -> manage plugins -> on recherche docker -> puis on selectionne et on installe le plugin "cloudbees docker build and publish plugin"
+
+on va maintenant nous assurer que docker run sur notre system et puisse permettre a jenkins d'acceder au socket de l'api docker pour builder
+
+on va tout d'abord recupérer une image docker avec la conf necessaire :
+
+root@ubuntu-xenial:~# git clone https://github.com/wardviaene/jenkins-docker 
+Cloning into 'jenkins-docker'...
+remote: Counting objects: 12, done.
+remote: Total 12 (delta 0), reused 0 (delta 0), pack-reused 12
+Unpacking objects: 100% (12/12), done.
+Checking connectivity... done.
+root@ubuntu-xenial:~# ls
+jenkins-docker
+root@ubuntu-xenial:~# cd jenkins-docker/
+root@ubuntu-xenial:~/jenkins-docker# ls
+Dockerfile  README.md
+
+on voit ici ce qui est préparé : 
+
+root@ubuntu-xenial:~/jenkins-docker# cat Dockerfile 
+FROM jenkins
+USER root
+
+RUN mkdir -p /tmp/download && \
+ curl -L https://get.docker.com/builds/Linux/x86_64/docker-1.13.1.tgz | tar -xz -C /tmp/download && \
+ rm -rf /tmp/download/docker/dockerd && \
+ mv /tmp/download/docker/docker* /usr/local/bin/ && \
+ rm -rf /tmp/download && \
+ groupadd -g 999 docker && \
+ usermod -aG staff,docker jenkins
+
+user jenkins
+
+/!\ Attention : dans notre cas une vm vagrant qui heberge le docker jenkins : il va falloir modifier le dockerfile et s'assurer que le bon id de groupe sera donné pour que jenkins ait correctement acces au commande docker.
+l'id 999 present dans le dockerfile de base est deja pri par vboxnet . on va donc sette l'id 116 qui correspond au groupe docker sur notre systeme :
+groupadd -g 116 docker
+
+
+On va maintenant builder notre image docker :
+
+root@ubuntu-xenial:~/jenkins-docker# docker build -t jenkins-docker .
+Sending build context to Docker daemon 62.46 kB
+Step 1/4 : FROM jenkins
+ ---> 5fc84ab0b7ad
+Step 2/4 : USER root
+ ---> Running in fddc0087d5db
+ ---> b45ecb5eb46f
+Removing intermediate container fddc0087d5db
+Step 3/4 : RUN mkdir -p /tmp/download &&  curl -L https://get.docker.com/builds/Linux/x86_64/docker-1.13.1.tgz | tar -xz -C /tmp/download &&  rm -rf /tmp/download/docker/dockerd &&  mv /tmp/download/docker/docker* /usr/local/bin/ &&  rm -rf /tmp/download &&  groupadd -g 999 docker &&  usermod -aG staff,docker jenkins
+ ---> Running in b02aea74477f
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100 26.5M  100 26.5M    0     0  1207k      0  0:00:22  0:00:22 --:--:-- 1212k
+ ---> fdc7e0c6e919
+Removing intermediate container b02aea74477f
+Step 4/4 : USER jenkins
+ ---> Running in 66f9ac6034d4
+ ---> d5dee0036c74
+Removing intermediate container 66f9ac6034d4
+Successfully built d5dee0036c74
+
+on a donc maintenant une nouvelle image docker sur notre systeme qui embarque ce qu'on avait avec jenkins de base mais qui embarque en plus le docker client.
+on va pouvoir supprimer l'ancien docker : 
+root@ubuntu-xenial:~/jenkins-docker# docker stop jenkins 
+jenkins
+root@ubuntu-xenial:~/jenkins-docker# docker rm jenkins 
+jenkins
+
+le contenu de notre appli est toujours dispo :
+
+root@ubuntu-xenial:~/jenkins-docker# ls /var/jenkins_home/
+config.xml                                          jenkins.install.UpgradeWizard.state                        queue.xml.bak
+copy_reference_file.log                             jenkins.mvn.GlobalMavenConfig.xml                          secret.key
+hudson.model.UpdateCenter.xml                       jenkins.plugins.nodejs.tools.NodeJSInstallation.xml        secret.key.not-so-secret
+hudson.plugins.emailext.ExtendedEmailPublisher.xml  jobs                                                       secrets
+hudson.plugins.git.GitTool.xml                      logs                                                       tools
+hudson.plugins.gradle.Gradle.xml                    nodeMonitors.xml                                           updates
+hudson.tasks.Ant.xml                                nodes                                                      userContent
+hudson.tasks.Maven.xml                              org.jenkinsci.plugins.docker.commons.tools.DockerTool.xml  users
+identity.key.enc                                    org.jenkinsci.plugins.gitclient.JGitApacheTool.xml         war
+init.groovy.d                                       org.jenkinsci.plugins.gitclient.JGitTool.xml               workflow-libs
+jenkins.CLI.xml                                     plugins                                                    workspace
+jenkins.install.InstallUtil.lastExecVersion         queue.xml
+
+on va maintenant lancer notre nouveau container en ajoutant un nouveau volume permettant la communication entre notre docker client et le docker de notre vm via le socket dédié :
+
+docker run -p 8080:8080 -p 50000:50000 -v /var/jenkins_home:/var/jenkins_home -v /var/run/docker.sock:/var/run/docker.sock -d --name jenkins jenkins-docker
+93ff834fc5369d6e9f2db67789335d7aae1d031c726ed863ac9892ba633c8647
+on voit donc que notre image docker jenkins-docker tourne sous le nom jenkins avec les ports dediés et on voit que le socket /var/run/docker.sock est bien present avec les bons droits settés dans le build : group docker present pour permettrer l'acces au socket pour le client :
+t@ubuntu-xenial:~/jenkins-docker# docker ps -a
+CONTAINER ID        IMAGE               COMMAND                  CREATED              STATUS              PORTS                                              NAMES
+93ff834fc536        jenkins-docker      "/bin/tini -- /usr..."   About a minute ago   Up About a minute   0.0.0.0:8080->8080/tcp, 0.0.0.0:50000->50000/tcp   jenkins
+root@ubuntu-xenial:~/jenkins-docker# ls /var/run/docker.sock -l
+srw-rw---- 1 root docker 0 Feb 11 03:51 /var/run/docker.sock
+
+on va tester qu'on a bien acces depuis notre container : on lance le container avec bash en argument pour rentrer dedans et on voit que le socket est bien dispo :
+root@ubuntu-xenial:~/jenkins-docker# docker exec -it jenkins bash 
+jenkins@3988916d20e6:/$ ls -l /var/run/docker.sock 
+srw-rw---- 1 root docker 0 Feb 11 03:51 /var/run/docker.sock
+
+on peut donc avoir acces au commande docker depuis notre container et on peut donc builder nos images docker depuis un docker :)
+jenkins@3988916d20e6:/$ docker ps -a
+CONTAINER ID        IMAGE               COMMAND                  CREATED             STATUS              PORTS                                              NAMES
+3988916d20e6        jenkins-docker      "/bin/tini -- /usr..."   34 seconds ago      Up 33 seconds       0.0.0.0:8080->8080/tcp, 0.0.0.0:50000->50000/tcp   jenkins
+
+
+on va donc maintenant configurer notre build pour qu'il prenne en compte docker pour le packaging de notre image , et la publication .
+
+on ajoute une etape a notre build apres npm install on ajoute :
+
+"docker build and publish"
+
+on ajoute le nom de notre projet : il faut le creer au prealable sur le hub docker 
+docker-nodejs-dummy
+
+on ajoute nos credentials : compte et mdp dans la section registry credentials on sauvegarde
+puis on selectionne notre user nouvellement creer dans la liste 
+
+on peut examiner les param avances mais on laisse par defaut :
+il peut etre tres important de voir qu'on peut installer docker via ce biai ( nous l'avons fait au prealable sur notre server pour les gestions de partage de socket etc ...)
+
+on sauvegarde et on lance notre build :
+
+on a donc tout le deroulement de notre build au deployment sur la registry :
+
+on voit tout le build se passer notre docker est builder avec l'appli puis pousser sur le hub docker : et on voit le resultat de notre push en direct sur le hub docker
+
+latest  256 MB  4 minutes ago
+
+on va pouvoir  tester depuis n'importe quel pc 
+ex :
+
+sudo docker pull fredsobon/docker-nodejs-dummy
+on lance le docker en exposant le port 3000 pour notre appli :
+
+
+sudo docker run -p 3000:3000 --name nodejs-demo fredsobon/docker-nodejs-dummy
+npm info it worked if it ends with ok
+npm info using npm@2.15.11
+npm info using node@v4.6.2
+npm info prestart myapp@0.0.1
+npm info start myapp@0.0.1
+
+> myapp@0.0.1 start /app
+> node index.js
+
+Example app listening at http://:::3000
+
+
+on peut ouvrir un navigateur et voir le resultat de notre appli :
+http://localhost:3000
+Hello World! 
+
+
+== build and publish app - methode via code : ==
+
+L'idee est d'adopter la philosophie devops
+on va coder infra as code : pour permettre de versionner, controler le code .
+on va pouvoir utiliser un language interne a jenkins un dsl pour faire la conf de nos jobs et on va pouvoir utiliser le jenkins pipeline pour gérer les builds
+
+
+on va d'abord s'assurer pour travailler avec le dsl de jenkins , s'assurer que le plugin dédié est bien installé :
+
+admin jenkins -> gestion de plugins -> on recherche "jobs" et on selectionnele plugin "job dsl" pour l'installer.
+ 
+on va créer un nouveau projet : "seed project" 
+on selectionne un freestyle project
+
+on va importer le code d'un repo git :
+
+https://github.com/wardviaene/jenkins-course
+
+on ajoute un process de build en selectionnant jobs dsl : "process jobs DSLs"
+
+on va rajouter le chemin contenant la description de notre job en dsl (present sur notre systeme une fois le repo cloné) 
+
+job-dsl/nodejs.groovy
+puis on sauvegarde notre conf 
+on va maintenant lancer notre  build qui va se finir par une erreur :
+
+"Processing DSL script nodejs.groovy
+ERROR: script not yet approved for use
+Finished: FAILURE"
+
+c'est un mecanisme de protection car le script doit être approuvé :
+
+on retourne dans la config de jenkins et dans la section In-process Script Approval on va qu'on a un script a valider : 
+
+In-process Script Approval
+Allows a Jenkins administrator to review proposed scripts (written e.g. in Groovy) which run inside the Jenkins process and so could bypass security restrictions. 1 scripts pending approval.
+
+On peut examiner le script : on voit donc la source du script qui vient de github, le schedule de build : toutes les 5 minutes lors d'un changement de conf , on voit ensuite que l'appli utilise du nodejs en "wrapper" et on remarque que le nom nodejs que l'on a sette en tout debut dans la gui est recupérer ici pour le dsl,  on voit finalement dans la section step la commandenpm install :
+
+
+
+job('NodeJS example') {
+    scm {
+        git('git://github.com/wardviaene/docker-demo.git') {  node -> // is hudson.plugins.git.GitSCM
+            node / gitConfigName('DSL User')
+            node / gitConfigEmail('jenkins-dsl@newtech.academy')
+        }
+    }
+    triggers {
+        scm('H/5 * * * *')
+    }
+    wrappers {
+        nodejs('nodejs') // this is the name of the NodeJS installation in 
+                         // Manage Jenkins -> Configure Tools -> NodeJS Installations -> Name
+    }
+    steps {
+        shell("npm install")
+    }
+}
+
+on va cliquer sur approuver le script, on retourne dans la section de notre projet et on relance un build.
+on voit que le build est ok et que sur la sortie on a la creation d'un job :
+
+Processing DSL script nodejs.groovy
+Added items:
+    GeneratedJob{name='NodeJS example'}
+Finished: SUCCESS
+
+on voit sur la home de nos projets maintenant l'apparition de "NodeJS example" en nouveau job.
+Si on relance le build on voit sur la sortie console que ce job existe déja et donc que jenkins ne le recrée pas :
+
+Existing items:
+    GeneratedJob{name='NodeJS example'}
+Finished: SUCCESS
+
+si on examine la conf du job en gui : on retrouve ce qui a été défini dans le script dsl .
+on va lancer le build de notre job puis on va verifier en ssh sur notre serveur la presence de notre build dans le workspace de notre docker :
+
+root@ubuntu-xenial:/var/jenkins_home/workspace# docker ps
+CONTAINER ID        IMAGE               COMMAND                  CREATED             STATUS              PORTS                                              NAMES
+3988916d20e6        jenkins-docker      "/bin/tini -- /usr..."   5 hours ago         Up 5 hours          0.0.0.0:8080->8080/tcp, 0.0.0.0:50000->50000/tcp   jenkins
+root@ubuntu-xenial:/var/jenkins_home/workspace# docker exec -it 3988916d20e6 bash
+jenkins@3988916d20e6:/$ ls -l /var/jenkins_home/workspace/NodeJS\ example/
+total 56
+-rw-r--r--  1 jenkins jenkins    80 Feb 11 09:50 Dockerfile
+-rw-r--r--  1 jenkins jenkins   356 Feb 11 09:50 docker-compose.yml
+-rw-r--r--  1 jenkins jenkins  1055 Feb 11 09:50 index-db.js
+-rw-r--r--  1 jenkins jenkins   325 Feb 11 09:50 index.js
+drwxr-xr-x  2 jenkins jenkins  4096 Feb 11 09:50 misc
+drwxr-xr-x 91 jenkins jenkins  4096 Feb 11 09:50 node_modules
+-rw-r--r--  1 jenkins jenkins 23925 Feb 11 09:50 package-lock.json
+-rw-r--r--  1 jenkins jenkins   298 Feb 11 09:50 package.json
+drwxr-xr-x  2 jenkins jenkins  4096 Feb 11 09:50 test
+
+on a bien la presence de notre build .
+on va chercher la presence de binaire nodejs :
+jenkins@3988916d20e6:/$ find ~ -name nodejs
+/var/jenkins_home/tools/jenkins.plugins.nodejs.tools.NodeJSInstallation/nodejs
+/var/jenkins_home/plugins/nodejs
+/var/jenkins_home/plugins/nodejs/META-INF/maven/org.jenkins-ci.plugins/nodejs
+
+ on fait ensuite un export de notre PATH pour avoir les binaires à dispo :
+
+jenkins@3988916d20e6:/$ export PATH=$PATH:/var/jenkins_home/tools/jenkins.plugins.nodejs.tools.NodeJSInstallation/nodejs/bin
+jenkins@3988916d20e6:/$ echo $PATH
+/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/var/jenkins_home/tools/jenkins.plugins.nodejs.tools.NodeJSInstallation/nodejs/bin
+
+on va dans workspace de notre appli et on la lance . tout est ok :
+jenkins@3988916d20e6:/$ cd /var/jenkins_home/workspace/NodeJS\ example/
+jenkins@3988916d20e6:~/workspace/NodeJS example$ npm start
+
+> myapp@0.0.1 start /var/jenkins_home/workspace/NodeJS example
+> node index.js
+
+Example app listening at http://:::3000
 
 
