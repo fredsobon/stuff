@@ -467,3 +467,136 @@ jenkins@3988916d20e6:~/workspace/NodeJS example$ npm start
 Example app listening at http://:::3000
 
 
+on peut relancer un docker et recupérer le resultat de notre requette :
+
+root@ubuntu-xenial:~# docker exec -it 3988916d20e6 bash
+jenkins@3988916d20e6:/$ curl http://localhost:3000
+Hello World (v1.0.2)!jenkins@3988916d20e6:/$ 
+
+ou directement :
+root@ubuntu-xenial:~# docker exec -it 3988916d20e6 curl http://localhost:3000
+Hello World (v1.0.2)!root@ubuntu-xenial:~# 
+
+
+on va maintenant créer un nouveau job qui va permettre de créer l'image docker et la pousser sur le hub :
+
+
+on va se baser sur le fichier : nodejsdocker.groovy du repo git clone  https://github.com/wardviaene/jenkins-course
+
+on voit que le debut du job est identique : on defini le repo git, le trigger , le wrapper .On va cette fois en action definir un build d'image docker et on va specifier le numero de tag de notre repo en version :
+
+cat nodejsdocker.groovy
+
+job('NodeJS Docker example') {
+    scm {
+        git('git://github.com/wardviaene/docker-demo.git') {  node -> // is hudson.plugins.git.GitSCM
+            node / gitConfigName('DSL User')
+            node / gitConfigEmail('jenkins-dsl@newtech.academy')
+        }
+    }
+    triggers {
+        scm('H/5 * * * *')
+    }
+    wrappers {
+        nodejs('nodejs') // this is the name of the NodeJS installation in 
+                         // Manage Jenkins -> Configure Tools -> NodeJS Installations -> Name
+    }
+    steps {
+        dockerBuildAndPublish {
+            repositoryName('wardviaene/docker-nodejs-demo')
+            tag('${GIT_REVISION,length=9}')
+            registryCredentials('dockerhub')
+            forcePull(false)
+            forceTag(false)
+            createFingerprints(false)
+            skipDecorate()
+        }
+    }
+}
+
+on voit la variable GIT_REVISION utilisée dans notre dsl de job :
+tag('${GIT_REVISION,length=9}')
+on voit qu'on va aussi gérer nos credentials etc ...
+
+on va modifier la conf pour faire pointer sur notre docker hub : fredsobon/docker-nodejs-dummy
+
+on a toute la doc nécéssaire sur la gestion dsl de jenkins : 
+
+http://jenkinsci.github.io/job-dsl-plugin/
+
+
+on peut chercher dans la page docker : et on voit par exemple pour la section dockerBuildAndPublish des infos :
+
+dockerBuildAndPublish
+Requires CloudBees Docker Build and Publish plugin v1.2+ Since 1.39
+dockerBuildAndPublish {}
+Builds and pushes a Docker based project to the Docker registry.
+Examples
+job('example') {
+    steps {
+        dockerBuildAndPublish {
+            repositoryName('example/project-a')
+            tag('${BUILD_TIMESTAMP}-${GIT_REVISION,length=7}')
+            registryCredentials('docker-hub')
+            forcePull(false)
+            createFingerprints(false)
+            skipDecorate()
+        }
+    }
+}
+
+on voit donc que ce site est la reference si on veut gérer nos jobs en dsl 
+
+on va donc modifier notre projet precedent :
+et ajouter le fichier suivant dans notre projet : pour continuer apres le build de notre appli et packager et publier notre app dans un docker sur le hub :
+
+
+job-dsl/nodejsdocker.groovy
+
+
+on va ajouter des credentials :
+
+notre user /mdp du hub docker et en ajoute dans la section credentials : dockerhub
+
+qui sera donc utiliser par jenkins comme variable non exposée : on peut ajouter une description pour faciler la lecture en cas de nombreux users.
+
+on relance notre build : comme precedemment se sera un echec : car il faudra approuver le script  nodejsdocker.groovy : une fois fait on relance le build et c'est ok.
+
+on voit qu'on a un nouveau job : NodeJS Docker example
+de creee : si on examine sa conf on voit tous les param definis en dsl 
+
+ 
+on lance le build :
+
+et on voit quand c'est fini sur le hub docker l'arrivée d'un nouveau container flaggué avec le tag du git :
+
+06747d8e1     259 MB     2 minutes ago
+
+
+on va pouvoir recupérer le container et l'executer en exposant le port 3000 
+
+root@ubuntu-xenial:~# docker run -p 3000:3000 --name nodejs-demo fredsobon/docker-nodejs-dummy
+npm info it worked if it ends with ok
+npm info using npm@2.15.11
+npm info using node@v4.6.2
+npm info prestart myapp@0.0.1
+npm info start myapp@0.0.1
+
+> myapp@0.0.1 start /app
+> node index.js
+
+Example app listening at http://:::3000
+
+
+si on lance le docker dans notre vm : on pourra grace à une redirection de port dans le Vagrantfile interroger via notre machine host en curl ou via navigateur :
+
+https://localhost:3001 
+
+Hello World (v1.0.2)!
+
+en supposant que le port sur notre machine est le 3001 :
+
+  config.vm.network "forwarded_port", guest: 3000, host: 3001
+
+
+
