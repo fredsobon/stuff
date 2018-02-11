@@ -599,4 +599,244 @@ en supposant que le port sur notre machine est le 3001 :
   config.vm.network "forwarded_port", guest: 3000, host: 3001
 
 
+== jenkins pipelines : ==
+
+les pipelines vont permettre d'ecrire sous forme de code les etapes de builds.
+-> le build (compilation) , les tests et le deployment du code sur differents serveurs.
+-> le code va  permettre le versionning des ces etapes.
+
+on retrouve l'automatisation de la chaine suivante :
+
+devloper -> build -> tests -> releases -> deploy / provisionning -> customer
+
+les pipelines jenkins permettent comme les jobs en dsl d'ecrire notre ci / cd sous forme de code . La difference reside dans l'implementation au sein de jenkins.
+
+-> les jobs en dsl : créent des NOUVEAUX jobs basés sur notre code.
+-> les pipelines jenkins sont un type de job : on peut créer un pipeline jenkins qui va gérer le build, le test et le deployment de notre code pour un projet.
+
+On peut créer des jobs pipeline avec du code dsl
+Jusqu'a maintenant on a toujours créer des job freestyle avec notre dsl.
+Il est possible aussi d'utiliser un mode "organisation de projet" qui permet dans une conf pipelines jenkins de detecter les differents projet de code et de pouvoir se passer dans certains cas de creation de nouveau jobs.
+
+Les differentes methodes serviront la même finalités mais il est important de savoir qu'il existe différentes manière de realiser nos taches en fonction de nos besoins relatifs à nos projets.
+
+
+= jenkins pipelines :
+type de jobs pouvant être créer en ui ou en dsl.
+on peut ecrire le pipeline en jenkins dsl (declarative pipeline ) ou en groovy ( scripted pipeline ). le groovy est un language de scripting de la plateforme java qui tourne dans une jvm 
+Il faut savoir que le jenkins dsl est de toute facon interpreté en groovy.
+
+exemple de pipelines :
+
+on va dans cet exemple montrer l'utilisation de maven qui est un outil de build (comme nodejs) 
+
+plusieurs section sont importantes dans la declaration de notre pipeline :
+
+-> node : la definition du node / serveur  sur lequel le job va se derouler 
+-> def : definition de variable qui serviront pour le build de notre projet
+-> stages : les diffrentes etapes de build ex :preparation , build, results : on a conceptuellement trois bloc de code distincts dans le cas des trois stages precedents
+Ces stages sont utilisés par differents plugins jenkins pour visualiser les  differents jobs.
+
+on peut avoir classiquement une chaine comme la suivante : clean -> build -> test -> publish
+
+exemple concret avec le docker nodes js 
+
+on va trouver dans le repertoire misc du repo https://github.com/wardviaene/docker-demo.git 
+un fichier Jenkinsfile qui va contenir notre code de pipeline :
+
+on reconnait les differentes sections : node et les trois stages comprenant chacun les etapes a realiser ( on renseigne les informations correctes ici les infos du docker hub ) .on voit que le build peut se faire sur tous les nodes . On defini une variable : def commit_id qui sera utilisée  cette variable n'est pas exposée naturellement quand on cree un job pipeline : 
+
+node {   <<<<< pas de definition precise : le build peut se faire sur tous les nodes 
+   def commit_id  <<<<< on defini une variable : le commit id 
+   stage('Preparation') {  <<<<< definition de notre premier stage 
+     checkout scm   <<<<< on recupere le code de notre repo 
+     sh "git rev-parse --short HEAD > .git/commit-id"    <<<<< on recupere le numero de commit qu'on va mettre dans un fichier temporaire                    
+     commit_id = readFile('.git/commit-id').trim()      <<<<< on associe notre variable commit_id avec le contenu du fichier qui contient le num de commit trouvé precedemment. la commande trim a la fin va s'assurer de supprimer tous les caracteres vides potentiellement dans notre fichier.
+   }
+   stage('test') {   <<<<< second stage 
+     nodejs(nodeJSInstallationName: 'nodejs') {    <<<<< on va s'assurer que l'execution de nodejs se fera bien en donnant le nom referencant nodejs (ce qu'on a fait au tout début en ui )
+       sh 'npm install --only=dev'    <<<<< ici on va gerer l'installation des paquets npm uniquement de la version dev : c'est la reference qu'on trouve dans le fichier package.json avec le flag devDependencies :seul le paquet "mocha" sera installé ( voir plus bas pour le detail du fichier.
+       sh 'npm test'   <<<<< on a ensuite une commande de test qui va executé la commande mocha   comme on le voit dans le fichier package.json  "test": "mocha"
+     }  cette commande va créer un test  voir plus  bas.
+   }
+   stage('docker build/push') {  <<<< on va maintenant passer a notre build 
+     docker.withRegistry('https://index.docker.io/v1/', 'dockerhub') {   <<<<< on definie la registry standart docker suivi des credentials definies avant dans la ui 
+       def app = docker.build("fredsobon/docker-nodejs-dummy:${commit_id}", '.').push()    <<<<< on va ensuite builder et pousser le docker dans le path final de la registry pn ajoute le commit_id  
+     }
+   }
+}
+
+
+
+
+ ~/Documents/lab/jenkins/docker-demo  ⑂ master  $  cat package.json 
+{
+  "name": "myapp",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "start": "node index.js",
+    "test": "mocha"
+  },
+  "engines": {
+    "node": "^4.6.1"
+  },
+  "dependencies": {
+    "express": "^4.14.0",
+    "mysql": "^2.10.2"
+  },
+  "devDependencies": {
+    "mocha": "^3.4.2"
+  }
+}
+
+ex de la commande test qui va utiliser mocha :
+test.js
+ ~/Documents/lab/jenkins/docker-demo  ⑂ master  $  cat test/test.js 
+var assert = require('assert');
+describe('Array', function() {
+  describe('#indexOf()', function() {
+    it('should return -1 when the value is not present', function() {
+      assert.equal(-1, [1,2,3].indexOf(4));
+    });
+  });
+});
+
+
+
+on va créer le job maintenant dans jenkins :
+
+new project : nodejs_docker_pipeline
+
+on va selectionner dans la section pipeline 
+pipeline script from scm
+> on choisit git 
+> on rentre l'url du repo :
+https://github.com/wardviaene/docker-demo.git
+on rajoute le chemin complet du jenkinsfile :
+misc/Jenkinsfile 
+on sauvegarde et  on lance le build 
+
+Nb : dans notre cas on va proceder un peu differemment : comme on recupere le code depuis le repo github  de https://github.com/wardviaene/docker-demo.git : on ne peut pas pousser sur notre docker hub :puisque le Jenkinsfile est rececrit meme si on le modifie a chaque build ( le repo est toujours pull )
+
+on change notre pipeline :
+on defini un pipeline script 
+on supprime le premier stage qui recupere le code du repo et ecrase donc notre Jenkinsfile
+on defini un num de commit_id manuellement comme on a supprimer le stage concernant le num de commit  
+on modifie le Jenkinsfile : on renseigne notre repo 
+node {
+   def commit_id
+   stage('test') {
+     nodejs(nodeJSInstallationName: 'nodejs') {
+       sh 'npm install --only=dev'
+       sh 'npm test'
+       commit_id=777
+     }
+   }
+   stage('docker build/push') {
+     docker.withRegistry('https://index.docker.io/v1/', 'dockerhub') {
+       def app = docker.build("fredsobon/docker-nodejs-dummy:${commit_id}", '.').push()
+     }
+   }
+}
+ 
+on a donc deux steps et le build se passe nickel : 
+
+[Pipeline] }
+[Pipeline] // node
+[Pipeline] End of Pipeline
+Finished: SUCCESS
+
+
+on a donc denouveau une nouvelle version de notre docker sur le hub :
+on a juste un tag a 777 car la version du commit_id n'a pas ete défini ( on a supprimé l'etape permettant de l'identifier )
+777   258 MB   6 minutes ago
+
+
+
+=== build / test avec docker pipeline ==
+
+le docker pipeline permet de build des dockers mais en lancer des existants : on peut donc build et test tout nos composants avec des containers exitants.
+puis build et publier le container final quand tout est ok.
+une fois que tout nos tests sont fait ont peut supprimer le container ..
+
+on va pouvoir executer nos tests dans un nouveau container 
+on examine la conf dans le fichier misc/Jenkinsfile.v2 du repo docker-demo :
+
+on retrouve des steps prcedent : preparation et docker build/push stages mais on a des etapes en plus :
+on va pouvoir utiliser plusieurs versions de nodejs : dans la conf globale des plugins jenkins ont avait choisi la dernieres version mais il est possible de choisir differentes versions pour differents projets.
+
+
+cat misc/Jenkinsfile.v2 
+node {
+   def commit_id
+   stage('Preparation') {
+     checkout scm
+     sh "git rev-parse --short HEAD > .git/commit-id"
+     commit_id = readFile('.git/commit-id').trim()
+   }
+   stage('test') {
+     def myTestContainer = docker.image('node:4.6') <<<<<<< ici on va vouloir utiliser un container de test qui va être une image docker de nodejs en versin 4.6
+     myTestContainer.pull()   <<<<<<< on va ici s'assurer de tirer le latest container en verision 4.6 de nodejs
+     myTestContainer.inside {    <<<< ensuite on relance comme precedemment les commandes pour le test dans notre container (inside) une fois que ces commandes sont passées le container est detruit 
+       sh 'npm install --only=dev'
+       sh 'npm test'
+     }
+   }
+   stage('test with a DB') {   <<<<< on cree un nouveau stage dans lequel on veut une db mysql avec notre nodejs
+     def mysql = docker.image('mysql').run("-e MYSQL_ALLOW_EMPTY_PASSWORD=yes --rm")   <<<<< on recupere un docker mysql ( pas de version precisée ) et on execute la commande  MYSQL_ALLOW_EMPTY_PASSWORD=yes qui autorise les connections sans mdp , on passe ensuite le --rm qui supprime le container une fois le stage fait.
+     def myTestContainer = docker.image('node:4.6')
+     myTestContainer.pull()
+     myTestContainer.inside("--link ${mysql.id}:mysql") { // using linking, mysql will be available at host: mysql, port: 3306  <<<<<< ici on va linker le container myTestContainer avec le container mysql en recuperant l'id du container mysql et le rendant dispo sous le nom mysql 
+          sh 'npm install --only=dev' 
+          sh 'npm test'                     
+     }                                   
+     mysql.stop()     <<<<<< ici on arrête le service mysql manuellement car jenkinsne sait pas le faire naturellement .
+   }                                     
+   stage('docker build/push') {            
+     docker.withRegistry('https://index.docker.io/v1/', 'dockerhub') {
+       def app = docker.build("wardviaene/docker-nodejs-demo:${commit_id}", '.').push()
+     }                                     
+   }                                       
+} 
+
+
+pour notre test on execute une premiere fois le build : qui tombe en echec : on modifie le jenkinsfile.v2 en renseigant les bonnes infos du hub docker et on supprime le stage de preparation :
+
+
+
+ node {
+   def commit_id
+   stage('test') {
+     def myTestContainer = docker.image('node:4.6')
+     myTestContainer.pull()
+     myTestContainer.inside {
+       sh 'npm install --only=dev'
+       sh 'npm test'
+     }
+   }
+   stage('test with a DB') {
+     def mysql = docker.image('mysql').run("-e MYSQL_ALLOW_EMPTY_PASSWORD=yes") 
+     def myTestContainer = docker.image('node:4.6')
+     myTestContainer.pull()
+     myTestContainer.inside("--link ${mysql.id}:mysql") { // using linking, mysql will be available at host: mysql, port: 3306
+          sh 'npm install --only=dev' 
+          sh 'npm test'
+          commit_id=7777
+     }                                   
+     mysql.stop()
+   }                                     
+   stage('docker build/push') {            
+     docker.withRegistry('https://index.docker.io/v1/', 'dockerhub') {
+       def app = docker.build("fredsobon/docker-nodejs-dummy:${commit_id}", '.').push()
+     } 
+  }
+}
+
+
+on lance le build est c'est ok .
+on a bien un container de tag 7777 sur le docker hub :
+7777  256 MB   a few seconds ago
+
+
 
