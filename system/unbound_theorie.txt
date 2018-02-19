@@ -1,0 +1,510 @@
+=== unbound notes ===
+
+
+https://calomel.org/unbound_dns.html
+
+
+Common DNS functions
+Before we examine the configuration examples, we need to understand the basic functions available through a modern DNS server. Then you can decide what type of DNS server you want and go right to the configurations below. Note that you can combine multiple functions together in a single DNS server. For example you can have a caching DNS, a recursive caching DNS, a validating recursive caching DNS, an authoritative validating recursive caching DNS, etc.
+
+recursive DNS server
+Caching name servers store DNS query results for a period of time determined in the configuration (time-to-live) of the domain name record in question. Recursive name servers resolve any query they receive, even if they are not authoritative for the question being asked, by consulting the server or servers that are authoritative for the query. Caching name servers, as seen in the next section, improve the efficiency of the DNS by reducing DNS traffic across the Internet, and by reducing load on authoritative name servers, particularly root name servers. Because local dns servers can answer questions more quickly, they also increase the performance of end-user applications that use DNS.
+
+A recursive DNS server will, on behalf of the client (resolver), traverse the paths of DNS across the Internet to retrieve the answer to the question. A simple query such as "What is the IP address of calomel.org ?" to a DNS server which supports recursive queries but is not authoritative for calomel.org would look something like the following:
+
+Your client resolver sends a query, "What is the IP address of calomel.org ?" to a locally configured DNS server like Unbound.
+Unbound DNS server looks up calomel.org in local tables (its cache) - not found if we have never asked for this hostname before.
+Unbound DNS sends a query to one of the root-servers in its root.hints file.
+The root-server replies with a referral to the TLD servers for ".org".
+Unbound sends a query, "What is the IP address calomel.org ?" to one of the .org TLD servers.
+The TLD server replies with a referral to the authoritative name servers for calomel.org at DynDNS.org .
+Unbound sends query, "What is the IP address calomel.org ?" to an authoritative name server for calomel.org .
+The authoritative Zone file at DynDNS defines a "A" record which contains the ip address of calomel.org. DynDNS returns the ip of calomel.org .
+Unbound receives the ip address of calomel.org and returns the answer to the client resolver. Transaction complete.
+Unbound DNS install
+The first thing you need to do is install Unbound. We are using the latest release of Unbound v1.5.8 for this example. Most modern operating systems have prebuilt packages (rpm, deb, tgz). You can always install Unbound from source if you want to. Either way you decide to install, you want to get the most recent version you can. Here are a few package manager lines just to help out:
+
+## FreeBSD 11
+ (already installed)  /usr/sbin/unbound
+
+## FreeBSD 11 and earlier
+ portmaster dns/unbound
+  -OR-
+ pkg install unbound
+
+## CentOS
+ yum install unbound
+
+## Ubuntu
+ apt-get install unbound
+
+## OpenBSD
+ pkg_add -i unbound
+Unbound DNS configuration examples
+Simple recursive caching DNS (example 1)
+This is the most simple, but fully functional Unbound example and a perfect solution for a small LAN with a few hundred machines accessing the Internet. The configuration will query public DNS servers for answers made by localhost or ips on the LAN at 10.0.0.0/8 and cache the results. The log level is at one(1) which will log any errors and print out statistics only when the Unbound daemon is shut down.
+
+Notice that the forward-zone area. You can use the forward-zone directive to query resolving DNS servers. For example, we have Google Public DNS, Hurricane Electric and Verizon's Level3 DNS configured here. You can replace those ips with the DNS servers of your ISP if you wanted to.
+
+NOTE: We have two(2) simple dns caching configurations. The first, "Simple recursive caching DNS" uses UDP port 53 to connect to public DNS servers without encryption which is the standard DNS method. The second option is "DNS Over TLS simple recursive caching DNS" which connects to compatable public DNS servers over TCP port 853 with TLS encryption so all of your DNS requests are hidden on the wire up to the DNS server itself.
+
+Simple recursive caching DNS, UDP port 53 unencrypted
+All you need to do is make sure Unbound is installed. Then place the following unbound.conf in place of your copy; i.e on the OpenBSD install the config file is located in /var/unbound/etc/unbound.conf , on FreeBSD 10.0 and earlier /usr/local/etc/unbound/unbound.conf and FreeBSD 10.1 /etc/unbound/unbound.conf . Then just start up the unbound daemon by typing "unbound". That's it.
+
+## Simple recursive caching DNS, UDP port 53
+## unbound.conf -- https://calomel.org
+#
+server:
+   access-control: 10.0.0.0/8 allow
+   access-control: 127.0.0.0/8 allow
+   access-control: 192.168.0.0/16 allow
+   cache-max-ttl: 14400
+   cache-min-ttl: 900
+   hide-identity: yes
+   hide-version: yes
+   interface: 0.0.0.0
+   minimal-responses: yes
+   prefetch: yes
+   qname-minimisation: yes
+   rrset-roundrobin: yes
+   use-caps-for-id: yes
+   verbosity: 1
+
+forward-zone:
+      name: "."
+      forward-addr: 8.8.4.4        # Google
+      forward-addr: 8.8.8.8        # Google
+      forward-addr: 37.235.1.174   # FreeDNS
+      forward-addr: 37.235.1.177   # FreeDNS
+      forward-addr: 50.116.23.211  # OpenNIC
+      forward-addr: 64.6.64.6      # Verisign
+      forward-addr: 64.6.65.6      # Verisign
+      forward-addr: 74.82.42.42    # Hurricane Electric
+      forward-addr: 84.200.69.80   # DNS Watch
+      forward-addr: 84.200.70.40   # DNS Watch
+      forward-addr: 91.239.100.100 # censurfridns.dk
+      forward-addr: 109.69.8.51    # puntCAT
+      forward-addr: 208.67.222.220 # OpenDNS
+      forward-addr: 208.67.222.222 # OpenDNS
+      forward-addr: 216.146.35.35  # Dyn Public
+      forward-addr: 216.146.36.36  # Dyn Public
+
+DNS Over TLS, simple recursive caching DNS, TCP port 853 ENCRYPTED
+Similar to the simple cache server above, make sure unbound is installed and locate the path for unbound.conf in your distribution. For example, on FreeBSD 11 the configuration file is placed under /etc/unbound/unbound.conf . The following configuration will query the DNS servers listed under the forward-zone using an encrypted TLS connection over port 853. The ssl-upstream directive tells unbound to use TLS only and never send DNS queries in the clear. TLS offers cryptographic hashes which further verifies the data in transit has not been modified, corrupted or maliciously re-written. For additional information check out APNIC's DNS Privacy blog post. Note that "DNS over TLS" are plain DNS queries in TCP wireformat to port 853 using TLS encryption which is different than "DNS over HTTPS" which is a standard http call to an HTTPS server on port 443 using TLS encryption.
+
+## DNS Over TLS, Simple ENCRYPTED recursive caching DNS, TCP port 853
+## unbound.conf -- https://calomel.org
+#
+server:
+   access-control: 10.0.0.0/8 allow
+   access-control: 127.0.0.0/8 allow
+   access-control: 192.168.0.0/16 allow
+   cache-max-ttl: 14400
+   cache-min-ttl: 900
+   do-tcp: yes
+   hide-identity: yes
+   hide-version: yes
+   interface: 0.0.0.0
+   minimal-responses: yes
+   prefetch: yes
+   qname-minimisation: yes
+   rrset-roundrobin: yes
+   ssl-upstream: yes
+   use-caps-for-id: yes
+   verbosity: 1
+
+forward-zone:
+   name: "."
+   forward-addr: 9.9.9.9@853         # quad9.net primary
+   forward-addr: 149.112.112.112@853 # quad9.net secondary
+
+#  forward-addr: 145.100.185.15@853  # dnsovertls.sinodun.com US
+#  forward-addr: 145.100.185.16@853  # dnsovertls1.sinodun.com US
+#  forward-addr: 184.105.193.78@853  # tls-dns-u.odvr.dns-oarc.net US
+#  forward-addr: 185.49.141.37@853   # getdnsapi.net US
+#  forward-addr: 199.58.81.218@853   # dns.cmrg.net US
+#  forward-addr: 146.185.167.43@853  # securedns.eu Europe
+#  forward-addr: 89.233.43.71@853    # unicast.censurfridns.dk Europe
+
+Authoritative, validating, recursive caching DNS (example 2)
+This example is a fully functional authoritative, validating, recursive caching DNS server for a local private LAN and very close to the one we personally use. Unbound will recursively query any hostname from the root DNS servers it does not have a cached copy of. It will validate the queries using DNSSEC and 0x20-encoded random bits to foil spoof attempts. Finally, this server will be the authoritative DNS for a few hostnames on our local private "home.lan" segment.
+
+To get started there are few configuration steps to take. The first is to get a copy of the latest root DNS server listing called root.hints. The second is to get the DNSSEC root trusted key setup. Third, you need to setup any hostnames and ip address of your LAN. These steps are quite easy so lets do them first.
+
+Pre setup
+This example install is for OpenBSD. The install path is "/var/unbound/etc/" for all configuration files. You can place the following files anywhere as long as you tell Unbound where they reside. So, you can use this as an example for Ubuntu, RHEL and CentOS as well.
+
+Step 1, root-hints: is the file which contains the listing of primary root DNS servers. Unbound does have a listing of root DNS servers in its code, but we want to make sure we have the most up to date copy. We normally update our copy once every six(6) months.
+
+To query a hostname Unbound has to start at the top at the root DNS servers and work its way down to the authoritative servers (see the definition of a resolving DNS server above). Download a copy of the root hints from Internic and place it in the /var/unbound/etc/root.hints file. This file will be called by the root-hints: directive in the unbound.conf file.
+
+wget ftp://FTP.INTERNIC.NET/domain/named.cache -O /var/unbound/etc/root.hints
+Step 2, auto-trust-anchor-file: which contains the key for the root server so DNSSEC can be validated. We need to tell Unbound that we trust the root server so it can start to develop a chain of trust down to the hostname we want resolved and validated using DNSSEC.
+
+For this example, we create a file in "/var/unbound/etc/root.key" and put the following line in it. This is the 2010 trust anchor for the root zone. You can independently verify the root zone anchor by going to the IANA.org Index of /root-anchors.
+
+. IN DS 19036 8 2 49AAC11D7B6F6446702E54A1607371607A1A41855200FD2CE1CDDE32F24E8FB5
+Also make sure that the "/var/unbound/etc/root.key" is owned by the user the Unbound daemon is running as. Our user on the OpenBSD install is "_unbound". Then make sure the "_unbound" user can write to the file.
+
+Step 3, locally served zones are the hostnames and ips of the local LAN you want Unbound to be authoritative for. Scroll down the unbound.conf and look for the local-zone, local-data and local-data-ptr directives. You just need to change these to match the names of the machines and ip addresses of your network.
+
+In the example we have the hostname firewall.home.lan resolving to the ip address 10.0.0.1. We also have a reverse lookup allowing 10.0.0.1 to resolve back to the hostname firewall.home.lan. There are others just to give you a good idea of the format.
+
+The pre setup is done. We now have a root DNS hints file of the primary root servers. We also have a trust anchor file of the root server so Unbound can create a chain of trust for DNSSEC. In the future as the root DNS key changes Unbound will automatically update the root.key file for us. Lastly, we have a few hostnames and ips of LAN machines we want to authoritatively resolve.
+
+Authoritative, validating, recursive caching DNS setup and install
+All you need to do is make sure unbound is installed. Then place the following unbound.conf in place of your copy; i.e. on the OpenBSD install it is located in /var/unbound/etc/unbound.conf . Make sure the root hints and the trust anchor is in place as directed by the instructions above. Then just start up the unbound daemon by typing "unbound". That's it.
+
+unbound.conf
+## Authoritative, validating, recursive caching DNS
+## unbound.conf -- https://calomel.org
+#
+server:
+  # log verbosity
+    verbosity: 1
+
+  # specify the interfaces to answer queries from by ip-address.  The default
+  # is to listen to localhost (127.0.0.1 and ::1).  specify 0.0.0.0 and ::0 to
+  # bind to all available interfaces.  specify every interface[@port] on a new
+  # 'interface:' labeled line.  The listen interfaces are not changed on
+  # reload, only on restart.
+    interface: 127.0.0.1
+
+  # port to answer queries from
+    port: 53
+
+  # Enable IPv4, "yes" or "no".
+    do-ip4: yes
+
+  # Enable IPv6, "yes" or "no".
+    do-ip6: no
+
+  # Enable UDP, "yes" or "no".
+    do-udp: yes
+
+  # Enable TCP, "yes" or "no". If TCP is not needed, Unbound is actually
+  # quicker to resolve as the functions related to TCP checks are not done.i
+  # NOTE: you may need tcp enabled to get the DNSSEC results from *.edu domains
+  # due to their size.
+    do-tcp: yes
+
+  # control which client ips are allowed to make (recursive) queries to this
+  # server. Specify classless netblocks with /size and action.  By default
+  # everything is refused, except for localhost.  Choose deny (drop message),
+  # refuse (polite error reply), allow (recursive ok), allow_snoop (recursive
+  # and nonrecursive ok)
+    access-control: 10.0.0.0/8 allow
+    access-control: 127.0.0.0/8 allow
+    access-control: 192.168.0.0/16 allow
+
+  # Read  the  root  hints from this file. Default is nothing, using built in
+  # hints for the IN class. The file has the format of  zone files,  with  root
+  # nameserver  names  and  addresses  only. The default may become outdated,
+  # when servers change,  therefore  it is good practice to use a root-hints
+  # file.  get one from ftp://FTP.INTERNIC.NET/domain/named.cache
+    root-hints: "/var/unbound/etc/root.hints"
+
+  # enable to not answer id.server and hostname.bind queries.
+    hide-identity: yes
+
+  # enable to not answer version.server and version.bind queries.
+    hide-version: yes
+
+  # Will trust glue only if it is within the servers authority.
+  # Harden against out of zone rrsets, to avoid spoofing attempts. 
+  # Hardening queries multiple name servers for the same data to make
+  # spoofing significantly harder and does not mandate dnssec.
+    harden-glue: yes
+
+  # Require DNSSEC data for trust-anchored zones, if such data is absent, the
+  # zone becomes  bogus.  Harden against receiving dnssec-stripped data. If you
+  # turn it off, failing to validate dnskey data for a trustanchor will trigger
+  # insecure mode for that zone (like without a trustanchor).  Default on,
+  # which insists on dnssec data for trust-anchored zones.
+    harden-dnssec-stripped: yes
+
+  # Use 0x20-encoded random bits in the query to foil spoof attempts.
+  # http://tools.ietf.org/html/draft-vixie-dnsext-dns0x20-00
+  # While upper and lower case letters are allowed in domain names, no significance
+  # is attached to the case. That is, two names with the same spelling but
+  # different case are to be treated as if identical. This means calomel.org is the
+  # same as CaLoMeL.Org which is the same as CALOMEL.ORG.
+    use-caps-for-id: yes
+
+  # the time to live (TTL) value lower bound, in seconds. Default 0.
+  # If more than an hour could easily give trouble due to stale data.
+    cache-min-ttl: 3600
+
+  # the time to live (TTL) value cap for RRsets and messages in the
+  # cache. Items are not cached for longer. In seconds.
+    cache-max-ttl: 86400
+
+  # perform prefetching of close to expired message cache entries.  If a client
+  # requests the dns lookup and the TTL of the cached hostname is going to
+  # expire in less than 10% of its TTL, unbound will (1st) return the ip of the
+  # host to the client and (2nd) pre-fetch the dns request from the remote dns
+  # server. This method has been shown to increase the amount of cached hits by
+  # local clients by 10% on average.
+    prefetch: yes
+
+  # number of threads to create. 1 disables threading. This should equal the number
+  # of CPU cores in the machine. Our example machine has 4 CPU cores.
+    num-threads: 4
+
+
+  ## Unbound Optimization and Speed Tweaks ###
+
+  # the number of slabs to use for cache and must be a power of 2 times the
+  # number of num-threads set above. more slabs reduce lock contention, but
+  # fragment memory usage.
+    msg-cache-slabs: 8
+    rrset-cache-slabs: 8
+    infra-cache-slabs: 8
+    key-cache-slabs: 8
+
+  # Increase the memory size of the cache. Use roughly twice as much rrset cache
+  # memory as you use msg cache memory. Due to malloc overhead, the total memory
+  # usage is likely to rise to double (or 2.5x) the total cache memory. The test
+  # box has 4gig of ram so 256meg for rrset allows a lot of room for cacheed objects.
+    rrset-cache-size: 256m
+    msg-cache-size: 128m
+
+  # buffer size for UDP port 53 incoming (SO_RCVBUF socket option). This sets
+  # the kernel buffer larger so that no messages are lost in spikes in the traffic.
+    so-rcvbuf: 1m
+
+  ## Unbound Optimization and Speed Tweaks ###
+
+
+  # Enforce privacy of these addresses. Strips them away from answers.  It may
+  # cause DNSSEC validation to additionally mark it as bogus.  Protects against
+  # 'DNS Rebinding' (uses browser as network proxy).  Only 'private-domain' and
+  # 'local-data' names are allowed to have these private addresses. No default.
+    private-address: 192.168.0.0/16
+    private-address: 172.16.0.0/12
+    private-address: 10.0.0.0/8
+
+  # Allow the domain (and its subdomains) to contain private addresses.
+  # local-data statements are allowed to contain private addresses too.
+    private-domain: "home.lan"
+
+  # If nonzero, unwanted replies are not only reported in statistics, but also
+  # a running total is kept per thread. If it reaches the threshold, a warning
+  # is printed and a defensive action is taken, the cache is cleared to flush
+  # potential poison out of it.  A suggested value is 10000000, the default is
+  # 0 (turned off). We think 10K is a good value.
+    unwanted-reply-threshold: 10000
+
+  # IMPORTANT FOR TESTING: If you are testing and setup NSD or BIND  on
+  # localhost you will want to allow the resolver to send queries to localhost.
+  # Make sure to set do-not-query-localhost: yes . If yes, the above default
+  # do-not-query-address entries are present.  if no, localhost can be queried
+  # (for testing and debugging). 
+    do-not-query-localhost: no
+
+  # File with trusted keys, kept up to date using RFC5011 probes, initial file
+  # like trust-anchor-file, then it stores metadata.  Use several entries, one
+  # per domain name, to track multiple zones. If you use forward-zone below to
+  # query the Google DNS servers you MUST comment out this option or all DNS
+  # queries will fail.
+  # auto-trust-anchor-file: "/var/unbound/etc/root.key"
+
+  # Should additional section of secure message also be kept clean of unsecure
+  # data. Useful to shield the users of this validator from potential bogus
+  # data in the additional section. All unsigned data in the additional section
+  # is removed from secure messages.
+    val-clean-additional: yes
+
+  # Blocking Ad Server domains. Google's AdSense, DoubleClick and Yahoo
+  # account for a 70 percent share of all advertising traffic. Block them.
+  # local-zone: "doubleclick.net" redirect
+  # local-data: "doubleclick.net A 127.0.0.1"
+  # local-zone: "googlesyndication.com" redirect
+  # local-data: "googlesyndication.com A 127.0.0.1"
+  # local-zone: "googleadservices.com" redirect
+  # local-data: "googleadservices.com A 127.0.0.1"
+  # local-zone: "google-analytics.com" redirect
+  # local-data: "google-analytics.com A 127.0.0.1"
+  # local-zone: "ads.youtube.com" redirect
+  # local-data: "ads.youtube.com A 127.0.0.1"
+  # local-zone: "adserver.yahoo.com" redirect
+  # local-data: "adserver.yahoo.com A 127.0.0.1"
+  # local-zone: "ask.com" redirect
+  # local-data: "ask.com A 127.0.0.1"
+
+
+  # Unbound will not load if you specify the same local-zone and local-data
+  # servers in the main configuration as well as in this "include:" file. We
+  # suggest commenting out any of the local-zone and local-data lines above if
+  # you suspect they could be included in the unbound_ad_servers servers file.
+  #include: "/etc/unbound/unbound_ad_servers"
+
+  # locally served zones can be configured for the machines on the LAN.
+
+    local-zone: "home.lan." static
+
+    local-data: "firewall.home.lan.  IN A 10.0.0.1"
+    local-data: "laptop.home.lan.    IN A 10.0.0.2"
+    local-data: "xboxone.home.lan.   IN A 10.0.0.3"
+    local-data: "ps4.home.lan.       IN A 10.0.0.4"
+    local-data: "dhcp5.home.lan.     IN A 10.0.0.5"
+    local-data: "dhcp6.home.lan.     IN A 10.0.0.6"
+    local-data: "dhcp7.home.lan.     IN A 10.0.0.7"
+
+    local-data-ptr: "10.0.0.1  firewall.home.lan"
+    local-data-ptr: "10.0.0.2  laptop.home.lan"
+    local-data-ptr: "10.0.0.3  xboxone.home.lan"
+    local-data-ptr: "10.0.0.4  ps4.home.lan"
+    local-data-ptr: "10.0.0.5  dhcp5.home.lan"
+    local-data-ptr: "10.0.0.6  dhcp6.home.lan"
+    local-data-ptr: "10.0.0.7  dhcp7.home.lan"
+
+  # Unbound can query your NSD or BIND server for private domain queries too.
+  # On our NSD page we have NSD configured to serve the private domain,
+  # "home.lan". Here we can tell Unbound to connect to the NSD server when it
+  # needs to resolve a *.home.lan hostname or IP.
+  #
+  # private-domain: "home.lan"
+  # local-zone: "0.0.10.in-addr.arpa." nodefault
+  # stub-zone:
+  #      name: "home.lan"
+  #      stub-addr: 10.0.0.111@53
+
+  # If you have an internal or private DNS names the external DNS servers can
+  # not resolve, then you can assign domain name strings to be redirected to a
+  # seperate dns server. For example, our comapny has the domain
+  # organization.com and the domain name internal.organization.com can not be
+  # resolved by Google's public DNS, but can be resolved by our private DNS
+  # server located at 1.1.1.1. The following tells Unbound that any
+  # organization.com domain, i.e. *.organization.com be dns resolved by 1.1.1.1
+  # instead of the public dns servers.
+  #
+  # forward-zone:
+  #    name: "organization.com"
+  #    forward-addr: 1.1.1.1        # Internal or private DNS
+
+  # Use the following forward-zone to forward all queries to Google DNS,
+  # OpenDNS.com or your local ISP's dns servers for example. To test resolution
+  # speeds use "drill calomel.org @8.8.8.8" and look for the "Query time:" in
+  # milliseconds.
+  #
+   forward-zone:
+      name: "."
+      forward-addr: 8.8.4.4        # Google
+      forward-addr: 8.8.8.8        # Google
+      forward-addr: 37.235.1.174   # FreeDNS
+      forward-addr: 37.235.1.177   # FreeDNS
+      forward-addr: 50.116.23.211  # OpenNIC
+      forward-addr: 64.6.64.6      # Verisign
+      forward-addr: 64.6.65.6      # Verisign
+      forward-addr: 74.82.42.42    # Hurricane Electric
+      forward-addr: 84.200.69.80   # DNS Watch
+      forward-addr: 84.200.70.40   # DNS Watch
+      forward-addr: 91.239.100.100 # censurfridns.dk
+      forward-addr: 109.69.8.51    # puntCAT
+      forward-addr: 208.67.222.220 # OpenDNS
+      forward-addr: 208.67.222.222 # OpenDNS
+      forward-addr: 216.146.35.35  # Dyn Public
+      forward-addr: 216.146.36.36  # Dyn Public
+
+#
+#
+## Authoritative, validating, recursive caching DNS
+## unbound.conf -- https://calomel.org
+Calomel.org offers a OpenBSD Pf Firewall "how to" ( pf.conf ) if you need it. We cover a HFSC scheduler example with a DNS priority queue integrated into a working pf.conf rule set.
+Unbound DNS thoughts, ideas and theories
+Unbound DNS cluster with BIND or NSD master server
+Unbound is the perfect front line soldier for DNS queries from LAN clients. It is fast, reliable, stable and very secure. BIND (named) or NSD (Name Server Daemon) can be kept on the back end network to be an authoritative DNS to the Unbound cluster. This way you keep your primary DNS data segregated and unencumbered on the BIND or NSD server while the Unbound cluster servers do the resolving, caching and validation of zones for clients.
+
+The idea is to have a few Unbound validating, recursive and caching DNS servers which LAN clients can query. Then use BIND (named) as an authoritative server which can resolve internal LAN names only. LAN clients will NEVER access the BIND DNS server and BIND will never go out to the Internet. BIND's only job is to serve internal names to the Unbound DNS server cluster. The Unbound cluster will serve all LAN clients. If Unbound needs to resolve a private ip it will ask the BIND server for ips and then cache the response. If the client needs an external ip, lets say from google.com or cnn.com, Unbound will recursively query the Internet root DNS servers and cache the response.
+
+Here is a rough ASCII diagram of the setup. LAN Clients are all the internal machines of the local area network (LAN). The Internet DNS is basically any external DNS server. The entries for Unbound #1 through #3 are separate machines with Unbound running on them. The final machine is the Private BIND LAN DNS.
+
+                 INTERNET DNS
+                       |
+                       |
+                -- Unbound #1 --
+              /                  \   private authoritative only
+LAN Clients -- --- Unbound #2 --  --   BIND or NSD dns server
+              \                  /        ( 10.0.0.111 )
+                -- Unbound #3 --
+The configuration is quite easy. First take a copy of the Unbound example #2 called "Authoritative, validating, recursive caching DNS" from above. We will be adding directives to the bottom of that config. We just need to add the stub-zone directives for any internal names we want unbound to ask BIND about. Any zones not pointing to our authoritative server will go out to the root DNS servers for an answer. BTW, since BIND is going to be our authentication server you can comment out any of the local-zone, local-data and local-data-ptr directives.
+
+Lets say our private NSD or BIND server is authoritative for this internal LAN domain:
+
+home.lan
+We need to tell the Unbound cluster servers that if they are looking for the private home.lan domain to ask the authoritative DNS server, otherwise go check with the root DNS servers. The NSD server's ip is 10.0.0.111 as in the ASCII diagram.
+
+Pay special attention to the stub-zone directive we are using. Stub-zone is only used to point queries to an authoritative server like a NSD dns server. The forward-zone directive can only be used to point queries to a resolving dns server like OpenDNS.com or you local ISP's caching server. The two are not interchangeable.
+
+NOTE: We will be using the NSD configuration on the NSD (Name Server Daemon) Tutorial page with this example.
+
+## Add this to the bottom of example #2's unbound.conf configuration
+## Check out our NSD Tutorial at https://calomel.org/nsd_dns.html 
+
+   # This local-zone line will tell unbound that private addresses like
+   # 10.0.0.0/8 can send queries to a stub zone authoritative server like NSD.
+   local-zone: "10.in-addr.arpa." nodefault
+
+   # This is the FORWARD lookup stub zone pointing to the NSD authoritative
+   # server. When a client queries for firewall.home.lan the question is sent
+   # to the NSD server located at 10.0.0.111 and NSD returns the answer
+   # "10.0.0.1". 
+   stub-zone:
+        name: "home.lan"
+        stub-addr: 10.0.0.111
+
+   # This is the REVERSE (rDNS) dns lookup for the home.lan zone. When a client
+   # asks for the hostname belonging to the ip address 10.0.0.1 the NSD
+   # authoritative server at 10.0.0.111 will send back the answer
+   # "firewall.home.lan".
+   stub-zone:
+        name: "10.in-addr.arpa."
+        stub-addr: 10.0.0.111
+That's about it. A client asking for an internal dns hostname like, laptop.home.lan.lan will make Unbound query the NSD server (10.0.0.111); the answer will be cached by Unbound for later queries. Any other queries for external hostnames (calomel.org for example) from LAN clients will have Unbound go to Internet servers for the answer. Clients can now query the Unbound cluster for any hostnames they want and we do not have to worry about our primary NSD dns servers being abused or overloaded. This setup is mainly designed to segregate the authoritative server off by itself and keep the primary DNS configuration safe.
+
+Dnsspoof or 'Split horizon' with Unbound DNS
+Dnsspoof is the ability to reply with an ip address which is NOT normally associated with a hostname. This is a limited kind of "Split horizon" functionality. The fully generalized form of split-horizon DNS allows the IP number associated with a hostname to vary in a manner dependent upon the network from which the DNS query is made. Unbound does not provide full support for split-horizon DNS because it will not vary its response based on the querying network. But unbound does support DNS spoofing, altering the normal response to a DNS query on all networks unbound serves. For example, lets say you have web server accessible to the internal and external networks. The webserver is in a DMZ on the internal LAN. The public uses the external hostname webserver.example.com which resolves to the ip 111.222.333.444 which traverses a firewall to the DMZ. The problem is when your internal LAN clients would also like to use webserver.example.com . The internal clients traffic would have to go out the firewall, hit the router and then travel back into the firewall into the DMZ thus adding a lot of unnecessary traffic to the external connection. Wouldn't it be nice just to send internal clients directly to the internal DMZ ip address?
+
+We can setup Unbound to spoof the dns query of LAN clients so instead of getting the external address for the external name, they receive an internal ip for the external name. webserver.example.com which normally resolves to 111.222.333.444 now resolves 10.0.0.222 . 10.0.0.222 would be the same web server which is located on the inside of the firewall in a DMZ.
+
+## DnsSpoof of webserver.example.com (exact domain name match)
+local-data: "webserver.example.com. IN A 10.0.0.222"
+DnsSpoof'ing might also be useful to stop LAN clients from going to sites that might not be appropriate to go to or not allowed on your network. You can also use this method to stop your clients from going to ad servers. For example we do not want anyone going to facebook.com or doubleclick.net, or even any of its sub domains, instead giving them the ip address 10.0.0.111 of our local web server explaining our Internet terms of use.
+
+## DnsSpoof of unwanted or restricted sites
+local-zone: "doubleclick.net" redirect
+local-data: "doubleclick.net A 10.0.0.111"
+
+local-zone: "facebook.com" redirect
+local-data: "facebook.com A 10.0.0.111"
+The dns query by an internal client would then result in the following differences. Note that using the redirect method will now redirect all sub domains to 10.0.0.111 as well.
+
+## Normal DNS resolution for facebook.com
+$  host facebook.com
+facebook.com has address 69.63.189.16
+facebook.com has address 69.63.181.12
+facebook.com has address 69.63.189.11
+facebook.com mail is handled by 10 smtpin.mx.facebook.com.
+
+## DnsSpoof of facebook.com
+$  host facebook.com
+facebook.com has address 10.0.0.111
+
+## Sub domains are also redirected
+$  host ads.facebook.com
+ads.facebook.com has address 10.0.0.111
+Dnsspoof with yoyo.org, anti-advertising list
+Yoyo.org supplies a list of known advertising servers in a convenient text file which is updated periodically and pre-formated for unbound. The list will configure Unbound to redirect the ad server hostnames to localhost (127.0.0.1). Use curl to download the list to a new file called "unbound_ad_servers" and sed to clean up the HTML headers in the output. Once this file is in place you just need to add an "include:" directive to your unbound.conf pointing to the full path of the "unbound_ad_servers" file. Unbound will then redirect all 2400+ advertising servers to localhost keeping most, if not all advertising away from your systems. Simple, but powerful.
+
+NOTE: Make sure you remove any "local-zone" entries that may be duplicated in the Yoyo ad server list. For example, if you have "local-zone: "doubleclick.net" redirect" in the unbound.conf and yoyo has the same "local-zone: "doubleclick.net" redirect" in their list then Unbound will fail to start due to the conflict.
+
+# download the anti-ad server list to Unbound's configuration directory. 
+
+curl -sS -L --compressed "http://pgl.yoyo.org/adservers/serverlist.php?hostformat=unbound&showintro=0&mimetype=plaintext" > /etc/unbound/unbound_ad_servers
+
+#  then add an include line to your unbound.conf pointing to the full path of
+#  the unbound_ad_servers file:
+#
+#   include: /etc/unbound/unbound_ad_servers
+#
