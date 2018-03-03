@@ -1,0 +1,490 @@
+==== notes tp kube taf ==
+
+1/ download du client kube :
+
+wget https://storage.googleapis.com/kubernetes-release/release/v1.5.2/bin/linux/amd64/kubectl
+
+2 / on place le binaire ou on veur mais /usr/local/bin est bien adapté :
+
+On va interragir sur kube via les  commandes : requettant notre vip qui derriere dirige vers plusieurs nodes
+./kubectl --server=http://kube-cluster.:8080 get namespaces
+NAME          STATUS    AGE
+default       Active    259d
+kube-system   Active    259d
+
+
+- creation du namespace pour notre env de taf : 
+./kubectl --server=http://kube-cluster:8080 create namespace fsobon
+namespace "fsobon" created
+
+3/ on va recupérer un rep de taf pour le workshop : tous les fichiers de conf sont à plat et vont etre utilisés : 
+scp -r server:/tmp/kube-workshop ~/
+test.php                                                                                                                              100%   31     7.3KB/s   00:00    
+Dockerfile                                                                                                                            100%   47    10.5KB/s   00:00    
+svc_nginx.yaml                                                                                                                        100%  247    52.0KB/s   00:00    
+default.conf                                                                                                                          100% 1092   156.2KB/s   00:00    
+Dockerfile                                                                                                                            100%   49     9.9KB/s   00:00    
+ingress_nginx.yaml.tmpl                                                                                                               100%  244    54.5KB/s   00:00    
+svc_php-fpm.yaml                                                                                                                      100%  191    39.8KB/s   00:00    
+readme.txt                                                                                                                            100%  150    32.2KB/s   00:00    
+rc_php.yaml                                                                                                                           100%  348    71.4KB/s   00:00    
+rc_nginx.yaml                                                                                                                         100%  354    81.5KB/s   00:00    
+ /usr/local/bin  $  cd ~/kube-workshop
+on va pouvoir agir sur les différents objets à piloter  :
+ ~/kube-workshop  $  ls
+ingress_nginx.yaml.tmpl  nginx  php  rc_nginx.yaml  rc_php.yaml  readme.txt  svc_nginx.yaml  svc_php-fpm.yaml
+
+
+./kubectl --server=http://kube-cluster:8080 --namespace fsobon get pods
+No resources found.
+
+on va contruire une appli : qui va utiliser  nginx et php 
+
+
+- creation de nos replication controller php qui vont utiliser la conf de rc_php.yaml :
+
+
+cat rc_php.yaml 
+apiVersion: v1
+kind: ReplicationController
+metadata:
+  name: php-rc
+spec:
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: php
+    spec:
+      containers:
+      - name: php
+        image: server-repos-images-docker/workshop/php:latest
+        ports:
+        - containerPort: 9000
+        imagePullPolicy: IfNotPresent
+
+on recupere donc l'image du dernier docker php et on en instancie deux : 
+ ~/kube-workshop  $  /usr/local/bin/kubectl --server=http://kube-cluster:8080 --namespace fsobon create -f rc_php.yaml
+replicationcontroller "php-rc" created
+
+
+ ~/kube-workshop  $  /usr/local/bin/kubectl --server=http://kube-cluster:8080 --namespace fsobon get rc
+NAME      DESIRED   CURRENT   READY     AGE
+php-rc    2         2         2         15s
+ ~/kube-workshop  $  /usr/local/bin/kubectl --server=http://kube-cluster:8080 --namespace fsobon get pods
+NAME           READY     STATUS    RESTARTS   AGE
+php-rc-072gv   1/1       Running   0          52s
+php-rc-8nwx3   1/1       Running   0          52s
+ ~/kube-workshop  $  /usr/local/bin/kubectl --server=http://kube-cluster:8080 --namespace fsobon describe rc
+Name:		php-rc
+Namespace:	fsobon
+Image(s):	repo-docker-images/workshop/php:latest
+Selector:	app=php
+Labels:		app=php
+Replicas:	2 current / 2 desired
+Pods Status:	2 Running / 0 Waiting / 0 Succeeded / 0 Failed
+No volumes.
+Events:
+  FirstSeen	LastSeen	Count	From				SubObjectPath	Type		Reason			Message
+  ---------	--------	-----	----				-------------	--------	------			-------
+  1m		1m		1	{replication-controller }			Normal		SuccessfulCreate	Created pod: php-rc-8nwx3
+  1m		1m		1	{replication-controller }			Normal		SuccessfulCreate	Created pod: php-rc-072gv
+
+ ~/kube-workshop  $  /usr/local/bin/kubectl --server=http://kube-cluster:8080 --namespace fsobon describe pods
+Name:		php-rc-072gv
+Namespace:	fsobon
+Node:		node-01bv.backend/192.168.58.11
+Start Time:	Fri, 02 Mar 2018 15:51:57 +0100
+Labels:		app=php
+Status:		Running
+IP:		10.165.0.33
+Controllers:	ReplicationController/php-rc
+Containers:
+  php:
+    Container ID:		docker://1993a5852ff4d56230760556cc93c57e88598a6f43fbb64a31da089b60703270
+    Image:			repo-docker-images/workshop/php:latest
+    Image ID:			docker-pullable://repo-docker-images/workshop/php@sha256:3ddc56556bd0144c227f78678e5a4907758e6052843b1204f176cbb589bcf863
+    Port:			9000/TCP
+    State:			Running
+      Started:			Fri, 02 Mar 2018 15:52:01 +0100
+    Ready:			True
+    Restart Count:		0
+    Volume Mounts:		<none>
+    Environment Variables:	<none>
+Conditions:
+  Type		Status
+  Initialized 	True 
+  Ready 	True 
+  PodScheduled 	True 
+No volumes.
+QoS Class:	BestEffort
+Tolerations:	<none>
+Events:
+  FirstSeen	LastSeen	Count	From					SubObjectPath		Type		Reason		Message
+  ---------	--------	-----	----					-------------		--------	------		-------
+  2m		2m		1	{default-scheduler }						Normal		Scheduled	Successfully assigned php-rc-072gv to node-01bv.backend
+  2m		2m		1	{kubelet node-01bv.backend}	spec.containers{php}	Normal		Pulled		Container image "repo-docker-images/workshop/php:latest" already present on machine
+  2m		2m		1	{kubelet node-01bv.backend}	spec.containers{php}	Normal		Created		Created container with docker id 1993a5852ff4; Security:[seccomp=unconfined]
+  2m		2m		1	{kubelet node-01bv.backend}	spec.containers{php}	Normal		Started		Started container with docker id 1993a5852ff4
+
+
+Name:		php-rc-8nwx3
+Namespace:	fsobon
+Node:		node-05bv.backend/192.168.58.17
+Start Time:	Fri, 02 Mar 2018 15:51:57 +0100
+Labels:		app=php
+Status:		Running
+IP:		10.186.0.23
+Controllers:	ReplicationController/php-rc
+Containers:
+  php:
+    Container ID:		docker://e6dbb0ed324b752d3c6b15d99b22e244522e6fc9c052f13d3ee45167302ea748
+    Image:			repo-docker-images/workshop/php:latest
+    Image ID:			docker-pullable://repo-docker-images/workshop/php@sha256:3ddc56556bd0144c227f78678e5a4907758e6052843b1204f176cbb589bcf863
+    Port:			9000/TCP
+    State:			Running
+      Started:			Fri, 02 Mar 2018 15:51:59 +0100
+    Ready:			True
+    Restart Count:		0
+    Volume Mounts:		<none>
+    Environment Variables:	<none>
+Conditions:
+  Type		Status
+  Initialized 	True 
+  Ready 	True 
+  PodScheduled 	True 
+No volumes.
+QoS Class:	BestEffort
+Tolerations:	<none>
+Events:
+  FirstSeen	LastSeen	Count	From					SubObjectPath		Type		Reason		Message
+  ---------	--------	-----	----					-------------		--------	------		-------
+  2m		2m		1	{default-scheduler }						Normal		Scheduled	Successfully assigned php-rc-8nwx3 to node-05bv.backend
+  2m		2m		1	{kubelet node-05bv.backend}	spec.containers{php}	Normal		Pulled		Container image "repo-docker-images/workshop/php:latest" already present on machine
+  2m		2m		1	{kubelet node-05bv.backend}	spec.containers{php}	Normal		Created		Created container with docker id e6dbb0ed324b; Security:[seccomp=unconfined]
+  2m		2m		1	{kubelet node-05bv.backend}	spec.containers{php}	Normal		Started		Started container with docker id e6dbb0ed324b
+
+
+ on va pouvoir rentrer dans un de nos containeurs : 
+
+ ~/kube-workshop  $  /usr/local/bin/kubectl --server=http://kube-cluster:8080 --namespace fsobon exec -ti php-rc-072gv bash
+root@php-rc-072gv:/var/www/html# 
+       valid_lft forever preferred_lft forever
+root@php-rc-072gv:/var/www/html# cat test.php                                                                                                                          
+<pre>
+<?php
+print_r($_SERVER);
+
+
+root@php-rc-072gv:/var/www/html# cat /etc/resolv.conf 
+search fsobon.svc.cluster.local svc.cluster.local cluster.local
+nameserver 10.254.10.10
+options ndots:5
+
+on lance le second pod 
+
+ ~/kube-workshop  $  /usr/local/bin/kubectl --server=http://kube-cluster:8080 --namespace fsobon exec -ti php-rc-8nwx3 bash
+root@php-rc-8nwx3:/var/www/html# ip a
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+    inet6 ::1/128 scope host 
+       valid_lft forever preferred_lft forever
+292: eth0@if293: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1472 qdisc noqueue state UP group default 
+    link/ether 02:42:0a:ba:00:17 brd ff:ff:ff:ff:ff:ff
+    inet 10.186.0.23/16 scope global eth0
+       valid_lft forever preferred_lft forever
+    inet6 fe80::42:aff:feba:17/64 scope link tentative dadfailed 
+       valid_lft forever preferred_lft forever
+root@php-rc-8nwx3:/var/www/html# cat /etc/resolv.conf 
+search fsobon.svc.cluster.local svc.cluster.local cluster.local
+nameserver 10.254.10.10
+options ndots:5
+
+
+ici on voit dans la conf du resolveur  l'option ndots:5 qui va permettre de faire la resolution envoyee directment au dns de kube quand il ya 5 points dans l'adresse :
+
+
+on va voit les ip de nos pods
+ ~/kube-workshop  $  /usr/local/bin/kubectl --server=http://kube-cluster:8080 --namespace fsobon describe pods |grep ^IP
+IP:		10.165.0.33
+IP:		10.186.0.23
+
+
+si on se connecte sur un des noueds du cluster on peut voir le port 9000 qui ecoute sur les ip de nos containeurs :
+
+[f.sobon@node-07bv ~] $ nc -v 10.165.0.33 9000
+Ncat: Version 6.40 ( http://nmap.org/ncat )
+Ncat: Connected to 10.165.0.33:9000.
+^C
+[f.sobon@node-07bv ~] $ 
+
+
+on va maintenant créer un service en utilisant le fichier de conf de type :
+
+ ~/kube-workshop  $  cat svc_php-fpm.yaml 
+apiVersion: v1
+kind: Service
+metadata:
+  name: php-fpm   
+  labels:
+    app: php-fpm
+spec:
+  ports:
+  - name: php-fpm   <<<<<< c'est via le nom de metadata qu'on pourra requetter en dns 
+    port: 9000
+    protocol: TCP
+  selector:        <<<<<< c'est ici en utilisant le selector pour faire correspondre le service avec le pod créer : dans la section label app: php du fichier rc_php.yaml
+    app: php
+  type: ClusterIP
+
+on creer maintenant un service : 
+ ~/kube-workshop  $  /usr/local/bin/kubectl --server=http://kube-cluster:8080 --namespace fsobon create -f svc_php-fpm.yaml
+service "php-fpm" created
+ ~/kube-workshop  $  /usr/local/bin/kubectl --server=http://kube-cluster:8080 --namespace fsobon get services
+NAME      CLUSTER-IP     EXTERNAL-IP   PORT(S)    AGE
+php-fpm   10.254.57.33   <none>        9000/TCP   17s
+
+ /usr/local/bin/kubectl --server=http://kube-cluster:8080 --namespace fsobon describe services
+Name:			php-fpm
+Namespace:		fsobon
+Labels:			app=php-fpm
+Selector:		app=php
+Type:			ClusterIP
+IP:			10.254.57.33
+Port:			php-fpm	9000/TCP
+Endpoints:		10.165.0.33:9000,10.186.0.23:9000
+Session Affinity:	None
+No events.
+
+
+
+on voit maintenant sur le serveur du cluster maintenant des regles iptables créer :
+
+[f.sobon@node-07bv ~] $ sudo iptables -L -t nat -n |grep sobon
+KUBE-MARK-MASQ  all  --  10.186.0.23          0.0.0.0/0            /* fsobon/php-fpm:php-fpm */
+DNAT       tcp  --  0.0.0.0/0            0.0.0.0/0            /* fsobon/php-fpm:php-fpm */ tcp to:10.186.0.23:9000
+KUBE-MARK-MASQ  all  --  10.165.0.33          0.0.0.0/0            /* fsobon/php-fpm:php-fpm */
+DNAT       tcp  --  0.0.0.0/0            0.0.0.0/0            /* fsobon/php-fpm:php-fpm */ tcp to:10.165.0.33:9000
+KUBE-MARK-MASQ  tcp  --  0.0.0.0/0            10.254.57.33         /* fsobon/php-fpm:php-fpm cluster IP */ tcp dpt:9000
+KUBE-SVC-NFNEGK2EWSZXNF77  tcp  --  0.0.0.0/0            10.254.57.33         /* fsobon/php-fpm:php-fpm cluster IP */ tcp dpt:9000
+KUBE-SEP-VEJQCYZDER53CHIG  all  --  0.0.0.0/0            0.0.0.0/0            /* fsobon/php-fpm:php-fpm */ statistic mode random probability 0.50000000000
+KUBE-SEP-3KKF4KYPTP653HNZ  all  --  0.0.0.0/0            0.0.0.0/0            /* fsobon/php-fpm:php-fpm */
+
+on peut maintenant 
+
+[f.sobon@node-07bv ~] $ telnet 10.254.57.33 9000
+Trying 10.254.57.33...
+Connected to 10.254.57.33.
+Escape character is '^]'.
+^C
+^CConnection closed by foreign host
+
+
+
+on peut maintenant relancer un docker on voit que la resolution de nom repond :
+
+ /usr/local/bin/kubectl --server=http://kube-cluster:8080 --namespace fsobon exec -ti php-rc-072gv bash
+root@php-rc-072gv:/var/www/html# ping php-fpm
+PING php-fpm.fsobon.svc.cluster.local (10.254.57.33): 56 data bytes
+92 bytes from 192.168.58.254: Time to live exceeded
+92 bytes from 192.168.58.254: Time to live exceeded
+92 bytes from 192.168.58.254: Time to live exceeded
+92 bytes from 192.168.58.254: Time to live exceeded
+^C--- php-fpm.fsobon.svc.cluster.local ping statistics ---
+4 packets transmitted, 0 packets received, 100% packet loss
+
+
+on va maintenant créer un service nginx :
+
+
+ ~/kube-workshop  $  cat rc_nginx.yaml 
+apiVersion: v1
+kind: ReplicationController
+metadata:
+  name: nginx-rc
+spec:
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: repo-docker-images/workshop/nginx:latest
+        ports:
+        - containerPort: 80
+        imagePullPolicy: IfNotPresent
+
+
+ ~/kube-workshop  $  cat svc_nginx.yaml 
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-www
+  labels:
+    app: nginx-www
+  annotations:
+    public_endpoints: '["public"]'
+spec:
+  ports:
+  - name: nginx-www
+    port: 80
+    protocol: TCP
+  selector:
+    app: nginx
+  type: ClusterIP
+
+
+
+ ~/kube-workshop  $   /usr/local/bin/kubectl --server=http://kube-cluster:8080 --namespace fsobon create -f rc_nginx.yaml
+replicationcontroller "nginx-rc" created
+ ~/kube-workshop  $  /usr/local/bin/kubectl --server=http://kube-cluster:8080 --namespace fsobon create -f svc_nginx.yaml
+service "nginx-www" created
+
+
+ ~/kube-workshop  $  /usr/local/bin/kubectl --server=http://kube-cluster:8080 --namespace fsobon get services
+NAME        CLUSTER-IP     EXTERNAL-IP   PORT(S)    AGE
+nginx-www   10.254.31.26   <none>        80/TCP     2m
+php-fpm     10.254.57.33   <none>        9000/TCP   13m
+
+
+
+on peut maintenant requetter depuis un des noeuds du cluster la page php de notre appli en interrogeant nginx  
+
+
+[f.sobon@node-07bv ~] $ curl http://10.254.31.26/test.php
+<pre>
+Array
+(
+    [KUBERNETES_SERVICE_PORT] => 443
+    [KUBERNETES_PORT] => tcp://10.254.0.1:443
+    [PHP_EXTRA_CONFIGURE_ARGS] => --enable-fpm --with-fpm-user=www-data --with-fpm-group=www-data
+    [HOSTNAME] => php-rc-8nwx3
+    [PHP_INI_DIR] => /usr/local/etc/php
+    [HOME] => /var/www
+    [PHP_LDFLAGS] => -Wl,-O1 -Wl,--hash-style=both -pie
+    [PHP_CFLAGS] => -fstack-protector-strong -fpic -fpie -O2
+    [PHP_MD5] => 
+    [PHP_VERSION] => 5.6.32
+    [GPG_KEYS] => 0BD78B5F97500D450838F95DFE857D9A90D90EC1 6E4F6AB321FDC07F2C332E3AC2BF0BC433CFC8B3
+    [PHP_CPPFLAGS] => -fstack-protector-strong -fpic -fpie -O2
+    [PHP_ASC_URL] => https://secure.php.net/get/php-5.6.32.tar.xz.asc/from/this/mirror
+    [PHP_URL] => https://secure.php.net/get/php-5.6.32.tar.xz/from/this/mirror
+    [KUBERNETES_PORT_443_TCP_ADDR] => 10.254.0.1
+    [PATH] => /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+    [KUBERNETES_PORT_443_TCP_PORT] => 443
+    [KUBERNETES_PORT_443_TCP_PROTO] => tcp
+    [KUBERNETES_SERVICE_PORT_HTTPS] => 443
+    [KUBERNETES_PORT_443_TCP] => tcp://10.254.0.1:443
+    [KUBERNETES_SERVICE_HOST] => 10.254.0.1
+    [PHPIZE_DEPS] => autoconf 		dpkg-dev 		file 		g++ 		gcc 		libc-dev 		libpcre3-dev 		make 	pkg-config 		re2c
+    [PWD] => /var/www/html
+    [PHP_SHA256] => 8c2b4f721c7475fb9eabda2495209e91ea933082e6f34299d11cba88cd76e64b
+    [USER] => www-data
+    [FCGI_ROLE] => RESPONDER
+    [SCRIPT_FILENAME] => /var/www/html/test.php
+    [QUERY_STRING] => 
+    [REQUEST_METHOD] => GET
+    [CONTENT_TYPE] => 
+    [CONTENT_LENGTH] => 
+    [SCRIPT_NAME] => /test.php
+    [REQUEST_URI] => /test.php
+    [DOCUMENT_URI] => /test.php
+    [DOCUMENT_ROOT] => /var/www/html
+    [SERVER_PROTOCOL] => HTTP/1.1
+    [REQUEST_SCHEME] => http
+    [GATEWAY_INTERFACE] => CGI/1.1
+    [SERVER_SOFTWARE] => nginx/1.13.6
+    [REMOTE_ADDR] => 10.166.0.0
+    [REMOTE_PORT] => 54232
+    [SERVER_ADDR] => 10.165.0.34
+    [SERVER_PORT] => 80
+    [SERVER_NAME] => localhost
+    [REDIRECT_STATUS] => 200
+    [HTTP_USER_AGENT] => curl/7.29.0
+    [HTTP_HOST] => 10.254.31.26
+    [HTTP_ACCEPT] => */*
+    [PHP_SELF] => /test.php
+    [REQUEST_TIME_FLOAT] => 1520005114.0378
+    [REQUEST_TIME] => 1520005114
+    [argv] => Array
+        (
+        )
+
+    [argc] => 0
+)
+on a une reponse dns aussi qui repond : 
+root@php-rc-072gv:/var/www/html# curl http://nginx-www/test.php
+
+
+on a une reponse qui alterne d'ip puisqu'on a le loadbalancing fait par iptables :
+
+<html# curl -s http://nginx-www/test.php |grep SERVER_ADD                    
+    [SERVER_ADDR] => 10.182.0.30
+< curl -s http://nginx-www/test.php |grep SERVER_ADD
+    [SERVER_ADDR] => 10.182.0.30
+< curl -s http://nginx-www/test.php |grep SERVER_ADD
+    [SERVER_ADDR] => 10.165.0.34
+
+Des variables  d'environments sont poussées par kube dans les pods :
+
+root@php-rc-072gv:/var/www/html# env |grep KUB
+KUBERNETES_PORT_443_TCP_PORT=443
+KUBERNETES_PORT=tcp://10.254.0.1:443
+KUBERNETES_SERVICE_PORT=443
+KUBERNETES_SERVICE_HOST=10.254.0.1
+KUBERNETES_PORT_443_TCP_PROTO=tcp
+KUBERNETES_SERVICE_PORT_HTTPS=443
+KUBERNETES_PORT_443_TCP_ADDR=10.254.0.1
+KUBERNETES_PORT_443_TCP=tcp://10.254.0.1:443
+
+
+on a des variables d'env créer aussi via la lecture des yaml de conf
+
+
+On peut maintenant acceder via une url dans le navigateur à une ressource 
+
+
+on va editer le fichier ingress_nginx.yaml.tmpl
+le ingress expose kube a l'exterrieur
+
+cat ingress_nginx.yaml.tmpl 
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: workshop-ingress
+spec:
+  rules:
+  - host: ruby.kube.lab  <<<< on peut ici definir le nom dns que l'on pourra interroger à l'exterrieur de kube ( sur notre poste , navigateur par exemple )
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: nginx-www
+          servicePort: 80
+
+
+on met en place un service  set ingress sur chaque noeud 
+
+pour assurer la reponse de notre service de l'exterrieur de notre kube on lance donc une instance ingress :
+
+ ~/kube-workshop  $  /usr/local/bin/kubectl --server=http://kube-cluster:8080 --namespace fsobon create -f ingress_nginx.yaml.tmpl
+ingress "workshop-ingress" created
+
+
+curl -IL http://ruby.kube.lab/test.php
+HTTP/1.1 200 OK
+Server: nginx/1.13.7
+Date: Fri, 02 Mar 2018 16:09:36 GMT
+Content-Type: text/html; charset=UTF-8
+Connection: keep-alive
+Vary: Accept-Encoding
+X-Powered-By: PHP/5.6.32
+
+on peut donc requetter depuis un navigateur notre appli kube qui renvoi du php via la serveur web monté : 
+http://ruby.kube.recette/test.php
+
+
