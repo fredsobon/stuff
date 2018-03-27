@@ -1,0 +1,122 @@
+=== puppet job ===
+
+puppet pour rendre les servers indempotents
+plusieurs mode : agent , masterless ...;
+
+l'environement (en terme puppet) c'est la branche depuis laquelle le code sera tiré : ex : production, lapin, bob12
+on set l'environement de base dans le puppet.conf
+
+ensuite les facts sont recupéres : outils , deployés sur le serveur, 
+ensuite le puppet server renvoie le catalogue
+
+qu'on soit en vm ou physique le principe reste le même. 
+la différence se fait dans les facts.
+
+
+on va mettre la conf a jour de nos serveurs toutes les 30 minutes via une cron
+
+
+on va utiliser des resssources de bases de puppet qui permettent de gérer les conf puppet
+
+les ressources de base vont être rassembler dans des classes 
+dans une classe ont peut appeller à d'autre classes ou des ressources
+les classes sont rassemblées en modules
+
+
+On a des modules internes / externes
+
+les modules externes sont tres souvent gérés par la communauté par la forge
+
+les modules maison vont rassembler des conf dédiées à des projets.
+
+
+- stdlib : 
+module de puppetlabs : regroupement de fonction pour développer ( pour manipuler classes, ressources ..)
+
+
+- type :
+VARIABLE $toto = 1
+ARRAY  $titi =  [ 1, 2 ,3 ]
+HASH $tutu = { 1 => 1, 2 => 2, 3 => 3} 
+
+on peut faire des hash de hash :
+HASH $tutu = { 1 => [ 1 => 2 ], 2 => 2, 3 => 3} 
+
+en theorie on a ce type de conf : 
+un profile, appelle une app qui appelle un module qui appelle un module qui appelle une classe qui appelle une ressource 
+
+Profile -> App -> Module -> Classe -> Ressource
+
+
+En interne les modules seront prefixés par "app_"
+
+Toujours decendre les modules via github plutot que puppet module
+
+On doit toujours supprimer les point .git 
+
+puis changer la version master en num de version
+
+
+une classe est une fonction qui prend des params qu'on peut  overrider
+
+on commence par le fichier init qui est a la racine : le manifest init de notre module 
+
+class bamboo (
+  $version            = '7.1',
+  $extension          = 'tar.gz',
+  $manage_installdir  = true,
+...
+
+
+
+on peut avoir des modules customs : c'est un module dédié à un produit qu'on a vouylu renommer pour mettre à jour (ex gitlab maison)
+
+
+
+- profiles : 
+
+le profile va être associé à un server ex sgbd
+un server -> va avoir un role de sgbd -> qui va charger un module  mysql
+
+en interne on peut avoir :
+
+le profile est un module qu'on appelle role ...
+
+on va avoir des domaines, roles , profiles
+
+une classe doit être simple ex hadoop
+
+
+
+- hiera : 
+on a le certname , inventory 
+et l'enc 
+
+
+on va pouvoir definir en fonction des informations de hierarchy 
+la conf hiera.yaml : 
+ordre dans lequel les infos vont être recupérées. 
+
+on peut utiliser l'inventaire si et seulement si on a l'enc.
+
+au plus bas niveau on a le hostname de la machine.
+
+
+on va avoir l'env de hiera (/!\ attention rien a voir avec puppet ) 
+ex :
+hiera_environment: 'prod'
+hiera_location: 'ulis'
+hiera_domain: 'web'
+hiera_role: 'front'
+
+
+on va donc avoir le catalogue puppet construit a partir de ces infos.
+
+
+
+
+
+
+
+
+
