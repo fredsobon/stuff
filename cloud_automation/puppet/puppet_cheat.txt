@@ -34,7 +34,6 @@ user { 'root':
   uid              => '0',
 }
 
-
 - puppet facts find
 
 pour afficher la liste de facts dispo 
@@ -50,8 +49,6 @@ On peut sortir la liste des facts sous differents formats :
 - json :
 [vagrant@client manifests]$ facter --json
 [vagrant@client manifests]$ puppet facts render-as-json
-
-
 
 
 = variables : =
@@ -89,10 +86,6 @@ on peut definir des variables a des valeurs dans des tableaux si le nombre de va
 
 Certaines fonctions demandent une liste de valeur en arguments a la place d'element de tableau.On peut utiliser '*' pour convertir les elements d'un tableau en éléments séparés par une virgule avec la syntaxe de type :
 $myfonction(* $array_of_args) { ..}
-
-
-
-
 
 
 ==  Class param , hiera by pass ..;= 
@@ -177,6 +170,57 @@ app_bus::with_apm: false
 
 
     
+
+== functions ==
+
+on va pouvoir dans notre code puppet utiliser des fonctions natives (notamment grâce à la stdlib).
+
+
+= filter : 
+
+ex : ici on va pouvoir alimenter une conf de fichier en recupérant la valeur d'un node filtrer dans une liste :
+
+class app_ntpserver (
+) {
+    # func to define correct peer hosts :
+    $peer_list = ["ntp01", "ntp02"]   <<< ici on defini la liste de nos serveurs 
+    $filtered_host = $peer_list.filter |$items| { $items != $hostname }   <<< ici on va enregistrer dans une variable le resultat de notre filtrage : à savoir boucler sur notre liste et ne recupérer que le resultat ne correspondant pas au server executant le run ( si notre serveur est le ntp02 alors nto01 sera la valeur récupérée et vice verça 
+    # ici on test le résultat de notre run : 
+    notify {" ok test to print the hostname fact content $hostname" : }
+    notify {" ok test to print var content => $filtered_host": }
+
+     class {'::ntp':
+       servers => [
+           '0.fr.pool.ntp.org',
+           '1.fr.pool.ntp.org',
+           '2.fr.pool.ntp.org',
+           '3.fr.pool.ntp.org'
+       ],
+       restrict => [
+           '127.0.0.1',
+       ],
+       # ici on va utiliser la commande suffix pour ajouter notre node enregistré precedemment et l'extention ".net"
+       peers => suffix($filtered_host,'.net'), 
+    }
+}
+
+on aura donc en resultat sur le server issu de notre module ntp 
+
+[root@zinfntp02u ~] #grep -v "^#" /etc/ntp.conf 
+disable monitor
+
+statsdir /var/log/ntpstats
+
+restrict 127.0.0.1
+
+server 0.fr.pool.ntp.org
+server 1.fr.pool.ntp.org
+server 2.fr.pool.ntp.org
+server 3.fr.pool.ntp.org
+
+driftfile /var/lib/ntp/drift
+
+peer ntp01u.admin
 
 
 
