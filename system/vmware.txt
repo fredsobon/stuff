@@ -1,0 +1,53 @@
+=== vmware tips ===
+
+= ajout d'espace disque sur une vm : =
+
+on peut avoir besoin de rajouter de l'espace disque sur une vm. Une fois realisée il va falloir rescanner les devices depuis l'os pour prendre en compte le nouvel espace disque :
+
+ex : on ajoute 40g a une machine 
+
+En examinant le disque sur le serveur : pas de changement identifié : 
+[root@web ~] # fdisk -l
+
+Disque /dev/sda : 37.6 Go, 37580963840 octets, 73400320 secteurs
+Unités = secteur de 1 × 512 = 512 octets
+Taille de secteur (logique / physique) : 512 octets / 512 octets
+taille d'E/S (minimale / optimale) : 512 octets / 512 octets
+Type d'étiquette de disque : dos
+Identifiant de disque : 0x000bc747
+
+
+En rescannant notre device on a la nouvelle valeur prise en compte : 
+
+[root@web ~] # echo 1>/sys/class/block/sda/device/rescan 
+[root@web ~] # fdisk -l
+
+Disque /dev/sda : 75.2 Go, 75161927680 octets, 146800640 secteurs
+Unités = secteur de 1 × 512 = 512 octets
+Taille de secteur (logique / physique) : 512 octets / 512 octets
+taille d'E/S (minimale / optimale) : 512 octets / 512 octets
+Type d'étiquette de disque : dos
+Identifiant de disque : 0x000bc747
+
+# fdisk -l
+
+Run this command to convert the new partition to a physical volume:
+
+Note: The number for the sda can change depending on system setup. Use the sda number that was created in step 5.
+
+# pvcreate /dev/sda3
+
+Run this command to extend the physical volume:
+
+# vgextend VolGroup00 /dev/sda3
+
+Note: To determine which volume group to extend, use the command vgdisplay.
+
+Run this command to verify how many physical extents are available to the Volume Group:
+
+# vgdisplay VolGroup00 | grep "Free"
+
+Run the following command to extend the Logical Volume:
+
+# lvextend -L +40G /dev/VolGroup00/LogVol00
+
