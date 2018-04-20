@@ -1,0 +1,147 @@
+=== notes rabbitmq from udemy lesson course ===
+
+rabbitmq : message broker. Facile a déployer et scalable.Supporte plusieurs protocoles ( amqp, stomp ...)
+ 
+
+- install :
+
+root@ubuntu-xenial:~# apt install rabbitmq-server 
+Reading package lists... Done
+Building dependency tree       
+Reading state information... Done
+The following package was automatically installed and is no longer required:
+  linux-image-4.4.0-103-generic
+Use 'sudo apt autoremove' to remove it.
+The following additional packages will be installed:
+  erlang-asn1 erlang-base erlang-corba erlang-crypto erlang-diameter erlang-edoc erlang-eldap erlang-erl-docgen erlang-eunit erlang-ic erlang-inets erlang-mnesia
+  erlang-nox erlang-odbc erlang-os-mon erlang-parsetools erlang-percept erlang-public-key erlang-runtime-tools erlang-snmp erlang-ssh erlang-ssl erlang-syntax-tools
+  erlang-tools erlang-webtool erlang-xmerl libltdl7 libodbc1 libsctp1
+Suggested packages:
+  erlang erlang-manpages erlang-doc xsltproc fop erlang-ic-java erlang-observer libmyodbc odbc-postgresql tdsodbc unixodbc-bin lksctp-tools
+The following NEW packages will be installed:
+  erlang-asn1 erlang-base erlang-corba erlang-crypto erlang-diameter erlang-edoc erlang-eldap erlang-erl-docgen erlang-eunit erlang-ic erlang-inets erlang-mnesia
+  erlang-nox erlang-odbc erlang-os-mon erlang-parsetools erlang-percept erlang-public-key erlang-runtime-tools erlang-snmp erlang-ssh erlang-ssl erlang-syntax-tools
+  erlang-tools erlang-webtool erlang-xmerl libltdl7 libodbc1 libsctp1 rabbitmq-server
+0 upgraded, 30 newly installed, 0 to remove and 64 not upgraded.
+Need to get 23.6 MB of archives.
+After this operation, 41.3 MB of additional disk space will be used.
+Do you want to continue? [Y/n] Y
+Get:1 http://archive.ubuntu.com/ubuntu xenial-updates/main amd64 erlang-base amd64 1:18.3-dfsg-1ubuntu3.1 [7,002 kB]
+...
+Setting up rabbitmq-server (3.5.7-1ubuntu0.16.04.2) ...
+Adding group `rabbitmq' (GID 118) ...
+Done.
+Adding system user `rabbitmq' (UID 113) ...
+Adding new user `rabbitmq' (UID 113) with group `rabbitmq' ...
+Not creating home directory `/var/lib/rabbitmq'.
+Processing triggers for libc-bin (2.23-0ubuntu10) ...
+Processing triggers for systemd (229-4ubuntu21.1) ...
+Processing triggers for ureadahead (0.100.0-19) ...
+
+
+
+= cluster : ==
+
+
+Type column on the dashboard : 
+Disc -> means that this node persists its data to the filesystem, which is the default behavior.
+It's also possible to start a node as a ram node, in which case all message data will
+be purely stored in memory. This is an interesting approach for creating highperformance
+members in a cluster. 
+Stats -> means the node is the one that contains the management statistics database, which is not spread across the cluster.
+the * -> indicates the node you're connected to
+
+
+pour voir le status de notre cluster : 
+
+sudo rabbitmqctl cluster_status
+Cluster status of node rabbit@zinfmonqueue04uv ...
+[{nodes,[{disc,[rabbit@zinfmonqueue02uv,rabbit@zinfmonqueue01bv]},
+         {ram,[rabbit@zinfmonqueue04uv,rabbit@zinfmonqueue03bv]}]},
+ {running_nodes,[rabbit@zinfmonqueue03bv,rabbit@zinfmonqueue02uv,
+                 rabbit@zinfmonqueue01bv,rabbit@zinfmonqueue04uv]},
+ {cluster_name,<<"rabbit@zinfmonqueue01bv.backend">>},
+ {partitions,[]}]
+...done.
+
+mirroring de data : par defaut les data ne sont pas repliquées : 
+queue data is local to a particular node; so if this node goes down, consumers will
+have to wait until it comes back to access it. This may sound strange, but it can be
+a perfectly acceptable scenario for messages used to track long running tasks, for
+example, for which having to wait for a while would not be tragic
+en activant le mirroring on passe par un master : 
+users' queues to be highly available. This
+can be achieved with mirrored queues. When a queue is mirrored, its instances
+across the network organize themselves around one master and several slaves. All
+interaction (message queuing and dequeuing) happens with the master; the slaves
+receive the updates via synchronization over the cluster. If you interact with a node
+that hosts a slave queue, the interaction would actually be forwarded across the
+cluster to the master and then synchronized back to the slave
+
+
+pour configurer un mirroring de data, il faut dans un premier temps :
+> clean la conf de la queue / exchange desirée si une conf existe 
+
+ex : 
+sudo rabbitmqctl clear_policy -p ccm-prod-vhost Q_TTL_DLX
+Clearing policy "Q_TTL_DLX" ...
+...done.
+
+> appliquer la nouvelle conf :
+
+
+ on set ici la ha automatique pour tous les nodes sur les queues "user-*" et "dead-letter" : 
+
+$ sudo rabbitmqctl set_policy -p ccm-prod-vhost HA_Q_TTL_DLX "user
+.+" '{"message-ttl":604800000, "dead-letter-exchange":"user-dlx",
+ "ha-mode":"all", "ha-sync-mode":"automatic"}' --apply-to queues
+ Setting policy "HA_Q_TTL_DLX" for pattern "user-.+" to "{\"ha
+mode\":\"all\", \"message-ttl\":604800000, \"dead-letter
+exchange\":\"user-dlx\"}" with priority "0" ...
+...done.
+
+on voit donc que le param principal est le ha-mode setté en all :"  The all value for ha-mode means that the queues will be mirrored "
+on peut affiner notre conf avec :
+Other options are exactly and nodes, which allow specifying a number or
+nodes and a list of node names in an extra ha-params parameter respectively
+
+The ha-sync-mode parameter is unsurprisingly used to specify the synchronization
+mode for the mirrored queue, and can be either manual or automatic. In the manual
+mode, a newly mirrored slave queue will not receive any of the existing messages,
+but will eventually become consistent with the master queue, as old messages get
+consumed. In your case, you want immediate synchronization of the queues so that
+any existing messages become visible across all nodes, and are fine with the initial
+unresponsiveness this will create, as performance is not critical for user messages.
+It is possible to manually synchronize a mirrored queue with
+rabbitmqctl sync_queue <queue_name>. The manual
+synchronization can be canceled with 
+
+-> rabbitmqctl cancel_sync_queue <queue_name>.
+
+You certainly must have noticed that we apply this policy only to the user inboxes
+and dead-letter queue. You're most likely wondering about the log and the service
+queues. For the log queues, we will be looking at another high-availability option
+because it does not make sense to mirror the high traffic that goes through them across
+the cluster. For the service temporary response queues, there is no need to make them
+highly available; if something goes wrong with a broker, the synchronous interaction
+will break and the client will have to back off and retry. However, the service request
+queues need to be mirrored to allow providers and consumers to be connected to
+different RabbitMQ brokers. This is done with the following command:
+
+comme c'est conseiller on va ici forcer la répli sur la queue de type "*-service" : nécéssaire au mode cluster : 
+$ sudo rabbitmqctl set_policy -p ccm-prod-vhost HA_Q ".+-service" '{"hamode":"all",
+"ha-sync-mode":"automatic"}' --apply-to queuesSetting policy
+"HA_Q" for pattern ".+-service" to "{\"ha-mode\":\"all\", \"ha-syncmode\":\"automatic\"}"
+with priority "0" ...
+...done.
+As you can see, you opted for the .+-service pattern, so any new service that
+you could develop alongside the authentication one will have its request queue
+automatically mirrored, as long as its name ends with -service
+
+apres une modif faite sur notre conf on doit voir en  consultant le dashboard rabbitmq la policy appliquée sur notre queue :
+
+->"Queues tab of the management console after running the
+above command, you'll see that the HA_Q_TTL_DLX and HA_Q policies have been
+applied to the intended queues"
+
+
