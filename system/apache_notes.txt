@@ -211,7 +211,7 @@ Comment fonctionnent les sections <Directory>, <Location> et <Files> pour une ex
 
 http://www.bortzmeyer.org/6455.html
 
-Proxy websocket connection via apache
+=Proxy websocket connection via apache
 
 When I connect the websocket from my PHP application, I always wanted to use the same URL of webapp for the websocket connection. I was not happy with seperate url with a port to connect with websockets.
 Recently I figured out how to proxy my websocket connection with apache. In order to proxy it, 
@@ -229,6 +229,29 @@ Next is to specify the endpoint which the websocket will connect, so we can prox
   ProxyPass / http://web01:9995/
   ProxyPassReverse / http://web01:9995/
 </VirtualHost>
+
+exemple conf 2 :
+
+  ## Proxy rules
+  ProxyRequests Off
+  ProxyPreserveHost On        # <<  Utilise l'en-tête de requête entrante Host pour la requête du mandataire 
+                              # Lorsqu'elle est activée, cette directive va transmettre l'en-tête Host: de la requête                               # entrante vers le serveur mandaté, au lieu du nom d'hôte spécifié par la directive ProxyPass.
+                              #  Cette directive est habituellement définie à Off. Elle est principalement utile dans les configurations particulières comme l'hébergement virtuel mandaté en masse à base de nom, où l'en-tête Host d'origine doit être évalué par le serveur d'arrière-plan.
+
+  # websocket : 
+  ProxyPass "/service/ws/" "wss://web02:8088/service/ws/"  # setting du websocket
+  ProxyPassReverse "/service/ws/" "wss://xeb02:8088/service/ws/"
+  # http :  # /! \ Attention il peut être imperatif de decrire  les appels aux urls accedant a "/" apres les chemins d nos chemins websocket : car apache lit dans l'ordre des ressources parsées et donc dans notre cas on recupere un 200 au lieu du 101 nécéssaire a la connexion websocket  
+  ProxyPass / http://web01:8088/
+  ProxyPassReverse / http://web01:8088/
+ 
+  # on peut aussi produire le même effet avec une rewrite rule  
+
+  #RewriteEngine On
+  # When Upgrade:websocket header is present, redirect to ws
+  # Using NC flag (case-insensitive) as some browsers will pass Websocket
+  RewriteCond %{HTTP:Upgrade} =websocket [NC]   # on definie une condition qui match le header Upgrade avec la valeur websocket en ignorant la casse > [NC]
+  RewriteRule ^/service/ws/(.*)    ws://web01:8088/service/ws/$1 [P,L] # on redirige toutes les url "/service/ws/(.*) vers le serveur web01 en indicant la condition [PL] : Proxy on forward .Last: derniere rewrite traitée  
 
 
 This configuration in my virtual host will proxy my websocket connection to websocket server through apache.
@@ -294,7 +317,12 @@ The correct response for that should be:
 < upgrade: WebSocket
 < connection: Upgrade
 < websocket-location: ws://localhost:3000/sockjs/411/vazi0idf/websocket
-
-
-
 curl -u lapin i -H "Connection: Upgrade" -H "Upgrade: websocket" -H "Origin: https://bla.net" http://node:8081
+
+
+
+
+/!\ Attention il peut être utile de fournir toute une serie de headers :
+
+curl -vi --no-buffer -H "Origin: bla.net" -H "Connection: Upgrade" -H "Upgrade: websocket" -H "Sec-WebSocket-Version: 13" -H "Sec-WebSocket-Key: sdqsdzfersd"  -H "Host: bla.net" https://bla.net/service/ws/test
+
