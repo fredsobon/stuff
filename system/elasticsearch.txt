@@ -115,3 +115,49 @@ curl -X GET 'http://localhost:9200/_river/<index name>/_search'       # Seach th
 
 
 
+
+
+=== Troubleshooting : ==
+
+en cas de crash elasticsearch : on va pouvoir tenter  de remettre le cluster sur pied :
+
+> dans un premier temps on essayer de definir le node le plus ok : 
+
+
+ curl -s   http://127.0.0.1:9200/_cluster/health |jq .                             Thu Apr 26 16:00:17 2018
+
+{
+  "cluster_name": "logdbpay",
+  "status": "yellow",
+  "timed_out": false,
+  "number_of_nodes": 2,
+  "number_of_data_nodes": 2,
+  "active_primary_shards": 705,
+  "active_shards": 767,
+  "relocating_shards": 0,
+  "initializing_shards": 2,
+  "unassigned_shards": 641,
+  "delayed_unassigned_shards": 0,
+  "number_of_pending_tasks": 0,
+  "number_of_in_flight_fetch": 0,
+  "task_max_waiting_in_queue_millis": 0,
+  "active_shards_percent_as_number": 54.39716312056737
+
+on va identifier le master du cluster : 
+si les deux noeuds se voient master :
+
+curl -s   http://127.0.0.1:9200/_cat/master
+Sd4N7VH_TfqgIOyf6Xl5yQ 10.120.1.14 10.120.1.14 log01
+
+curl -s   http://127.0.0.1:9200/_cat/master 
+cXfGtawRQE-iiFYHyPF_TA 10.120.101.74 10.120.101.74 log02
+
+
+on a un souci ..
+
+un peu forcer un des nodes a ne pas être master dans la conf elasticsearch : exemple /etc/elasticsearch/elasticsearch :
+
+node.master: false ￼
+node.data: true
+
+en redemmarant le service elasticsearch  : les deux noeuds vont pour voir reprendre leur roles respectifs ... 
