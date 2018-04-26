@@ -1,0 +1,74 @@
+== notes sur les creates ressources de puppet : ==
+
+https://www.example42.com/2017/02/06/resources-from-hash-in-puppet4/
+
+
+on va pouvoir créer des resources facilement en utilisant des fonctions natives à puppet :
+
+ex :  on va vouloir crééer des  ressources sur notre node qui vont être définies simplement dans hiera et processer par le create ressource de puppet : 
+
+ex ici : on utilise la classe archive qui permet de downloader des fichiers en donnant un path et une url : 
+
+-> dans hiera on defini l'appel de nos  binaires : avec le path final et l'url : 
+
+profile::base::archives::binaries:
+  '/opt/geoip/GeoIP2-Anonymous-IP.mmdb':
+    url: 'https://artifactory/geoip/GeoIP2-Anonymous-IP.mmdb'
+  '/opt/geoip/GeoIP2-City.mmdb':
+    url: 'https://artifactory/geoip/GeoIP2-City.mmdb'
+  '/opt/geoip/GeoIP2-ISP.mmdb':
+    url: 'https://artifactory/geoip/GeoIP2-ISP.mmdb'
+
+
+-> dans puppet : on va boucler sur le tableau de binaires et on va creer a chaque fois un bloc qui va contenir la valeur de archive ( path) et de value (url) 
+
+# Default class to push archives
+class profile::base::archives (
+  Hash $binaries = {}
+){
+  $binaries.each |String $archive, Hash $value| {
+    archive { $archive:
+      * => $value,
+    }
+  }
+}
+
+sur notre serveur on va avoir en final nos fichiers d'uploadés :
+
+ls /opt/geoip/
+GeoIP2-Anonymous-IP.mmdb  GeoIP2-City.mmdb  GeoIP2-ISP.mmdb
+
+
+
+exemple  creation de users : 
+
+-> dans hiera on va definir des blocs de hash contenant nos users 
+
+my_great_thing::data:
+  'foo':
+    home: '/home/foo'
+    shell: '/bin/bash'
+    uid: '1044'
+    gid: '1044'
+  'bar':
+    home: '/home/bar'
+    shell: '/bin/bash'
+    uid: '1045'
+    gid: '1045'
+
+
+-> dans notre code puppet on va recupérer les donnees de hiera 
+
+class my_great_class (
+  Hash $data = {}  # on cree un hash vide : si rien n'est def dans hiera pas d'erreur : c'est une protection 
+){
+  $data.each |String $key, Hash $value| {   # on va maintenant boucler : chaque bloc va contenir une cle et des valeurs : ici tout data va etre parser et chaque couple key (ici le user) et valeur (les params de comptes) vont être crées : 
+    $ensure = pick($value['ensure'], 'present')
+    user { $key:
+      ensure   => $ensure,
+      *        => $value,
+    }
+  }
+}
+
+
