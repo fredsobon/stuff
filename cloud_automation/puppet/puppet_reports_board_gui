@@ -1,0 +1,87 @@
+== notes diverses reports - puppetboard -foreman ==
+
+-reports :
+
+on peut voir l'endroit ou sont stocker les reports sur le puppet master via la commande :
+puppet master --configprint reportdir
+/var/lib/puppet/reports
+
+on voit différents rapports : 
+ls /var/lib/puppet/reports/puppet-master-01/
+201603180851.yaml  201603181252.yaml  201603181407.yaml  201711210930.yaml
+201603181043.yaml  201603181254.yaml  201603181412.yaml  201711210931.yaml
+201603181049.yaml  201603181256.yaml  201701231607.yaml  201801171504.yaml
+
+
+il existe plusieurs processeurs de reports dans puppet :
+
+
+> store : stocke les report en yaml sur le disque local
+> logs : utiliser pour envoyer les logs en syslog
+> http : utiliser pour envoyer les logs en yaml via https post à l'url définie dans le param reporturl
+> puppetdb : utiliser pour envoyer les rapports vers la puppetdb
+
+/opt/puppetlabs/puppet/lib/ruby/vendor_ruby/puppet/reports] # ls
+http.rb  log.rb  puppetdb.rb  store.rb
+
+on va souvent avoir un serveur dédié pour héberger la db : on configure l'envoi de rapports à la puppet db en positionnant la conf dans le puppet.conf :
+..
+reports = puppetdb
+...
+
+
+- puppetboard :
+
+frontend en python / flask pour gérer les requettes à la puppetdb 
+sur centos redhat : avoir les repos epel installés : 
+
+possible d'utiliser le module puppet existant ou de faire la conf manuelle : 
+
+https://forge.puppet.com/puppet/puppetboard
+
+https://github.com/voxpupuli/puppetboard
+
+
+-> setup : 
+yum install -y gcc python-devel python-pip
+
+pip install puppetboard
+
+l'install doit être faite dans l'arbo de type :
+/usr/lib/python2.7/sites-packages/puppetboard
+
+on va installer maintenant un serveur http et le module wsgi pour gérer l'appli en python 
+
+yum install httpd mod_wsgi
+
+
+mkdir -p /var/www/html/puppetboard
+
+on copie ensuite le fichier de conf principal de l'arbo python dans notre arbo nouvellement créee en le renommant :
+
+cp /usr/lib/python2.7/sites-packages/puppetboard/default_settings.py /var/www/html/puppetboard/settings_py
+ 
+on edite le ficher et on renseigne les infos de notre puppetdb ( puppetdb key cert, ssl verify ..)  
+
+on ajoute ensuite un fichier wsgi.py dans notre docroot :
+
+et on alimente avec les infos suivantes : 
+
+from __future__ import absolute_import
+import os
+
+# Needed if a settings.py file exists
+os.environ['PUPPETBOARD_SETTINGS'] = '/var/www/html/puppetboard/settings.py'
+from puppetboard.app import app as application
+
+on va creer une clé qui va securiser les comm entre le serveur http et l'appli python .
+on creer un fichier avec de la génération aléatoire 
+key.py :
+ import os
+ os.urandom(24)
+ '\xfd{H\xe5<\x95\xf9\xe3\x96.5\xd1\x01O<!\xd5\xa2\xa0\x9fR"\xa1\xa8'
+on execute le fichier 
+ python key.py
+et on recupere la chaine générer pour la renseigner dans notre conf wsgi.py :
+ application.secret_key = '<your secret key>'
+
