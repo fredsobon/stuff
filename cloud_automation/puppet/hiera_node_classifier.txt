@@ -1,0 +1,50 @@
+=== notes hiera ====
+
+
+on peut setter notre conf de node via un nodeclassifier 
+les conf par server peuvent être faite par certname ( on est la vraiment dans du specifique )
+ou on peut etablir un découpage dans une hierarchie pour factoriser notre code :
+Il y a 2 solutions pour assigner un "role" a une machine
+enc ou classes: -profile::bidule::machine dans le certaneme
+ex :
+
+cat ../hiera/certname/xwebgeoip99.yaml
+---
+classes:
+- profile::web::geoip
+
+ou alors definir une arbo enc pour notre role ( dans se cas des scripts sont à faire pour parser nos infos ...
+pour l'exemple : 
+
+cat certname/xwebgeoiprc00uv.yaml 
+---
+profile::base::params::ip: "10.134"
+..
+...
+cat enc_nodes/xwebgeoiprc00uv.yaml 
+---
+hiera_environment: 'prod'
+hiera_location: 'dc1'
+hiera_domain: 'web'
+hiera_role: 'geoip'
+
+
+cat inventory/recette/role/web/geoip.yaml 
+---
+profile::base::params::pulp_config: 'true'
+..
+...
+
+qui lui sera bien présent dans notre conf puppet : 
+
+
+cat profile/manifests/web/geoip.pp 
+#
+class profile::web::geoip {
+
+    # base :
+    include profile::base
+..
+...
+
+
