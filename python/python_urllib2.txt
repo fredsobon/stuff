@@ -1,0 +1,301 @@
+==== notes urllib2 ====
+
+= Introduction
+urllib2 est un module Python pour récupérer des URLs. Il offre une interface très simple, avec la fonction urlopen. Ce module est capable de récupérer des URLs en utilisant différents protocoles. Il fournit aussi une interface un peu plus complexe pour gérer des situations standards - comme une authentification, des cookies, des proxies, etc... Cela est fourni par des objets appelés handlers et openers.
+
+Pour des situations simples, urlopen est très facile à utiliser. Mais dès que vous rencontrez des erreurs, ou des cas non-triviaux, vous aurez besoin de comprendre le protocole HTTP . La meilleure documentation concernant HTTP est le RFC 2616. C'est un document technique et il n'est pas prévu pour être facile à lire ￼ . Le but de ce tutoriel est de documenter urllib2, avec suffisamment de détails concernant HTTP pour vous aider. Son but n'est pas de remplacer la urllib2 docs [1], mais de la compléter.
+
+= Récupérer des URLs
+HTTP est basé sur des requêtes et des réponses - le client envoie des requêtes and et le server envoie des réponses. Python fait cela en vous faisant renseigner un objet Request qui représente la requête que vous faîtes. Dans sa forme la plus simple, vous créez un objet Request qui indique l' URL que vous voulez récupérer[2]. Le fait d'apppeler urlopen avec cet objet Request renvoie un handle sur la page demandée. Ce handle est un fichier comme objet :
+
+import urllib2
+
+the_url = 'http://www.voidspace.org.uk'
+req = urllib2.Request(the_url)
+handle = urllib2.urlopen(req)
+the_page = handle.read()
+print(the_page)  << on va afficher pour debug la page web recupérée.
+
+
+
+Il y a deux autres choses que l'objet Request vous permet de faire. Parfois vous voulez faire un POST de données vers un CGI [3] ou une autre application web . C'est ce que votre navigateur fait quand vous remplissez un formulaire (FORM ) sur le web, ou quand vous transmettez des données à votre propre application. Dans tous les cas, la donnée a besoin d'être encodée pour une transmission sécurisée via HTTP, et ensuite passée à l'objet Request en tant que data argument. L' encodage est fait en utilisant une fonction de la librairie urllib pas de la librairie urllib2 ￼ .
+
+import urllib
+import urllib2
+
+the_url = 'http://www.someserver.com/cgi-bin/register.cgi'
+values = {'name' : 'Michael Foord',
+          'location' : 'Northampton',
+          'language' : 'Python' }
+
+data = urllib.urlencode(values)
+req = urllib2.Request(the_url, data)
+handle = urllib2.urlopen(req)
+the_page = handle.read()
+Certains sites [4] n'aiment pas être accédés par programme, or envoient des versions differentes suivant le navigateur[5] . Par default urllib2 s'identifie en tant que Python-urllib/2.4, ce qui peut perturber le site, ou ne pas fonctionner du tout. Un navigateur s'identifie dans le header User-Agent [6]. Quand vous créez un objet Request, vous pouvez lui passer un dictionnaire de headers. L'exemple suivant fait la même requête que précédemment, mais s' identifie comme une version deIE [7].
+
+import urllib
+import urllib2
+
+the_url = 'http://www.someserver.com/cgi-bin/register.cgi'
+user_agent = 'Mozilla/4.0 (compatible; MSIE 5.5; Windows NT)'
+values = {'name' : 'Michael Foord',
+          'location' : 'Northampton',
+          'language' : 'Python' }
+headers = { 'User-Agent' : user_agent }
+
+data = urllib.urlencode(values)
+req = urllib2.Request(the_url, data, headers)
+handle = urllib2.urlopen(req)
+the_page = handle.read()
+Le handle a aussi deux méthodes utiles. Voyez la section sur info et geturl qui suit la section sur comment gérer les erreurs.
+
+= Gérer les erreurs
+urlopen active URLError ou HTTPError dans le cas d'une erreur. HTTPError est une sous-classe de URLError, qui est une sous-classe de IOError. Cela signifie que vous pouvez trapper IOError si vous le voulez.
+
+req = urllib2.Request(some_url)
+try:
+    handle = urllib2.urlopen(req)
+except IOError:
+    print 'Cela a foiré !'
+else:
+    print handle.read()
+URLError
+Si la  requête ne peut atteindre un serveur alors urlopen va activer une URLError. En général c'est le cas quand il n'y a pas de connexion réseau (pas de route vers le serveur specifié), ou le serveur spécifié n'existe pas.
+
+Dans ce cas, l'exception activée aura un attribut 'reason', qui est un tuple contenant un code d'erreur et un message d'erreur.
+
+e.g.
+
+>>> req = urllib2.Request('http://www.pretend_server.org')
+>>> try: urllib2.urlopen(req)
+>>> except IOError, e:
+>>> print e.reason
+>>>
+(4, 'getaddrinfo failed')
+HTTPError
+Si la requête atteint le serveur, mais que le server est incapable d'y répondre, il renvoie un code d'erreur. Les handlers par défaut vont gérer certaines de ces erreurs pour vous. Pour les autres, urlopen va activer une HTTPError. Des erreurs typiques incluent '404' (page non trouvée), '403' (requête interdite), et '401' (authentification échouée).
+
+Voyez http://www.w3.org/Protocols/HTTP/HTRESP.html pour une reference sur tous les codes d'erreurs http.
+
+L'instance HTTPError levée aura un 'code' attribute entier, qui correspond à l'erreur envoyée par le serveur.
+
+Il y a un dictionnaire utile des codes renvoyés dans HTTPBaseServer, qui montre tous les codes définis. Comme les handlers par défaut gèrent les redirections (codes dans les 300 ), et comme les codes dans la tranche 100-299 indiquent succès, vous verrez surtout les codes d'erreur entre 400 et 599.
+
+= Codes d'erreurs
+Note
+
+Dans Python 2.5 un dictionnaire comme celui-ci sera inclus dans urllib2. ￼
+
+# Table mapping response codes to messages; entries have the
+# form {code: (shortmessage, longmessage)}.
+httpresponses = {
+    100: ('Continue', 'Request received, please continue'),
+    101: ('Switching Protocols',
+          'Switching to new protocol; obey Upgrade header'),
+
+    200: ('OK', 'Request fulfilled, document follows'),
+    201: ('Created', 'Document created, URL follows'),
+    202: ('Accepted',
+          'Request accepted, processing continues off-line'),
+    203: ('Non-Authoritative Information',
+            'Request fulfilled from cache'),
+    204: ('No response', 'Request fulfilled, nothing follows'),
+    205: ('Reset Content', 'Clear input form for further input.'),
+    206: ('Partial Content', 'Partial content follows.'),
+
+    300: ('Multiple Choices',
+          'Object has several resources -- see URI list'),
+    301: ('Moved Permanently',
+            'Object moved permanently -- see URI list'),
+    302: ('Found', 'Object moved temporarily -- see URI list'),
+    303: ('See Other', 'Object moved -- see Method and URL list'),
+    304: ('Not modified',
+          'Document has not changed since given time'),
+    305: ('Use Proxy',
+            'You must use proxy specified in Location'
+            ' to access this resource.'),
+    307: ('Temporary Redirect',
+          'Object moved temporarily -- see URI list'),
+
+    400: ('Bad request',
+          'Bad request syntax or unsupported method'),
+    401: ('Unauthorized',
+          'No permission -- see authorization schemes'),
+    402: ('Payment required',
+          'No payment -- see charging schemes'),
+    403: ('Forbidden',
+          'Request forbidden -- authorization will not help'),
+    404: ('Not Found', 'Nothing matches the given URI'),
+    405: ('Method Not Allowed',
+          'Specified method is invalid for this server.'),
+    406: ('Not Acceptable',
+            'URI not available in preferred format.'),
+    407: ('Proxy Authentication Required',
+            'You must authenticate with '
+            'this proxy before proceeding.'),
+    408: ('Request Time-out',
+            'Request timed out; try again later.'),
+    409: ('Conflict', 'Request conflict.'),
+    410: ('Gone',
+          'URI no longer exists and has been permanently removed.'),
+    411: ('Length Required', 'Client must specify Content-Length.'),
+    412: ('Precondition Failed',
+            'Precondition in headers is false.'),
+    413: ('Request Entity Too Large', 'Entity is too large.'),
+    414: ('Request-URI Too Long', 'URI is too long.'),
+    415: ('Unsupported Media Type',
+            'Entity body in unsupported format.'),
+    416: ('Requested Range Not Satisfiable',
+          'Cannot satisfy request range.'),
+    417: ('Expectation Failed',
+          'Expect condition could not be satisfied.'),
+
+    500: ('Internal error', 'Server got itself in trouble'),
+    501: ('Not Implemented',
+          'Server does not support this operation'),
+    502: ('Bad Gateway',
+            'Invalid responses from another server/proxy.'),
+    503: ('Service temporarily overloaded',
+          'The server cannot '
+          'process the request due to a high load'),
+    504: ('Gateway timeout',
+          'The gateway server did not receive a timely response'),
+    505: ('HTTP Version not supported', 'Cannot fulfill request.'),
+    }
+Quand une erreur se produit, le serveur répond en renvoyant un code d'erreur http et une page d'erreur. Vous pouvez utiliser l'instance HTTPError comme un handle sur la page renvoyée. Cela signifie que, comme pour l'attribut code, il a également les méthodes read, geturl, et info.
+
+>>> req = urllib2.Request('http://www.python.org/fish.html')
+>>> try:
+>>> urllib2.urlopen(req)
+>>> except IOError, e:
+>>> print e.code
+>>> print e.read()
+>>>
+404
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+ "http://www.w3.org/TR/html4/loose.dtd">
+<?xml-stylesheet href="./css/ht2html.css"
+ type="text/css"?>
+<html><head><title>Error 404: File Not Found</title>
+...... etc...
+Le mettre en formes
+Pour gérer HTTPError ou URLError il y a deux approches. Je préfère la seconde.
+
+Numéro 1
+from urllib2 import Request, urlopen, URLError, HTTPError
+req = Request(someurl)
+try:
+    handle = urlopen(req)
+except URLError, e:
+    print 'Nous avons échoué à joindre le serveur.'
+    print 'Raison: ', e.reason
+except HTTPError, e:
+    print 'Le serveur n'a pu satisfaire la demande.'
+    print 'Code d\' erreur : ', e.code
+else:
+    # everything is fine
+Numéro 2
+from urllib2 import Request, urlopen
+req = Request(someurl)
+try:
+    handle = urlopen(req)
+except IOError, e:
+    if hasattr(e, 'reason'):
+        print 'Nous avons échoué à joindre le serveur.'
+        print 'Raison: ', e.reason
+    elif hasattr(e, 'code'):
+        print 'Le serveur n'a pu satisfaire la demande.'
+        print 'Code d\' erreur : ', e.code
+else:
+    # everything is fine
+info et geturl
+Le handle renvoyé par urlopen (ou par l'instance HTTPError ) a deux méthodes utiles info et geturl.
+
+geturl - cela renvoie la véritable url de la page demandée. C'est utile parce que urlopen (ou l'objet opener utilisé) peut avoir été redirigé. L' url de la page obtenue peut différer de l'url demandé.
+
+info - cela renvoie un objet de type dictionnaire qui décrit la page obtenue, en particulier les headers envoyés par le serveur. C'est en fait une instance httplib.HTTPMessage . Dans les versions de Python avant 2.3.4 il n'était pas recommandé d'itérer directement sur l'objet, il faut itérer sur la liste renvoyée par msg.keys() .
+
+Typiquement les headers incluent 'content-length', 'content-type', et ainsi de suite. Voyez le Quick Reference to HTTP Headers pour une réference sur les headers.
+
+= Openers et Handlers
+Openers et handlers sont des parties légèrement ésoteriques de urllib2. Quand vous demandez un URL, vous utilisez un opener. Normalement nous utilisons l'opener par defaut - via urlopen - mais vous pouvez créer vos openers. Les openers utilisent des handlers.
+
+build_opener est utilisé pour créer des objets opener - pour ramener des URLs avec des handlers spécifiques installés. Les handlers peuvent gérer des cookies, l'authentication, et autres cas communs mais un peu spécifiques. Les objets Opener ont une méthode open , qui peut être appelée directement pour ramener des urls de la même manière que la fonction urlopen .
+
+install_opener peut être utilisé pour rendre l'objet opener l'opener par défaut. Cela signifie que les appels à urlopen utiliseront l'opener que vous avez installé.
+
+= Authentification basique
+Pour illustrer la création and l'installation d'un handler nous allons utiliser HTTPBasicAuthHandler. Pour une discussion plus détaillée de ce sujet - incluant une explication du fonctionnement de Basic Authentication, voyez le Tutoriel d'authentification basique.
+
+Quand il faut s'authentifier, le serveur envoie un header (ainsi que le code d'erreur 401) demandant une authentification. Cela définit le schéma d'authentification et un domain ('realm'). Le header est du type : www-authenticate: SCHEME realm="REALM".
+
+e.g.
+
+www-authenticate: Basic realm="cPanel"
+Le client doit alors re-essayer la requête avec un couple username et password correct pour le domaine (realm) indiqué dans le header de la requête. Cela est  'basic authentication'. Pour simplifier ce processus nous pouvons créer une instance de HTTPBasicAuthHandler et un opener pour utiliser ce handler.
+
+HTTPBasicAuthHandler utilise un objet appelé "password manager" pour gérer le mapping des URIs et realms (domaines) vers les passwords et usernames. Si vous connaissez le domaine (realm)  (à partir du header d'authentification envoyé par le serveur), alors vous pouvez utiliser HTTPPasswordMgr. En général il y a un seul domaine (realm) par URI, donc il est possible d'utiliser HTTPPasswordMgrWithDefaultRealm. Cela vous permet de spécifier un couple username et password pour un URI. Cela sera fourni si vous ne spécifiez rien pour  ce domaine (realm) spécifique. Nous indiquons cela en envoyant None en tant que paramètre pour la méthode  add_password.
+
+Le toplevelurl (exemple : pour google : "google.com" est le 'toplevelurl' mais google.com/bidule/ n'est pas un 'toplevelurl') est le premier url qui demande une authentification. C'est en général un 'super-url' pout tous les autres du même domaine (realm).
+
+password_mgr = urllib2.HTTPPasswordMgrWithDefaultRealm()
+# créer un password manager
+
+password_mgr.add_password(None,
+    top_level_url, username, password)
+# ajoute le username et password
+# si on connaissait le domaine, on pourrait l'utiliser au lieu de ``None``
+
+handler = urllib2.HTTPBasicAuthHandler(password_mgr)
+# créer le handler
+
+opener = urllib2.build_opener(handler)
+# du handler vers  l'opener
+
+opener.open(a_url)
+# utilise l'opener pour ramener un URL
+
+urllib2.install_opener(opener)
+# installe l'opener
+# maintenant tous les appels à urllib2.urlopen vont utiliser notre opener
+Note
+
+Dans l'exemple ci-dessus nous avons seulement fourni  HHTPBasicAuthHandler à build_opener. Par défaut les openers ont des handlers pour des situations normales - ProxyHandler, UnknownHandler, HTTPHandler, HTTPDefaultErrorHandler, HTTPRedirectHandler, FTPHandler, FileHandler, HTTPErrorProcessor. La seule raison pour les fournir explicitement à build_opener (qui chaine les handlers fournis en tant que liste), serait de changer l'ordre dans lequel ils apparaissent dans la chaîne.
+
+Un piège à éviter est que top_level_url dans le code ci-dessous ne doit pas contenir le protocol - la partie http:// . Donc si l' URL que nous voulons accéder est http://www.someserver.com/path/page.html, alors nous faisons :
+
+top_level_url = "www.someserver.com/path/page.html"
+# *no* http:// !!
+Ça m'a pris un bon moment pour trouver cela la première fois que j'ai utilisé les handlers ￼ .
+
+
+= Proxies
+urllib2 detectera seul vos réglages de proxy et les utilisera. Cela se fait avec ProxyHandler qui fait partie de la chaine normale handler. En général c'est une bonne chose, mais dans certains cas cela peut être génant [8]. Dans ce cas il faut définir notre propre ProxyHandler, sans proxy de défini. Cela est fait de la même manière que pour définir un Basic Authentication handler :
+
+>>> proxy_support = urllib2.ProxyHandler({})
+>>> opener = urllib2.build_opener(proxy_support)
+>>> urllib2.install_opener(opener)
+Caution!
+
+Actuellement urllib2 ne supporte pas  le fait de récupérer des Url en https au travers d'un proxy. ￼ Cela peut être un problème.
+
+Sockets and Layers
+Le support de Python pour ramener des Urls du web est en couches. urllib2 utilise la librairie httplib, qui à son tour utilise la librairie socket.
+
+Avec Python 2.3 vous pouvez définir combien de temps une socket doit attendre une réponse avant de passer en time out. Cela peut être utile dans des applications qui doivent ramener des pages web. Par défaut le module socket  n'a pas de timeout et peut se bloquer. Pour définir le timeout :
+
+import socket
+import urllib2
+
+timeout = 10
+# timeout en seconds
+socket.setdefaulttimeout(timeout)
+
+req = urllib2.Request('http://www.voidspace.org.uk')
+handle = urllib2.urlopen(req)
+# cet appel à urllib2.urlopen
+# utilise maintenant le timeout par défaut
+# que nous avons défini dans le module socket
+
+
