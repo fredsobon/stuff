@@ -59,7 +59,7 @@ notre class en param (voir plus haut) et dans notre conf hiera (voir plus bas)
 
 ..
   file { $config_file:
-    content => template("${module_name}/config.erb"),
+    content => template("${module_name}/config.erb"),   <<<<< ici le fichier de template qui sera alimenté par les valeurs retrouvées dans hiera 
     owner   => $scala_user,
     group   => $scala_group,
     notify  => Service[$name],
@@ -70,6 +70,24 @@ notre class en param (voir plus haut) et dans notre conf hiera (voir plus bas)
   }
 
 
+- ici notre fichier de template qui sera rempli par toutes les valeurs contenu dans la section config de notre hiera : 
+toutes les valeurs de "config" seront ajoutées : chaque entree de config sera triée puis injectée dans le template :
+cat app_scala/templates/config.erb 
+include "application.conf"
+
+<%if @config -%>
+  <% @config.keys.sort.each do |param| -%><%= param %> = <%= @config[param] %>
+  <% end -%>
+<% end -%>
+
+
+en gros dans hiera 
+
+config:
+xmpp.hostname = localhost
+
+
+
 - nos datas qui seront dans hiera : 
 ex websocket01.yaml
 ---
@@ -78,7 +96,7 @@ classes:
 ...
 app_scala::instance_config:   <<<<< ici on retrouve le nom qui est exposé dans notre classe et dont les éléments seront les hashs utilisés dans notre create_ressource  
   websocket1 :   <<<< se sera donc le nom de notre instance (que l'on a dans le define sous le nom natif de puppet de $name 
-    config:      <<<  ici on va definir les hashs contenant nos données : ce nom est issu du define ou il est setté à undef ($config  = undef,)
+    config:      <<<  ici on va definir les hashs contenant nos données : ce nom est issu du template 
       ...
       xmpp.hostname: 'localhost'  <<< les données qui alimenteront chacune de nos instances ...
       xmpp.port: 5222
@@ -91,6 +109,13 @@ app_scala::instance_config:   <<<<< ici on retrouve le nom qui est exposé dans 
 
 
 
+nous auront au final pour illustrer notre exemple un fichier de conf sur une instance notre server de type : 
+
+cat /opt/websocket-frontend/shared/websocket1.conf 
+include "application.conf"
+  ...
+  xmpp.hostname = localhost
+  xmpp.port = 5222
 
 
 
