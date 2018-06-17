@@ -1,0 +1,112 @@
+
+A class is made up of Puppet resources.
+->> True
+
+Defining a class automatically includes the class in your configuration.
+->> False
+
+In the following example, how many resources are being defined?
+
+class ssh { 
+  package { 'openssh-clients': 
+      ensure => present, 
+  }
+  file { '/etc/ssh/ssh_config': 
+     ensure => file,
+     owner => 'root',
+     group => 'root',
+     source => 'puppet:///modules/ssh/ssh_config',
+  } 
+   service { 'sshd': 
+     ensure => running, 
+      enable => true,
+  }
+}
+
+->> 3
+
+In the following example, what is the title of the class? 
+class ssh {
+  package { 'openssh-clients':
+     ensure => present,
+  }
+  file { '/etc/ssh/ssh_config':
+     ensure => file,
+     owner => 'root',
+     group => 'root',
+     source => 'puppet:///modules/ssh/ssh_config',
+  }
+  service { 'sshd':
+     ensure => running,
+     enable => true,
+  }
+}
+
+->> ssh
+
+Puppet classes are reusable and singleton.
+True
+
+exercice : 
+
+1. Create a new manifest file called motd.pp:
+
+vim motd.pp
+
+2. In that file create a class named motd that will manage the /etc/motd file in a given state.
+
+3. The file resource that your class contains might look similar to:
+
+file { '/etc/motd':
+  ensure  => file,
+  owner   => 'root',
+  group   => 'root',
+  content => 'Hello world! Puppet is awesome.',
+}
+4. Run puppet parser validate motd.pp to validate your syntax.
+
+5. Apply your manifest with puppet apply motd.pp. Notice that no changes were made. Why is that?
+
+6.Add the line include motd to the end of your manifest and apply it again. Can you explain why you saw the results you did?
+
+
+[root@animas-declo /]# cat motd.pp 
+class motd {
+  file { '/etc/motd':
+    ensure  => file, 
+    owner   => 'root',
+    group   => 'root',
+    content => 'Hello World, puppet is awesome',
+  }
+}
+
+[root@animas-declo /]# puppet parser validate motd.pp
+[root@animas-declo /]# puppet apply motd.pp
+Notice: Compiled catalog for animas-declo.try.puppet.com in environment production in 0.08 seconds
+Notice: Applied catalog in 0.02 seconds
+[root@animas-declo /]# cat /etc/motd 
+
+Adding the class ..after the class declaration make it available and call it  :
+
+[root@animas-declo /]# cat  motd.pp 
+class motd {
+  file { '/etc/motd':
+    ensure  => file, 
+    owner   => 'root',
+    group   => 'root',
+    content => 'Hello World, puppet is awesome',
+  }
+}
+include motd
+
+[root@animas-declo /]# puppet apply motd.pp
+Notice: Compiled catalog for animas-declo.try.puppet.com in environment production in 0.08 seconds
+Notice: /Stage[main]/Motd/File[/etc/motd]/content: content changed '{md5}d41d8cd98f00b204e9800998ecf8427e' to '{md5}6c9a9d222cc8307074832d66dc61aa28'
+Notice: Applied catalog in 0.04 seconds
+[root@animas-declo /]# cat /etc/motd
+Hello World, puppet is awesome[root@animas-declo /]# vim motd.pp 
+
+
+
+
+/!\ A class can only called once for a node !!!!
