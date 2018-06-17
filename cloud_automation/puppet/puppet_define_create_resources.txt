@@ -1,0 +1,210 @@
+== notes sur les define et  ressources de puppet : ==
+
+Appeller une classe dans puppet ne peut être fait qu'une fois pour des ressources.
+Si nous avons besoin de générer plusieurs instances de code ( ex : vhost, bases mysql ..) il va falloir pouvoir boucler.
+
+On utilise donc dans ce cas un define : qui va être la fonction de définition de notre code . Cette définition servira de squelette à notre "ressources" (vhost ...)
+et on pourra pour creer ces defined ressources utiliser une fonction dédiées : create_ressources qui prendra en arguments notre defined puis les valeurs récupérees dans notre conf ou dans hiera :
+
+exemple : 
+
+on va vouloir créer des instances d'application scala :comme chacune de ces instances aura les mêmes parametres de base : on va forcement devoir passer par un define  car l'utilisation d'une classe sera ok pour la premiere instance ...mais ko des la creation de la seconde avec une erreur de type duplicate.
+
+Etapes : 
+
+->on crée un define dans notre module 
+->on cree une class qui pourra exposer des parametres (typiquement overrider des valeurs issues du define dans hiera par exemple
+dans cette classe on va également creer nos resources avec la fonctions create_resources prenant en params le define et les data settées dans hiera par ex
+-> on resnseigne dans hiera la conf sous forme de hash permettant d'être utilisées dans le create ressource 
+
+ex :  module app_scala :
+
+- app_scala/manifests/init.pp  << notre classe principale : 
+
+#
+class app_scala (    <<<< ici on expose des param qui pourront être overridés
+  Hash   $instance_config,  <<<< ici on déclare comme obligatoire le hash qui sera defini dans hiera par exemple avec les data qui serviront    
+  String  $scala_user  = 'scala',  <<< params sur les user /gid qui pourront etre overridés 
+  String  $scala_group = 'scala',
+  Integer $scala_uid   = 2027,
+  Integer $scala_gid   = 2027,
+)
+
+{
+...
+  $evaluated_config = eval_file($instance_config)  <<< ici on utilise une fonction 
+eval_config qui va chercher dans hiera/puppet des fichier contenant 'instance_config' dans les paths  
+  create_resources(app_scala::instance, $evaluated_config) <<< ici on creer les ressources en utilisant le define de nos instances et le contenu de la variable concernant donc les données recupérees sous forme de hash dans hiera 
+...
+}
+ 
+- notre define qui va comporter tous les éléments pour nos confs  
+
+ app_scala/manifests/instance.pp 
+define app_scala::instance (
+    ...
+    $java_xmx            = '8G',
+    $instance_name       = $name, <<< ici on defini la var qui sera recupérée dans 
+notre class en param (voir plus haut) et dans notre conf hiera (voir plus bas)
+    $scala_user          = 'scala',
+    $scala_uid           = 2027,
+    $scala_group         = 'scala',
+    $scala_gid           = 2027,
+    $confdir             = "${rootdir}/shared",
+    $config_file         = "${confdir}/${name}.conf",
+    $config              = undef,
+    $default             = undef,
+    ...
+) {
+
+..
+  file { $config_file:
+    content => template("${module_name}/config.erb"),   <<<<< ici le fichier de template qui sera alimenté par les valeurs retrouvées dans hiera 
+    owner   => $scala_user,
+    group   => $scala_group,
+    notify  => Service[$name],
+  }
+...
+  ::systemd::unit_file { "${name}.service":
+    content => template("${module_name}/service.erb"),
+  }
+
+
+- ici notre fichier de template qui sera rempli par toutes les valeurs contenu dans la section config de notre hiera : 
+toutes les valeurs de "config" seront ajoutées : chaque entree de config sera triée puis injectée dans le template :
+cat app_scala/templates/config.erb 
+include "application.conf"
+
+<%if @config -%>
+  <% @config.keys.sort.each do |param| -%><%= param %> = <%= @config[param] %>
+  <% end -%>
+<% end -%>
+
+
+en gros dans hiera 
+
+config:
+xmpp.hostname = localhost
+
+
+
+- nos datas qui seront dans hiera : 
+ex websocket01.yaml
+---
+classes:
+- profile::web::websocket
+...
+app_scala::instance_config:   <<<<< ici on retrouve le nom qui est exposé dans notre classe et dont les éléments seront les hashs utilisés dans notre create_ressource  
+  websocket1 :   <<<< se sera donc le nom de notre instance (que l'on a dans le define sous le nom natif de puppet de $name 
+    config:      <<<  ici on va definir les hashs contenant nos données : ce nom est issu du template 
+      ...
+      xmpp.hostname: 'localhost'  <<< les données qui alimenteront chacune de nos instances ...
+      xmpp.port: 5222
+      .....
+  websocket2 :    
+    config:      
+      ...
+      xmpp.hostname: 'lapin1'
+      xmpp.port: 5223
+
+
+
+nous auront au final pour illustrer notre exemple un fichier de conf sur une instance notre server de type : 
+
+cat /opt/websocket-frontend/shared/websocket1.conf 
+include "application.conf"
+  ...
+  xmpp.hostname = localhost
+  xmpp.port = 5222
+
+
+
+
+
+
+= create _resources : =
+
+https://www.example42.com/2017/02/06/resources-from-hash-in-puppet4/
+
+
+on va pouvoir créer des resources facilement en utilisant des fonctions natives à puppet :
+
+ex :  on va vouloir crééer des  ressources sur notre node qui vont être définies simplement dans hiera et processer par le create ressource de puppet : 
+
+ex ici : on utilise la classe archive qui permet de downloader des fichiers en donnant un path et une url : 
+
+-> dans hiera on defini l'appel de nos  binaires : avec le path final et l'url : 
+
+profile::base::archives::binaries:
+  '/opt/geoip/GeoIP2-Anonymous-IP.mmdb':
+    url: 'https://artifactory/geoip/GeoIP2-Anonymous-IP.mmdb'
+  '/opt/geoip/GeoIP2-City.mmdb':
+    url: 'https://artifactory/geoip/GeoIP2-City.mmdb'
+  '/opt/geoip/GeoIP2-ISP.mmdb':
+    url: 'https://artifactory/geoip/GeoIP2-ISP.mmdb'
+
+
+-> dans puppet : on va boucler sur le tableau de binaires et on va creer a chaque fois un bloc qui va contenir la valeur de archive ( path) et de value (url) ce données seront récupérées par le module archive de puppet qui gére le download de code 
+
+# Default class to push archives
+class profile::base::archives (
+  Hash $binaries = {}
+){
+  $binaries.each |String $archive, Hash $value| {
+ on appelle la ressource/module  archive natif a puppet pour créer nos données   >>archive { $archive:
+      * => $value,
+    }
+  }
+}
+
+sur notre serveur on va avoir en final nos fichiers d'uploadés :
+
+ls /opt/geoip/
+GeoIP2-Anonymous-IP.mmdb  GeoIP2-City.mmdb  GeoIP2-ISP.mmdb
+
+
+
+exemple  creation de users : 
+
+-> dans hiera on va definir des blocs de hash contenant nos users 
+
+my_great_thing::data:
+  'foo':
+    home: '/home/foo'
+    shell: '/bin/bash'
+    uid: '1044'
+    gid: '1044'
+  'bar':
+    home: '/home/bar'
+    shell: '/bin/bash'
+    uid: '1045'
+    gid: '1045'
+
+
+-> dans notre code puppet on va recupérer les donnees de hiera 
+
+class my_great_class (
+  Hash $data = {}  # on cree un hash vide : si rien n'est def dans hiera pas d'erreur : c'est une protection 
+){
+  $data.each |String $key, Hash $value| {   # on va maintenant boucler : chaque bloc va contenir une cle et des valeurs : ici tout data va etre parser et chaque couple key (ici le user) et valeur (les params de comptes) vont être crées  On va donc créer des blocs de code pour créer une ressource de type user :  
+    $ensure = pick($value['ensure'], 'present')
+    user { $key:
+      ensure   => $ensure,
+      *        => $value,
+    }
+  }
+}
+
+
+=== notes sur define dans puppet ===
+
+
+quand on appelle dans notre code puppet une classe
+ex : 
+class { 'app_ws::public': }
+ou quand on fait un include de classe 
+include '::app_elasticsearch' 
+
+on ne pourra le faire qu'une seule fois pour cette ressource.
+
+Afin de pouvoir disposer de plusieurs "instances" de ressources  sur notre conf : exemple avoir plusieurs vhost pour un server web : on va utiliser une "fonction" qui va gérer notre define
