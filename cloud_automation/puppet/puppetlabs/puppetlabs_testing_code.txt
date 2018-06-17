@@ -1,0 +1,181 @@
+Testing Puppet code
+Automated testing is an essential part of creating solid, reliable Puppet code. Developing tests for Puppet code does not need to be a burden, but it can be difficult to know where to start.
+
+Levels of testing to filter out bugs
+Imagine your tests like a series of sieves or filters trying to filter rocks and debris out of a pile of rocky soil. You’d want to start with a cheap sturdy filter to first remove the larges boulders.
+
+Below that, you’d have a finer screen to catch medium sized rocks and branches. After several layers you might have a very delicate fine mesh that would only let the good soil through.
+
+It might seem like a good idea to just have that final filter, after all it would catch boulders as well as pebbles, but that final stage is also the most expensive, the most delicate, and the slowest. It’s best to be close to the finished product when you get to that stage.
+
+With testing Puppet code, you can very quickly catch a large number of bugs with minimal effort. With each layer of testing you’ll focus on finer details. Since you’ve already caught the larger bugs, you don’t need to cover such a large area, which is good because the tests become more complicated and slower with each level.
+
+There are few different categories of tests that are relevant to Puppet:
+
+Syntax and style validation
+Unit tests
+Integration tests
+Acceptance tests
+In this course, you’ll learn about the different kinds of tests, the basics of testing Puppet code, how you can get started with testing, and how testing can enable you to move faster in development with less risk.
+
+= Syntax and style validation =
+Validating code for syntax and style is a good place to start with testing your Puppet code.
+
+The most basic syntax test can be run anytime from the command line. Just type puppet parser validate and then the name of a file or directory to be checked.
+
+This can be a good habit as you’re working on code to make sure you haven’t made any obvious typos.
+
+Since it’s easy to forget this step, git users will often add this as a pre-commit hook for any .pp file. A pre-commit hook will run before changes are committed to source control, so it’s a quick way to catch obvious errors. Search online for examples of how to do this, or take a look at the code we use in instructor led trainings.
+
+You can also use this method to add syntax validation for frequently used file types such as epp and yaml. Git hooks are scripts that are run automatically at various points in your git workflow, more information is available in the official git documentation.
+
+https://git-scm.com/docs/githooks
+
+To check your Puppet code style, there is a gem called puppet-lint. Puppet-lint goes beyond correct syntax and warns if code doesn’t follow the recommended style conventions. It will catch things like trailing whitespace or if " quotation marks are used instead of ' in a string without variable interpolation.
+
+Some people choose to add puppet-lint to their pre-commit hooks along side puppet parser validate to help enforce good habits, but if you find it burdensome you can just run the command manually. If you’d rather not install the gem, you can use this online Puppet code validator.
+
+Try out some of these commands in the terminal to the right. First, run puppet agent -t to set up the example code. In the /root directory you’ll find a file called example.pp. Using puppet parser validate example.pp, find and resolve the syntax errors in the code. If you’d like, install the puppet-lint gem with gem install puppet-lint and use it to find any style issues.
+
+ Notes
+In a later section, we’ll look at how to incorporate these checks into your automated integration tests.
+
+When you’re ready to move on, just click to the next section, the practice machine will shut down automatically when you’re done.
+
+
+[root@emmons-mariba root]# cat example.pp 
+class example (
+  file {'/etc/motd'
+    ensure   => file
+    contents => "This is a message of the day",
+  }
+  user {'foo':
+    ensure  => 'present',
+    require => File['/etc/motd']
+  }
+}
+
+Error: Could not parse for environment production: Syntax error at 'file' at /root/example.pp:2:3
+
+correction : 
+[root@emmons-mariba root]# cat example.pp 
+class example {
+  file {'/etc/motd':
+    ensure   => file,
+    contents => "This is a message of the day",
+  }
+  user {'foo':
+    ensure  => 'present',
+    require => File['/etc/motd'],
+  }
+}
+
+[root@emmons-mariba root]# puppet parser validate example.pp 
+[root@emmons-mariba root]# 
+
+= Unit tests =
+Unit tests are short simple tests that form the first line of defense for your code. They are called unit tests because they are limited scope tests that focus on small units of code.
+
+Since Puppet was originally written in Ruby, unit tests are generally written in a variation of rspec called rspec-puppet that can be installed as a gem on your development workstation. You should also install the puppetlabs_spec_helper gem, as it provides a lot of helpful features for developing puppet tests.
+
+Rspec syntax reads almost like natural language, and once you’re familiar with it you’ll find it’s easy to follow. For testing Puppet code, a good first step is to check that your code will compile.
+
+For example, if you had a module to manage a webserver, you might have a class called apache. A minimal test for that class would be:
+
+
+describe 'apache', :type => 'class' do
+  it { should compile }
+end
+
+You can provide more human readable output when your tests run by using the context keyword.
+
+For example, since we’re just testing the apache class without parameters you could update the test to look like this:
+
+
+describe 'apache', :type => class do
+  context "Default parameters" do
+    if { should compile }
+  end
+end
+
+What if we want to test some of those parameters? It’s pretty common to set the document root for a webserver to something other than the default, so let’s assume the apache class has a docroot parameter. Use the let keyword to specify things like parameters in each context. Since we still want to keep the test for default parameters, we’ll add a second context for the docroot parameter, like this:
+
+
+describe 'apache', :type => class do
+  context "Default parameters" do
+    it { should compile }
+  end
+  context "Docroot set to /var/www" do
+    let(:params){
+      :docroot => '/var/www'
+    }
+    it { should compile }
+  end
+end
+
+If we ran that last test, it would run through both contexts and let us know if one of them didn’t compile. This might seem redundant since you’re already written the Puppet code, but it can catch difficult to diagnose errors, especially once you move beyond just checking if the code compiles.
+
+What if you’d actually named your parameter doc_root instead of docroot?
+
+It’s a simple mistake that would be easy to miss even in a thorough peer code review. Since doc_root and docroot are both valid syntax and style for parameters, puppet parser validate and puppet-lint wouldn’t catch the mistake.
+
+This is where unit tests really shine, once you’ve developed the habit of writing them alongside all of your code they’ll offer a simple way to catch those errors before your code is even deployed to a testing environment. Although the syntax is correct, missing a required parameter or trying to set one that doesn’t exist will cause a compilation error.
+
+Running Unit tests
+If you’re not familiar with ruby and rspec, running your tests can seem overwhelming. Thankfully, puppetlabs_spec_helper provides almost everything you’ll need to actually run your tests.
+
+You’ll need to install the gem and create a few other files in your module.
+
+First, create the Rakefile in the root directory of your module. The Rakefile provides a single starting point for your test scripts. Since the puppetlabs_spec_helper gem handles all of that, your Rakefile can be just two lines:
+
+
+require 'rubygems'
+require 'puppetlabs_spec_helper/rake_tasks'
+
+The next file to create is spec/spec_helper.rb which is also just two lines:
+
+
+require 'rubygems'
+require 'puppetlabs_spec_helper/module_spec_helper'
+
+That file is where you can include helper methods and other details you’d like to include in your actual tests. The second require provides support for interacting with other modules.
+
+The .fixtures.yaml file is in YAML format, which is a very human readable format for structured data. yaml.org has the complete documentation but the format is fairly intuitive. For the context of specifying .fixtures.yaml the format is fairly simple. If your module depends on the chocolatey module and the stdlib module, your .fixtures.yaml might look like this:
+
+
+fixtures:
+  repositories:
+    stdlib: "git://github.com/puppetlabs/puppetlabs-stdlib.git"
+  forge_modules:
+    chocolatey: "puppetlabs/chocolatey"
+  symlinks:
+    apache: "#{source_dir}"
+
+One quick trick for finding all of your modules dependencies is to run
+
+
+puppet module install [your-modulename] --modulepath=/tmp/folder
+
+The Puppet module tool will resolve dependencies in your metadata.json, those modules dependencies, and so on. You can then get a list of all those modules using
+
+
+puppet module list --modulepath=/tmp/folder
+
+Once you’re done you can delete the folder.
+
+Notice that we’re using both a GitHub repository and a published Puppet forge module in that example. Depending on how you manage your code, you might need to specify different options. For the full syntax of .fixtures.yml look at the puppetlabs_spec_helper documentation. For example, if you’re working on an update that requires changes to two modules, you could temporarily specify that dependency as coming from your own fork and branch.
+
+You should always use the simplest configuration that fits your needs, so it’s generally best to keep fixtures pointed at published modules on the Puppet Forge.
+
+Finally, you see that there is a section for symlinks, this is a way to tell rspec-puppet to use a local copy. In this case, it actually specifies the module we’re testing. It sometimes makes sense to add more symlinks, but it’s usually simpler to work with modules from the Puppet Forge or source control.
+
+Once you have all of your pieces in place you’ll need to add a little to your actual test code. For the example we’ve been working with, this would be in a file called spec/classes/apache_spec.rb. Add the following line at the top before your tests:
+
+
+require 'spec_helper'
+
+That will pull in the code from spec/spec_helper.rb, which will deal with your fixture modules.
+
+This blog post provides more details of what you’ll need to set up.
+
+
