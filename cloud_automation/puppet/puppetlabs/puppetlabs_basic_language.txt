@@ -1,0 +1,615 @@
+==== puppetlabs notes : copie des ressources en ligne de différents cours du le site officiel de puppet ====
+
+
+== puppet language basic ==
+
+
+= ressources : =
+
+what is a type?
+
+Every resource is associated with a resource type that describes what kind of configuration it manages and provides knobs and settings for configuring that resource. Puppet has many built-in resource types, like files, cron jobs, services, etc. See the resource type reference for information about the built-in resource types.
+
+What is a title?
+
+A title is a string that identifies a resource to Puppet, and it is typically the name of the item you are managing on the target system. A title doesn’t have to match the name of what you’re managing on the target system, but you’ll often want it to. For example, a file resource title might be /etc/motd or /etc/yum.conf, and a service resource title might be sshd or mysqld.
+
+What are attributes?
+
+Attributes describe the desired state of the resource and each attribute handles some aspect of the resource. Think of them as the knobs and settings that let you describe the desired state of the resource. For example, you can say that Puppet should make sure that the owner of a file is student by setting the attribute as in the example above. Each resource type has its own set of available attributes. See the resource type reference for a complete list. Most resource types have a handful of crucial attributes and a larger number of optional ones.
+
+What are values?
+
+Every attribute you declare must have a value. The format of the value depends on what the attribute accepts. For example, the value might need to be a file path, IP address, or a true/false value.
+
+Pro Tip:
+
+There are many third-party modules you can install that deliver more resource types, such as the puppetlabs/mysql module that adds the mysql_user resource type. You can find and install modules by browsing the Puppet Forge.
+Puppet can see a variety of attributes about a file or any resource type. Some examples of other attributes might include mode, ensure, owner, or group. The puppet resource command shows you all the attributes Puppet knows about a resource, as well as their values. This is useful for identifying and examining the characteristics of any given file.
+
+Task:
+Enter the puppet resource command to see all the attributes of the file /etc/motd.
+
+
+puppet resource file /etc/motd
+
+Type > file { '/etc/motd':  < Title 
+attribute >  ensure                  => 'file', < value
+  ...
+  sourceselect            => 'first',
+  type                    => 'file',
+  validate_replacement    => '%',
+}
+
+Now that you can see all the attributes Puppet knows about the file at /etc/motd, you also know the things you can manage about that file. To change the value of an attribute using Puppet, you will use the same syntax from the previous exercise, replacing the old values with your new values.
+
+Task:
+Change the mode attribute from 0644 to 0600.
+
+￼
+Pro Tip:
+
+Puppet source code is stored in manifest files. These are text files with the file extension ".pp". You can find more details about manifest files in the official Puppet docs.
+
+Often you and your peers will want to agree on things like using spaces or tabs in the code stored in your manifest files, number of indents to use, or whether or not you like the trailing comma. Puppet will interpret your code the same regardless of spaces, tabs, or indents. But to have some consistency to how code is written, you might want to use what is referred to as a style guide. Puppet's style guide helps Puppet community members write code to be easily shared and read by other community members.
+
+The Puppet lint tool is a useful utility for checking your code for compliance with the Puppet style guide. If all of the team members follow the same coding style, it's much easier to read and debug each other's code when necessary.
+
+There is also a command you can run to check a manifest file containing Puppet code and tell you if the syntax is correct or not. This command is puppet parser validate followed by the name of the manifest file that you want to check. For example, if you have a manifest file named default.pp containing Puppet code that you want to check, you'd type puppet parser validate default.pp on the command line.
+
+The best place to learn how to correctly write your Puppet code is in the Puppet documentation. Be sure to also bookmark the Puppet Validator where you can paste Puppet code and test its validity.
+Task:
+Use the puppet parser validate command to validate the test.pp file. Use any error output to fix any syntax errors and rerun the command if necessary.
+
+
+There is also a command you can run to check a manifest file containing Puppet code and tell you if the syntax is correct or not. This command is puppet parser validate followed by the name of the manifest file that you want to check. For example, if you have a manifest file named default.pp containing Puppet code that you want to check, you'd type puppet parser validate default.pp on the command line.
+
+The best place to learn how to correctly write your Puppet code is in the Puppet documentation. Be sure to also bookmark the Puppet Validator where you can paste Puppet code and test its validity.
+Task:
+Use the puppet parser validate command to validate the test.pp file. Use any error output to fix any syntax errors and rerun the command if necessary.
+
+file { '/tmp/fixme':
+  ensure   => 'file',
+  owner    => 'root',
+  group    => 'root',
+  mode     => '0644',
+}
+
+puppet parser validate test.pp
+
+
+= Install a package = 
+
+Now that you have learned some basics about resources and how they help you do simple tasks, let’s look at how using Puppet syntax works for more complex tasks.
+
+Imagine you are a new system administrator, hired to help deploy Puppet to eventually configure the fleet of servers in your corporate infrastructure. That’s a big task! Your manager has come to you with the following request as a starting point. Your first job is to understand Puppet’s syntax enough to be able to work on this project and get it done. 
+
+“We need to deploy our new internally developed corporate directory intranet application named Robby. Robby consists of several pieces including backend database servers and frontend web servers. It serves the worldwide corporate offices and allows employees to publish information about themselves for other employees to see, such as a profile picture, a short bio, notable career achievements and what they like to do for fun. Use Puppet to deploy Robby to our corporate datacenter according to the currently documented manual runbook.”
+NOTE: A runbook is a compilation of routine procedures and operations that the system administrator or operator carries out.
+
+With that request, it’s time to start figuring out how to achieve it using Puppet. Looking at the runbook, you discover that the following servers, all running the latest version of RedHat Enterprise Linux, must be configured:
+
+db1.mycorp.com - primary database server
+db2.mycorp.com - secondary database server (failover machine)
+web1.mycorp.com - web/application server
+Before Puppet, it was necessary to log into these 3 servers and manually execute commands in order according to the runbook. Now with Puppet, you write code to apply changes automatically on each server, based on the final configuration required by each one to make a fully functioning deployment of the Robby application.
+
+With Puppet, you’ll start with a resource. As you learned earlier, a resource is Puppet’s representation of a characteristic of a server that should be managed or configured, such as a file, a user account, a software package installation and many other possibilities.
+
+Core resource types are the most essential resource types you will use to interact with Puppet and tell it what to do. They are ready to go when you install Puppet, meaning you don’t have to do anything extra to set them up.
+
+One example of a core resource type you have gotten some practice working with previously in this course is the file type. The full list of all core resource types is posted on our type reference page, and the package type reference can found in the Puppet docs.
+
+The package type manages software packages. Often, this type is seen with a simple ensure attribute to install a package. Other useful attributes of this type include source and provider. For example:
+
+package { 'openssh-server':
+  ensure => installed,
+}
+package { 'ruby-dbus':
+  ensure   => '0.13.0',
+  provider => 'gem',
+}
+Task:
+Enter the puppet resource command to see which attribute is assigned to the package named puppet.
+
+puppet resource package puppet
+
+package { 'puppet':
+  ensure => 'installed',
+}
+
+
+Task:
+The first thing needed for Robby to operate is to install all of the required software packages on the various servers shown previously. The runbook starts with the following package installation instructions:
+
+Install the PostgreSQL database (package name: postgresql-server) on db1.mycorp.com and db2.mycorp.com
+Install the Apache web server (package name: httpd) on web1.mycorp.com
+Install the Robby application (package name: robby) on web1.mycorp.com
+Install the required packages on the database servers and the web server. The first task gives you help with the syntax, but the remaining tasks require you to enter the syntax on your own. Refer to the correct syntax in the first task box below if you get stuck.
+
+db1.mycorp.com (PostgreSQL database server):
+
+package { 'postgresql-server':
+  ensure => installed,
+}
+
+web1.mycorp.com (Apache web server):
+package { 'httpd':
+  ensure => installed,
+}
+
+web1.mycorp.com (Robby application):
+package { 'robby':
+  ensure => installed,
+}
+    
+= configuring a service =
+
+Once the software packages are installed on the proper servers, the runbook instructs us to modify certain files to configure the software. To start, the database servers must be configured in a primary/secondary configuration.
+
+NOTE: For the sake of simplicity, not every required PostgreSQL parameter will be configured. The following file resources will not result in working PostreSQL configurations and are shown as examples only.
+
+For this exercise, you will practice writing a file resource to configure the PostgreSQL database service on db1.mycorp.com. Insert the following line as the content attribute value to the Puppet resource below:
+
+listen_addresses = '192.168.0.10'
+
+
+file { '/var/lib/pgsql/data/postgresql.conf':
+  ensure  => 'file',
+  owner   => 'root',
+  group   => 'root',
+  mode    => '0644',
+  content => "listen_addresses = '192.168.0.10'",
+}
+   
+Now, you will practice writing a file resource to configure the PostgreSQL database service on db2.mycorp.com. Insert the following line as the content attribute value to the Puppet resource below: primary_conninfo = 'host=192.168.0.10 port=5432 user=repl password=xyzzy'
+
+The file should be owned by root, group set to root and with 0644 permissions.
+
+Task:
+file { '/var/lib/pgsql/data/postgresql.conf':
+  ensure  => 'file',
+  owner   => 'root',
+  group   => 'root',
+  mode    => '0644',
+  content => "primary_conninfo = 'host=192.168.0.10 port=5432 user=repl password=xyzzy'",
+}
+
+The web1.mycorp.com server needs the following line placed in the file /etc/robby/robby.cfg:
+
+welcome_msg = Welcome to Robby, running on HOSTNAME!
+
+HOSTNAME indicates where the actual hostname of the server being configured must be inserted into the string. When writing Puppet code, you use Puppet facts to retrieve information about the server that you are configuring.
+
+The fqdn fact contains the fully-qualified domain name for the server that is being configured. This fact might have the value of web1.mycorp.com, web2.mycorp.com, db1.mycorp.com, etc. depending on the machine that is being configured.
+
+Next, you will create the robby.cfg file with the proper content shown above using a file resource. But in order to do that, first you need to learn more about facts.
+
+= What are facts =
+
+
+  audit                   => ['ensure', 'content', 'checksum_value', 'target', 'owner', 'group', 'mode', 'type', 'seluser', 'selrole', 'seltype', 'selrange', 'ctime', 'mtime'],
+  auditutomatically creates a set of variables for you called facts. You will learn more about how variables work in Puppet later in the course. For now, just know that a variable is a placeholder for a reusable piece of data. Facts contain useful information integral to a node, such as its operating system, its hostname, or its IP address. Facts are commonly used in conditional logic expressions in Puppet to make code behave a certain way based on a set of conditions. To see a list of all the facts available, type the command facter -p on any system with Puppet installed.
+
+Task:
+Type the command facter -p to get a list of all facts available.                  
+
+facter -p
+
+{
+  "osfamily" => "RedHat",
+  "os" => {
+    "name" => "Amazon",
+    "family" => "RedHat",
+    "release" => {
+      "major" => "2017",
+      "minor" => "09",
+      "full" => "2017.09"
+    }
+  },
+  "kernel" => "Linux",
+  "operatingsystem" => "Amazon",
+  "hardwareisa" => "x86_64",
+  "operatingsystemrelease" => "2017.09",
+  "kernelversion" => "4.9.75",
+  "ec2_metadata" => {
+    "ami-id" => "ami-063f8b7e",
+    "ami-launch-index" => "0",
+    "ami-manifest-path" => "(unknown)",
+    "block-device-mapping" => {
+      "ami" => "/dev/xvda",
+      "root" => "/dev/xvda"
+    },
+    "hostname" => "ip-172-31-31-13.us-west-2.compute.internal",
+    "iam" => {
+      "info" => [
+        "{",
+        "  \"Code\"  => \"Succe
+....
+
+
+Most facts contain a single value like "hostname": "host.puppet.com" or "kernel": "Linux". One way to use these facts is to create server-specific attribute values, perhaps as part of a string written to a file.
+
+Example:
+
+file { '/etc/motd':
+  content => "My hostname: ${hostname}",
+}
+In this example, any system using this code will have its own hostname written into the file. In this way, you can have server-specific outcomes with a single piece of code. This means you don’t have to rewrite your code for every single machine you’re managing. Notice that in this example, you use a $ plus { } to indidcate the name of the variable. You will learn more about formatting variables later in the course, and you can refer to the Facts and Built-in Variables section of the Puppet docs for more information.
+
+Task:
+Update the code below with the $osfamily fact so it is written into the /etc/motd file.
+
+= finish configuring  a service = 
+
+Now that you’ve learned more about Puppet facts, write some Puppet code to create the robby.cfg file containing the proper content where HOSTNAME should be replaced with the actual name of the server using a fact:
+
+welcome_msg = Welcome to Robby, running on HOSTNAME!
+
+Task:
+ile { '/etc/robby/robby.cfg':
+  ensure  => file,
+  content => "welcome_msg = Welcome to Robby, running on ${hostname}",
+}
+    
+
+You have now configured the service with the required contents in the robby.cfg. The next step is to actually start the service after it has been configured, and you will do that in the next section.
+
+= starting a service =
+
+The service resource type manage a service running on the node. Some important attributes include ensure, enable, hasrestart, and hasstatus.
+
+In the following example, the sshd service (SSH server) will be started and enabled to automatically restart after a reboot.
+
+service { 'sshd':
+  ensure => running,
+  enable => true,
+}
+Task:
+Enter the puppet resource command to see all the attributes of the service named puppet.
+
+puppet resource service puppet
+service { 'puppet':
+  ensure => 'running',
+}
+
+Task:
+Now that you are more familiar with the service resource type, update the following code so the robby service starts on the web1.mycorp.com server.
+service { 'robby':
+  ensure => running,
+  enable => true,
+}
+
+= resource relationships =
+
+Now that you’ve written resources to install the required packages, modify the configuration files and start the services, it is important to make sure that Puppet applies those changes in the correct order on your servers.
+
+When following a runbook, you enter the commands in the order given, but with Puppet, resources are applied in a certain order by specifying resource relationships between them. It’s important to know that you don’t have to specify a relationship between every resource that you write, just the ones that are order-dependent.
+
+For instance, you have to install a package before attempting to modify a configuration file contained in that package. Similarly, you have to modify a configuration file before attempting to start a service that reads that file.
+
+Consider part of the scenario you’ve been following:
+
+You want to deploy an application called Robby.
+
+You install Robby using the robby package.
+
+After you install Robby, you configure it by changing settings in /etc/robby/robby.cfg.
+
+After you configure Robby, start the robby service to start your application.
+
+This is a common scenario for server software such as IIS, MySQL, Tomcat, or Redis. In all cases, you have to consider ordering. Puppet must first install the package, then edit the configuration file, and finally attempt to start the service. Otherwise, if Puppet tried a service that wasn’t yet installed, it would generate an error like “No such service exists”. You can be very explicit about this ordering in your code.
+
+Example:
+
+package { 'robby':
+  ensure => installed,
+}
+
+file { '/etc/robby/robby.cfg':
+  ensure  => file,
+  content => "welcome_msg = Welcome to Robby, running on ${hostname}!",
+  require => Package['robby'],
+}
+The require attribute tells Puppet that the file resource needs the package resource to go first. Alternately, this can be written as:
+
+package { 'robby':
+  ensure => installed,
+  before => File['/etc/robby/robby.cfg'],
+}
+
+file { '/etc/robby/robby.cfg':
+  ensure  => file,
+  content => "welcome_msg = Welcome to Robby, running on ${hostname}!",
+}
+This example uses the before attribute to tell Puppet that the package resource must go before the file resource. Ultimately, these two examples do the exact same thing. Depending on your preference, you can write it either way.
+
+Pro Tip:
+When referring to another resource using before or require, the resource type is capitalized. Be sure you also note the syntax used for defining relationships:
+Puppet code block labelled with relationship, type, and title on bottom line of code block.
+
+
+Task:
+Add before or require to the following code so that the package resource is managed first and the file resource is managed second.
+
+
+-> require 
+package { 'puppet':
+  ensure => installed,
+}
+file { '/etc/puppetlabs/puppet/puppet.conf':
+  ensure  => file,
+  content => "[main]\nserver = master.domain.com",
+  require => Package['puppet'],
+}
+
+-> before 
+
+package { 'puppet':
+  ensure => installed,
+  before => File['/etc/puppetlabs/puppet/puppet.conf'],
+}
+file { '/etc/puppetlabs/puppet/puppet.conf':
+  ensure  => file,
+  content => "[main]\nserver = master.domain.com",
+}
+
+>>> result identical : use of before or require in the way you want applying on the correct resource.
+
+= refresh events =
+
+You have seen ways to edit an application’s configuration file before you start its service. But what if you need to make a change to a service that is already running? Most software requires a restart or reload after you edit the configuration file for that change to take effect. Puppet allows you to refresh a resource using the subscribe or notify attributes.
+
+Puppet provides the notify and subscribe attributes to not only order resources, but send a refresh. Refreshing a resource means different things depending on the resource type.
+
+For example, when you refresh a service resource type, Puppet restarts the service. And when you refresh a mount resource type, Puppet remounts a file mount.
+
+You can try to refresh any type in Puppet, but not all of them will respond. Read the Puppet docs for more information about refreshing and notification.
+
+Example:
+
+package { 'postgresql-server':
+  ensure => installed,
+}
+
+file { '/var/lib/pgsql/data/postgresql.conf':
+  ensure  => file,
+  content => '...',
+  require => Package['postgresql-server']
+}
+
+service { 'postgresql':
+  ensure    => running,
+  subscribe => File['/var/lib/pgsql/data/postgresql.conf'],
+}
+In this example, the subscribe attribute tells Puppet to manage the file resource before the service resource and to restart the service if the file resource changes. This can also be written like the following example:
+
+package { 'postgresql-server':
+  ensure => installed,
+  before => File['/var/lib/pgsql/data/postgresql.conf'],
+}
+
+file { '/var/lib/pgsql/data/postgresql.conf':
+  ensure  => file,
+  content => '...',
+  notify  => Service['postgresql'],
+}
+
+service { 'postgresql':
+  ensure    => running,
+}
+This example uses the notify attribute instead of subscribe but the outcome is the same.
+
+If you want to use before and also send a refresh, use notify. If you want to use require and also receive a refresh, use subscribe.
+
+Task:
+Add notify or subscribe to the following code so that the service is restarted if the file resource is changed.
+
+-> notify : 
+
+file { '/etc/puppetlabs/puppet/puppet.conf':
+  ensure  => file,
+  content => "[main]\nserver = master.domain.com",
+  notify  => Service['puppet'],
+}
+service { 'puppet':
+  ensure => running,
+}
+
+-> subscribe :
+
+file { '/etc/puppetlabs/puppet/puppet.conf':
+  ensure  => file,
+  content => "[main]\nserver = master.domain.com",
+}
+service { 'puppet':
+  ensure    => running,
+  subscribe => File['/etc/puppetlabs/puppet/puppet.conf'],
+}
+
+= putting all together =
+
+You have now practiced creating resource relationships between a package and a file, and then a file and service. Now you can put it all together in a common pattern called Package File Service.
+
+This pattern tells Puppet to do the following:
+
+First manage a package resource
+Next manage a file resource
+Finally manage a service resource
+The service will also restart if the file resource contents change at all.
+
+Look at the below example. You will use the three resources and add the resource relationships to model the Package File Service pattern.
+
+package { 'postgresl-server':
+  ensure => installed,
+}
+
+file { '/var/lib/pgsql/data/postgresql.conf':
+  ensure  => file,
+  owner   => 'root',
+  group   => 'root',
+  mode    => '0644',
+  content => "listen_addresses = '192.168.0.10'\n",
+}
+
+service { 'postgresl-server':
+  ensure => running,
+  enable => true,
+}
+Task:
+Add resource relationships to the following code so that the resources are managed in the order of package, file, and service. The service should restart if the file resource is changed. You can choose between before/require and notify/subscribe.
+
+exemple 1 : 
+
+package { 'postgresql-server':
+  ensure => installed,
+}
+
+file { '/var/lib/pgsql/data/postgresql.conf':
+  ensure  => file,
+  owner   => 'root',
+  group   => 'root',
+  mode    => '0644',
+  content => "listen_addresses = '192.168.0.10'\n",
+  require => Package['postgresql-server'],
+  notify  => Service['postgresql'],
+}
+
+service { 'postgresql':
+  ensure => running,
+  enable => true,
+}
+
+exemple 2 : 
+
+package { 'postgresql-server':
+  ensure => installed,
+  before => File['/var/lib/pgsql/data/postgresql.conf'],
+}
+
+file { '/var/lib/pgsql/data/postgresql.conf':
+  ensure  => file,
+  owner   => 'root',
+  group   => 'root',
+  mode    => '0644',
+  content => "listen_addresses = '192.168.0.10'\n",
+  notify  => Service['postgresql'],
+}
+
+service { 'postgresql':
+  ensure => running,
+  enable => true,
+}
+ 
+exemple 3 : 
+
+package { 'postgresql-server':
+  ensure => installed,
+  before => File['/var/lib/pgsql/data/postgresql.conf'],
+}
+
+file { '/var/lib/pgsql/data/postgresql.conf':
+  ensure  => file,
+  owner   => 'root',
+  group   => 'root',
+  mode    => '0644',
+  content => "listen_addresses = '192.168.0.10'\n",
+}
+
+service { 'postgresql':
+  ensure    => running,
+  enable    => true,
+  subscribe => File['/var/lib/pgsql/data/postgresql.conf'],
+}
+  
+
+= variables = 
+
+As you start writing more Puppet code, you will likely find yourself repeating the same values over and over. This is redundant, time consuming, and can lead to spelling errors and bugs in your code.
+
+To save effort and decrease the likelihood of typos, assign those repeating values to variables. Variables make it easier to manage those values by letting you update one thing instead of having to update many repeating things. This also ensures consistency throughout your code.
+
+As you’ve been working on your code in previous sections, you’ve written a lot of repetitive words, such as the names of packages or filenames. As you just learned, variables are a useful construct for storing a value once and then reusing it multiple times elsewhere in your code.
+
+Let’s take some of the code you’ve already written and introduce variables into it. Using variables reduces repetition and the chance of making mistakes by misspelling something.
+
+Pro Tip:
+You can use comments in your code by using a hash like this: # this is what a comment looks like. Comments help you describe the function of your code and to communicate it to other people who read your code.
+Example:
+
+# $service_name is a variable that holds the name of the service
+# so it can be used in multiple places without repeatedly typing
+# the value.
+$service_name = 'robby'
+
+file { '/etc/robby/robby.cfg':
+  ensure  => file,
+  notify  => Service[$service_name],
+}
+
+service { $service_name:
+  ensure => running,
+  enable => true,
+}
+
+Task:
+Currently, the code you have been working on in this course has hard-coded package names in it. As you learned, using variables rather than hard-coding information about your file is a better method to write code because it reduces the likelihood of typos and bugs. Try using a variable instead.
+
+Set the $package_name variable to robby.
+
+# Example of setting a variable
+$variable = 'some value'
+
+# Now assign the $package_name variable below
+$package_name = 'robby'
+
+# Notice that the variable is used here, and the value will be
+# inserted as the title of the package resource.
+package { $package_name:
+  ensure => installed,
+}
+
+# Notice that the variable is used again here, and the value will
+# be inserted into the Package[] resource reference.
+file { '/etc/robby/robby.cfg':
+  ensure  => file,
+  require => Package[$package_name],
+}
+
+
+= Glossary =
+
+Declarative Language: A style of coding that describes the end result, without the steps of how to do it. You can learn more about declarative languages and why they are so great here.
+https://www.netguru.co/blog/imperative-vs-declarative
+
+Resource: Something on a server you would like to manage. Learn more about resources here.
+https://puppet.com/docs/puppet/5.5/lang_resources.html
+
+
+Attribute: A manageable configuration for a resource. For example, the owner of a file. Here’s a more in depth explanation of attributes.
+https://en.wikipedia.org/wiki/Attribute_(computing)
+
+Node: A single machine that uses Puppet. For example, your laptop could be a node. An individual server could also be a node. Here’s some more info about Puppet Nodes.
+https://puppet.com/docs/puppet/5.0/lang_node_definitions.html
+
+Syntax Validation: Checking that your code is in the right format without checking what it’s actually doing. You can learn about Puppet Syntax here.
+https://puppet.com/docs/puppet/5.5/style_guide.html
+
+
+Facts: Information about a specific node written in the form of a key-value pair. This information might include the operating system being used, the IP address, or whether or not it is a virtual machine. Learn more about facts here.
+https://puppet.com/blog/fact
+
+
+
+Array: An array is a series of values that looks like [‘one’, ‘two’, ‘three’], denoted by square brackets. Learn more about arrays here.
+https://techterms.com/definition/array
+
+
+Hash: A hash is a series of key-value pairs that looks like { ‘a’ => ‘A’, ‘b’ => ‘B’, ‘c’ =>‘C’ } denoted by curly braces. Learn more about hashes here.
+https://www.techopedia.com/definition/25432/hash-code
+
+Directory: In computing, a directory is a catalog containing related files, also sometimes called a folder. A directory can contain other directories (known as subdirectories). These are typically referred to as having a parent-child relationship, with the top-most directory being referred to as the ‘root’. Learn more about directories here.
+https://en.wikipedia.org/wiki/Directory_(computing)
+
+Symlink: Also known as a symbolic link, or a soft link. A symlink points to the entry that contains the data; it does not contain the data itself. Learn more about symlinks here.
+https://en.wikipedia.org/wiki/Symbolic_link
