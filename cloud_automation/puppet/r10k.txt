@@ -2,7 +2,7 @@
 
 r10K est de base le "module manager de puppet" : il va dowloader les modules qui nous interresse de la forge puppet et nous permettre d'être uptodate sur nos modules, ou de fixer certaines versions.
 Il va s'appuyer sur la présence du fichier Puppetfile dans lequel va être alimentée la liste des modules à gérer.
-ex :puppetfile :
+ex :puppetfile permettant dfe gérer l'install entre autre de la stdlib :
 
 forge 'http://forge.puppetlabs.com'
 mod
@@ -20,4 +20,47 @@ mod 'stahnma/epel', '1.2.2'
 mod 'pbg_ntp',
 :git => 'https://github.com/lapin/pbg_ntp.git',
 :tag => '0.1.4'
+
+
+la gestion va être auto et l'integralité du contenu de notre repertoire module va être géré : 
+
+sudo r10k puppetfile install --verbose
+
+en lancant cette commande on va peupler notre repertoire modules des modules directement issus de la forge puppet.
+Une fois récupérer les modules seront directement loadés dans puppet et disponiblesdans nos manifests 
+
+ex : on va pouvoir tester le comportement de notre stdlib en lancant une commande de test qui va invoquer une fonction présente dans la stdlib : upcase : modif de casse de caractères :
+sudo puppet apply --environment pbg -e "notice(upcase('hello'))"
+Notice: Scope(Class[main]): HELLO
+
+ 
+Nativement r10k ne gere pas les dependances de module : ex apache a besoin de stdlib et concat ...
+
+pour gérer les  dependances entre les differents modules ont va pouvoir utiliser un outil :  generate-puppetfile qui va nous permettre de remplir correctement notre puppetfile 
+
+
+sudo gem install generate-puppetfile
+
+
+ex : on va pouvoir gérer les dependances de notre module (ici docker_platform ) 
+generate-puppetfile puppetlabs/docker_platform
+Installing modules. This may take a few minutes.
+Your Puppetfile has been generated. Copy and paste between the
+markers:
+=============================================
+forge 'http://forge.puppetlabs.com'
+# Modules discovered by generate-puppetfile
+mod 'garethr/docker', '5.3.0'
+mod 'puppetlabs/apt', '3.0.0'
+mod 'puppetlabs/docker_platform', '2.2.1'
+mod 'puppetlabs/stdlib', '4.17.1'
+mod 'stahnma/epel', '1.2.2'
+=============================================
+
+on va ensuite pouvoir alimenter nos besoins : 
+Run the following command to generate a list of updated versions and dependencies
+for an existing Puppetfile: : 
+generate-puppetfile -p /etc/puppetlabs/code/environments/pbg/
+Puppetfile
+
 
