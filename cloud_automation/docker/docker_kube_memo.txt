@@ -1,0 +1,71 @@
+==== notes rapides / memo docker kubernetes ====
+
+=== docker ===
+
+= download une image : =
+
+exemple ici on download une image alpine ( image minimale souvent utilisée car très light ). Sans specifier d'url de base l'image sera récupérer sur le hub de docker ( on peut avoir une registry interne également pour stocker les images maison) :
+
+sudo docker run alpine
+[sudo] Mot de passe de boogie : 
+Unable to find image 'alpine:latest' locally
+latest: Pulling from library/alpine
+8e3ba11ec2a2: Pull complete 
+Digest: sha256:7043076348bf5040220df6ad703798fd8593a0918d06d3ce30c6c93be117e430
+Status: Downloaded newer image for alpine:latest
+
+
+= lancement de commande basique de commande dans notre container :
+
+on peut lancer n'importe quelle commande (généralement on prexixe de "/bin/sh" :
+
+sudo docker run alpine ls
+bin
+dev
+etc
+home
+lib
+media
+mnt
+proc
+root
+run
+sbin
+srv
+sys
+tmp
+usr
+var
+
+sudo docker run alpine ps fauxw
+PID   USER     TIME  COMMAND
+    1 root      0:00 ps fauxw
+
+
+= connection dans un container :
+
+on peux lancer des commandes pour un docker puis se connecter dans celui-ci et voir / agir sur les commandes en cours : 
+
+1 / commande sur docker :  on lance par exemple une boucle : 
+sudo docker run alpine /bin/sh -c "while : ;do echo 'meow~'; sleep 1 ;done"
+
+2/ examen de process et connection dans docker depuis une autre console : on a des infos interressante  le container id , le nom du container : générés automatiquement par le process docker : 
+sudo docker ps
+[sudo] Mot de passe de boogie : 
+CONTAINER ID        IMAGE               COMMAND                  CREATED             STATUS              PORTS               NAMES
+5ad5d404594a        alpine              "/bin/sh -c 'while :…"   9 seconds ago       Up 8 seconds                            elastic_darwin
+
+on utilise le nom / id du docker pour se connecter. On utilise 'it' ( interractive tty ) pour se connecter dans le docker , en lancant un shell : 
+on peut  agir directement et lancer des commandes : 
+ ~/Documents/lab/docker_kube  $  sudo docker exec -it 5ad5d404594a /bin/sh
+/ # ps
+PID   USER     TIME  COMMAND
+    1 root      0:00 /bin/sh -c while : ;do echo 'meow~'; sleep 1 ;done
+   71 root      0:00 /bin/sh
+   81 root      0:00 sleep 1
+   82 root      0:00 ps
+/ # kill -s 2 1
+
+= 
+
+
