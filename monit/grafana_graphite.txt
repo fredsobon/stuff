@@ -1,0 +1,75 @@
+==== notes udemy ====
+
+
+
+= setup sur ubuntu : =
+
+1/ 
+créer un mdp mysql 
+root@apollo:~# apt-get install mysql-server python-mysqldb python-pymysql graphite-web graphite-carbon apache2 libapache2-mod-wsgi 
+
+2 /config mysql :
+
+mysql> CREATE USER 'graphite' IDENTIFIED BY 'password';
+mysql> CREATE DATABASE IF NOT EXISTS graphite;
+mysql> GRANT ALL PRIVILEGES ON graphite.* TO 'graphite';
+
+
+3/ modif conf graphite :
+
+vi /etc/graphite/local_settings.py
+
+# modifier la clé secrete :
+SECRET_KEY = 'blabla'
+# modifier la timezone ( sinon pb dans a consultation de graphite en web ) :
+TIME_ZONE = 'Europe/Paris'
+# dans la section de conf json database on va renseigner nos infos ( en modifiant l'existant sqlite etc ..)
+
+DATABASES = {
+  'Default' :
+    'Name': 'graphite'
+    'Engine': 'django.db.backends.mysql'
+    'User': 'graphite'
+    'Password': 'password'
+    'Host': '127.0.0.1'
+    'Port': '3306'
+'STORAGE_ENGINE': 'INNODB'
+
+une fois notre conf faite on reload notre system de db : 
+
+sudo graphite-manage syncdb
+-> si on a une erreur on relance la commande 
+et on crée donc dans le cas suivant un "superuser" admin pour la conf de notre graphite
+
+Edition de la conf de carbon :
+
+vi /etc/default/graphite-carbon
+
+# Change to true, to enable carbon-cache on boot :
+CARBON_CACHE_ENABLE=true
+
+sudo systemctl start carbon-cache
+
+On copie la vhost de base présent dans notre distrib dans le repertoire courant d'apache :
+sudo cp /usr/share/graphite-web/apache2-graphite.conf /etc/apache2/sites-available
+
+# Use port 8888 for Graphite
+sudo vi /etc/apache2/sites-available/apache2-graphite.conf
+In the VirtualHost element, change 80 to 8888:
+<VirtualHost *:8888>
+Add 8888 to Apache ports
+sudo nano /etc/apache2/ports.conf
+Listen 80
+Listen 8888
+
+
+sudo a2ensite apache2-graphite
+sudo systemctl restart apache2
+
+En pointant directement sur l'ip de notre serveur dans le browser on doit voir graphite installé ...
+
+
+
+
+
+
