@@ -194,4 +194,93 @@ To access a service exposed via a node port, run this command in a shell after s
 minikube service [-n NAMESPACE] [--url] NAME
 
 
+- docker : 
+on va construire un docker ( simple app node js ) 
+pour cela on clone 
+ git clone https://github.com/wardviaene/docker-demo
+
+trois fichiers nous interressent :
+Dockerfile
+index.js
+package.json
+
+ ~/Documents/lab/kube/kube_u_starter/docker/nodejs/docker-demo  ⑂ master  $  cat Dockerfile 
+FROM node:4.6
+WORKDIR /app
+ADD . /app
+RUN npm install
+EXPOSE 3000
+CMD npm start
+ ~/Documents/lab/kube/kube_u_starter/docker/nodejs/docker-demo  ⑂ master  $  cat index.js 
+var express = require('express');
+var app = express();
+
+app.get('/', function (req, res) {
+  res.send('Hello World!');
+});
+
+var server = app.listen(3000, function () {
+  var host = server.address().address;
+  var port = server.address().port;
+
+  console.log('Example app listening at http://%s:%s', host, port);
+});
+ ~/Documents/lab/kube/kube_u_starter/docker/nodejs/docker-demo  ⑂ master  $  cat package.json 
+{
+  "name": "myapp",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "start": "node index.js",
+  },
+  "engines": {
+    "node": "^4.6.1"
+  },
+  "dependencies": {
+    "express": "^4.14.0",
+  },
+}
+
+on va ensuite lancer le build de notre docker :
+
+ ~/Documents/lab/kube/kube_u_starter/docker/nodejs/docker-demo  ⑂ master  $  sudo docker build .
+Sending build context to Docker daemon  137.2kB
+Step 1/6 : FROM node:4.6
+4.6: Pulling from library/node
+386a066cd84a: Pull complete 
+75ea84187083: Pull complete 
+88b459c9f665: Pull complete 
+1e3ee139a577: Pull complete 
+f78ff7d0315b: Pull complete 
+f4ba677961ff: Pull complete 
+21db8c3555aa: Pull complete 
+Digest: sha256:a1cc6d576734c331643f9c4e0e7f572430e8baf9756dc24dab11d87b34bd202e
+Status: Downloaded newer image for node:4.6
+ ---> e834398209c1
+...
+.....
+Step 6/6 : CMD npm start
+ ---> Running in f3447711b726
+Removing intermediate container f3447711b726
+ ---> e38e27fde867
+Successfully built e38e27fde867
+
+une fois buildé on peut lancer notre container :
+
+ ~/Documents/lab/kube/kube_u_starter/docker/nodejs/docker-demo  ⑂ master  $  sudo docker run -p 3000:3000 -t e38e27fde867
+npm info it worked if it ends with ok
+npm info using npm@2.15.11
+npm info using node@v4.6.2
+npm info prestart myapp@0.0.1
+npm info start myapp@0.0.1
+
+> myapp@0.0.1 start /app
+> node index.js
+
+Example app listening at http://:::3000
+
+si on lance  une autre console on peut voir le résultat de notre affichage : 
+ ~/Documents/lab/kube/kube_u_starter/docker/nodejs/docker-demo  ⑂ master  $  curl localhost:3000
+Hello World!
+
 
