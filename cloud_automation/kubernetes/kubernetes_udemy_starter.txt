@@ -6,6 +6,7 @@
 
 on va tout d'abotd installer minikube : un kubernetes leger pour prendre en main l'outil :
 https://github.com/kubernetes/minikube 
+
 on lance l'install comme mentionner dans le readme du repo github  :
 curl -Lo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 && chmod +x minikube && sudo mv minikube /usr/local/bin/
 
@@ -82,8 +83,10 @@ Server Version: version.Info{Major:"1", Minor:"10", GitVersion:"v1.10.0", GitCom
 
 on peut lancer une container : on recupére un container basic sur le service cloud de google : 
 
- ~  $  kubectl run hello-minikube --image=gcr.io/google_containers/echoserver --port=8080
+
+ ~  $  kubectl run hello-minikube --image=k8s.gcr.io/echoserver:1.4 --port=8080
 deployment "hello-minikube" created
+
 
 on peut voir qu'on a bien recupérer notre "pod"( container ) : 
  ~  $  kubectl get pods
@@ -110,15 +113,85 @@ kubernetes       10.96.0.1       <none>        443/TCP          20m
  
 
 on va maintenant recupérer l'url que l'on va pouvoir atteindre via un curl ou un browser après avoir lancer la commande : 
- ~  $  minikube service hello-minikube --url
-Waiting, endpoint for service is not ready yet...
-Waiting, endpoint for service is not ready yet...
-Waiting, endpoint for service is not ready yet...
-Waiting, endpoint for service is not ready yet...
-Waiting, endpoint for service is not ready yet...
-Waiting, endpoint for service is not ready yet...
-Waiting, endpoint for service is not ready yet...
-Waiting, endpoint for service is not ready yet...
+
+
+ curl $(minikube service hello-minikube --url)
+CLIENT VALUES:
+client_address=172.17.0.1
+command=GET
+real path=/
+query=nil
+request_version=1.1
+request_uri=http://192.168.99.100:8080/
+
+SERVER VALUES:
+server_version=nginx: 1.10.0 - lua: 10001
+
+HEADERS RECEIVED:
+accept=*/*
+host=192.168.99.100:32317
+user-agent=curl/7.52.1
+BODY:
+
+
+on peut donc maintenant interroger notre service via un browser ou en curl  : 
+
+curl 192.168.99.100:32317
+CLIENT VALUES:
+client_address=172.17.0.1
+command=GET
+real path=/
+query=nil
+request_version=1.1
+request_uri=http://192.168.99.100:8080/
+
+SERVER VALUES:
+server_version=nginx: 1.10.0 - lua: 10001
+
+HEADERS RECEIVED:
+accept=*/*
+host=192.168.99.100:32317
+user-agent=curl/7.52.1
+BODY:
+-no body in request- ~  $  
+
+
+on va pouvoir acceder au dashboard de kubernetes accessible dans le navigateur en lancant la commande : 
+
+$ minikube dashboard 
+
+on ouvrer notre browser et on peut voir les différents pannels : 
+http://192.168.99.100:30000/#!/overview?namespace=default
+
+On peut supprimer nos services ,deployment : 
+
+$ kubectl delete service hello-minikube
+service "hello-minikube" deleted
+$ kubectl delete deployment hello-minikube
+deployment "hello-minikube" deleted
+
+pour arreter kubernetes : 
+$ minikube stop
+Stopping local Kubernetes cluster...
+Machine stopped.
+
+
+Notes sur kubectl :
+
+kubectl
+The minikube start command creates a "kubectl context" called "minikube". This context contains the configuration to communicate with your Minikube cluster.
+
+Minikube sets this context to default automatically, but if you need to switch back to it in the future, run:
+
+kubectl config use-context minikube,
+
+or pass the context on each command like this: kubectl get pods --context=minikube.
+
+notes sur services :
+Services
+To access a service exposed via a node port, run this command in a shell after starting Minikube to get the address:
+
+minikube service [-n NAMESPACE] [--url] NAME
 
 
 
