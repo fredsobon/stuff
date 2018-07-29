@@ -1,0 +1,124 @@
+=== notes kubernetes courses starter udemy : ===
+
+
+
+= set up :
+
+on va tout d'abotd installer minikube : un kubernetes leger pour prendre en main l'outil :
+https://github.com/kubernetes/minikube 
+on lance l'install comme mentionner dans le readme du repo github  :
+curl -Lo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 && chmod +x minikube && sudo mv minikube /usr/local/bin/
+
+une fois recupérée on peut lancer minikube ( le binaire a été copier dans /usr/local/bin comme on le voit dans la commande précédente :
+minikube start
+Starting local Kubernetes v1.10.0 cluster...
+Starting VM...
+Downloading Minikube ISO
+ 160.27 MB / 160.27 MB [============================================] 100.00% 0s
+Getting VM IP address...
+Moving files into cluster...
+Downloading kubeadm v1.10.0
+Downloading kubelet v1.10.0
+Finished Downloading kubelet v1.10.0
+Finished Downloading kubeadm v1.10.0
+Setting up certs...
+Connecting to cluster...
+Setting up kubeconfig...
+Starting cluster components...
+Kubectl is now configured to use the cluster.
+Loading cached images from config file.
+
+
+On peut voir un repertoire caché dans le home de notre user : 
+ ~  $  ls -la .kube/
+total 20
+drwxr-xr-x  4 boogie boogie 4096 juil. 29 18:28 .
+drwxr-xr-x 67 boogie boogie 4096 juil. 29 18:24 ..
+drwxr-xr-x  3 boogie boogie 4096 mars   2 15:37 cache
+-rw-------  1 boogie boogie  424 juil. 29 18:28 config
+drwxr-xr-x  3 boogie boogie 4096 mars   2 15:51 schema
+ ~  $  cat .kube/config 
+apiVersion: v1
+clusters:
+- cluster:
+    certificate-authority: /home/boogie/.minikube/ca.crt
+    server: https://192.168.99.100:8443
+  name: minikube
+contexts:
+- context:
+    cluster: minikube
+    user: minikube
+  name: minikube
+current-context: minikube
+kind: Config
+preferences: {}
+users:
+- name: minikube
+  user:
+    client-certificate: /home/boogie/.minikube/client.crt
+    client-key: /home/boogie/.minikube/client.key
+
+
+On va utiliser un utilitaire de commande dédié au pilotage de kube : kubectl :
+
+que l'on a récupéré normalement pendant l'install ou qu'on peut avoir sur :
+https://kubernetes.io/docs/tasks/tools/install-kubectl/
+
+ex : 
+curl -LO https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl
+
+
+On a un kubectl fonctionnel :
+ex : 
+
+ ~  $  kubectl get nodes
+NAME       STATUS    AGE
+minikube   Ready     11m
+
+
+ ~  $  kubectl version
+Client Version: version.Info{Major:"1", Minor:"5", GitVersion:"v1.5.2", GitCommit:"08e099554f3c31f6e6f07b448ab3ed78d0520507", GitTreeState:"clean", BuildDate:"2017-01-12T04:57:25Z", GoVersion:"go1.7.4", Compiler:"gc", Platform:"linux/amd64"}
+Server Version: version.Info{Major:"1", Minor:"10", GitVersion:"v1.10.0", GitCommit:"fc32d2f3698e36b93322a3465f63a14e9f0eaead", GitTreeState:"clean", BuildDate:"2018-03-26T16:44:10Z", GoVersion:"go1.9.3", Compiler:"gc", Platform:"linux/amd64"}
+
+on peut lancer une container : on recupére un container basic sur le service cloud de google : 
+
+ ~  $  kubectl run hello-minikube --image=gcr.io/google_containers/echoserver --port=8080
+deployment "hello-minikube" created
+
+on peut voir qu'on a bien recupérer notre "pod"( container ) : 
+ ~  $  kubectl get pods
+NAME                              READY     STATUS             RESTARTS   AGE
+hello-minikube-6786c7bff4-pxtrh   0/1       ImagePullBackOff   0          1m
+
+on voit qu'on a bien créer un "deployment" egalement :
+ ~  $  kubectl get deployments
+NAME             DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
+hello-minikube   1         1         1            0           4m
+
+
+Pour pouvoir acceder au service de notre docker hello-minikube on va devoir exposer notre deployment à une ip externe avec la commande suivante : 
+
+kubectl expose deployment hello-minikube --type=NodePort
+service "hello-minikube" exposed:
+
+on peut vérifier qu'on a bien exposer notre service avec :
+
+ ~  $  kubectl get services
+NAME             CLUSTER-IP      EXTERNAL-IP   PORT(S)          AGE
+hello-minikube   10.99.242.169   <nodes>       8080:30432/TCP   4s
+kubernetes       10.96.0.1       <none>        443/TCP          20m
+ 
+
+on va maintenant recupérer l'url que l'on va pouvoir atteindre via un curl ou un browser après avoir lancer la commande : 
+ ~  $  minikube service hello-minikube --url
+Waiting, endpoint for service is not ready yet...
+Waiting, endpoint for service is not ready yet...
+Waiting, endpoint for service is not ready yet...
+Waiting, endpoint for service is not ready yet...
+Waiting, endpoint for service is not ready yet...
+Waiting, endpoint for service is not ready yet...
+Waiting, endpoint for service is not ready yet...
+Waiting, endpoint for service is not ready yet...
+
+
+
