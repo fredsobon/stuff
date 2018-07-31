@@ -2,7 +2,7 @@
 
 
 
-= set up :
+== intro / set up :
 
 on va tout d'abotd installer minikube : un kubernetes leger pour prendre en main l'outil :
 https://github.com/kubernetes/minikube 
@@ -194,7 +194,10 @@ To access a service exposed via a node port, run this command in a shell after s
 minikube service [-n NAMESPACE] [--url] NAME
 
 
-- docker : 
+== docker : 
+
+= docker run / build 
+
 on va construire un docker ( simple app node js ) 
 pour cela on clone 
  git clone https://github.com/wardviaene/docker-demo
@@ -282,5 +285,186 @@ Example app listening at http://:::3000
 si on lance  une autre console on peut voir le résultat de notre affichage : 
  ~/Documents/lab/kube/kube_u_starter/docker/nodejs/docker-demo  ⑂ master  $  curl localhost:3000
 Hello World!
+
+= docker registry 
+
+
+pour faire tourner notre appli on utilise :
+docker run 
+
+c'est bien pour des devs / tests en local 
+
+Afin de rendre disponible notre image pour kubernetes on doit la pousser dans une registry ( ex : docker hub )
+pour pusher notre image dans le docker hub ..on doit d'abord avoir un compte 
+
+ensuite : 
+
+docker login
+docker tag imageid our_login/our_image_name 
+docker push our_login/our_image_name
+
+on peut sinon directement tagger notre image lors du build :
+
+ex : 
+ ~/Documents/lab/kube/kube_u_starter/docker/nodejs/docker-demo  ⑂ master +  $  pwd
+/home/boogie/Documents/lab/kube/kube_u_starter/docker/nodejs/docker-demo
+ ~/Documents/lab/kube/kube_u_starter/docker/nodejs/docker-demo  ⑂ master +  $  ls
+Dockerfile  index.js  package.json
+ ~/Documents/lab/kube/kube_u_starter/docker/nodejs/docker-demo  ⑂ master +  $  sudo docker build -t fredsobon/node_test .
+Sending build context to Docker daemon  127.5kB
+Step 1/6 : FROM node:4.6
+ ---> e834398209c1
+Step 2/6 : WORKDIR /app
+ ---> Using cache
+ ---> 2110e14934c9
+Step 3/6 : ADD . /app
+ ---> Using cache
+ ---> e02055b05b3c
+Step 4/6 : RUN npm install
+ ---> Running in 34ef368f751b
+npm info it worked if it ends with ok
+npm info using npm@2.15.11
+npm info using node@v4.6.2
+npm info preinstall myapp@0.0.1
+npm info attempt registry request try #1 at 11:02:40 AM
+npm http request GET https://registry.npmjs.org/express
+...
+
+
+
+
+Best practices :
+
+toujours essayer de n'avoir qu'une seule app par container 
+essayer de faire des container light
+Attention : Aucunce données n'est stockée / preservée dans un container.
+
+
+
+= kube premiere appli :
+
+une fois qu'on a poussé notre container sur une registry (docker hub par exemple) on va pouvoire la récupérer pour la gérer via kube :
+
+
+ex : notre img sera :
+
+fredsobon/docker-nodejs-dummy sur le hub docker 
+
+
+- on va définir notre pod ( conf container coté kube ) :
+
+ cat helloworld.yml 
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nodehelloworld.example.com
+  labels:
+    app: helloworld
+spec:
+  containers:
+  - name: nodejs-demo
+    image: fredsobon/docker-nodejs-dummy
+    ports:
+    - name: nodejs-port
+      containerPort: 3000
+
+on va ensuite creer notre pod :
+kubectl create -f helloworld.yml 
+pod "nodehelloworld.example.com" created
+ ~/Documents/lab/kube/kube_u_starter/kube_conf_files  $  kubectl get pod
+NAME                             READY     STATUS    RESTARTS   AGE
+hello-minikube-6c47c66d8-rczth   1/1       Running   1          1d
+nodejs-demo                      1/1       Running   0          2m
+
+
+on va pouvoir examiner notre pod :
+
+ ~/Documents/lab/kube/kube_u_starter/kube_conf_files  $  kubectl describe pod nodejs-demo
+Name:		nodejs-demo
+Namespace:	default
+Node:		minikube/10.0.2.15
+Start Time:	Tue, 31 Jul 2018 07:18:02 +0200
+Labels:		app=helloworld
+Status:		Running
+IP:		172.17.0.5
+Controllers:	<none>
+Containers:
+  docker-nodejs-dummy:
+    Container ID:	docker://68b6cada1ea83d1e96ae6782abb24685165f61fba87892c48235bcd3941d12bb
+    Image:		fredsobon/docker-nodejs-dummy
+    Image ID:		docker-pullable://fredsobon/docker-nodejs-dummy@sha256:77bd2a1de03fdb9a936a7b9ca08bd68b6fddd14b1c9bfe74b73ec35db4446ca2
+    Port:		3000/TCP
+    State:		Running
+      Started:		Tue, 31 Jul 2018 07:18:04 +0200
+    Ready:		True
+    Restart Count:	0
+    Volume Mounts:
+      /var/run/secrets/kubernetes.io/serviceaccount from default-token-rvrgh (ro)
+    Environment Variables:	<none>
+Conditions:
+  Type		Status
+  Initialized 	True 
+  Ready 	True 
+  PodScheduled 	True 
+Volumes:
+  default-token-rvrgh:
+    Type:	Secret (a volume populated by a Secret)
+    SecretName:	default-token-rvrgh
+QoS Class:	BestEffort
+Tolerations:	<none>
+Events:
+  FirstSeen	LastSeen	Count	From			SubObjectPath				Type		Reason			Message
+  ---------	--------	-----	----			-------------				--------	------			-------
+  2m		2m		1	{default-scheduler }						Normal		Scheduled		Successfully assigned nodejs-demo to minikube
+  2m		2m		1	{kubelet minikube}						Normal		SuccessfulMountVolume	MountVolume.SetUp succeeded for volume "default-token-rvrgh" 
+  2m		2m		1	{kubelet minikube}	spec.containers{docker-nodejs-dummy}	Normal		Pulling			pulling image "fredsobon/docker-nodejs-dummy"
+  2m		2m		1	{kubelet minikube}	spec.containers{docker-nodejs-dummy}	Normal		Pulled			Successfully pulled image "fredsobon/docker-nodejs-dummy"
+  2m		2m		1	{kubelet minikube}	spec.containers{docker-nodejs-dummy}	Normal		Created			Created container
+  2m		2m		1	{kubelet minikube}	spec.containers{docker-nodejs-dummy}	Normal		Started			Started container
+
+Premier tests :
+
+on va pouvoir acceder à notre appli de plusieurs manieres :
+
+-> en exposant le port de notre pod :
+
+kubectl port-forward nodejs-demo 8081:3000
+Forwarding from 127.0.0.1:8081 -> 3000
+Forwarding from [::1]:8081 -> 3000
+Handling connection for 8081
+
+
+si on ouvre une autre console on recupere bien le resultat attendu :
+curl http://localhost:8081
+Hello World (v1.0.2)!
+
+C'est bien pour tester mais pour permettre une conf durable on va creer un service :
+
+-> creation de service : 
+on utilise ici le nom de notre pod puis le type de connexion NodePort : ce qui veut dire qu'on a pas de load balancer mais que le port sera rediriger depuis notre pod directement , on ajoute un nom ex notre pod-service pour identifier le service créee.
+
+ $  kubectl expose pod nodejs-demo --type=NodePort --name nodejs-demo-service
+service "nodejs-demo-service" exposed
+
+
+maintenant on va devoir connaitre l'url que notre cluster va exposer pour atteindre notre ressource :
+
+ minikube service nodejs-demo-service --url
+http://192.168.99.100:31215
+on peut vérifier la creation de notre service :
+ ~/Documents/lab/kube/kube_u_starter/kube_conf_files  $  kubectl get service
+NAME                  CLUSTER-IP      EXTERNAL-IP   PORT(S)          AGE
+hello-minikube        10.103.189.93   <nodes>       8080:32317/TCP   1d
+kubernetes            10.96.0.1       <none>        443/TCP          1d
+nodejs-demo-service   10.105.32.178   <nodes>       3000:31215/TCP   3m
+
+On a donc d'un coté l'ip que l'on peut ecceder depuis notre host : 192.168.99.100
+et de l'autre coté les ip internes à notre cluster :
+10.105.32.178, 10.103.189.93 10.96.0.1 
+
+en lancant un curl ou nous connextant via un browser on a bien notre ressource : 
+ curl http://192.168.99.100:31215
+Hello World (v1.0.2)!
+
 
 
