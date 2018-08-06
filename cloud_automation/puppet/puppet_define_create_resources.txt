@@ -365,10 +365,29 @@ dans nos conf applicatives on va pouvoir créer une sous classe collectd dédié
 ex 
 on va charger notre classe , récupérer les data (valeurs des noms des pools fpm dans hiera, executer notre ressource crée avec collectd::plugin::curl_json et alimenter automatiquement via les variables prédédinis title les valeurs de notre pool : 
 
+ex de data trouvées dans hiera : 
+
+webphp::pool_fpm_hash:
+ws::webapps_hash:
+    'web-promo':
+      port: '8080'
+      php_pool_args:
+        pm_max_children: '50'
+        php_admin_value:
+          memory_limit: '40M'
+    'web-sale':
+      port: '8081'
+      php_pool_args:
+        pm_max_children: '20'
+        php_admin_value:
+          memory_limit: '10M'
+
+
+ex conf puppet : 
 class app_metrologie::php_fpm (
 ) inherits app_metrologie::params {
    $hash_pools  = lookup("webphp::pool_fpm_hash")   <<<< on va récupérer ici les valeurs des noms des pool fpm définis dans hiera 
-   $hash_pools.each | $title, $value | {
+   $hash_pools.each | $title, $value | {            <<<< ici on recupére les valeurs de nos clés ( qui correspondent au nom de notre pool fpm) : on l'enregistre en tant que $title qui est donc la variable interne au define puppet 
    collectd::plugin::curl_json {
         $title:  <<<< non de notre fichier de conf ( voir plus haut define collectd) 
           url       => 'http://127.0.0.1/status.php',
