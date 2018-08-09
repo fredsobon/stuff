@@ -1,0 +1,103 @@
+=== notes collectd ===
+
+
+ex mises en place metrologie pool process php-fpm :
+
+-> on va utiliser un plugin "natif" collectd : curl_json.
+
+
+Pre requi : un serveur http avec un vhost et un pool php-fpm .
+attention notre conf devra pouvoir repondre à tous les vhosts présents 
+nous devront être capable d'interroger un ou plusieurs pools .
+
+Les stats php-fpm répondent nativement à la page : status.php 
+
+il faut donc : 
+
+1/ que notre serveur http soit capable d'interroger le serveur par défault pour sa page de status :
+
+cat /etc/nginx/conf.d/stat.conf.conf 
+server {
+    listen      80 default_server;
+    server_name _;
+    access_log  off;
+        
+    location /server-status {
+        stub_status on;
+        allow 127.0.0.1;
+        deny all;
+    }
+}
+ 
+2/ dans notre cas pouvoir interroger les stats php en inerrogeant un host par defaut :
+
+curl -H "host: mon-pool" http://127.0.0.1/status.php?
+pool:                 mon-pool
+process manager:      static
+start time:           03/Aug/2018:13:03:40 +0200
+start since:          2391
+accepted conn:        16
+listen queue:         0
+max listen queue:     0
+listen queue len:     128
+idle processes:       4
+active processes:     1
+total processes:      5
+max active processes: 1
+max children reached: 0
+slow requests:        0
+
+
+on va générer un fichier de type :
+
+
+https://github.com/wormly/collectd-wormly-extras/tree/master/php-fpm
+
+on doit générer un fichier de type : 
+
+
+<LoadPlugin curl_json>
+  Globals false
+</LoadPlugin>
+
+<Plugin curl_json>
+<url "http://127.0.0.1/status.php?json">
+    Instance "mon-pool"
+    Header "Host: mon-pool"
+ <Key "accepted conn">
+     Type "phpfpm_requests"
+ </Key>
+ <Key "slow requests">
+     Type "phpfpm_slow_requests"
+ </Key>
+ <Key "listen queue">
+     Type "phpfpm_listen_queue"
+ </Key>
+ <Key "active processes">
+     Type "phpfpm_active_processes"
+ </Key>
+ <Key "total processes">
+     Type "phpfpm_total_processes"
+ </Key>
+ <Key "max_active_processes">
+     Type "phpfpm_max_active_process"
+ </Key>
+ <Key "max_children_reached">
+     Type "phpfpm_max_children_reached"
+ </Key>
+</url>
+</Plugin>
+
+
+Il va falloir également définir nos "types"  dans le fichier types.db ( ou renseigner un nouveau fichier : collecd pouvant interroger plusieurs fichiers "types" )
+
+
+/usr/share/collectd/types.db
+phpfpm_requests            value:GAUGE:0:U
+phpfpm_slow_requests       value:COUNTER:U:U
+phpfpm_listen_queue        value:GAUGE:0:U
+phpfpm_active_processes    value:GAUGE:0:U
+phpfpm_total_processes     value:GAUGE:0:U
+phpfpm_max_active_process  value:COUNTER:U:U
+phpfpm_max_children_reached value:COUNTER:U:U
+
