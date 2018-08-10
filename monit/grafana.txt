@@ -57,7 +57,14 @@ on peut forcer le time range de notre pannel , le refresh
 ======= fonction graphite : =====
 
 
+== Dashboard : 
+
+
+
 on va pouvoir modifier la légende de nos graphs : clic droit special -> alias  ,aliasbynode ....
+
+
+1/ alias : 
 
 on peut réécrire également : 
 
@@ -78,26 +85,30 @@ aliasSub(.curl_json-,.) va nous afficher lapin
 on rajoute un "." au début de notre regexp et on substitue par un "." : nécéssaire à graphite / grafana
 
 
+2 / template :
 
-
-
-== Dashboard : 
-
-1 / template :
-
-on va créer un template :
+on va créer un template : on va pouvoir factoriser et permettre l'utilisation de différentes variables qui vont matcher des patterns : ex : host : pour nos serveur , app : pour nos applis etc ....
 ajoute de variable :
 
--> on va ajouter : une varaible qui va nous permettre de choisir tous nos serveurs : 
+-> on va ajouter une variable qui va nous permettre de choisir tous nos serveurs : 
+un onglet va apparaitre sur notre dashboard et on va pouvoir selectionner la ou les serveurs qui nous interesse.
 
 on crée une variable host qui va matcher tout ce qui va suivre la metrique collectd.hosts.web01.curl_json-web-lapin-phpfpm_max_children_reached :
 
-
-$host	collectd.hosts.*
-
-
-
+host	collectd.hosts.*
 
 exemple de requete :
 
+-> on va maintenant ajouter une variable pool qui vanous permettre de choisir les pools fpm dont ont veut voir les stats :
+
+pool collectd.hosts.*.curl_json-*  <<< pattern complet + regex : /curl_json-(.*)/
+
+on va ici couper notre métrique : collectd.hosts.* est la variable host définie avant , on rajoute une regexp pour supprimer  le préfixe "curl_json-" 
+
+
 aliasSub(collectd.hosts.$host.curl_json-$pool.phpfpm_active_processes-active_processes, '^collectd.hosts.(.*).curl_json-(.*).phpfpm_(.*)-.*', '\1.\2.\3')
+
+
+
+
+
