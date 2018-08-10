@@ -88,26 +88,38 @@ on rajoute un "." au début de notre regexp et on substitue par un "." : nécés
 2 / template :
 
 on va créer un template : on va pouvoir factoriser et permettre l'utilisation de différentes variables qui vont matcher des patterns : ex : host : pour nos serveur , app : pour nos applis etc ....
-ajoute de variable :
+
+ajouts de variable :
 
 -> on va ajouter une variable qui va nous permettre de choisir tous nos serveurs : 
 un onglet va apparaitre sur notre dashboard et on va pouvoir selectionner la ou les serveurs qui nous interesse.
 
 on crée une variable host qui va matcher tout ce qui va suivre la metrique collectd.hosts.web01.curl_json-web-lapin-phpfpm_max_children_reached :
 
+La valeur de la variable correspondra a ce que l'on en "*" dans notre metrique 
+exemple pour déclarer la variable $host : on prend la ligne de notre métrique :
+collectd.hosts.web01.curl_json-web-lapin-phpfpm_max_children_reached
+
+on etabli que notre host est web01 :
+
+collectd.hosts.web01 
+donc on va définir notre variable comme telle : 
+
 host	collectd.hosts.*
 
 exemple de requete :
 
 -> on va maintenant ajouter une variable pool qui vanous permettre de choisir les pools fpm dont ont veut voir les stats :
+on va ici couper notre métrique : collectd.hosts.* est la variable host définie avant , on rajoute une regexp pour supprimer  le préfixe "curl_json-" 
+
+on va donc vouloir garder uniquement la valeur du pool défini dans curl_json-web-lapin -> "web-lapin" :
 
 pool collectd.hosts.*.curl_json-*  <<< pattern complet + regex : /curl_json-(.*)/
 
-on va ici couper notre métrique : collectd.hosts.* est la variable host définie avant , on rajoute une regexp pour supprimer  le préfixe "curl_json-" 
 
+notre métrique correspond littérallement maintenant à : 
 
 aliasSub(collectd.hosts.$host.curl_json-$pool.phpfpm_active_processes-active_processes, '^collectd.hosts.(.*).curl_json-(.*).phpfpm_(.*)-.*', '\1.\2.\3')
-
 
 
 
