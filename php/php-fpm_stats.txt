@@ -1,0 +1,41 @@
+=== notes sur les stats php-fpm ===
+
+ex via l'interrogation de la page dédiée :
+
+
+
+web01 ~] $ curl -H "Host: web01-front" http://127.0.0.1/status.php?
+pool:                 web01-front
+process manager:      static
+start time:           11/Aug/2018:04:48:10 +0200
+start since:          198494
+accepted conn:        7750
+listen queue:         0
+max listen queue:     1
+listen queue len:     128
+idle processes:       9
+active processes:     1
+total processes:      10
+max active processes: 10
+max children reached: 0
+slow requests:        
+
+
+listen queue = the amount of (TCP) requests that are waiting to be accepted. should be 0 in normal circumstances and * will cause delay if this queue is filled. Normally it can happen under heavy server load and so on.
+max listen queue = the longest the queue has been since php-fpm was started
+listen queue len = the queue length of socket based (so instead of TCP) connections. Should be 0 in healthy circumstances
+idle processes = number of php processes that are ready to handle requests, but are idle at the moment
+active processes = number of php processes that are handling requests at this moment
+total processes = Total of php processes that are (pre)loaded in the memory (idle + active processes)
+max active processes = the maximum of processes this PHP-FPM instance may start to handle requests
+max children reached = the number of times the webserver would need more active processes than allowed
+slow requests = the number of requests that are considered slow according to the request_slowlog_timeout setting in php. When this number is not 0 there are requests that take a too long time to finish.
+
+Maybe the following parameters are not interesting to monitor :
+
+pool = name of the pool - this is static
+process manager = mode of the process manager, also static
+start time = date and time te php-fpm process was started
+start since = how many seconds ago the php-fpm process was started
+accepted conn = the amount of connections php-fpm has handled since it was started
+
