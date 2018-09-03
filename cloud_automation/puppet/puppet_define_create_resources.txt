@@ -196,6 +196,38 @@ class my_great_class (
 }
 
 
+= creation de repo yum =
+on defini dans notre classe puppet le code qui va gérer la création du repo avec la ressource yum 
+
+
+    Optional[Hash] $extra_repos_legacy = $profile::legacy::params::extra_repos_legacy, <<<< on defini en param notre variable $extra_repos_legacy 
+) inherits profile::legacy::params {
+
+
+on teste si la variable existe et on fait un create resssource en conséquence : 
+    # create additionals repo according hiera records :
+    if $extra_repos_legacy {
+      $extra_repos_legacy.each |$rep, $value| {
+        yum::source {
+          $rep:
+            * => $value
+        }
+      }
+    }
+
+
+dans notre conf hiera on va pouvoir setter nos repos additionnels : 
+cat certname/mysql01:
+...
+extra_repos_legacy:
+  'mysql5-5':
+    baseurl='ftp://yumrepo/yum/RHEL$releasever/$basearch/mysql/5.5'
+
+
+
+
+
+
 === notes sur define dans puppet ===
 
 
