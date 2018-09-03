@@ -196,7 +196,9 @@ class my_great_class (
 }
 
 
-= creation de repo yum =
+= create ressource exemples =  
+
+-> creation de repo yum 
 on defini dans notre classe puppet le code qui va gérer la création du repo avec la ressource yum 
 
 
@@ -223,6 +225,35 @@ extra_repos_legacy:
   'mysql5-5':
     baseurl='ftp://yumrepo/yum/RHEL$releasever/$basearch/mysql/5.5'
 
+
+-> recupération de hash puis création de vhosts : 
+
+ici on va definir au sein de notre manifest un hash contenant les valeurs de notre vhost :
+
+ exemple ici on défini via une "ancienne methode puppet" des valeurs par defaut de nos conf avec la syntaxe 'Majuscule'::"Classe" : cette syntaxe permet d'avoir a ducpliquer du code inutilement mais les données peuvent être overrider dans notre classe "minuscule"::"classe" plus tard 
+ 
+    # default values for nginx vhost according listen_adress and extra_args ..All vhost should ihnerate this value ( please note that it can be overridden in nginx:vhost sections  ...) 
+    Nginx::Vhost {   
+        listen_address => '*',     
+        extra_args     => $nginx_extra_args,
+    }
+    # Set hash of value being used as vhosts param  
+    $hash_pools = {
+        'lapin' => {
+            template    => "${module_name}/front/nginx/lapin.conf.erb",
+            docroot     => "${lapin_root}/current/web",
+            listen_port => '8081',
+            php_handler => '48017',
+        }
+    }
+
+    # loop over the last defined hash and sent it to nginx:vhost classe : which is a define : 
+    $hash_pools.each | $title, $value | {
+         nginx::vhost {
+            $title:
+              * => $value
+          }
+    }
 
 
 
