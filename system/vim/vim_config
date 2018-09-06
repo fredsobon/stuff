@@ -1,0 +1,160 @@
+Soyons honnête, en mode "découverte", VIM n'est pas l'outil le plus sexy qu'il soit. On a même l'impression qu'il est conçu pour être moche et ne pas faire grand chose de plus qu'un notepad compliqué par pur plaisir.
+
+La raison fondamentale de cet état de fait est que VIM est un outil conçu pour s'adapter au plus large éventail de besoin possible (sans pour autant faire le café, et encore...). Au départ ce n'est donc qu'une toile vierge, un peu comme un FireFox brut de coffrage avant que vous y installiez vos extensions favorites. Comme FireFox, VIM est conçu pour être programmé et/ou étendu en piochant dans sa très dense collection de plugins. Mais à la différence de FireFox, VIM ne s'écroulera que difficilement sous le poids de ses propres plugins ;-)
+
+Premiers paramétrage
+En réalité le terme de paramétrage est quelque peu erroné. En effet, VIM ne se configure pas par le biais d'un quelconque fichier xml ou ini, mais se programme à travers un langage, le VIMScript. Ce langage de script comporte tous les éléments d'un langage classique : variables, assignation, boucles, conditions, fonctions, modules, etc. Maintenant rassurez-vous, il n'est pas nécessaire de maîtriser ce langage pour pouvoir utiliser VIM car dans un premier temps il s'agira essentiellement de modifier les valeurs des variables système pour faire coller l'éditeur à vos besoins.
+
+Pour charger ces réglages, VIM exécute à chaque lancement le code contenu dans le fichier ~/.vimrc. Prenons un exemple simple et disons que nous désirons que VIM active la numérotation des lignes, ce qu'il ne fait pas par défaut. Nous allons pour cela créer notre premier fichier .vimrc et y placer le contenu suivant en tapant vim ~/.vimrc :
+
+set nocompatible
+set number
+
+== mon premier vimrc
+
+Sans sortir de VIM, vous pouvez tester ce code en tapant :w|source % (w pour sauvegarder source pour exécuter le code du fichier courant %).
+
+Dans ce code nous avons utilisé la fonction système set pour affecter des valeurs. set number affecte la valeur vrai à number. Si nous voulions faire l'inverse, nous aurions écrit set nonumber.
+
+La variable compatible indique un compatibilité avec l'ancêtre de VIM, le célèbre VI. Aujourd'hui on préfèrera mettre cette valeur à faux via set nocompatible pour activer un ensemble de réglages plus actuels.
+
+La commande :help documente absolument toutes les variables. Essayez :help number ou :help compatible pour plus d'information.
+
+Une fois le fichier sauvegardé, il suffit de quitter VIM, puis que votre premier paramétrage soit définitif.
+
+Nous n'allons pas étudier ici tous les réglages possibles pour VIM, ce serait bien trop long. Sachez donc trouver les solutions à vos besoins grâce à votre automate de recherche préféré. Vous découvrirez alors rapidement que nous sommes très nombreux à utiliser cet outil. Par exemple si vous désirez activer la coloration syntaxique, chercher "vim activate syntax highlighting" et vous aurez moulte réponses qui vous mèneront à ajouter à votre vimrc les lignes suivantes :
+
+filetype plugin indent on
+syntax on
+coloration syntaxique
+Sauvez et éditez à nouveau, miracle, votre vimrc est maintenant colorisé.
+
+Le langage VIMScript permet de faire de nombreuse choses et pour qui a à cœur de personnaliser son environnement à fond, sa maîtrise n'est pas un luxe. Une ressource très précieuse sur ce point est l'excellent tutoriel d'IBM.
+
+= Structure
+Le paramétrage de VIM ne se limite pas au simple fichier .vimrc. Il est aussi possible d'exploiter toute une arborescence de dossiers nichés sous ~/.vim (non créé par défaut). Les principaux sont :
+
+autoload On trouve dans ce dossier des scripts qui vont être chargés au démarrage, avant le fichier~/.vimrc. colors Ici sont stockés des scripts appelés par la commande colorscheme permettant de charger un jeu de couleur. syntax Là se trouvent des scripts gérant la colorisation syntaxique pour un type de fichier donné sous la forme type_de_fichier.vim. plugin Dans ce dossier sont stockés les plugins de VIM. doc Les fichiers documentation des plugins utilisables par la commande :help. spell Pour les dictionnaires du correcteur orthographique. Pour une description complète et exhaustive de tous les autres dossiers, utilisez la commande help runtimepath.
+
+Nous le verrons plus loin, cette liste n'est pas exhaustive car certains plugins vont ajouter ici leur propres sous-dossiers. Alors dans la mesure où ~/.vim va vite devenir le centre névralgique de votre configuration, je vous conseille la manipulation suivante :
+
+gastoncd
+gastonmkdir -p .vim/{autoload,colors,syntax,plugin,spell,config}
+gastonmv .vimrc .vim/vimrc
+gastonln -s .vim/vimrc .vimrc
+Initialisation de sa configuration VIM
+Ceci a pour but de pré-créer .vim et un ensemble de sous-dossiers. D'y déplacer notre .vimrc en un fichier visible (sans point devant) et de faire un lien symbolique pour permettre à vim de le démarrer en ne se rendant compte de rien. Ainsi toute votre configuration sera à un seul et même endroit.
+
+Pour parfaire le dispositif, vous noterez la création du sous-dossier config. Il ne s'agit pas d'un dossier de VIM mais d'un endroit où nous allons stocker des bouts de vimrc. En effet, vous vous en rendrez vite compte, vimrc peut rapidement devenir titanesque. A titre d'exemple le mien fait plus de 1000 lignes de code... Du coup, il est bien pratique de pouvoir ventiler cette configuration dans plusieurs fichiers thématiques (ex. settings.vim, mappings.vim, etc.).
+
+Pour que cela fonctionne, il faut que nous rajoutions à vimrc le code permettant de lire ce dossier config :
+
+runtime! config/**/*.vim
+Lecture des scritps contenus dans .vim/config
+Ceci fait, vous pouvez déplacer dans un .vim/config/settings.vim tout ce qui se trouve après set nocompatible (il est préférable de laisser cette ligne en en-tête de vimrc).
+
+A plugin to rules them all
+Comme vous le savez sûrement, VIM dispose d'un stock impressionnant de plugins. Il sera en effet bien rare de ne pas trouver le plugin correspondant à l'un de vos besoin.
+
+Techniquement, un plugin est fournie sur un site comme vim.org sous la forme d'une archive zip à décompresser à la racine de .vim provoquant l'ajout de fichiers dans un ou plusieurs sous dossiers (plugin, doc, autoload, etc.). A terme je vous laisse imaginer le foutoir... Fort heureusement il y a une solution à ce problème. Il y en a même plusieurs en réalité, mais celle que j'ai retenu s'appelle pathogen.
+
+Le principe de pathogen est très simple. Il s'agit de créer un nouveau dossier .vim/bundle dans lequel chaque plugin aura son propre dossier dans lequel nous retrouverons plugin,doc, autoload, etc. Pathogen se chargera alors, au démarrage de VIM, d'explorer ce dossier et d'instruire VIM sur tous les fichiers à charger. Ainsi tout reste bien rangé.
+
+Pour mettre en place pathogen, il faut d'abord le télécharger. Comme pour absolument tous les plugins pour VIM, le plus simple est clairement de passer par GIT via GitHub. Pour ceux qui découvrent, GIT est un gestionnaire de version et github une plateforme hébergeant de très nombreux projets libres et bâti autours de GIT.
+
+Même pour si le développeur d'un plugin n'utilise pas github, le site vim.org effectue un mirroring automatisé de tous ses plugins sur github. Ainsi si vous cherchez la version "github" d'un plugin, il suffit généralement de taper dans votre moteur de recherche "github vim le_plugin_que_je_cherche" pour le trouver. Ainsi toute installation de plugin passera systématiquement par github, ce qui est extrêmement pratique.
+
+La première chose à faire est donc d'installer git sur votre système, cela se fait sur debian par sudo apt get git, tout simplement. Ceci fait, allez sur la page du projet pathogen. Dans la partie du haut, vous trouverez une URL qu'il suffit d'utiliser comme ceci
+
+gastoncd ~/.vim
+gastongit clone https://github.com/tpope/vim-pathogen.git pathogen
+Cloning into pathogen...
+remote: Counting objects: 225, done.
+remote: Compressing objects: 100% (120/120), done.
+remote: Total 225 (delta 61), reused 209 (delta 48)
+Receiving objects: 100% (225/225), 27.14 KiB, done.
+Resolving deltas: 100% (61/61), done.
+gastoncd autoload
+gastonln -s ../pathogen/autoload/pathogen.vim .
+Récupération du code source de pathogen
+Nous sommes allé dans notre dossier .vim pour y cloner (comprendre récupérer) le code source de pathogen dans un dossier pathogen. Ensuite nous avons créé le dossier autoload, y sommes rentré, puis avons créé un lien symbolique à partir du fichier ../pathogen/autoload/pathogen.vim.
+
+Nous aurions aussi pu cloner le dépôt n'importe où et ensuite juste recopier pathogen.vim dans le dossier autoload mais en procédant par lien symbolique, nous pourrons facilement bénéficier des éventuelles mises à jour de pathogen de la manière suivante :
+
+gastoncd ~/.vim/pathogen
+gastongit pull
+Mise à jour de pathogen
+Maintenant il ne reste plus qu'à ajouter quelque ligne de code à vimrc, juste après set nocompatible pour que la magie pathogen opère :
+
+" Initialisation de pathogen
+call pathogen#infect()
+call pathogen#helptags()
+Ajout de la gestion des plugins par pathogen
+Et c'est tout.
+
+Pour tester tout cela, installons notre premier plugin que je classe dans la catégorie incontournable, NerdTree. Sont rôle est d'ajouter à VIM un volet latérale permettant d'explorer les fichiers et sous-dossiers du dossiers courant. Comme pour pathogen, nous allons passer simplement par la page du projet GitHub de NerdTree.
+
+gastoncd ~/.vim
+gastonmkdir -p bundle
+gastoncd bundle
+gastongit clone https://github.com/scrooloose/nerdtree.git nerdtree
+Cloning into nerdtree...
+remote: Counting objects: 2396, done.
+remote: Compressing objects: 100% (805/805), done.
+remote: Total 2396 (delta 1076), reused 2314 (delta 999)
+Receiving objects: 100% (2396/2396), 979.05 KiB | 485 KiB/s, done.
+Resolving deltas: 100% (1076/1076), done.
+Installation de NerdTree
+Et... C'est tout :-) Il ne nous reste qu'à redémarrer VIM et à taper la commande :NERDTree pour disposer d'un navigateur du plus bel effet.
+
+Conclusion
+Comme vous le voyez, VIM peut rapidement devenir très personnalisé tant par ajout de paramétrage, que par celui de plugins (personnellement je tourne avec déjà 26 plugins...). Alors évidement, cette approche ne conviendra pas à tous ceux qui veulent "que ça marche". Mais pour les autres, ceux qui aiment construire leur environnement, VIM est une véritable bouffée d'oxygène.
+
+Préambule
+Dés plugin pour vim, il y en a des littéralement des milliers, pour tous les goûts et tous les usages. Cependant il y a en a certain qui sont difficile à éviter tellement il font partie intégrante de l'écosystème VIM. Ce sont ces plugins que je me propose de vous faire rapidement découvrir.
+
+Nerdtree
+Nerdtree est donc LE gestionnaire de fichier de VIM. Une fois le plugin installé, le panneau s'active simplement par :NERDTreeToggle. Le déplacement se fait comme d'hab au clavier avec quelques trucs bien utile (ceux là même qui me manquaient avec Atom) comme U pour remonter la racine d'un cran, ou C pour définir la racine à la position du curseur. Il est aussi possible d'appliquer des opérations (copier, renommer, etc) via la touche m.
+
+Je vous laisse éplucher la doc, NerdTree est gavé d'options jusqu'à la possiblité de créer des plugins qui lui sont dédiés. A propos de plugin, essayez au passage NERDTree Git Plugin qui permet d'ajouter à l'arbre les états associés au dépôt git.
+
+Fuzzyfinder
+Un autre indispensable est fuzzyfinder. Ce plugin permet de rechercher rapidement des "choses" de manière partielle. Par exemple la commande :FufBuffer affiche en popup la liste des buffers et en tapant quelques lettres et éventuellement des jockers (ex. */toto) permet d'en sélectionner un. À noter que c'est fait de manière intelligente en triant les buffers par age antéchronologique d'accès. Et comme le premier buffer est sélectionné par défaut, cela permet de basculer très rapidement entre deux buffers.
+
+Mais les "choses" ne s'arrêtent pas là, FuzzyFinder permet aussi de chercher dans les fichiers et sous fichiers du dossier en cours (commande :FufFile), ou encore dans les symboles du fichier en cours (commande :FufBufferTag). Ce dernier mode fait usage de la commande ctags qui analyse un fichier et fournit ses symboles (classes, fonctions, variables, constantes, etc.).
+
+Là je parle des 3 modes que j'utilise constamment, mais si vous lisez la doc, il y en a encore beaucoup d'autres (fichiers récemment ouverts, aide, commandes, etc, etc...). Un plugin très complet qui nécessite cependant l'installation d'un plugin "librairie", l9 pour fonctionner.
+
+Alors j'en entends qui vont dire que FuzzyFinder n'est pas le plus récent des plugins du genre. Oui, je sais, mais lui, il fonctionne très bien et j'aime beaucoup sa manière de fonctionner. Après CtrlP est pas mal non plus, il en faut pour tous les goûts.
+
+Fugitive
+A classer dans la catégorie "grosse tuerie", Fugitive est un wrapper autours de la commande GIT permettant littéralement de tout faire à partir de VIM. A découvrir impérativement.
+
+Tagbar
+Tagbar est aux symboles ce que NerdTree est aux fichiers. Pour peux que le code sur lequel vous travaillez soit reconnu par ctags, tagbar va pouvoir l'analyser et vous afficher un beau panneau de navigation, bien plus sympa que le Symbol Tree View d'Atom (MTCO évidemmment ;-). Mais surtout tagBar ne s'arrête pas à ctags et va par exemple exploiter, s'il est installé, jsctags, le ctags spécial javascript qui utilise le moteur d'analyse tern.
+
+Jettez un oeil au wiki de tagbar qui indique comme analyser au mieux une belle palette de langages.
+
+Syntastic
+Par le même auteur que NERDTree, Syntastic va analyse votre code source à la recherche de boulettes. Pour cela il s'appuie sur une large collection de wrapper autours d'outils spécialisé pour chaque langage (php -l pour php, jshint pour Javascript, etc). Et lorsqu'il en détecte une belle, il vous affiche cela dans l'éditeur.
+
+ultisnips
+Ultisnips est le meilleur (à mon avis ;-) moteur de snippets pour VIM en ce moment. En tout cas il détrone largement SnipMate en fonctionnant en tout circonstance, y compris sur les sélections visuelles. Certains lui reprocheront cependant sa dépendance Python. Personellement cela ne me pose que peu de problème. Les snippets, on leur demande qu'une seul chose, d'être présentes en toute circonstance et d'être facilement extensibles. Et c'est bien le cas ici avec un fichier de snippet par type de document et une reconnaissance automatique des nouvelles snippets ajoutées dés leur sauvegarde.
+
+YouCompleteMe
+Alors ça aussi c'est du lourd. YouCompleteMe est un moteur d'autocomplétement de code super rapide et qui fonctionne au fur et à mesure de la frappe. Pour des langages comme C/C++, il se base sur CLang. pour Python, sur jedi, sur Omnisharp pour C#, sur GoCode pour la langage GO et sur les fonctions OmniFunc pour le reste.
+
+Pour Javascript, je vous conseille du coup d'installer Tern for VIM pour gagner une fonction OmniFunc bien plus efficace que celle de VIM.
+
+En en vrac...
+
+
+delimitMate pour automatiquement fermer accolades, parenthéses et autre guillemets,
+colorizer pour ne pas rester en reste sur Atom et son plugin Pygment. Colorizer va ainsi détecter les codes de couleur dans votre source (ex. #FF00FF) et automatiquement coloriser le fond en accord.,
+matchit qui permet de naviguer facilement d'une accolade à l'autre, d'un tag à a sa fermeture de tag, etc,
+NerdCommenter (oui, toujours par l'auteur de NerdTree :-) pour tout commenter/décommenter en deux secondes, avec reconnaissance automatique du langage,
+Tabular pour toute aligner proprement,
+nextval qui permet d'incrémenter/décrémenter absolument tout, de l'entier décimal à la valeur booléenne. Vous placez votre curseur sur False, une touche, est c'est maintenant 'True'. C'est con mais tellement pratique.
+surround, par l'auteur de Fugitive, qui permet d'entourez les expressions. Vous voulez par exemple ajouter un paragraphe autours d'un bloc de texte, très simple, vous le sélectionnez visuellement et vous faites S<p et zouh, c'est bouclé.
+Conclusion
+Voilà en tout cas les plugins qui consituent mon quotidien. J'espère que cela vous aura fait découvrir quelques pépites et dans tous les cas, n'hésitez pas à me faire découvrir les votres :)
