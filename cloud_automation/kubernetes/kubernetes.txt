@@ -95,18 +95,128 @@ kubectl passé en figé (« hold »).
 
 On va donc maintenant avoir une restart toutes les secondes de kubelet attendant des instructions de kubeadm pour savoir quoi faire 
 
+on desactive la swap :
+swapoff -a ( necessaire sur kube) 
+
 On va maintenant devoir setter le driver des cgroup utilisé par kubelet sur le node master : on va le configurer avec la valeur du driver de docker : 
 root@boogie-kube:~# docker info |grep -i cgroup
 Cgroup Driver: cgroupfs
 On defini donc le driver cgroup dans le fichier de config par default de kubelet : 
-boogie@boogie-kube:~$ sudo cat /etc/default/kubelet 
-KUBELET_EXTRA_ARGS=
-KUBELET_KUBEADM_EXTRA_ARGS=--cgroup-driver=cgroupfs
-
--->> cette manip n'est pas à faire si le driver est cgroupfs : c'est la valeur par defaut. On le montre pour l'exemple.
+sudo sed -i '0,/ExecStart=/s//Environment="KUBELET_EXTRA_ARGS=--cgroup-driver=cgroupfs"\n&/' /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
 
 Redemarrage des services : 
 boogie@boogie-kube:~$ sudo systemctl daemon-reload
 boogie@boogie-kube:~$ sudo systemctl restart kubelet
+On active et demarre kubelet :
+boogie@boogie-kube:~$ sudo systemctl enable kubelet && sudo systemctl start kubelet
+
+on lance la conf de notre kube : 
+
+boogie@boogie-kube:~$ sudo kubeadm init --pod-network-cidr=192.168.0.0/16
+[init] using Kubernetes version: v1.11.3
+[preflight] running pre-flight checks
+I0909 23:09:01.771998   31562 kernel_validator.go:81] Validating kernel version
+I0909 23:09:01.772140   31562 kernel_validator.go:96] Validating kernel config
+[preflight/images] Pulling images required for setting up a Kubernetes cluster
+[preflight/images] This might take a minute or two, depending on the speed of your internet connection
+[preflight/images] You can also perform this action in beforehand using 'kubeadm config images pull'
+[kubelet] Writing kubelet environment file with flags to file "/var/lib/kubelet/kubeadm-flags.env"
+[kubelet] Writing kubelet configuration to file "/var/lib/kubelet/config.yaml"
+[preflight] Activating the kubelet service
+[certificates] Generated ca certificate and key.
+[certificates] Generated apiserver certificate and key.
+[certificates] apiserver serving cert is signed for DNS names [boogie-kube kubernetes kubernetes.default kubernetes.default.svc kubernetes.default.svc.cluster.local] and IPs [10.96.0.1 192.168.0.7]
+[certificates] Generated apiserver-kubelet-client certificate and key.
+[certificates] Generated sa key and public key.
+[certificates] Generated front-proxy-ca certificate and key.
+[certificates] Generated front-proxy-client certificate and key.
+[certificates] Generated etcd/ca certificate and key.
+[certificates] Generated etcd/server certificate and key.
+[certificates] etcd/server serving cert is signed for DNS names [boogie-kube localhost] and IPs [127.0.0.1 ::1]
+[certificates] Generated etcd/peer certificate and key.
+[certificates] etcd/peer serving cert is signed for DNS names [boogie-kube localhost] and IPs [192.168.0.7 127.0.0.1 ::1]
+[certificates] Generated etcd/healthcheck-client certificate and key.
+[certificates] Generated apiserver-etcd-client certificate and key.
+[certificates] valid certificates and keys now exist in "/etc/kubernetes/pki"
+[kubeconfig] Wrote KubeConfig file to disk: "/etc/kubernetes/admin.conf"
+[kubeconfig] Wrote KubeConfig file to disk: "/etc/kubernetes/kubelet.conf"
+[kubeconfig] Wrote KubeConfig file to disk: "/etc/kubernetes/controller-manager.conf"
+[kubeconfig] Wrote KubeConfig file to disk: "/etc/kubernetes/scheduler.conf"
+[controlplane] wrote Static Pod manifest for component kube-apiserver to "/etc/kubernetes/manifests/kube-apiserver.yaml"
+[controlplane] wrote Static Pod manifest for component kube-controller-manager to "/etc/kubernetes/manifests/kube-controller-manager.yaml"
+[controlplane] wrote Static Pod manifest for component kube-scheduler to "/etc/kubernetes/manifests/kube-scheduler.yaml"
+[etcd] Wrote Static Pod manifest for a local etcd instance to "/etc/kubernetes/manifests/etcd.yaml"
+[init] waiting for the kubelet to boot up the control plane as Static Pods from directory "/etc/kubernetes/manifests" 
+[init] this might take a minute or longer if the control plane images have to be pulled
+[apiclient] All control plane components are healthy after 39.001512 seconds
+[uploadconfig] storing the configuration used in ConfigMap "kubeadm-config" in the "kube-system" Namespace
+[kubelet] Creating a ConfigMap "kubelet-config-1.11" in namespace kube-system with the configuration for the kubelets in the cluster
+[markmaster] Marking the node boogie-kube as master by adding the label "node-role.kubernetes.io/master=''"
+[markmaster] Marking the node boogie-kube as master by adding the taints [node-role.kubernetes.io/master:NoSchedule]
+[patchnode] Uploading the CRI Socket information "/var/run/dockershim.sock" to the Node API object "boogie-kube" as an annotation
+[bootstraptoken] using token: 0hydfw.qtrhz880bxnn10cm
+[bootstraptoken] configured RBAC rules to allow Node Bootstrap tokens to post CSRs in order for nodes to get long term certificate credentials
+[bootstraptoken] configured RBAC rules to allow the csrapprover controller automatically approve CSRs from a Node Bootstrap Token
+[bootstraptoken] configured RBAC rules to allow certificate rotation for all node client certificates in the cluster
+[bootstraptoken] creating the "cluster-info" ConfigMap in the "kube-public" namespace
+[addons] Applied essential addon: CoreDNS
+[addons] Applied essential addon: kube-proxy
+
+Your Kubernetes master has initialized successfully!
+
+To start using your cluster, you need to run the following as a regular user:
+
+  mkdir -p $HOME/.kube
+    sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+      sudo chown $(id -u):$(id -g) $HOME/.kube/config
+
+      You should now deploy a pod network to the cluster.
+      Run "kubectl apply -f [podnetwork].yaml" with one of the options listed at:
+        https://kubernetes.io/docs/concepts/cluster-administration/addons/
+
+        You can now join any number of machines by running the following on each node
+        as root:
+
+          kubeadm join 192.168.0.7:6443 --token 0hydfw.qtrhz880bxnn10cm --discovery-token-ca-cert-hash sha256:1aa8b5f4374519e0c900fb07ebd4b2980434027725f5d8dbc2b5e9a98081cdf9
+
+On voit que c'est un succes ! 
+
+en cas de souci il est possible de remettre a plat notre conf avec :
+kubeadm reset 
+
+
+mkdir -p $HOME/.kube
+sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+sudo chown $(id -u):$(id -g) $HOME/.kube/config
+
+
+On va mettre en place la conf reseau de notre kube en recuperant la  conf d'un CNI ( container netwok interface ) on prend calico qui est bien supporte : 
+
+boogie@boogie-kube:~$ kubectl apply -f https://docs.projectcalico.org/v3.2/getting-started/kubernetes/installation/hosted/calico.yaml
+configmap/calico-config created
+secret/calico-etcd-secrets created
+daemonset.extensions/calico-node created
+serviceaccount/calico-node created
+deployment.extensions/calico-kube-controllers created
+serviceaccount/calico-kube-controllers created
+
+on fait notre premiere verif  : 
+
+boogie@boogie-kube:~$ kubectl get pods --all-namespaces
+NAMESPACE     NAME                                       READY     STATUS              RESTARTS   AGE
+kube-system   calico-kube-controllers-56c747d6bb-grjtg   0/1       Error               1          1m
+kube-system   calico-node-w4594                          1/2       CrashLoopBackOff    2          1m
+kube-system   coredns-78fcdf6894-6tdhl                   0/1       ContainerCreating   0          3m
+kube-system   coredns-78fcdf6894-pxwrt                   0/1       ContainerCreating   0          3m
+kube-system   etcd-boogie-kube                           1/1       Running             0          2m
+kube-system   kube-apiserver-boogie-kube                 1/1       Running             0          2m
+kube-system   kube-controller-manager-boogie-kube        1/1       Running             0          2m
+kube-system   kube-proxy-q25nn                           1/1       Running             0          3m
+kube-system   kube-scheduler-boogie-kube                 1/1       Running             0          2m
+boogie@boogie-kube:~$ kubectl version
+Client Version: version.Info{Major:"1", Minor:"11", GitVersion:"v1.11.2", GitCommit:"bb9ffb1654d4a729bb4cec18ff088eacc153c239", GitTreeState:"clean", BuildDate:"2018-08-07T23:17:28Z", GoVersion:"go1.10.3", Compiler:"gc", Platform:"linux/amd64"}
+Server Version: version.Info{Major:"1", Minor:"11", GitVersion:"v1.11.3", GitCommit:"a4529464e4629c21224b3d52edfe0ea91b072862", GitTreeState:"clean", BuildDate:"2018-09-09T17:53:03Z", GoVersion:"go1.10.3", Compiler:"gc", Platform:"linux/amd64"}
+
+
 
 
