@@ -1,9 +1,112 @@
 == Kubernetes : 
 
 
-= gestion dns par skydns : 
-http://www.projectatomic.io/blog/2015/10/setting-up-skydns/
+- Pre-requis :
+on va partir du principe que notre  kube va gérer une flotte de container docker.
+Sur chaque node du cluster docker devra donc être installé en pre-requi
 
 
+/!\ Attention la version de docker devra avoir été validée et testée par kubernetes : une version stable de docker est donc impérative : 
+
+boogie@boogie-kube:~$ apt-get install -y apt-transport-https ca-certificates curl software-properties-common
+Ajout de la clé docker : 
+boogie@boogie-kube:~$ curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
+OK
+on va pouvoir vérifier la bonne conformité de la clé telechargée en recupérant les 8 derniers digits par ex 
+boogie@boogie-kube:~$ sudo apt-key fingerprint 0EBFCD88
+pub   rsa4096 2017-02-22 [SCEA]
+      9DC8 5822 9FC7 DD38 854A  E2D8 8D81 803C 0EBF CD88
+      uid           [ unknown] Docker Release (CE deb) <docker@docker.com>
+      sub   rsa4096 2017-02-22 [S]
+Ajout du repo docker : 
+boogie@boogie-kube:~$ add-apt-repository "deb https://download.docker.com/linux/$(. /etc/os-release; echo "$ID") $(lsb_release -cs) stable"
+Install de la version 17 de docker : maintenu par kube -> /!\ Il est fondamental de suivre une version docker testée et validée par kube :
+boogie@boogie-kube:~$ sudo apt-get update && sudo apt-get install -y docker-ce=$(apt-cache madison docker-ce | grep 17.03 | head -1 | awk '{print $3}')
+
+On va tester le bon fonctionnement de notre installation :
+boogie@boogie-kube:~$ sudo docker run hello-world
+Unable to find image 'hello-world:latest' locally
+latest: Pulling from library/hello-world
+d1725b59e92d: Pull complete 
+Digest: sha256:0add3ace90ecb4adbf7777e9aacf18357296e799f81cabc9fde470971e499788
+Status: Downloaded newer image for hello-world:latest
+
+Hello from Docker!
+This message shows that your installation appears to be working correctly.
+
+To generate this message, Docker took the following steps:
+ 1. The Docker client contacted the Docker daemon.
+ 2. The Docker daemon pulled the "hello-world" image from the Docker Hub.
+    (amd64)
+ 3. The Docker daemon created a new container from that image which runs the
+    executable that produces the output you are currently reading.
+ 4. The Docker daemon streamed that output to the Docker client, which sent it
+    to your terminal.
+
+To try something more ambitious, you can run an Ubuntu container with:
+ $ docker run -it ubuntu bash
+
+Share images, automate workflows, and more with a free Docker ID:
+ https://hub.docker.com/
+
+For more examples and ideas, visit:
+ https://docs.docker.com/get-started/
+
+check de version :
+boogie@boogie-kube:~$ sudo docker version
+Client:
+ Version:      17.03.3-ce
+ API version:  1.27
+ Go version:   go1.7.5
+ Git commit:   e19b718
+ Built:        Thu Aug 30 01:04:10 2018
+ OS/Arch:      linux/amd64
+
+Server:
+ Version:      17.03.3-ce
+ API version:  1.27 (minimum version 1.12)
+ Go version:   go1.7.5
+ Git commit:   e19b718
+ Built:        Thu Aug 30 01:04:10 2018
+ OS/Arch:      linux/amd64
+ Experimental: false
+
+
+== Install de kubernetes : 
+
+on va partir du principe que l'install passe par kubeadm 
+
+boogie@boogie-kube:~$ sudo apt-get update && sudo apt-get install -y apt-transport-https curl
+boogie@boogie-kube:~$ curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
+OK
+Set up du repo kube passage en user root :
+root@boogie-kube:~# sudo cat <<EOF >/etc/apt/sources.list.d/kubernetes.list
+deb http://apt.kubernetes.io/ kubernetes-xenial main
+EOF
+
+root@boogie-kube:~# apt update
+root@boogie-kube:~# apt-get install -y kubelet kubeadm kubectl
+
+/!\ pour les instances de prod et assurer les montees de version on va specifiquement empecher l'update des packets kubelet kubeadm et kubectl :
+boogie@boogie-kube:~$ sudo apt-mark hold kubelet kubeadm kubectl
+kubelet passé en figé (« hold »).
+kubeadm passé en figé (« hold »).
+kubectl passé en figé (« hold »).
+
+On va donc maintenant avoir une restart toutes les secondes de kubelet attendant des instructions de kubeadm pour savoir quoi faire 
+
+On va maintenant devoir setter le driver des cgroup utilisé par kubelet sur le node master : on va le configurer avec la valeur du driver de docker : 
+root@boogie-kube:~# docker info |grep -i cgroup
+Cgroup Driver: cgroupfs
+On defini donc le driver cgroup dans le fichier de config par default de kubelet : 
+boogie@boogie-kube:~$ sudo cat /etc/default/kubelet 
+KUBELET_EXTRA_ARGS=
+KUBELET_KUBEADM_EXTRA_ARGS=--cgroup-driver=cgroupfs
+
+-->> cette manip n'est pas à faire si le driver est cgroupfs : c'est la valeur par defaut. On le montre pour l'exemple.
+
+Redemarrage des services : 
+boogie@boogie-kube:~$ sudo systemctl daemon-reload
+boogie@boogie-kube:~$ sudo systemctl restart kubelet
 
 
