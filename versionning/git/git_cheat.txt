@@ -42,8 +42,6 @@ cat ~/.gitconfig
 #[pull]
 #    rebase=true
 
-
-
 on peut definir nos alias dans le fichier de conf :
 
 [alias]
@@ -71,9 +69,7 @@ git add ajout un fichier
 git mv oldname newname
 
 
-
 == log ==
-
 
 git log : permet de voir les commits 
 
@@ -112,6 +108,123 @@ git log --oneline --graph
 | * b38974d up
 * | 71b2399 .
 |/ 
+
+
+== diff ==
+
+on va pouvoir afficher les differences entre nos differents "stages" : working directory ; staging aera ; repository avec la commande git diff :
+
+- comparaison working aera / staging 
+
+git diff
+diff --git a/versionning/git/gitconfig b/versionning/git/gitconfig
+index 42bc468..efe5a04 100644
+--- a/versionning/git/gitconfig
++++ b/versionning/git/gitconfig
+@@ -13,6 +13,7 @@
+   br = branch
+   ci = commit
+   st = status
++  hist = log --oneline --graph
+   save = !git add -A && git commit -m 'SAVEPOINT'
+   undo = reset HEAD~1 --mixed
+
+
+
+ici on voit qu'une ligne non commitée est presente dans le working directory 
+(+  hist = log --oneline --graph ) mais pas dans le staging.
+
+on peut lancer git difftool si on a configurer un outil de diff dans notre config git 
+ex : 
+[diff]
+    tool  = meld
+
+- comparaison working directory et repo :
+on peut voir les differences entre le contenu de notre repo et notre working directory :
+
+git diff HEAD 
+git difftool HEAD 
+
+- comparaison staging et repo :
+
+git diff --staged HEAD 
+git difftool --staged HEAD
+
+
+- comparaison sur un fichier particulier 
+pour l'instant toutes les modifs examiness concernent le "repo" global.On peut biensur comparer uniquement un fichier 
+
+git diff -- fichier
+
+git diff -- git_cheat.txt
+diff --git a/versionning/git/git_cheat.txt b/versionning/git/git_cheat.txt
+index 1df976b..e14dfda 100644
+--- a/versionning/git/git_cheat.txt
++++ b/versionning/git/git_cheat.txt
+@@ -134,6 +134,27 @@ index 42bc468..efe5a04 100644
+ ici on voit qu'une ligne non commitée est presente dans le working directory 
+ (+  hist = log --oneline --graph ) mais pas dans le staging.
+ 
++on peut lancer git difftool si on a configurer un outil de diff dans notre config git 
+ 
+
+- comparaison de commits :
+
+on va pouvoir comparer des commits.
+on va devoir chercher les commits qui nous interesse avec git log puis les passer en arguments : 
+
+git log --oneline |head
+09109bc up
+dfa6430 up
+da0c987 up
+7ba9fb7 up
+679148b up
+e1409f6 up
+
+ici on va comparer les deux derniers commits entre eux : 
+
+git diff 09109bc dfa6430
+diff --git a/TODO b/TODO
+index f8eafb5..7308740 100644
+--- a/TODO
++++ b/TODO
+@@ -4,7 +4,6 @@
+ net : lan subnet creation / config / lacp / jumbo frame
+ redondancy : failover / HA
+ loadbalancing 
+-routage
+ firewalling / codes attacks /audit /
+ 
+on peut utiliser le nom HEAD sui represente le dernier commit de notre branch : 
+
+c'est donc completement equivalent a l'exemple précédent :
+ ~/Documents/stuff/versionning/git  ⑂ master +  $  git diff HEAD dfa6430
+diff --git a/TODO b/TODO
+index f8eafb5..7308740 100644
+--- a/TODO
++++ b/TODO
+@@ -4,7 +4,6 @@
+ net : lan subnet creation / config / lacp / jumbo frame
+ redondancy : failover / HA
+ loadbalancing 
+-routage
+ firewalling / codes attacks /audit /
+
+on peut aussi pour comparer les deux derniers commit utiliser HEAD ( le dernier commit ) et HEAD^ ( l'avant dernier commit ) 
+
+ ~/Documents/stuff/versionning/git  ⑂ master +  $  git diff HEAD HEAD^
+diff --git a/TODO b/TODO
+index f8eafb5..7308740 100644
+--- a/TODO
++++ b/TODO
+@@ -4,7 +4,6 @@
+ net : lan subnet creation / config / lacp / jumbo frame
+ redondancy : failover / HA
+ loadbalancing 
+-routage
+ firewalling / codes attacks /audit /
+ 
+ce qui revient encore à la même chose que nos deux exemples precedents 
 
 
 == branch + merge request ==
