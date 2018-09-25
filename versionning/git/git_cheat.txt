@@ -387,7 +387,18 @@ index aa20ae3..4a0c9d3 100644
   ## commit from branch too ...
 
 
-- on va pouvoir une fois nos modifs faites merger nos branches :
+
+== merge ==
+
+- on va pouvoir une fois nos modifs faites merger nos branches ( les fusionner )
+
+tips : git pull fait automatiquement un git fetch et un git merge 
+
+Bonne pratique : on utilise merge ( contrairement a rebase voir plus bas ) :
+-quand une branche locale temporaire, que j’avais juste faite par précaution, afin de conserver un master propre pendant ce temps-là
+-s’il s’agit d’une branche « connue », identifiée par l’équipe ou simplement par mon planning 
+
+Il est alors préférable que l’étendue de cette branche demeure visible dans l’historique.
 
 git merge ma_branche master : ici on va pousser les modifs de notre branche de test dans la branch master :
 
@@ -429,6 +440,9 @@ git log  --decorate --oneline --graph
 * 5e3a58d update file from branch
 
 
+== conflicts ==
+
+Suite a un merge ou un rebase (voir plus bas), il peut être nécéssaire de gérer les conflits.
 - on peut devoir resoudre des conflits ( conflicts ) lors d'un merge : lorsque des fichiers ont été modifiés dans plusieurs branches différentes et que l'on veut merger
 Il va falloir trancher et decider quelles sont les modifs à garder dans les fichiers .
 
@@ -478,6 +492,48 @@ le merge est fait dans la foulée apres la resolution du conflit
 == rebase ==
 
 on va pouvoir utiliser rebase pour cleaner l'historique de nos merges : le principe est le même qu'avec merge : fusionner des branches mais en evitant de surcharger l'historique des commits afin de ne pas surcharger la lecture des logs : utile en travail collaboratif.
+Rebase est la pour changer la base d'une branche : son point de départ .rebase rejoue des series de commits à partir d'une nouvelle base.
+on l'utilise quand on travaille en local et que comme plusieurs fois par jours on voit que notre repos d'origine : origine/master par exemple a été modifié et qu'on est donc pas à jour.
+on l'utilise pour eviter de polluer les autres avec des commits : ex :
+- Je m’y reprends à plusieurs fois pour corriger un bug ou apporter une modification qui impacte plusieurs fichiers
+- Je bosse dans un sens pour finalement, plus tard, revenir en arrière en revertant le commit concerné ;
+- Je fais des fautes de frappe ou de syntaxe honteuses dans mes messages de commit ;
+- Par flemme, je ne découpe pas mon travail dans plusieurs commits et en ponds un bien fourre-tout, dont le message ressemble invariablement à « stuff », « fixes », « changes » ou « lots of stuff »…
+
+Avant de faire un git push, on remet l'historique local au propre à l’aide d’un :
+git rebase -i
+Ce n’est pas le commit d’origine qui change (par exemple origin/master) mais la série de commits depuis, tous locaux, que je vais remanier.
+
+ex:  
+
+~/Documents/stuff/versionning/git  ⑂ master +  $  git checkout new_branch 
+Basculement sur la branche 'new_branch'
+ ~/Documents/stuff/versionning/git  ⑂ new_branch +  $  vi testo
+ ~/Documents/stuff/versionning/git  ⑂ new_branch +  $  git  commit -am 'up for rebase'
+[new_branch 22f1f09] up for rebase
+ 1 file changed, 1 insertion(+)
+ ~/Documents/stuff/versionning/git  ⑂ new_branch +  $  git checkout master 
+Basculement sur la branche 'master'
+Votre branche est à jour avec 'origin/master'.
+ ~/Documents/stuff/versionning/git  ⑂ master +  $  git rebase new_branch 
+Premièrement, rembobinons head pour rejouer votre travail par-dessus...
+Application de  up
+Application de  up
+Application de  up
+
+on voit que notre historique reste propre et aligné et qu'il n'y a pas de pollution visuelle :
+
+ ~/Documents/stuff/versionning/git  ⑂ master + ⇡4 ⇣3  $  git hist 
+* ceb063b 2018-09-25 | up (HEAD -> master) [fredsobon]
+* 9d0dd23 2018-09-24 | up [fredsobon]
+* 207a57d 2018-09-24 | up [fredsobon]
+* 22f1f09 2018-09-25 | up for rebase (new_branch) [fredsobon]
+* d37dcf8 2018-09-24 | up [fredsobon]
+
+
+
+
+
 
 
 
