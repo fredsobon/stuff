@@ -31,16 +31,8 @@ cat ~/.gitconfig
     tool=meld
 [core]
      editor=vim
-[alias]
-#    fa=fetch -a --prune
-#    co=checkout
-#    br=branch
-#    ci=commit
-#    st=status
-#    save=!git add -A && git commit -m 'SAVEPOINT'
-#    undo=reset HEAD~1 --mixed
-#[pull]
-#    rebase=true
+[pull]
+    rebase=true
 
 on peut definir nos alias dans le fichier de conf :
 
@@ -49,7 +41,6 @@ on peut definir nos alias dans le fichier de conf :
     st   = status
     ci   = commit 
 
-    
 
 == status ==
 
@@ -275,6 +266,32 @@ index 2280529..ebce131 100644
 -on peut utiliser le nom HEAD qui represente le dernier commit de notre branch : 
 +on peut utiliser le nom HEAD sui represente le dernier commit de notre branch : 
  
+= reset de conf après un commit (avant avoir pousser ) 
+
+Si on s'apercoit que notre dernier commit n'est pas bon on peut restaurer l'ancienne version avant de pousser sur le repo : 
+
+git reset HEAD~
+
+
+= checkout / restauration fichier original : =
+
+Comment restaurer un fichier 
+1/ rechercher le numero de commit : 
+
+git log --oneline
+e4a48903 [eventbus] by pass for kafka 
+5fca95d7 set only one record for eventbus01
+20dff863 [kafka] adjusts for dev env
+b603fb8d [BASE] - updating hosts for eventbus01
+
+
+git log -p 
+
+
+2/ recupération du fichier concerné dans la bonne version : on examine la conf du fichier avant le commit qui l'a modifier : 
+
+git checkout df9192dc main-config.xml.erb
+
 
 == branch + merge request ==
 
@@ -363,13 +380,18 @@ on peut forcer le delete avec "D"
 git branch -D branch 
 Branche branch supprimée (précédemment 5d2ba80).
 
+- Listing des branches distantes : 
+
+git branch -r
+
+- Récupération d'une branche d'un repos distant :
+
+git checkout -b nom_de_notre_branche  origin/nom_de_notre_branche
+
 - on peut supprimer une branche locale et qui a été aussi poussée sur le repo (ex github ..) 
 
 git branch -dr origin/branch
 Branche de suivi origin/branch supprimée (précédemment 54a161c).
-
-
-
 
 - on peut examiner les differences entre deux branches :
 
@@ -385,6 +407,64 @@ index aa20ae3..4a0c9d3 100644
   ## fake text to test branche 
   ## commit from master branch 
   ## commit from branch too ...
+
+
+- Resynchro notre branche avec le repo principal :
+quand on est dans une branche on veut s'assurer qu"on récupere bien les modif faites sur la master par exemple .
+Quand on execute la commande un message sur le prompt s'affiche pour nous prévenir que notre branche va suivre le repo distant spécifié : 
+
+git branch -u origin/master
+
+La branche lapin est paramétrée pour suivre la branche distante master depuis origin.
+
+- recupération d'une branche distante et basculement à l'interrieur : 
+
+git checkout -b  scala origin/scala
+
+
+- on fait une modif : 
+vi subscriptions.pp
+
+git status
+
+- on commit 
+
+git commit -am 'add new conf in subscription'
+
+- on pousse notre branch sur l'origine : 
+
+git push origin subscrib_gen
+
+
+Décompte des objets: 10, fait.
+Delta compression using up to 4 threads.
+Compression des objets: 100% (9/9), fait.
+Écriture des objets: 100% (10/10), 1.02 KiB | 0 bytes/s, fait.
+Total 10 (delta 5), reused 0 (delta 0)
+remote: 
+remote: Create merge request for subscrib_gen:
+remote:   https://lapin-gitlab.com/repos/merge_requests/new?merge_request%5Bsource_branch%5D=subscrib_gen
+remote: 
+To lapin-gitlab:repos:rep.git
+ * [new branch]        subscrib_gen -> subscrib_gen
+
+
+visible dans le repo 
+
+
+
+- Recupération des fichiers de branche d'un repo distant :
+
+git pull origin nom_de_branche
+
+git pull origin elastic_update
+Depuis gitlab:prod/puppet
+ * branch              nom_de_branch -> FETCH_HEAD
+ Mise à jour 8500f951..13c2eeff
+ Fast-forward
+  lapin/manifests/init.pp        | 11 ++++++-----
+  lapin_nain/manifests/init.pp |  5 +++--
+  2 files changed, 9 insertions(+), 7 deletions(-)
 
 
 
@@ -535,174 +615,59 @@ on voit que notre historique reste propre et aligné et qu'il n'y a pas de pollu
 
 On peut mettre de côte un fichier qu'on édité pour faire une tâche urgente , dans perdre nos modifications : en laissant de côte le fichier avec gît stash
 
-Gît stash 
-Avec un gît status on ne voit même pas le fichier modifie 
+git stash : 
+Avec un git status on ne voit même pas le fichier modifie 
 On peut éditer d'autre fichier puis les commiter.
-On reprend notre fichiers stasher et on applique la modification 
-Gît stash apply
+On reprend notre fichier stashé et on applique la modification :
 
-À chaque stash créée on a une entrée . on peut voir ces entrées avec 
-Gît stash list 
-On peut delete les historiques de stash avec 
-Gît stash drop va supprimer le dernier stash
+git stash apply
+
+À chaque stash créée on a une entrée . on peut voir ces entrées avec : 
+git stash list 
+
+On peut delete les historiques de stash avec :
+
+git stash drop va supprimer le dernier stash
+
 De base stash gère les fichiers trackes (ajoutés au dtaging aera).
 Si on veut suivre les fichiers non trackes du working directory 
-Gît stash -u
 
-Il est possible d'appliquer gît stash apply et gît stash drop en une seule commande 
-Gît stash pop
+git stash -u
+
+Il est possible d'appliquer gît stash apply et gît stash drop en une seule commande :
+
+git stash pop
+
 Quand on travaille sur pls fichiers on peut choisir de les staches unitairement 
 
 Ex je bosses sur index.txt
-Gît stash save "simple modig sur un fichier index"
+
+git stash save "simple modig sur un fichier index"
+
 On pourra le faire sur autant de fichier qu'on veut 
-Gît stash list nous montre les différents stash créé avec les messages définis a la création du stash
 
-In peut examiner un stash avec son num de stash
+git stash list nous montre les différents stash créé avec les messages définis a la création du stash
 
-Gît stash show stash@{1}
+On peut examiner un stash avec son num de stash
+
+git  stash show stash@{1}
+
 On peut bien sûr appliquer un stash unitaire 
-Gît stash apply stash@{1}
+git stash apply stash@{1}
 
 Idem pour le drop
-Gît stash drop stzsh @{1}
 
-Gît stash clear permet de supprimer tous les stash existants
+git stash drop stzsh @{1}
+
+git stash clear permet de supprimer tous les stash existants
 
 
 Il est possible de dédier des stash a des branches précises 
-Gît stash branche mabranche
+
+git stash branche mabranche
+
 Gît créé la branche si elle n'existe pas, bascule dedans et appliqué les stashs puis delete les entrées des stash automatiquement
 
-== tag == 
-
-Untag est un label
-Gît tag montag
-Pour lister les tags 
-Gît tag --list
-
-Gît show montag va nous afficher le commit correspondant au tag
-Pour supprimer un tag
-Gît tag --delete montag 
-
-On va pouvoir creer des tags annotés
-
-Gît tag -a v1.0
-
-Une fenêtre s'ouvre et on saisit un message explicite .ex release 1
-On peut saisir en oneline le message de tag :
-Gît tag v1.1 -m " release 1.1 ok"
-
-
-On peut comparer des commits avec des tag
-Gît diff v1.0 v1.1
-
-Il est possible de tagger un commit passe ,si on a oublié 
-On va utiliser le nom du commit ex :
-
-Gît tag -a v0.9-beta cchhad55
-
-Il est possible d'updater un tag , ex si on c'est trompé de numéro de commit avec l'option -f
-Gît tag -a v0.9-beta -f cchhad54
-
-
-Tag github
-Sur github on peut gérer les tags : à coter du bouton release il y a tag
-On va pouvoir pousser nos tag: 
-Gît push origin  v1.0
-Pour pousser tous nos tags locaux d'un coup :
-Gît push origin master --tags
-
-On peut supprimer un tag sur un repos distant
-Gît push origin :v0.8-alpha
-
-Ceci va delete de notre réponse ex github le tag v0.8-alpha
-
-gît reset 
-On va pouvoir revenir à une version de commit précise avec gît reset
-Ex : avant dernière version
-git reset HEAD^
-
-== reflog ==
-Gît reflog nous montre toutes les actions :comma des lancess (reset, commit ...)
-
-
-On peut faire différents types de reset
-Hard : va impacter le dtaging et working environment
-Soft: pas d'impact
-
-== cherry pick ==
-
-Si on a une branche master et qu'on bosse sur une branche autre mais qu'on doit livrer un fix qu'on a préparer pour la branche master (ex pb de production à fixer)
-On va pouvoir injecter qu'on seul commit dans notre branche master 
-
-Ex sur la branche dev on a fait notre fix sur un fichier 
-On retourne sur master 
-Gît cherry-pick numcommit ...et on a récupérer notre fix ..
-
-Tous les autres commits de la branche de dev sont toujours en dev et la branche master n'a que son fix désire
-
-
-
-
-
-
-
-
-
-
-02
-git branch subscrib_gen
-on passe dans la branche créee : 
-git checkout subscrib_gen
-
-- on verifie la branch dans la quelle on est : 
-git branch
-
-- Resynchro notre branche avec le repo principal :
-quand on est dans une branche on veut s'assurer qu"on récupere bien les modif faites sur la master par exemple .
-Quand on execute la commande un message sur le prompt s'affiche pour nous prévenir que notre branche va suivre le repo distant spécifié : 
-
-git branch -u origin/master
-
-La branche lapin est paramétrée pour suivre la branche distante master depuis origin.
-
-- recupération d'une branche distante et basculement à l'interrieur : 
-
-git checkout -b  scala origin/scala
-
-
-- on fait une modif : 
-vi subscriptions.pp
-
-git status
-
-- on commit 
-
-git commit -am '[sensu] expose a var to generate subscriptions provided in hiera'
-
-- on pousse notre branch sur l'origine : 
-
-git push origin subscrib_gen
-
-
-Décompte des objets: 10, fait.
-Delta compression using up to 4 threads.
-Compression des objets: 100% (9/9), fait.
-Écriture des objets: 100% (10/10), 1.02 KiB | 0 bytes/s, fait.
-Total 10 (delta 5), reused 0 (delta 0)
-remote: 
-remote: Create merge request for subscrib_gen:
-remote:   https://gitlab.meetic.ilius.net/infra-prod/puppet/merge_requests/new?merge_request%5Bsource_branch%5D=subscrib_gen
-remote: 
-To gitlab.meetic.ilius.net:infra-prod/puppet.git
- * [new branch]        subscrib_gen -> subscrib_gen
-
-
-visible dans le repo 
-
-
-== git stash ==
 
 Il est possible de mettre de côté une modification de fichier qu'on fait pour continuer à travailler sur autre chose 
 et on pourra reprendre plus tard notre fichier modifié sans qu'il ait été commité 
@@ -764,8 +729,86 @@ Si vous découvrez git, vous n’avez vraiment que deux commandes dont ils faut 
 
 git stash
 git stash apply
+== tag == 
+
+U ntag est un label
+
+-creer un tag : 
+git  tag montag
+
+- lister les tags 
+git tag --list
+
+- afficher le commit correspondant au tag
+git show montag
+
+- supprimer un tag
+git tag --delete montag 
+
+-On va pouvoir creer des tags annotés
+git tag -a v1.0
+
+Une fenêtre s'ouvre et on saisit un message explicite .ex release 1
+
+On peut saisir en oneline le message de tag :
+git tag v1.1 -m " release 1.1 ok"
 
 
+-On peut comparer des commits avec des tag
+git diff v1.0 v1.1
+
+Il est possible de tagger un commit passe ,si on a oublié 
+On va utiliser le nom du commit ex :
+
+git tag -a v0.9-beta cchhad55
+
+- update de tag , ex si on c'est trompé de numéro de commit avec l'option -f
+git tag -a v0.9-beta -f cchhad54
+
+
+- Tag github
+Sur github on peut gérer les tags : à coter du bouton release il y a tag
+
+On va pouvoir pousser nos tag: 
+git push origin  v1.0
+
+Pour pousser tous nos tags locaux d'un coup :
+git push origin master --tags
+
+On peut supprimer un tag sur un repos distant avec la syntaxe :num_de_tag :
+git push origin :v0.8-alpha
+
+Ceci va delete de notre réponse ex github le tag v0.8-alpha
+
+- revenir à une version de commit précise avec gît reset
+gît reset 
+
+Ex : avant dernière version
+git reset HEAD^
+
+== reflog ==
+git reflog nous montre toutes les actions :comma des lancess (reset, commit ...)
+
+
+On peut faire différents types de reset
+Hard : va impacter le dtaging et working environment
+Soft: pas d'impact
+
+== cherry pick ==
+
+Si on a une branche master et qu'on bosse sur une branche autre mais qu'on doit livrer un fix qu'on a préparer pour la branche master (ex pb de production à fixer)
+On va pouvoir injecter qu'on seul commit dans notre branche master 
+
+Ex sur la branche dev on a fait notre fix sur un fichier 
+On retourne sur master 
+git cherry-pick numcommit ...et on a récupérer notre fix ..
+
+Tous les autres commits de la branche de dev sont toujours en dev et la branche master n'a que son fix désire
+
+
+
+
+=========
 
 
 - Rebase :
@@ -803,82 +846,6 @@ To gitlab.meetic.ilius.net:infra-prod/puppet.git
  + c91e4358...79a64987 elastic_update -> elastic_update (forced update)
 La branche elastic_update est paramétrée pour suivre la branche distante elastic_update depuis origin.
 
-
-- Supression de branche : 
-
-git branch -D nom de branch 
-
-on ne doit pas être placé dans la branche qu'on veut delete 
-boogie-/home/boogie/Documents/work/repos_work/puppet>> git branch 
-* production
-  subscrib_gen
-boogie-/home/boogie/Documents/work/repos_work/puppet>> git branch -D subscrib_gen 
-Branche subscrib_gen supprimée (précédemment 54fdef3d).
-boogie-/home/boogie/Documents/work/repos_work/puppet>> git branch 
-* production
-
-
-- Listing des branches distantes : 
-
-git branch -r
-
-- Récupération d'une branche d'un repos distant :
-
-git checkout -b nom_de_notre_branche  origin/nom_de_notre_branche
-
-
-- Recupération des fichiers de branche d'un repo distant :
-
-git pull origin nom_de_branche
-
-git pull origin elastic_update
-Depuis gitlab:prod/puppet
- * branch              nom_de_branch -> FETCH_HEAD
- Mise à jour 8500f951..13c2eeff
- Fast-forward
-  lapin/manifests/init.pp        | 11 ++++++-----
-  lapin_nain/manifests/init.pp |  5 +++--
-  2 files changed, 9 insertions(+), 7 deletions(-)
-
-
-== Conflits / erreurs : ==
-
-= Reset d'une modif de fichier apres un git add :
-
-si on a fait une erreur et qu'on veut restaurer le fichier a la version d'avant notre add : 
-
-git reset HEAD <nomdefichier>  : on repasse de notre stage a notre working directory 
-
-si on s'apercoit que malgré tout le fichier que l'on retrouve dans notre working directory n'est pas le bon on peut récupérer le dernier fichier commité :
-
-git checkout --<nomdefichier>
-
-
-= Reset de conf après un commit (avant avoir pousser ) 
-
-Si on s'apercoit que notre dernier commit n'est pas bon on peut restaurer l'ancienne version avant de pousser sur le repo : 
-
-git reset HEAD~
-
-
-= Checkout / restauration fichier original : =
-
-Comment restaurer un fichier 
-1/ rechercher le numero de commit : 
-
-git log --oneline
-e4a48903 [eventbus] by pass for kafka 
-5fca95d7 set only one record for eventbus01
-20dff863 [kafka] adjusts for dev env
-b603fb8d [BASE] - updating hosts for eventbus01
-
-
-git log -p 
-
-
-2/ recupération du fichier concerné dans la bonne version : on examine la conf du fichier avant le commit qui l'a modifier : 
-
-git checkout df9192dc main-config.xml.erb
 
 
 
