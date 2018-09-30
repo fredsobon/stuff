@@ -1,0 +1,148 @@
+==== notes kvm / qemu ===
+
+= pre-requi : virtualisation on sur pc / server =
+
+-> check des flag cpu (ex : vmx pour intel ) : 
+grep --color -Ew 'svm|vmx|lm' /proc/cpuinfo
+
+
+->check module kvm loadé :
+
+boogie@boogie-kube:~$ sudo lsmod |grep kvm
+kvm_intel             192512  0
+kvm                   589824  1 kvm_intel
+irqbypass              16384  1 kvm
+
+
+= set up = 
+
+-> debian minimal install (sans gui) :
+apt install qemu-kvm libvirt-clients libvirt-daemon-system
+
+-> set up user dans les groupes libvirt et libvirt-qemu :
+
+boogie@boogie-kube:~$ sudo adduser boogie libvirt
+Ajout de l'utilisateur « boogie » au groupe « libvirt »...
+Adding user boogie to group libvirt
+Fait.
+boogie@boogie-kube:~$ sudo adduser boogie libvirt-qemu
+Ajout de l'utilisateur « boogie » au groupe « libvirt-qemu »...
+Adding user boogie to group libvirt-qemu
+Fait.
+
+-> test fonctionnement :
+
+on va lister les "domaines" en root :
+
+boogie@boogie-kube:~$ sudo -i
+root@boogie-kube:~# virsh list --all
+ Id    Name                           State
+ ----------------------------------------------------
+
+on va faire la même chose mais en user standart (on se connect a qemu pour recup les infos ) :
+
+boogie@boogie-kube:~$ virsh --connect qemu:///system list --all
+ Id    Name                           State
+ ----------------------------------------------------
+
+-> validation des composants avec outils integrés : 
+
+root@boogie-kube:~# virt-host-validate 
+  QEMU: Checking for hardware virtualization                                 : PASS
+    QEMU: Checking if device /dev/kvm exists                                   : PASS
+      QEMU: Checking if device /dev/kvm is accessible                            : PASS
+        QEMU: Checking if device /dev/vhost-net exists                             : PASS
+
+
+root@boogie-kube:~# virsh nodeinfo
+CPU model:           x86_64
+CPU(s):              4
+CPU frequency:       1599 MHz
+CPU socket(s):       1
+Core(s) per socket:  2
+Thread(s) per core:  2
+NUMA cell(s):        1
+Memory size:         8055880 KiB
+
+exam des params possibles : 
+root@boogie-kube:~# virsh domcapabilities |grep -i max
+  <vcpu max='255'/>
+
+--> ici on pourra definir maximum 255 vcpu sur notre hyperviseur pour les vms 
+
+root@boogie-kube:~# virsh domcapabilities |grep -A5  diskdevice  -i
+      <enum name='diskDevice'>
+        <value>disk</value>
+        <value>cdrom</value>
+        <value>floppy</value>
+        <value>lun</value>
+      </enum>
+-> ici on voit la liste des device que l'on pourra utiliser
+
+
+
+
+-> sur poste client ayant un serveur x :
+sudo apt install virt-manager
+sudo apt install ssh-askpass-gnome 
+
+creation de fichier permettant l'utilisation au user du groupe boogie de virt-manager : 
+/etc/polkit-1/rules.d/70-libvirtd.rules
+polkit.addRule(function(action, subject) {
+if (action.id == "org.libvirt.unix.manage" && subject.local &&
+subject.active && subject.isInGroup("boogie")) {
+return polkit.Result.YES;
+}
+});
+
+on peut voir sur l'hyperviseur la conf reseau utilisée ( de base c'est celle par defaut : qui est en nat nos vms peuvent sortir mais aucunes connections sur les vms de l'exterrieur )
+Une interface bridge virbr0 192.168.122.1 est "natée" à l'interface physique. Le démon dnsmasq fournit le service DNS/DHCP.
+
+
+Les conf reseaux sont stockées dans les arbos : 
+
+/etc/libvirt/qemu/networks
+ex :
+/etc/libvirt/qemu/networks/default.xml .
+
+
+
+root@boogie-kube:~# virsh net-list --all
+ Name                 State      Autostart     Persistent
+----------------------------------------------------------
+ default              inactive   no            yes
+
+
+
+- virt-manager  
+
+par defaut les consoles des vms créees sont configurées pour être acceder depuis la machinne direct : avec "spice" de setté.
+pour permettre le pilotage des vms sur un serveur sans x et donc depuis un client avec x , il faut sur notre poste client definir le mode d'affichage des consoles avec "vnc" 
+
+
+- creation de vm :
+en se connectant via virt-manager à notre  hyperviseur, on va pouvoir configurer les vms de plusieurs manieres : iso, pxe etc ..
+pour une iso : il suffira de stocker notre image sur le serveur et pointer vers le fichier iso lors du sett up ( par default les images sont stockées dans : 
+/var/lib/libvirt/images :
+
+ex :
+
+root@boogie-kube:/var/lib/libvirt/images# ls -la
+total 6385060
+drwx--x--x 2 root         root                4096 sept. 30 08:59 .
+drwxr-xr-x 7 root         root                4096 sept. 29 20:16 ..
+-rw-r--r-- 1 libvirt-qemu libvirt-qemu   305135616 juil. 14 13:12 debian-9.5.0-amd64-netinst.iso
+
+une fois crée les "fichiers" blocs des vms sont aussi dans ce repertoire.
+
+On va pouvoir si besoin cloner via virt-manager une vm (pour un back, dupliquer un modele ...) : dans ce cas  la mac adresse de la carte réseau est automatiquement modifiée . Il faudra cependant modifier la conf réseau sur les vms , ainsi que modifier les confs additionnelles sur les vms pour s'assurer de l'unicité  de chaque vms 
+
+root@boogie-kube:/var/lib/libvirt/images# ls -lh
+total 6,1G
+-rw-r--r-- 1 libvirt-qemu libvirt-qemu 291M juil. 14 13:12 debian-9.5.0-amd64-netinst.iso
+-rw------- 1 root         root          41G sept. 30 08:56 kube1.qcow2
+-rw------- 1 root         root         1,4G sept. 30 08:57 kube2.qcow2
+-rw------- 1 root         root         1,4G sept. 30 08:58 kube3.qcow2
+-rw------- 1 root         root         1,4G sept. 30 08:59 kube4.qcow2
+
+
