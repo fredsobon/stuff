@@ -224,3 +224,44 @@ peer ntp01u.admin
 
 
 
+== puppet autobinding : =
+
+Il va être possible de passer des valeurs depuis hiera à puppet :
+si la classe definie dans hiera et puppet est la même et que l'appel se fait au sein de celle-ci : on a pas besoin de faire de lookup : on peut directement saisr le nom de la classe : c'est l'autobinding.
+
+ex: 
+
+- classe puppet : 
+cat app_web/manifests/init.pp 
+
+class app_web (
+..
+  $apps_hash               = $app_web::params::apps_hash,
+)
+  #Create Nginx Vhosts, PHPpool and lorotate
+    create_resources(app_web::front,$webapps_hash, { 'member_ip' => $member_ip } )
+
+
+ ~/Documents/work/work_lab/php-fpm-collectd/puppet  ⑂ legacy_fpm +  $  cat app_web/manifests/params.pp 
+#
+class app_web::params {
+...
+  $apps_hash               = {}
+
+
+Dans hiera :
+
+cat web.yaml 
+
+app_web::apps_hash:
+    'web_back':
+      port: '8002'
+      nginx_server_name: 'web-back.net'
+      docroot:  '/var/www/web_back/web'
+      content_root: 'try_files $uri /app.php$is_args$args;'
+
+..
+
+on voit ici dans hiera qu'on est pas obligé de preciser le chemin complet de notre conf : app_web::apps_hash suffit ( on ne precise pas app_web::init( ou param)::apps_hash
+
+
