@@ -150,13 +150,90 @@ total 6,1G
 
 == commandes diverses : ==
 
+https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/5/html/virtualization/chap-virtualization-managing_guests_with_virsh
+
+
+- demarrer une vm :
+il faut tout d'abord s'assurer que le reseau est lancé :
+
+virsh net-start default
+virsh start node1
+Domain node1 started
+
+- pour se connecter a la vm :
+
+1/ recuperer sa mac :
+
+ps fauxww 
+
+tap,fd=25,id=hostnet0,vhost=on,vhostfd=27 -device virtio-net-pci,netdev=hostnet0,id=net0,mac=52:54:00:24:29:1e
+
+2/ on recupere l'ip associée à la mac :
+
+arp -n
+Adresse                  TypeMap AdresseMat          Indicateurs           Iface
+192.168.122.2            ether   52:54:00:24:29:1e   C                     virbr0
+
+3/ connection en ssh 
+
+root@boogie-kube:~# ssh 192.168.122.2 -l boogie
+boogie@192.168.122.2's password: 
+boogie@kube1:~$ 
+
+
+- demarrage auto de vm 
+virsh autostart node_name
+
+#virsh autostart node1
+Domain node1 marked as autostarted
+
+
+- eteindre une vm via acpi :
+
+virsh shutdown node1
+
+- eteindre une vm via alimentation :
+
+virsh destroy node1
+
+- Recupérer les infos d'une vm demarree :
+ virsh dominfo node1
+
+ Id:             2
+ Name:           node1
+ UUID:           bbf8d5d4-f2e6-4875-b649-a1b62c6deba9
+ OS Type:        hvm
+ State:          running
+ CPU(s):         1
+ CPU time:       10,1s
+ Max memory:     2097152 KiB
+ Used memory:    2097152 KiB
+ Persistent:     yes
+ Autostart:      disable
+ Managed save:   no
+ Security model: none
+ Security DOI:   0
+
+
+- Edition / modification de la conf d'une vm :
+
+ virsh edit node1
+
+
+- connection a l'hyperviseur : 
+virsh connect hyperviseur
+
+- recuperation de la conf d'un node : 
+virsh dumpxml node_name 
+
+- creation d'une vm via un fichier de conf :
+virsh create configuration_file.xml
+
 
 - exam :
 
 virt-admin client-info node
 virt-admin server-clients-info admin
 virsh dominfo node
-
-arp -n
 
 
