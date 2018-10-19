@@ -152,6 +152,56 @@ total 6,1G
 differents types de network sont dispos : nat (reseau natif  par default de kvm),  isolated (pas de comm entre le hosts et les vms : elles ne sont joignables qu'entre elles), bridge : mode utilisé en production à une ecrasante majorité : vm, hosts et machines dans la périphérie sont sur le même réseau.
 
 
+- creation de reseau bridge :
+
+paquet bridge-utils  : utilitaires destinés à configurer un pont Ethernet sous Linux
+
+->creation d'un bridge nommé br0 : 
+brctl addbr br0
+
+-> Ajout d'une interface physique au bridge :
+
+brctl addif br0 eno1
+
+-> verif 
+
+root :~# brctl show
+bridge name bridge id   STP enabled interfaces
+br0   8000.180373d3c695 no    eno1
+
+cat /etc/network/interfaces
+# This file describes the network interfaces available on your system
+# and how to activate them. For more information, see interfaces(5).
+
+source /etc/network/interfaces.d/*
+
+# The loopback network interface
+auto lo
+iface lo inet loopback
+
+# The primary network interface
+#allow-hotplug eno1
+auto eno1
+#iface eno1 inet manuel
+# The bridge network interface
+#allow-hotplug eno1
+auto br0
+iface br0   inet static
+  address   192.168.0.7
+  netmask   255.255.255.0
+  gateway   192.168.0.254
+  network   192.168.0.0
+  broadcast 192.168.0.255
+  dns-nameservers 192.168.0.254 8.8.8.8
+  bridge_ports eno1
+  bridge_stp off
+  bridge_fd 0
+  bridge_maxwait 0
+# This is an autoconfigured IPv6 interface
+#iface eno1 inet6 auto
+
+
+
 - listing des réseaux :
 
 virsh net-list --all
