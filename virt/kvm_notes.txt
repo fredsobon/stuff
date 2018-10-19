@@ -14,7 +14,7 @@ kvm                   589824  1 kvm_intel
 irqbypass              16384  1 kvm
 
 
-= set up = 
+= set up 
 
 -> debian minimal install (sans gui) :
 apt install qemu-kvm libvirt-clients libvirt-daemon-system
@@ -120,7 +120,7 @@ par defaut les consoles des vms créees sont configurées pour être acceder dep
 pour permettre le pilotage des vms sur un serveur sans x et donc depuis un client avec x , il faut sur notre poste client definir le mode d'affichage des consoles avec "vnc" 
 
 
-- creation de vm :
+== creation de vm :
 en se connectant via virt-manager à notre  hyperviseur, on va pouvoir configurer les vms de plusieurs manieres : iso, pxe etc ..
 pour une iso : il suffira de stocker notre image sur le serveur et pointer vers le fichier iso lors du sett up ( par default les images sont stockées dans : 
 /var/lib/libvirt/images :
@@ -144,6 +144,95 @@ total 6,1G
 -rw------- 1 root         root         1,4G sept. 30 08:57 kube2.qcow2
 -rw------- 1 root         root         1,4G sept. 30 08:58 kube3.qcow2
 -rw------- 1 root         root         1,4G sept. 30 08:59 kube4.qcow2
+
+
+
+== creation de networks :
+
+differents types de network sont dispos : nat (reseau natif  par default de kvm),  isolated (pas de comm entre le hosts et les vms : elles ne sont joignables qu'entre elles), bridge : mode utilisé en production à une ecrasante majorité : vm, hosts et machines dans la périphérie sont sur le même réseau.
+
+
+- listing des réseaux :
+
+virsh net-list --all
+
+
+- examen de la conf des reseaux :
+
+virsh net-dumpxml nom_de_reseau
+
+
+- creation de reseau :
+
+virsh net-create nom_reseau : creation de reseau NON permanente
+-> il faudra donc systematiquement le recreer 
+
+virsh net-define nom_reseau : creation du reseau permanent 
+
+
+une fois crée avec les commandes dédiées on peut examiner les differentes configurations;
+ex :
+
+# cat /etc/libvirt/qemu/networks/isolated.xml
+<!--
+WARNING: THIS IS AN AUTO-GENERATED FILE. CHANGES TO IT ARE LIKELY TO BE
+OVERWRITTEN AND LOST. Changes to this xml configuration should be made
+using:
+virsh net-edit isolated
+or other application using the libvirt API.
+<network>
+  <name>isolated</name>
+  <uuid>84147b7d-a95f-4bc2-a4d9-80baab391a18</uuid>
+  <bridge name='virbr1' stp='on' delay='0'/>
+  <mac address ='52:54:00:0e:c2:b5'/>
+</network>
+
+pour permettre au lan de se monter au boot :
+
+virsh net-autostart isolated.
+
+
+- ajout d'interface reseau au lan créée : on va essayer de selectionner en type de carte réseau "virtio" qui fournit les meilleurs perfs
+
+- listing des interfaces de note vm :
+
+virsh domiflist node_name
+
+- Ajout d"une interface resseau a une vm sur un reseau cree au prealable : 
+
+# virsh attach-interface --domain node_name  --source isolated --type network --model virtio --config --live
+Interface attached successfully
+# virsh domiflist node_name
+Interface Type Source
+Model
+MAC
+------------------------------------------------------------------
+vnet2 network default virtio 52:54:00:b0:50:98
+vnet3 network isolated
+virtio 52:54:00:2b:0d:0c
+
+on a donc ici attacher une interface virtuelle reseau de type virtio sur la vm node_name : elle utilise le reseau "isolated" . L'option config rend cette conf persistente au reboot de la machinne. L'option live elle permet de monter en live l'interface. 
+
+
+on va pouvoir examiner la conf de notre reseau avec la conf net-dumpxml
+
+on va pouvoir utiliser les commandes dédiées au bridge (paquet bridge-utils ) :
+
+ex :
+# brctl show virbr1
+bridge name   bridge id  STP enabled interfaces
+virbr1        8000.5254000ec2b5 yes  virbr1-nic
+              vnet1
+              vnet3
+
+- modification de reseau :
+
+pour editer une conf de reseau , il faut tout d'abord l'arreter : 
+# virsh net-destroy notre_reseau
+Network notre_reseau destroyed
+
+ensuite on peut le modifier : 
+# virsh net edit notre_reseau
 
 
 
