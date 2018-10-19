@@ -1,0 +1,431 @@
+=== notes video vim oreilly ===
+
+= help =
+
+depuis l'éditeur : 
+:help 
+:help <topic> 
+ex : :help regex
+
+on peut utiliser la touche tab pour completer notre recherche si on ne sait pas exactement ce qu'on recherche :
+:help map + tab
+on peut utiliser sinon :
+:helpgrep map
+si on a plusieurs occurence du mot recherché , on peut utiliser cnext pour allez à la suivante
+
+:cnext
+on peut revenir en arriere :
+:cpriv
+
+si on est pas du tout dans la bonne section on peut passer a la page suivante :
+:cnfile
+on peut retourner à la section précedente :
+:cpfile
+
+on peut rechercher avec vimgrep par exemple dans une arbo : 
+vimgrep /pattern/ files 
+
+Quand on affiche  l'aide vim souvent l'aide prend quasiment toute la place sur la page.
+On peut ajouter un bloc de code dans notre vimrc :
+autocmd : signifie q'une action est fait automatiquement des la présence d'un pattern, evenement défini.
+
+= vim - alphabet =
+
+pour améliorer notre productivite :
+
+:help normal-index
+:help insert-index
+
+= move / deplacements =
+
+on peut savoir ou on est dans le fichier  en saisissant <CTRL>+G 
+
+
+on peut le setter directement dans notre vimrc :
+
+set ruler
+
+on pourra avoir directement les infos de lignes, colonnes et pourcentage de l'espace du document parcouru
+on pourra configurer completement notre "ruler" dans le .vimrc 
+
+> voir  vim.org pour plugins et scripts dispos.
+
+w  -> on peut passer au mot suivant d'un texte 
+b  -> on revient au mot précédent
+e  -> on va à la fin du mot suivant
+ge -> on va a la fin du mot précédent
+
+0  -> deplacement en debut de ligne courante
+^  -> deplacement en debut de ligne
+$  -> deplacement en fin de ligne
+CR  -> deplacement au debut de la ligne suivante
+-   -> deplacement au debut de la ligne précédente
+
+On va pouvoir se déplacer de paragraphe en paragraphe : un paragraphe est un ensemble de lignes finisaant par une ligne vide :
+
+{  -> deplacement au début du paragraphe courant
+}  -> deplacement à la fin du paragraphe courant
+ 
+gg -> deplacement au debut du texte
+G  -> deplacement à la fin du texte
+nG ou ngg -> deplacement au numero de ligne n du texte
+P% ->  deplacement au pourcentage P du texte 
+
+on peut se deplacer de maniere native entre differentes paires de caractères : {}, () [] à l'aide du caractère %
+il est possible de configurer des caractères particulier si besoin dans notre vimrc on peut rajouter par exemple:
+
+set matchpairs+=<:>,":"
+
+On peut mettre n'importe quelle suite de deux  caractères même s'ils ne sont pas identiques : ex : set matchpairs+==:;
+/!\ il est important d'ajouter un + devant le signe = afin de rajouter un matching 
+
+pour des cas plus complexes on peut utiliser le plugin matchit.vim
+
+pour se deplacer plus simplement il y a egalement des raccourcis :
+ex : 
+5l  -> déplacement de 5 caractères à droites
+3k  -> déplacement de 3 lignes au dessus 
+4}  -> déplacement de 4 paragraphe plus bas 
+
+
+= insertion :
+CTRL-Y : copie ce qui est dans  la colonne précédente
+CTRL-E : copie ce qui est dans  la colonne suivante
+CTRL-A : ajoute le texte précédemment ajouté
+CTRL-R= : permet d'ajouter le résultat de l'evaluation 
+CTRL-T -> ajoute une tabulation au debut de la ligne
+CTRL-D -> supprime une tabulation en debut de ligne
+CTRL-V -> ajoute un caraterere brut sans interprétation : exemple on peut vouloir ajouter dans notre texte "^M" qui correspont au caractere "entrée"
+CTRL-W -> permet de supprimer le mot avant le curseur.
+
+= recherche :
+
+les regexp sont basés sur sed 
+dans vim il faut cependant protéger nos caractères s'ils sont spéciaux :
+ex :
+\d\+
+foo\|bar
+
+-> On peut bypasser ce système un peu lourd en préfixant nos recherches avec : \v : qui va permettre d'interpreter les caractères speciaux pour les regexp :
+\v\d+
+\vfoo|bar
+ 
+on peut automatiser cette conf en ajoutant dans notre .vimrc :
+nnoremap / /\v  : exemple a chaque fois qu'un saisi un slash , \v sera ajouté automatiquement.
+on pourra donc chercher directement dans notre texte par exemple : Lapin et youK simultanément 
+\vLapin|youK
+
+-> on peut avoir la possibilité de chercher par exemple un mot suivi plus loin d'un autre mot : un "and" (contrairement à "|" qui est un ou)
+on utilise le caractère "&" 
+/.*Lapin&.*youK 
+
+-> on peut chercher aussi un mot spécifiquement délimité : "for" mais pas fortune , effort ...
+
+/\<for\>
+
+-> pour trouver la prochaine instance d'un mot qu'on cherche :
+*
+-> pour trouver la précédente instance d'un mot qu'on cherche :
+#
+
+-> pour trouver la prochaine instance d'un mot qu'on cherche :
+e> pour trouver la prochaine instance d'un mot qu'on cherche :
+
+
+
+-Recherche de pattern sans case :
+
+set ignorecase 
+
+-Bypasse de recherche sans casse : dans certains cas precis on peut avoir besoin de recherchercher la casse apres l'avoir désactiver :
+ex les mots contenant une maj :
+
+set smartcase
+
+on va pouvoir si ignorecase est setté et smartcase aussi chercher /Python ..et trouver Python mais pas python ou pythoN
+
+python
+Tython
+pUthon
+pYthon
+Python
+
+> set ignorecase
+> set smartcase
+/Python 
+
+
+- Recherche incrementale : 
+
+set incsearch 
+
+on va pouvoir des la saisie de la regexp a chercher ..avoir des résultat afficher par vim 
+
+- Recherche large : 
+
+set hlsearch 
+
+on va pouvoir elargir le champe de notre recherche : vim va nous montrer les differentes possibilités pouvant matcher notre regexp de recherche.
+
+ex : on cherche la dans un texte on aura : la, lapin, labourer etc ..de surligner
+
+Il est possible de désactiver une fois la recherche lancée le highlight sur toutes nos occurences avec le :
+nohlsearch 
+
+Attention a ne pas confondre avec le set nohlsearch : qui désactive la fonctionalité de highlight 
+
+
+-Recherche et remplacement :
+
+on peut utiliser de manière classique : 
+pour remplacer le texte bla par blou :
+- sur la ligne actuelle : 
+s/bla/blou 
+
+- de la ligne 5 à la ligne 10 :
+
+:1,5s/bla/blou
+
+- de la ligne 5 puis 3 ligne après :
+:5,+3s/bla/blou
+
+- 5 ligne avant le courseur puis les 4 lignes suivantes : 
+:-5,4s/bla/blou
+
+- dans tout le fichier : 
+:%s/bla/blou/
+
+On peut aussi mettre un pattern definissant l'endroit a partir duquel on veut faire notre modif et la fin :
+exemple remplacer l par L dans le texte à partir de lulu jusqu'a lili :
+:/lulu/,/lili/s/l/L
+
+on peut aussi ajouter un offset :
+
+exemple à partir de la seconde ligne ou on a lapin et jusque 2 lignes avant la fin du fichier on veut changer le L par un l :                                          
+:?lapin?+2,$-2s/L/l 
+
+
+
+
+====== notes diverses hors oreilly :
+
+---> copie de contenu :
+
+-> on peut copier du texte depuis une appli et l'inserer directement dans un fichier ouvert  :
+
+SHIFT-Inser -> Mode insert du fichier obligatoire en prerequi 
+"*p         -> mode normal suffisant 
+
+-> copie dans buffer : on peut vouloir copier le contenu d'un fichier dans le buffer :
+:%y+  -> on copie tout le fichier  dans le buffer 
+:y+   -> copie uniquement la ligne courante  dans le buffer
+:5,10y+  -> on copie la ligne 5 à 10 dans le buffer 
+
+-> copie de contenu dans un autre fichier :
+
+on selectionne le texte que l'on veut copier dans notre fichier ouvert puis on l'ecrit dans le fichier de destination avec :
+:w fichier_dest
+
+on peut specifier un range de ligne que l'on veut copier dans un autre fichier : on va ecrire les lignes 5 à 10 dans notre fichier de destination:  
+:5,10w fichier_dest 
+
+
+
+--> multi fenêtres : 
+
+on peut editer plusieurs fichier a la fois et splitter notre fenetre : d emaniere horizontale ou vezrtile 
+
+ex : on edite  le fichier /etc/lapin si on veut modifier le fichier /etc/group il suffit de 
+saisir :split /etc/group : le fichier /etc/group apparait dans la fenetre et on peut faire nos modifs.
+:vssplit /etc/group sera la même chose mais notre fenêtre sera en vertical
+
+On basculle d'une fenetre à une autre avec CTRL-w.
+
+on peut copier du texte d'une fenetre et le coller dans l'autre :
+
+ex : le mot lapin est copié du fichier lapin , on bascule de fenetre : CTRL-w puis on se place a l'endroit ou on veut coller notre texte puis on saisi p : notre texte copier est donc maintenant collé.
+
+On peut resize les fenetres
+CTRL-W + > aggrandit la fenetre 
+CTRL-W - > reduit la fenetre 
+
+Il esst possible de définir la taille de la fentre que l'on veut ouvrir :
+
+ex :  fentre horizontale de 3 lignes pour editer le fichier lapin 
+:3 split lapin
+ex :  fentre verticale  de 24 lignes pour editer le fichier lapin 
+:24 vsplit lapin
+
+--> annulation / re annulation de saisi :
+
+on peut annuler une action faite avec :
+u : annule la derniere action
+pour annuler plusieurs actions :
+5u : annule les 5 dernieres actions faites
+:3 split lapin
+
+Pour annuler l'annulation on peut la rejouer : redo 
+
+CTRL-R 
+
+---> edition de plusieurs fichiers :
+
+on peut lancer vim avec en params les fichiers qu'on veut :
+vim lala lili lulu
+
+on peut sinon depuis un fichier :
+
+: e lili 
+
+pour lister tous les fichiers ouverts :
+:ls 
+  1 %a + "lapin"              ligne 261
+  2      "lili"                         ligne 1
+  3 #    "1"                            ligne 1
+on peut reprendre l'edition d'un fichier en cours en saisissant son numero :
+: e #1  <--- on reprend donc ici l'edition du fichier lapin
+
+ipour basculer d'un fichier a un autre :
+
+CTRL-^  -<<< non fonctionnel en test ...
+
+
+---> vimdiff :
+on va pouvoir comparer facilement plusieurs fichiers avec vimdiff :
+
+-comparaison verticale : 
+vimdiff vim_exo vim_exo2  / vim -d vim_exo vim_exo2
+2 fichiers à éditer
+
+
+-> comparaison horizontale : 
+ ~/Bureau/buffer  $  vimdiff -o vim_exo vim_exo2 / vim -d -o vim_exo vim_exo2
+ 2 fichiers à éditer
+o
+
+---> vimgrep recherche dans multiples fichiers :
+on peut chercher un pattern dans un fichier 
+:vimgrep youk lapin.txt 
+
+on peut chercher un pattern dans plusieurs fichiers  
+:vimgrep youk *txt 
+
+on pourra des que le pattern est trouve dans un fichier passer au fichier suivant en faisant :
+:cn 
+
+On pourra chercher dasn le fichier precedent :
+:CN
+
+
+
+
+= register : =
+
+
+on va pouvoir enregistrer dans plusieurs buffer des données et les récupérer (ex pour les coller ) directement en appelant le nom du buffer :
+
+ex :
+
+"fyy -> on enregister dans un buffer "f" le texte souhaité. pour le coller dans notre texte plus tard on pourra saisir : "fp
+
+on peut docn  enregistrer simultanement dans des buffers plusieurs infos diférenteset les récupérer .
+
+On peut voir les differents info enregistrees dans des buffers avec :
+
+:reg 
+
+ex: 
+:reg
+--- Registres ---
+""   Yank this line into the "f register.^JAppend this line to the "f register.^J
+"0   TODO^J
+"1   Delete this^JDelete this^J
+"2   This was originally the first line in the file.^J
+"3   ^J
+"4   ^J
+"5   ^J
+"6   ^J
+"7   ^J
+"8   ^J
+"9   ^J
+"f   Yank this line into the "f register.^JAppend this line to the "f register.^J
+"j   Yank this line into the "j register.^JAppend this line to the "j register.^J
+
+on peut selectionner les buffers que l'on veut examiner :
+ex si on veut voir les buffer j et f : 
+:reg jf
+--- Registres ---
+"f   Yank this line into the "f register.^JAppend this line to the "f register.^J
+"j   Yank this line into the "j register.^JAppend this line to the "j register.^J
+
+
+= undo - redo : =
+
+on peut annuler une action dans vim avec : "u" : undo
+si on veut réappliquer notre modif ( annuler l'annulation : : "ctrl-r" 
+
+
+= insertion / deplacements  tips = 
+
+- insertion debut de ligne : 
+pour inserer du texte au tout début d'une ligne quand nous sommes positionnés ailleurs sur notre ligne :
+I et on saisit notre texte
+
+
+- deplacement dans texte apres des caractères speciaux : 
+exemple on veut se deplacer apres le caractere > d'une ligne : 
+
+Enter your name here =><= 
+
+il suffit de saisir 
+f> 
+si on veut se déplacer après un = :
+
+monday <= The "m" is supposed to be in uppercase.
+
+f=
+- insertion de texte à la fin d'une ligne :
+se positionner sur la ligne désirée et saisir :
+A
+
+- insertion en debut de ligne precedente : 
+O 
+
+
+- Joindre deux lignes :
+
+ex pour reunir les deux lignes suivantes sur une seule : 
+This line belongs 
+with the one below it.
+se positionner sur la premiere et saisir : J
+J
+
+- remplacement de mot :
+-> methode 1 :
+pour changer par exemple her en our se placer sur her et saisir R + our
+R
+-> methode 2 :
+on peut se deplaceer au debut du mot que l'on veut changer et saisir cw 
+
+ex changer great en brilliant :
+
+I am having a great time in this vim class!
+
+-> /gr : va nous deplacer au debut de great 
+-> cw : va passer en mode insertion 
+-> brilliant va remplacer les lettres de great
+
+
+
+
+
+- remplacement de caractères : 
+pour changer par exemple car en cat  se placer sur le r et saisir r + t
+
+
+
+
+
+
+
+
