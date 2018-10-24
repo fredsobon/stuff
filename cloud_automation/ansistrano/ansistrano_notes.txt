@@ -1,0 +1,61 @@
+== notes ansistrano ==
+
+ref: https://www.youtube.com/watch?v=0kLeXXEDU_o
+
+= set up : 
+prerequi : install ansible, ansible-galaxy , git 
+
+https://github.com/ansistrano/deploy
+on install les deux role : deploy et rollback via ansistrano 
+ansible-galaxy install ansistrano.deploy ansistrano.rollback
+- downloading role 'deploy', owned by ansistrano
+- downloading role from https://github.com/ansistrano/deploy/archive/3.0.0.tar.gz
+- extracting ansistrano.deploy to /home/boogie/.ansible/roles/ansistrano.deploy
+- ansistrano.deploy (3.0.0) was installed successfully
+- downloading role 'rollback', owned by ansistrano
+- downloading role from https://github.com/ansistrano/rollback/archive/2.0.1.tar.gz
+- extracting ansistrano.rollback to /home/boogie/.ansible/roles/ansistrano.rollback
+- ansistrano.rollback (2.0.1) was installed successfully
+
+
+
+
+on cree un repertoire ansible pour stocker nos playbooks et on crée un nouveau playbook :
+deploy.yml
+
+on va y include le role de déployement : ce que l'on vient de downloader :
+
+
+---
+- name: setup server
+  hosts: all
+  remote_user: root
+  tasks:
+  - include_vars:
+      files: vars.yml
+  - include_role: 
+      name: ansistrano.deploy
+
+
+L'arbo de notre code sera sur les serveurs comme telle : 
+un repertoire release qui contiendra les differentes versions de notre code pouséesun line current qui pointe sur la version actuelle de /release/version et un dossier shared qui contient les elements partages de notre site : 
+
+/release
+  /20181020011223
+  /20181019121314
+  /20181019121111
+    .env --> /shared/.env
+    /app
+    /public
+      /index.php
+      /uploads --> /shared/public/uploads
+/current  --> lien symbolique vers la release que l'on veut deployer :ex /release/20181020011223
+
+#si on veut rollbacker il suffit de changer de lien symbolique et pointer sur la version qui nous interresse ex:  /current --> /release//20181019121314
+
+/shared -> dossier qui contient les éléments partagés ex a chaque release on ne veut pas perdre les uploads que les users ont fait :
+  .env
+  /public
+    /uploads
+
+
