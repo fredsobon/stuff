@@ -568,8 +568,48 @@ on recupere la variable check_status quand elle existe sinon, elle est definie �
 
 
 
-
 === run / tests / debug ===
+
+- debug : 
+on peut poser des points de debugs :
+a différents niveaux : 
+
+- debug:
+    msg: "System {{ inventory_hostname }} has uuid {{ ansible_product_uuid }}"
+
+- debug:
+    msg: "System {{ inventory_hostname }} has gateway {{ ansible_default_ipv4.gateway }}"
+  when: ansible_default_ipv4.gateway is defined
+
+- shell: /usr/bin/uptime
+  register: result
+
+- debug:
+    var: result
+    verbosity: 2
+
+- name: Display all variables/facts known for a host
+  debug:
+    var: hostvars[inventory_hostname]
+    verbosity: 4
+
+
+- hosts: "web"
+  tasks:
+    - name: "Register release version"
+      tags: [release_version]
+      vars:
+        app: "web01_prod"
+      debug: 
+        msg: "{{ app.split('_')[0] }}"
+
+
+-> affichera :
+web01 
+
+
+
+
 
 on peut limiter nos run en fonction de certain param passés en arguments popur faciliter le debug et le temps de traitement :
 
