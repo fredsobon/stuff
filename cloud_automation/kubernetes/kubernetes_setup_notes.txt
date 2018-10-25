@@ -14,12 +14,112 @@ Attention ajout du repo sid nécéssaire pour debian stretch
 root@kube1:/etc/apt/sources.list.d# apt install -t sid flannel
 
 
-root@kube1:~/etcd-v3.3.10-linux-amd64# curl -L  https://github.com/coreos/etcd/releases/download/v3.3.10/etcd-v3.3.10-linux-amd64.tar.gz -o etcd-v3.3.10-linux-amd64.tar.gz
-root@kube1:~/etcd-v3.3.10-linux-amd64# tar xzvf etcd-v3.3.10-linux-amd64.tar.gz
-root@kube1:~/etcd-v3.3.10-linux-amd64# rm etcd-v3.3.10-linux-amd64.tar.gz
-root@kube1:~/etcd-v3.3.10-linux-amd64# cd etcd-v3.3.10-linux-amd64/
-root@kube1:~/etcd-v3.3.10-linux-amd64# ./etcd
+
+= gestion des certificats ssl =
+
+Toutes les connexions vont devoir etre maitrisées 
+on va devoir par securité créer 2 CA ( authorité de certification) : 
+kube CA
+Etcd CA
+
+il faut en effet préserver l'acces aux données Etcd par n'importe quel user.
+
+Certains certifs seront uniques : "cluster"
+la plupart seront à créer par node
+
+Kube CA :
+Autorité de certification utilisée pour signer les certificats pour les communications purement Kubernetes (kubelet => kube-apiserver, user
+(kubectl) => kube-apiserver, kube-apiserver => kubelet, ...)
+
+
+- generation Kube CA :
+
+root@kube1:~# openssl genrsa -out ca.key 2048
+Generating RSA private key, 2048 bit long modulus (2 primes)
+....................................................+++++
+....+++++
+e is 65537 (0x010001)
+root@kube1:~# ls
+ca.key
+
+root@k8-master1:~# openssl req -x509 -new -nodes -key ca.key -sha256 -days 3650 -out ca.crt
+Can't load /root/.rnd into RNG
+140287228879296:error:2406F079:random number generator:RAND_load_file:Cannot open file:../crypto/rand/randfile.c:88:Filename=/root/.rnd
+You are about to be asked to enter information that will be incorporated
+into your certificate request.
+What you are about to enter is what is called a Distinguished Name or a DN.
+There are quite a few fields but you can leave some blank
+For some fields there will be a default value,
+If you enter '.', the field will be left blank.
+-----
+Country Name (2 letter code) [AU]:FR
+State or Province Name (full name) [Some-State]:paris
+Locality Name (eg, city) []:paris
+Organization Name (eg, company) [Internet Widgits Pty Ltd]:boogie
+Organizational Unit Name (eg, section) []:it
+Common Name (e.g. server FQDN or YOUR name) []:k8-master1.localhost.net
+Email Address []:boogie@localhost.net
 
 
 
+
+- Creation du certificat apiserver : certif qui est donné par le master aux clients quand ils se connectent à lui : il y a un certif par master : 
+
+
+root@k8-master1:~# cat k8-master1.localhost.net_apiserver.conf 
+[ req ]
+default_bits = 2048
+prompt = no
+default_md = sha256
+req_extensions = req_ext
+distinguished_name = dn
+[ dn ]
+C = FR
+ST = paris
+L = paris
+O = boogie
+OU = it
+CN = Kube API server k8-master1.localhost.net
+[ req_ext ]
+subjectAltName = @alt_names
+[ alt_names ]
+DNS.1 = kubernetes
+DNS.2 = kubernetes.default
+DNS.3 = kubernetes.default.svc
+DNS.4 = kubernetes.default.svc.cluster
+DNS.5 = kubernetes.default.svc.cluster.local
+DNS.6 = k8-master1.localhost.net
+DNS.7 = k8-master1.localhost.net
+IP.1 = 10.0.0.1
+IP.2 = 10.10.0.1
+[ v3_ext ]
+authorityKeyIdentifier=keyid,issuer:always
+basicConstraints=CA:FALSE
+keyUsage=keyEncipherment,dataEncipherment
+extendedKeyUsage=serverAuth,clientAuth
+subjectAltName=@alt_names
+
+
+
+root@k8-master1:~# host=k8-master1.localhost.net
+root@k8-master1:/etc/pki/openssl# openssl req -out ${host}_apiserver.csr -newkey rsa:2048 -nodes -keyout ${host}_apiserver.key -config ${host}_apiserver.conf
+Generating a RSA private key
+...................................................+++++
+...................................................................+++++
+writing new private key to 'k8-master1.localhost.net_apiserver.key'
+
+root@k8-master1:/etc/pki/openssl# openssl x509 -req -in ${host}_apiserver.csr -CA ca.crt -CAkey ca.key -out ${host}_apiserver.crt -days 3650 -extfile ${host}_apiserver.conf -extensions v3_ext
+Signature ok
+subject=C = FR, ST = paris, L = paris, O = boogie, OU = it, CN = Kube API server k8-master1.localhost.net
+Getting CA Private Key
+ca.srl: No such file or directory
+139631128424896:error:06067099:digital envelope routines:EVP_PKEY_copy_parameters:different parameters:../crypto/evp/p_lib.c:93:
+139631128424896:error:02001002:system library:fopen:No such file or directory:../crypto/bio/bss_file.c:72:fopen('ca.srl','r')
+139631128424896:error:2006D080:BIO routines:BIO_new_file:no such file:../crypto/bio/bss_file.c:79:
+root@k8-master1:/etc/pki/openssl# ls
+ca.crt           k8-master1.localhost.net_apiserver.crt
+ca.key           k8-master1.localhost.net_apiserver.csr
+k8-master1.localhost.net     k8-master1.localhost.net_apiserver.key
+k8-master1.localhost.net_apiserver.conf
+root@k8-master1:/etc/pki/openssl# 
 
