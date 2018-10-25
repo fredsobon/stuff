@@ -568,18 +568,123 @@ on recupere la variable check_status quand elle existe sinon, elle est definie �
 
 === filter : ===
 
-on va  pouvoir effectuer des actions sur des données en entrées grâce aux filtres :
-jinja2 
-
+on va  pouvoir effectuer des actions sur des données en entrées / modifier des variables grâce aux filtres 
 https://docs.ansible.com/ansible/2.5/user_guide/playbooks_filters.html
+Les filtres sont des fonctions qu'on peut passer aux variables. Ces fonctions peuvent être sans param, avec param, ou param optionnels. 
 
+
+=filtres  ansible :
+
+-> syntaxe basique : var | notre filtre
 ex: 
+{{ my_word | lower }} 
+{{ answers | replace('no', 'yes') }} : args
+{{ answers | replace('no', 'yes') | lower }} : chainig de filtre
+
+
+- default :
+
+on va pouvoir utiliser un filtre pour d"finir une valeur par défaut à une variable si elle n'est pas définie :
+
+{{ some_variable | default('default_value') }}
+
+--> attention à utiliser specifiquement dans un playbook ou un role...sinon le debug  peut être très compliqué.
+
+
+- round / random / count ...certains filtres sont utiles pour des calculs ..
+
+- tasks status : certains filtre vont être très utile pour checker le résultat d'une task : 
+
+les filtres se nomment : failed , success , changed  et skipped
+
+ex :
+
+---
+- name: demo the filters
+hosts: localhost
+gather_facts: false
+tasks:
+- name: fail a task
+debug:
+msg: "I am not a change"
+register: derp
+- name: only do this on change
+debug:
+msg: "You had a change"
+when: derp | changed
+- name: only do this on success
+debug:
+msg: "You had a success"
+when: derp | success
+
+
+affiche : 
+
+"msg: I am not a change"
+puis 
+ne fait rien skip puisqu'il n'y a pas eu de changement 
+puis
+msg: "You had a change"
+
+
+- basename :
+recup le nom d'un fichier 
+- name: demo basename
+debug:
+msg: "{{ '/var/log/nova/nova-api.log' | basename }}"
+
+affiche :
+"msg: nova-api.log"
+
+- dirname 
+recupere le path complet sauf le fichier : inverse de basename :
+msg: "{{ '/var/log/nova/nova-api.log' | basename }}"
+
+affiche :    
+"msg: /var/log/nova"
+
+
+- searching : on peut rechercher un pattern dans une var :
+
+on peut classiquement utiliser les commandes du shell grep etc , examiner le code retour et faire une action en fonction de celui-ci 
+ex : 
+
+- name: check database version
+  shell: neutron-manage current |grep juno
+  register: neutron_db_ver
+  failed_when: false
+- name: upgrade db
+  command: neutron-manage db_sync
+  when: neutron_db_ver|failed
+
+une meilleure manière d'opérer cette action est d'utiliser le filtre search : 
+
+- name: check database version
+  command: neutron-manage current
+  register: neutron_db_ver
+- name: upgrade db
+  command: neutron-manage db_sync
+  when: not neutron_db_ver.stdout | search('juno')
+
+
+
+= methodes d'objet python :
+
+on va pouvoir utiliser les methodes des fonctions traitant de modification de chaine d'entrées au sein de nos playbooks ansible 
+ex : methode sur strings, list ..
+
+
+- string et list 
+
+ex: on decoupe une var en tableau et on affiche le premier element de celui-ci :
 
 Fonctionnel :
       vars:
         app: "web01_{{ env }}"
       debug:
         msg: "{{ app.split('_')[0] }}"
+
+nous affichera un message de type : web01
 
 
 
