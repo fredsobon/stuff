@@ -1,0 +1,1556 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+
+    <title>Deploying Kubernetes cluster from scratch</title>
+    <meta name="HandheldFriendly" content="True" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <link rel="stylesheet" type="text/css" href="/assets/built/screen.css?v=2da0edc76d" />
+
+    <link rel="shortcut icon" href="/favicon.png" type="image/png" />
+    <link rel="canonical" href="https://nixaid.com/deploying-kubernetes-cluster-from-scratch/" />
+    <meta name="referrer" content="no-referrer-when-downgrade" />
+    <link rel="amphtml" href="https://nixaid.com/deploying-kubernetes-cluster-from-scratch/amp/" />
+    
+    <meta property="og:site_name" content="NIXAID.COM" />
+    <meta property="og:type" content="article" />
+    <meta property="og:title" content="Deploying Kubernetes cluster from scratch" />
+    <meta property="og:description" content="Deploying Kubernetes cluster from scratch Kubernetes is a production-grade container orchestrator. I wrote this guide in a way that you should be able to get your Kubernetes cluster running as simple as going through step-by-step &amp;amp; copy-paste. Please let me know in case of issues or suggestions, I will be" />
+    <meta property="og:url" content="https://nixaid.com/deploying-kubernetes-cluster-from-scratch/" />
+    <meta property="og:image" content="https://images.unsplash.com/photo-1488590528505-98d2b5aba04b?ixlib&#x3D;rb-0.3.5&amp;q&#x3D;80&amp;fm&#x3D;jpg&amp;crop&#x3D;entropy&amp;cs&#x3D;tinysrgb&amp;w&#x3D;1080&amp;fit&#x3D;max&amp;s&#x3D;278085b2f7e71c40d0bd45a0e1fc06df" />
+    <meta property="article:published_time" content="2017-05-28T15:31:00.000Z" />
+    <meta property="article:modified_time" content="2017-12-02T15:37:47.000Z" />
+    <meta property="article:tag" content="kubernetes" />
+    <meta property="article:tag" content="container" />
+    <meta property="article:tag" content="docker" />
+    <meta property="article:tag" content="x509" />
+    
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Deploying Kubernetes cluster from scratch" />
+    <meta name="twitter:description" content="Deploying Kubernetes cluster from scratch Kubernetes is a production-grade container orchestrator. I wrote this guide in a way that you should be able to get your Kubernetes cluster running as simple as going through step-by-step &amp;amp; copy-paste. Please let me know in case of issues or suggestions, I will be" />
+    <meta name="twitter:url" content="https://nixaid.com/deploying-kubernetes-cluster-from-scratch/" />
+    <meta name="twitter:image" content="https://images.unsplash.com/photo-1488590528505-98d2b5aba04b?ixlib&#x3D;rb-0.3.5&amp;q&#x3D;80&amp;fm&#x3D;jpg&amp;crop&#x3D;entropy&amp;cs&#x3D;tinysrgb&amp;w&#x3D;1080&amp;fit&#x3D;max&amp;s&#x3D;278085b2f7e71c40d0bd45a0e1fc06df" />
+    <meta name="twitter:label1" content="Written by" />
+    <meta name="twitter:data1" content="Andrey Arapov" />
+    <meta name="twitter:label2" content="Filed under" />
+    <meta name="twitter:data2" content="kubernetes, container, docker, x509" />
+    <meta property="og:image:width" content="1080" />
+    <meta property="og:image:height" content="720" />
+    
+    <script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "publisher": {
+        "@type": "Organization",
+        "name": "NIXAID.COM",
+        "logo": "https://nixaid.com/content/images/2018/07/nixaid-ghost-publication-logo-7.png"
+    },
+    "author": {
+        "@type": "Person",
+        "name": "Andrey Arapov",
+        "image": {
+            "@type": "ImageObject",
+            "url": "https://nixaid.com/content/images/2017/12/me-profile.jpg",
+            "width": 320,
+            "height": 320
+        },
+        "url": "https://nixaid.com/author/andrey/",
+        "sameAs": [
+            "https://nixaid.com"
+        ]
+    },
+    "headline": "Deploying Kubernetes cluster from scratch",
+    "url": "https://nixaid.com/deploying-kubernetes-cluster-from-scratch/",
+    "datePublished": "2017-05-28T15:31:00.000Z",
+    "dateModified": "2017-12-02T15:37:47.000Z",
+    "image": {
+        "@type": "ImageObject",
+        "url": "https://images.unsplash.com/photo-1488590528505-98d2b5aba04b?ixlib=rb-0.3.5&q=80&fm=jpg&crop=entropy&cs=tinysrgb&w=1080&fit=max&s=278085b2f7e71c40d0bd45a0e1fc06df",
+        "width": 1080,
+        "height": 720
+    },
+    "keywords": "kubernetes, container, docker, x509",
+    "description": "Deploying Kubernetes cluster from scratch Kubernetes is a production-grade container orchestrator. I wrote this guide in a way that you should be able to get your Kubernetes cluster running as simple as going through step-by-step &amp;amp; copy-paste. Please let me know in case of issues or suggestions, I will be",
+    "mainEntityOfPage": {
+        "@type": "WebPage",
+        "@id": "https://nixaid.com/"
+    }
+}
+    </script>
+
+    <script src="/public/ghost-sdk.min.js?v=2da0edc76d"></script>
+<script>
+ghost.init({
+	clientId: "ghost-frontend",
+	clientSecret: "5a55e19f4f39"
+});
+</script>
+    <meta name="generator" content="Ghost 2.2" />
+    <link rel="alternate" type="application/rss+xml" title="NIXAID.COM" href="https://nixaid.com/rss/" />
+
+</head>
+<body class="post-template tag-kubernetes tag-container tag-docker tag-x509">
+
+    <div class="site-wrapper">
+
+        
+
+<header class="site-header outer">
+    <div class="inner">
+        <nav class="site-nav">
+    <div class="site-nav-left">
+                <a class="site-nav-logo" href="https://nixaid.com"><img src="/content/images/2018/07/nixaid-ghost-publication-logo-7.png" alt="NIXAID.COM" /></a>
+            <ul class="nav" role="menu">
+    <li class="nav-forum" role="menuitem"><a href="https://flarum.nixaid.com/">FORUM</a></li>
+    <li class="nav-old-blog" role="menuitem"><a href="https://old.nixaid.com/">OLD Blog</a></li>
+    <li class="nav-privatebin" role="menuitem"><a href="https://0.nixaid.com/">PrivateBin</a></li>
+    <li class="nav-gitea" role="menuitem"><a href="https://git.nixaid.com/explore/repos">Gitea</a></li>
+    <li class="nav-about" role="menuitem"><a href="https://nixaid.com/about/">About</a></li>
+</ul>
+
+    </div>
+    <div class="site-nav-right">
+        <div class="social-links">
+        </div>
+            <a class="rss-button" href="http://cloud.feedly.com/#subscription/feed/https://nixaid.com/rss/" target="_blank" rel="noopener"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="6.18" cy="17.82" r="2.18"/><path d="M4 4.44v2.83c7.03 0 12.73 5.7 12.73 12.73h2.83c0-8.59-6.97-15.56-15.56-15.56zm0 5.66v2.83c3.9 0 7.07 3.17 7.07 7.07h2.83c0-5.47-4.43-9.9-9.9-9.9z"/></svg>
+</a>
+    </div>
+</nav>
+    </div>
+</header>
+
+
+<main id="site-main" class="site-main outer" role="main">
+    <div class="inner">
+
+        <article class="post-full post tag-kubernetes tag-container tag-docker tag-x509 ">
+
+            <header class="post-full-header">
+                <section class="post-full-meta">
+                    <time class="post-full-meta-date" datetime="2017-05-28">28 May 2017</time>
+                        <span class="date-divider">/</span> <a href="/tag/kubernetes/">kubernetes</a>
+                </section>
+                <h1 class="post-full-title">Deploying Kubernetes cluster from scratch</h1>
+            </header>
+
+            <figure class="post-full-image" style="background-image: url(https://images.unsplash.com/photo-1488590528505-98d2b5aba04b?ixlib&#x3D;rb-0.3.5&amp;q&#x3D;80&amp;fm&#x3D;jpg&amp;crop&#x3D;entropy&amp;cs&#x3D;tinysrgb&amp;w&#x3D;1080&amp;fit&#x3D;max&amp;s&#x3D;278085b2f7e71c40d0bd45a0e1fc06df)">
+            </figure>
+
+            <section class="post-full-content">
+                <h2 id="deployingkubernetesclusterfromscratch">Deploying Kubernetes cluster from scratch</h2>
+<p>Kubernetes is a production-grade container orchestrator.</p>
+<p>I wrote this guide in a way that you should be able to get your Kubernetes<br>
+cluster running as simple as going through step-by-step &amp; copy-paste.</p>
+<p>Please let me know in case of issues or suggestions, I will be happy to improve<br>
+this doc.</p>
+<p>You will need 4x 2GB RAM VM's:</p>
+<ul>
+<li>2x controller nodes running Kubernetes core services and the etcd;</li>
+<li>2x worker nodes running kubelet services;</li>
+</ul>
+<p>Additionally, each node will be running Kubernetes essential services such as<br>
+kube-dns, kube-proxy, weave-net and Docker.</p>
+<h2 id="preconfiguration">Preconfiguration</h2>
+<ol>
+<li>Set the correct time/date;</li>
+<li>Configure bridge netfilter and the IP forwarding;</li>
+</ol>
+<pre><code class="language-bash">for i in k8s-controller-1 k8s-controller-2 k8s-worker-1 k8s-worker-2; do
+  ssh -o StrictHostKeyChecking=no root@$i \
+    &quot;timedatectl set-local-rtc 0; timedatectl set-timezone Europe/Prague&quot;
+  grep -w k8s /etc/hosts | ssh root@$i &quot;tee -a /etc/hosts&quot;
+  echo -e &quot;net.bridge.bridge-nf-call-iptables=1\n\
+           net.bridge.bridge-nf-call-ip6tables=1\n\
+           net.ipv4.ip_forward=1&quot; \
+    | ssh root@$i &quot;tee /etc/sysctl.d/kubernetes.conf &amp;&amp; \
+        modprobe br_netfilter &amp;&amp; sysctl -p /etc/sysctl.d/kubernetes.conf&quot;
+done
+</code></pre>
+<h2 id="generatex509certs">Generate x509 certs</h2>
+<ol>
+<li>Create openssl configuration file;</li>
+<li>Generate x509 certificates;</li>
+</ol>
+<pre><code class="language-bash">ssh -A root@k8s-controller-1
+</code></pre>
+<p>Create openssl configuration file:</p>
+<pre><code class="language-bash">CONTROLLER1_IP=$(getent ahostsv4 k8s-controller-1 | tail -1 | awk '{print $1}')
+CONTROLLER2_IP=$(getent ahostsv4 k8s-controller-2 | tail -1 | awk '{print $1}')
+SERVICE_IP=&quot;10.96.0.1&quot;
+
+mkdir -p /etc/kubernetes/pki
+cd /etc/kubernetes/pki
+
+cat &gt; openssl.cnf &lt;&lt; EOF
+[ req ]
+distinguished_name = req_distinguished_name
+[req_distinguished_name]
+[ v3_ca ]
+basicConstraints = critical, CA:TRUE
+keyUsage = critical, digitalSignature, keyEncipherment, keyCertSign
+[ v3_req_server ]
+basicConstraints = CA:FALSE
+keyUsage = critical, digitalSignature, keyEncipherment
+extendedKeyUsage = serverAuth
+[ v3_req_client ]
+basicConstraints = CA:FALSE
+keyUsage = critical, digitalSignature, keyEncipherment
+extendedKeyUsage = clientAuth
+[ v3_req_apiserver ]
+basicConstraints = CA:FALSE
+keyUsage = critical, digitalSignature, keyEncipherment
+extendedKeyUsage = serverAuth
+subjectAltName = @alt_names_cluster
+[ v3_req_etcd ]
+basicConstraints = CA:FALSE
+keyUsage = critical, digitalSignature, keyEncipherment
+extendedKeyUsage = serverAuth, clientAuth
+subjectAltName = @alt_names_etcd
+[ alt_names_cluster ]
+DNS.1 = kubernetes
+DNS.2 = kubernetes.default
+DNS.3 = kubernetes.default.svc
+DNS.4 = kubernetes.default.svc.cluster.local
+DNS.5 = k8s-controller-1
+DNS.6 = k8s-controller-2
+# DNS.7 = ${KUBERNETES_PUBLIC_ADDRESS}
+IP.1 = ${CONTROLLER1_IP}
+IP.2 = ${CONTROLLER2_IP}
+IP.3 = ${SERVICE_IP}
+# IP.4 = ${KUBERNETES_PUBLIC_IP}
+[ alt_names_etcd ]
+DNS.1 = k8s-controller-1
+DNS.2 = k8s-controller-2
+IP.1 = ${CONTROLLER1_IP}
+IP.2 = ${CONTROLLER2_IP}
+EOF
+</code></pre>
+<h3 id="kubernetescacert">Kubernetes CA cert</h3>
+<blockquote>
+<p>used to sign the rest of K8s certs.</p>
+</blockquote>
+<pre><code class="language-bash">openssl ecparam -name secp521r1 -genkey -noout -out ca.key
+chmod 0600 ca.key
+openssl req -x509 -new -sha256 -nodes -key ca.key -days 3650 -out ca.crt \
+            -subj &quot;/CN=kubernetes-ca&quot;  -extensions v3_ca -config ./openssl.cnf
+</code></pre>
+<h3 id="kubeapiservercert">kube apiserver cert</h3>
+<blockquote>
+<p>used as default x509 apiserver cert.</p>
+</blockquote>
+<pre><code class="language-bash">openssl ecparam -name secp521r1 -genkey -noout -out kube-apiserver.key
+chmod 0600 kube-apiserver.key
+openssl req -new -sha256 -key kube-apiserver.key -subj &quot;/CN=kube-apiserver&quot; \
+  | openssl x509 -req -sha256 -CA ca.crt -CAkey ca.key -CAcreateserial \
+                 -out kube-apiserver.crt -days 365 \
+                 -extensions v3_req_apiserver -extfile ./openssl.cnf
+</code></pre>
+<h3 id="apiserverkubeletclientcert">apiserver kubelet client cert</h3>
+<blockquote>
+<p>used for x509 client authentication to the kubelet's HTTPS endpoint.</p>
+</blockquote>
+<pre><code class="language-bash">openssl ecparam -name secp521r1 -genkey -noout -out apiserver-kubelet-client.key
+chmod 0600 apiserver-kubelet-client.key
+openssl req -new -key apiserver-kubelet-client.key \
+            -subj &quot;/CN=kube-apiserver-kubelet-client/O=system:masters&quot; \
+  | openssl x509 -req -sha256 -CA ca.crt -CAkey ca.key -CAcreateserial \
+                 -out apiserver-kubelet-client.crt -days 365 \
+                 -extensions v3_req_client -extfile ./openssl.cnf
+</code></pre>
+<h3 id="adminclientcert">admin client cert</h3>
+<blockquote>
+<p>used by a human to administrate the cluster.</p>
+</blockquote>
+<pre><code class="language-bash">openssl ecparam -name secp521r1 -genkey -noout -out admin.key
+chmod 0600 admin.key
+openssl req -new -key admin.key -subj &quot;/CN=kubernetes-admin/O=system:masters&quot; \
+  | openssl x509 -req -sha256 -CA ca.crt -CAkey ca.key -CAcreateserial \
+                 -out admin.crt -days 365 -extensions v3_req_client \
+                 -extfile ./openssl.cnf
+</code></pre>
+<h3 id="serviceaccountkey">Service Account key</h3>
+<blockquote>
+<p>As per <a href="https://github.com/kubernetes/kubernetes/issues/22351#issuecomment-26082410">https://github.com/kubernetes/kubernetes/issues/22351#issuecomment-26082410</a></p>
+<p>The service account token private key (sa.key) given only to the controller<br>
+manager, is used to sign the tokens.<br>
+The masters only need the public key portion (sa.pub) in order to verify the<br>
+tokens signed by the controller manager.</p>
+<p>The service account public key has to be the same for all. In an HA setup<br>
+that means you need to explicitly give it to each apiserver (recommended) or<br>
+make all the apiservers use the same serving cert/private TLS key (not<br>
+recommended).</p>
+<p>As a convenience, you can provide a private key to both, and the public key<br>
+portion of it will be used by the api server to verify token signatures.</p>
+<p>As a further convenience, the api server's private key for it's serving<br>
+certificate is used to verify service account tokens if you don't specify<br>
+<code>--service-account-key-file</code></p>
+<p><code>--tls-cert-file</code> and <code>--tls-private-key-file</code> are used to provide the<br>
+serving cert and key to the api server. If you don't specify these, the api<br>
+server will make a self-signed cert/key-pair and store it at<br>
+<code>apiserver.crt/apiserver.key</code></p>
+</blockquote>
+<pre><code class="language-bash">openssl ecparam -name secp521r1 -genkey -noout -out sa.key
+openssl ec -in sa.key -outform PEM -pubout -out sa.pub
+chmod 0600 sa.key
+openssl req -new -sha256 -key sa.key \
+            -subj &quot;/CN=system:kube-controller-manager&quot; \
+  | openssl x509 -req -sha256 -CA ca.crt -CAkey ca.key -CAcreateserial \
+                 -out sa.crt -days 365 -extensions v3_req_client \
+                 -extfile ./openssl.cnf
+</code></pre>
+<h3 id="kubeschedulercert">kube-scheduler cert</h3>
+<blockquote>
+<p>used to allow access to the resources required by the kube-scheduler<br>
+component.</p>
+</blockquote>
+<pre><code class="language-bash">openssl ecparam -name secp521r1 -genkey -noout -out kube-scheduler.key
+chmod 0600 kube-scheduler.key
+openssl req -new -sha256 -key kube-scheduler.key \
+            -subj &quot;/CN=system:kube-scheduler&quot; \
+  | openssl x509 -req -sha256 -CA ca.crt -CAkey ca.key -CAcreateserial \
+                 -out kube-scheduler.crt -days 365 -extensions v3_req_client \
+                 -extfile ./openssl.cnf
+</code></pre>
+<h3 id="frontproxycacert">front proxy CA cert</h3>
+<blockquote>
+<p>used to sign front proxy client cert.</p>
+</blockquote>
+<pre><code class="language-bash">openssl ecparam -name secp521r1 -genkey -noout -out front-proxy-ca.key
+chmod 0600 front-proxy-ca.key
+openssl req -x509 -new -sha256 -nodes -key front-proxy-ca.key -days 3650 \
+            -out front-proxy-ca.crt -subj &quot;/CN=front-proxy-ca&quot; \
+            -extensions v3_ca -config ./openssl.cnf
+</code></pre>
+<h3 id="frontproxyclientcert">front proxy client cert</h3>
+<blockquote>
+<p>used to verify client certificates on incoming requests before trusting<br>
+usernames in headers specified by <code>--requestheader-username-headers</code></p>
+</blockquote>
+<pre><code class="language-bash">openssl ecparam -name secp521r1 -genkey -noout -out front-proxy-client.key
+chmod 0600 front-proxy-client.key
+openssl req -new -sha256 -key front-proxy-client.key \
+            -subj &quot;/CN=front-proxy-client&quot; \
+  | openssl x509 -req -sha256 -CA front-proxy-ca.crt \
+                 -CAkey front-proxy-ca.key -CAcreateserial \
+                 -out front-proxy-client.crt -days 365 \
+                 -extensions v3_req_client -extfile ./openssl.cnf
+</code></pre>
+<h3 id="kubeproxycert">kube-proxy cert</h3>
+<blockquote>
+<p>Create kube-proxy x509 cert only if you want to use a kube-proxy role<br>
+instead of a kube-proxy service account with its JWT token (kubernetes<br>
+secrets) for auhentication.</p>
+</blockquote>
+<pre><code class="language-bash">openssl ecparam -name secp521r1 -genkey -noout -out kube-proxy.key
+chmod 0600 kube-proxy.key
+openssl req -new -key kube-proxy.key \
+            -subj &quot;/CN=kube-proxy/O=system:node-proxier&quot; \
+  | openssl x509 -req -sha256 -CA ca.crt -CAkey ca.key -CAcreateserial \
+                 -out kube-proxy.crt -days 365 -extensions v3_req_client \
+                 -extfile ./openssl.cnf
+</code></pre>
+<h3 id="etcdcacert">etcd CA cert</h3>
+<blockquote>
+<p>etcd CA cert used to sign the rest of etcd certs.</p>
+</blockquote>
+<pre><code class="language-bash">openssl ecparam -name secp521r1 -genkey -noout -out etcd-ca.key
+chmod 0600 etcd-ca.key
+openssl req -x509 -new -sha256 -nodes -key etcd-ca.key -days 3650 \
+            -out etcd-ca.crt -subj &quot;/CN=etcd-ca&quot; -extensions v3_ca \
+            -config ./openssl.cnf
+</code></pre>
+<h3 id="etcdcert">etcd cert</h3>
+<blockquote>
+<p>etcd cert used for securing connections to etcd (client-to-server).</p>
+</blockquote>
+<pre><code class="language-bash">openssl ecparam -name secp521r1 -genkey -noout -out etcd.key
+chmod 0600 etcd.key
+openssl req -new -sha256 -key etcd.key -subj &quot;/CN=etcd&quot; \
+  | openssl x509 -req -sha256 -CA etcd-ca.crt -CAkey etcd-ca.key \
+                 -CAcreateserial -out etcd.crt -days 365 \
+                 -extensions v3_req_etcd -extfile ./openssl.cnf
+</code></pre>
+<h3 id="etcdpeercert">etcd peer cert</h3>
+<blockquote>
+<p>etcd peer cert used for securing connections between peers (server-to-server).</p>
+</blockquote>
+<pre><code class="language-bash">openssl ecparam -name secp521r1 -genkey -noout -out etcd-peer.key
+chmod 0600 etcd-peer.key
+openssl req -new -sha256 -key etcd-peer.key -subj &quot;/CN=etcd-peer&quot; \
+  | openssl x509 -req -sha256 -CA etcd-ca.crt -CAkey etcd-ca.key \
+                 -CAcreateserial -out etcd-peer.crt -days 365 \
+                 -extensions v3_req_etcd -extfile ./openssl.cnf
+</code></pre>
+<h3 id="viewcerts">View certs</h3>
+<pre><code class="language-bash"># for i in *crt; do
+    echo $i:;
+    openssl x509 -subject -issuer -noout -in $i;
+    echo;
+  done
+
+admin.crt:
+subject= /CN=kubernetes-admin/O=system:masters
+issuer= /CN=kubernetes-ca
+
+apiserver-kubelet-client.crt:
+subject= /CN=kube-apiserver-kubelet-client/O=system:masters
+issuer= /CN=kubernetes-ca
+
+ca.crt:
+subject= /CN=kubernetes-ca
+issuer= /CN=kubernetes-ca
+
+etcd-ca.crt:
+subject= /CN=etcd-ca
+issuer= /CN=etcd-ca
+
+etcd.crt:
+subject= /CN=etcd
+issuer= /CN=etcd-ca
+
+etcd-peer.crt:
+subject= /CN=etcd-peer
+issuer= /CN=etcd-ca
+
+front-proxy-ca.crt:
+subject= /CN=front-proxy-ca
+issuer= /CN=front-proxy-ca
+
+front-proxy-client.crt:
+subject= /CN=front-proxy-client
+issuer= /CN=front-proxy-ca
+
+kube-apiserver.crt:
+subject= /CN=kube-apiserver
+issuer= /CN=kubernetes-ca
+
+kube-scheduler.crt:
+subject= /CN=system:kube-scheduler
+issuer= /CN=kubernetes-ca
+
+sa.crt:
+subject= /CN=system:kube-controller-manager
+issuer= /CN=kubernetes-ca
+
+# Optional:
+kube-proxy.crt:
+subject= /CN=kube-proxy/O=system:node-proxier
+issuer= /CN=kubernetes-ca
+</code></pre>
+<h3 id="copythecertstocontrollers">Copy the certs to controllers</h3>
+<pre><code class="language-bash">ssh -o StrictHostKeyChecking=no root@k8s-controller-2 &quot;mkdir /etc/kubernetes&quot;
+scp -pr -- /etc/kubernetes/pki/ k8s-controller-2:/etc/kubernetes/
+</code></pre>
+<h2 id="controllerbinaries">Controller binaries</h2>
+<p>Install these binaries on all controller nodes:</p>
+<pre><code class="language-bash">TAG=v1.6.4
+URL=https://storage.googleapis.com/kubernetes-release/release/$TAG/bin/linux/amd64
+
+curl -# -L -o /usr/bin/kube-apiserver $URL/kube-apiserver
+curl -# -L -o /usr/bin/kube-controller-manager $URL/kube-controller-manager
+curl -# -L -o /usr/bin/kube-scheduler $URL/kube-scheduler
+curl -# -L -o /usr/bin/kube-proxy $URL/kube-proxy
+curl -# -L -o /usr/bin/kubelet $URL/kubelet
+curl -# -L -o /usr/bin/kubectl $URL/kubectl
+
+chmod +x -- /usr/bin/kube*
+mkdir -p /var/lib/{kubelet,kube-proxy}
+</code></pre>
+<h2 id="generatekubeconfigs">Generate kube configs</h2>
+<p>kubeconfig files are used by a service or a user to authenticate oneself.</p>
+<ol>
+<li>Generate kubeconfig files on all controller nodes;</li>
+</ol>
+<h3 id="serviceaccountkubeconfig">service account kubeconfig</h3>
+<pre><code class="language-bash">CONTROLLER1_IP=$(getent ahostsv4 k8s-controller-1 | tail -1 | awk '{print $1}')
+CONTROLLER2_IP=$(getent ahostsv4 k8s-controller-2 | tail -1 | awk '{print $1}')
+INTERNAL_IP=$(hostname -I | awk '{print $1}')
+KUBERNETES_PUBLIC_ADDRESS=$INTERNAL_IP
+
+CLUSTER_NAME=&quot;default&quot;
+KCONFIG=controller-manager.kubeconfig
+KUSER=&quot;system:kube-controller-manager&quot;
+KCERT=sa
+
+cd /etc/kubernetes/
+
+kubectl config set-cluster ${CLUSTER_NAME} \
+  --certificate-authority=pki/ca.crt \
+  --embed-certs=true \
+  --server=https://${KUBERNETES_PUBLIC_ADDRESS}:6443 \
+  --kubeconfig=${KCONFIG}
+
+kubectl config set-credentials ${KUSER} \
+  --client-certificate=pki/${KCERT}.crt \
+  --client-key=pki/${KCERT}.key \
+  --embed-certs=true \
+  --kubeconfig=${KCONFIG}
+
+kubectl config set-context ${KUSER}@${CLUSTER_NAME} \
+  --cluster=${CLUSTER_NAME} \
+  --user=${KUSER} \
+  --kubeconfig=${KCONFIG}
+
+kubectl config use-context ${KUSER}@${CLUSTER_NAME} --kubeconfig=${KCONFIG}
+kubectl config view --kubeconfig=${KCONFIG}
+</code></pre>
+<h3 id="kubeschedulerkubeconfig">kube-scheduler kubeconfig</h3>
+<pre><code class="language-bash">CONTROLLER1_IP=$(getent ahostsv4 k8s-controller-1 | tail -1 | awk '{print $1}')
+CONTROLLER2_IP=$(getent ahostsv4 k8s-controller-2 | tail -1 | awk '{print $1}')
+INTERNAL_IP=$(hostname -I | awk '{print $1}')
+KUBERNETES_PUBLIC_ADDRESS=$INTERNAL_IP
+
+CLUSTER_NAME=&quot;default&quot;
+KCONFIG=scheduler.kubeconfig
+KUSER=&quot;system:kube-scheduler&quot;
+KCERT=kube-scheduler
+
+cd /etc/kubernetes/
+
+kubectl config set-cluster ${CLUSTER_NAME} \
+  --certificate-authority=pki/ca.crt \
+  --embed-certs=true \
+  --server=https://${KUBERNETES_PUBLIC_ADDRESS}:6443 \
+  --kubeconfig=${KCONFIG}
+
+kubectl config set-credentials ${KUSER} \
+  --client-certificate=pki/${KCERT}.crt \
+  --client-key=pki/${KCERT}.key \
+  --embed-certs=true \
+  --kubeconfig=${KCONFIG}
+
+kubectl config set-context ${KUSER}@${CLUSTER_NAME} \
+  --cluster=${CLUSTER_NAME} \
+  --user=${KUSER} \
+  --kubeconfig=${KCONFIG}
+
+kubectl config use-context ${KUSER}@${CLUSTER_NAME} --kubeconfig=${KCONFIG}
+kubectl config view --kubeconfig=${KCONFIG}
+</code></pre>
+<h3 id="adminkubeconfig">admin kubeconfig</h3>
+<pre><code class="language-bash">CONTROLLER1_IP=$(getent ahostsv4 k8s-controller-1 | tail -1 | awk '{print $1}')
+CONTROLLER2_IP=$(getent ahostsv4 k8s-controller-2 | tail -1 | awk '{print $1}')
+INTERNAL_IP=$(hostname -I | awk '{print $1}')
+KUBERNETES_PUBLIC_ADDRESS=$INTERNAL_IP
+
+CLUSTER_NAME=&quot;default&quot;
+KCONFIG=admin.kubeconfig
+KUSER=&quot;kubernetes-admin&quot;
+KCERT=admin
+
+cd /etc/kubernetes/
+
+kubectl config set-cluster ${CLUSTER_NAME} \
+  --certificate-authority=pki/ca.crt \
+  --embed-certs=true \
+  --server=https://${KUBERNETES_PUBLIC_ADDRESS}:6443 \
+  --kubeconfig=${KCONFIG}
+
+kubectl config set-credentials ${KUSER} \
+  --client-certificate=pki/${KCERT}.crt \
+  --client-key=pki/${KCERT}.key \
+  --embed-certs=true \
+  --kubeconfig=${KCONFIG}
+
+kubectl config set-context ${KUSER}@${CLUSTER_NAME} \
+  --cluster=${CLUSTER_NAME} \
+  --user=${KUSER} \
+  --kubeconfig=${KCONFIG}
+
+kubectl config use-context ${KUSER}@${CLUSTER_NAME} --kubeconfig=${KCONFIG}
+kubectl config view --kubeconfig=${KCONFIG}
+</code></pre>
+<h2 id="deployetcd">Deploy etcd</h2>
+<p>etcd is a distributed key-value store used for storing state of distributed<br>
+applications like Kubernetes.</p>
+<blockquote>
+<p>Recommendation: run etcd under the etcd user.</p>
+</blockquote>
+<ol>
+<li>Deploy etcd on all controller nodes;</li>
+</ol>
+<pre><code class="language-bash">TAG=v3.1.8
+URL=https://github.com/coreos/etcd/releases/download/$TAG
+
+cd
+curl -# -LO $URL/etcd-$TAG-linux-amd64.tar.gz
+tar xvf etcd-$TAG-linux-amd64.tar.gz
+chown -Rh root:root etcd-$TAG-linux-amd64/
+find etcd-$TAG-linux-amd64/ -xdev -type f -exec chmod 0755 '{}' \;
+cp etcd-$TAG-linux-amd64/etcd* /usr/bin/
+mkdir -p /var/lib/etcd
+</code></pre>
+<pre><code class="language-bash">CONTROLLER1_IP=$(getent ahostsv4 k8s-controller-1 | tail -1 | awk '{print $1}')
+CONTROLLER2_IP=$(getent ahostsv4 k8s-controller-2 | tail -1 | awk '{print $1}')
+INTERNAL_IP=$(hostname -I | awk '{print $1}')
+
+ETCD_CLUSTER_TOKEN=&quot;default-27a5f27fe2&quot; # this should be unique per cluster
+ETCD_NAME=$(hostname --short)
+
+ETCD_CERT_FILE=/etc/kubernetes/pki/etcd.crt
+ETCD_CERT_KEY_FILE=/etc/kubernetes/pki/etcd.key
+ETCD_PEER_CERT_FILE=/etc/kubernetes/pki/etcd-peer.crt
+ETCD_PEER_KEY_FILE=/etc/kubernetes/pki/etcd-peer.key
+ETCD_CA_FILE=/etc/kubernetes/pki/etcd-ca.crt
+ETCD_PEER_CA_FILE=/etc/kubernetes/pki/etcd-ca.crt
+
+cat &gt; /etc/systemd/system/etcd.service &lt;&lt; EOF
+[Unit]
+Description=etcd
+Documentation=https://coreos.com/etcd/docs/latest/
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/etcd \\
+  --name ${ETCD_NAME} \\
+  --listen-client-urls https://${INTERNAL_IP}:2379,http://127.0.0.1:2379 \\
+  --advertise-client-urls https://${INTERNAL_IP}:2379 \\
+  --data-dir=/var/lib/etcd \\
+  --cert-file=${ETCD_CERT_FILE} \\
+  --key-file=${ETCD_CERT_KEY_FILE} \\
+  --peer-cert-file=${ETCD_PEER_CERT_FILE} \\
+  --peer-key-file=${ETCD_PEER_KEY_FILE} \\
+  --trusted-ca-file=${ETCD_CA_FILE} \\
+  --peer-trusted-ca-file=${ETCD_CA_FILE} \\
+  --peer-client-cert-auth \\
+  --client-cert-auth \\
+  --initial-advertise-peer-urls https://${INTERNAL_IP}:2380 \\
+  --listen-peer-urls https://${INTERNAL_IP}:2380 \\
+  --initial-cluster-token ${ETCD_CLUSTER_TOKEN} \\
+  --initial-cluster k8s-controller-1=https://${CONTROLLER1_IP}:2380,k8s-controller-2=https://${CONTROLLER2_IP}:2380 \\
+  --initial-cluster-state new
+Restart=always
+RestartSec=10s
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable etcd
+systemctl start etcd
+systemctl status etcd -l
+</code></pre>
+<h3 id="verifyetcdisworking">Verify etcd is working</h3>
+<p>Using etcdctl:</p>
+<pre><code class="language-bash">etcdctl \
+  --ca-file=/etc/kubernetes/pki/etcd-ca.crt \
+  --cert-file=/etc/kubernetes/pki/etcd.crt \
+  --key-file=/etc/kubernetes/pki/etcd.key \
+  cluster-health
+
+etcdctl \
+  --ca-file=/etc/kubernetes/pki/etcd-ca.crt \
+  --cert-file=/etc/kubernetes/pki/etcd.crt \
+  --key-file=/etc/kubernetes/pki/etcd.key \
+  member list
+</code></pre>
+<p>Using openssl:</p>
+<pre><code class="language-bash">echo -e &quot;GET /health HTTP/1.1\nHost: $INTERNAL_IP\n&quot; \
+  | timeout 2s openssl s_client -CAfile /etc/kubernetes/pki/etcd-ca.crt \
+                                -cert /etc/kubernetes/pki/etcd.crt \
+                                -key /etc/kubernetes/pki/etcd.key \
+                                -connect $INTERNAL_IP:2379 \
+                                -ign_eof
+</code></pre>
+<h2 id="controlplanedeployment">Control plane deployment</h2>
+<p>Kubernetes control plane consist of:</p>
+<ol>
+<li>kube-apiserver;</li>
+<li>kube-controller-manager;</li>
+<li>kube-scheduler;</li>
+</ol>
+<ul>
+<li>Deploy kubernetes control plane on all controller nodes;</li>
+</ul>
+<h3 id="kubernetesapiserver">Kubernetes API Server</h3>
+<pre><code class="language-bash">CONTROLLER1_IP=$(getent ahostsv4 k8s-controller-1 | tail -1 | awk '{print $1}')
+CONTROLLER2_IP=$(getent ahostsv4 k8s-controller-2 | tail -1 | awk '{print $1}')
+INTERNAL_IP=$(hostname -I | awk '{print $1}')
+SERVICE_CLUSTER_IP_RANGE=&quot;10.96.0.0/12&quot;
+
+cat &gt; /etc/systemd/system/kube-apiserver.service &lt;&lt; EOF
+[Unit]
+Description=Kubernetes API Server
+Documentation=https://github.com/kubernetes/kubernetes
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/kube-apiserver \\
+  --apiserver-count=2 \\
+  --allow-privileged=true \\
+  --admission-control=NamespaceLifecycle,LimitRanger,ServiceAccount,PersistentVolumeLabel,DefaultStorageClass,ResourceQuota,DefaultTolerationSeconds \\
+  --authorization-mode=RBAC \\
+  --secure-port=6443 \\
+  --bind-address=0.0.0.0 \\
+  --advertise-address=${INTERNAL_IP} \\
+  --insecure-port=0 \\
+  --insecure-bind-address=127.0.0.1 \\
+  --audit-log-maxage=30 \\
+  --audit-log-maxbackup=3 \\
+  --audit-log-maxsize=100 \\
+  --audit-log-path=/var/log/kube-audit.log \\
+  --client-ca-file=/etc/kubernetes/pki/ca.crt \\
+  --etcd-cafile=/etc/kubernetes/pki/etcd-ca.crt \\
+  --etcd-certfile=/etc/kubernetes/pki/etcd.crt \\
+  --etcd-keyfile=/etc/kubernetes/pki/etcd.key \\
+  --etcd-servers=https://${CONTROLLER1_IP}:2379,https://${CONTROLLER2_IP}:2379 \\
+  --service-account-key-file=/etc/kubernetes/pki/sa.pub \\
+  --service-cluster-ip-range=${SERVICE_CLUSTER_IP_RANGE} \\
+  --service-node-port-range=30000-32767 \\
+  --tls-cert-file=/etc/kubernetes/pki/kube-apiserver.crt \\
+  --tls-private-key-file=/etc/kubernetes/pki/kube-apiserver.key \\
+  --experimental-bootstrap-token-auth=true \\
+  --kubelet-client-certificate=/etc/kubernetes/pki/apiserver-kubelet-client.crt \\
+  --kubelet-client-key=/etc/kubernetes/pki/apiserver-kubelet-client.key \\
+  --kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname \\
+  --requestheader-client-ca-file=/etc/kubernetes/pki/front-proxy-ca.crt \\
+  --requestheader-username-headers=X-Remote-User \\
+  --requestheader-group-headers=X-Remote-Group \\
+  --requestheader-allowed-names=front-proxy-client \\
+  --requestheader-extra-headers-prefix=X-Remote-Extra- \\
+  --v=2
+Restart=always
+RestartSec=10s
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable kube-apiserver
+systemctl start kube-apiserver
+systemctl status kube-apiserver -l
+</code></pre>
+<h3 id="kubernetescontrollermanager">Kubernetes Controller Manager</h3>
+<pre><code class="language-bash">CLUSTER_CIDR=&quot;10.96.0.0/16&quot;
+SERVICE_CLUSTER_IP_RANGE=&quot;10.96.0.0/12&quot;
+CLUSTER_NAME=&quot;default&quot;
+
+cat &gt; /etc/systemd/system/kube-controller-manager.service &lt;&lt; EOF
+[Unit]
+Description=Kubernetes Controller Manager
+Documentation=https://github.com/kubernetes/kubernetes
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/kube-controller-manager \\
+  --kubeconfig=/etc/kubernetes/controller-manager.kubeconfig \\
+  --address=127.0.0.1 \\
+  --leader-elect=true \\
+  --controllers=*,bootstrapsigner,tokencleaner \\
+  --service-account-private-key-file=/etc/kubernetes/pki/sa.key \\
+  --insecure-experimental-approve-all-kubelet-csrs-for-group=system:bootstrappers \\
+  --cluster-cidr=${CLUSTER_CIDR} \\
+  --cluster-name=${CLUSTER_NAME} \\
+  --service-cluster-ip-range=${SERVICE_CLUSTER_IP_RANGE} \\
+  --cluster-signing-cert-file=/etc/kubernetes/pki/ca.crt \\
+  --cluster-signing-key-file=/etc/kubernetes/pki/ca.key \\
+  --root-ca-file=/etc/kubernetes/pki/ca.crt \\
+  --use-service-account-credentials=true \\
+  --v=2
+Restart=always
+RestartSec=10s
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable kube-controller-manager
+systemctl start kube-controller-manager
+systemctl status kube-controller-manager -l
+</code></pre>
+<h3 id="kubernetesscheduler">Kubernetes Scheduler</h3>
+<pre><code class="language-bash">cat &gt; /etc/systemd/system/kube-scheduler.service &lt;&lt; EOF
+[Unit]
+Description=Kubernetes Scheduler
+Documentation=https://github.com/kubernetes/kubernetes
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/kube-scheduler \\
+  --leader-elect=true \\
+  --kubeconfig=/etc/kubernetes/scheduler.kubeconfig \\
+  --address=127.0.0.1 \\
+  --v=2
+Restart=always
+RestartSec=10s
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable kube-scheduler
+systemctl start kube-scheduler
+systemctl status kube-scheduler -l
+</code></pre>
+<h3 id="verifythecontrolplane">Verify the control plane</h3>
+<pre><code class="language-bash">export KUBECONFIG=/etc/kubernetes/admin.kubeconfig
+kubectl version
+kubectl get componentstatuses
+</code></pre>
+<blockquote>
+<p>etcd will report &quot;bad certificate&quot; in kubernetes 1.6, but is fixed in 1.7<br>
+<a href="https://github.com/kubernetes/kubernetes/pull/39716#issuecomment-296811189">https://github.com/kubernetes/kubernetes/pull/39716#issuecomment-296811189</a></p>
+</blockquote>
+<h3 id="kubectlbashcompletion">kubectl bash completion</h3>
+<p>This might be handy:</p>
+<pre><code class="language-bash">yum -y install bash-completion
+source /etc/profile.d/bash_completion.sh
+source &lt;(kubectl completion bash)
+</code></pre>
+<h2 id="prepareboostrappingpart">Prepare boostrapping part</h2>
+<ol>
+<li>Create the bootstrap token and kubeconfig which will be used by kubelets to<br>
+join the Kubernetes cluster;</li>
+<li>Expose the kubernetes CA file and the sanitized bootstrap kubeconfig to<br>
+assist future clients joining the cluster;</li>
+</ol>
+<h3 id="generatebootstraptoken">Generate bootstrap token</h3>
+<blockquote>
+<p>Run this once and remember <code>BOOTSTRAP_TOKEN</code></p>
+</blockquote>
+<pre><code class="language-bash">TOKEN_PUB=$(openssl rand -hex 3)
+TOKEN_SECRET=$(openssl rand -hex 8)
+BOOTSTRAP_TOKEN=&quot;${TOKEN_PUB}.${TOKEN_SECRET}&quot;
+
+kubectl -n kube-system create secret generic bootstrap-token-${TOKEN_PUB} \
+        --type 'bootstrap.kubernetes.io/token' \
+        --from-literal description=&quot;cluster bootstrap token&quot; \
+        --from-literal token-id=${TOKEN_PUB} \
+        --from-literal token-secret=${TOKEN_SECRET} \
+        --from-literal usage-bootstrap-authentication=true \
+        --from-literal usage-bootstrap-signing=true
+
+kubectl -n kube-system get secret/bootstrap-token-${TOKEN_PUB} -o yaml
+</code></pre>
+<h3 id="createbootstrapkubeconfig">Create bootstrap kubeconfig</h3>
+<pre><code class="language-bash">INTERNAL_IP=$(hostname -I | awk '{print $1}')
+KUBERNETES_PUBLIC_ADDRESS=$INTERNAL_IP
+
+CLUSTER_NAME=&quot;default&quot;
+KCONFIG=&quot;bootstrap.kubeconfig&quot;
+KUSER=&quot;kubelet-bootstrap&quot;
+
+cd /etc/kubernetes
+
+kubectl config set-cluster ${CLUSTER_NAME} \
+  --certificate-authority=pki/ca.crt \
+  --embed-certs=true \
+  --server=https://${KUBERNETES_PUBLIC_ADDRESS}:6443 \
+  --kubeconfig=${KCONFIG}
+
+kubectl config set-context ${KUSER}@${CLUSTER_NAME} \
+  --cluster=${CLUSTER_NAME} \
+  --user=${KUSER} \
+  --kubeconfig=${KCONFIG}
+
+kubectl config use-context ${KUSER}@${CLUSTER_NAME} --kubeconfig=${KCONFIG}
+kubectl config view --kubeconfig=${KCONFIG}
+</code></pre>
+<h3 id="exposecaandbootstrapkubeconfigviaconfigmap">Expose CA and bootstrap kubeconfig via configmap</h3>
+<blockquote>
+<p>Make sure the bootstrap kubeconfig file does not contain the bootstrap token<br>
+before you expose it via the cluster-info configmap.</p>
+</blockquote>
+<pre><code class="language-bash">kubectl -n kube-public create configmap cluster-info \
+        --from-file /etc/kubernetes/pki/ca.crt \
+        --from-file /etc/kubernetes/bootstrap.kubeconfig
+</code></pre>
+<p>Allow anonymous user to acceess the cluster-info configmap:</p>
+<pre><code class="language-bash">kubectl -n kube-public create role system:bootstrap-signer-clusterinfo \
+        --verb get --resource configmaps
+kubectl -n kube-public create rolebinding kubeadm:bootstrap-signer-clusterinfo \
+        --role system:bootstrap-signer-clusterinfo --user system:anonymous
+</code></pre>
+<p>Allow a bootstrapping worker node join the cluster:</p>
+<pre><code class="language-bash">kubectl create clusterrolebinding kubeadm:kubelet-bootstrap \
+        --clusterrole system:node-bootstrapper --group system:bootstrappers
+</code></pre>
+<h2 id="installdockerkubelet">Install Docker &amp; Kubelet</h2>
+<p>Install Docker and Kubelet on all controllers and workers.</p>
+<ol>
+<li>Install Docker;</li>
+<li>Retrieve ca.crt and bootstrap.kubeconfig files from the cluster API kube<br>
+endpoint;</li>
+<li>Install CNI plugins;</li>
+<li>Deploy the kubelet;</li>
+</ol>
+<h3 id="docker">Docker</h3>
+<blockquote>
+<p>I used CentOS 7.3 here. Adjust docker settings for your installation in case<br>
+you are going to use different distribution.</p>
+</blockquote>
+<pre><code class="language-bash">yum install -y docker
+
+sed -i 's;\(^DOCKER_NETWORK_OPTIONS=$\);\1--iptables=false;' \
+    /etc/sysconfig/docker-network
+sed -i 's;\(^DOCKER_STORAGE_OPTIONS=$\);\1--storage-driver overlay;' \
+    /etc/sysconfig/docker-storage
+
+systemctl daemon-reload
+systemctl enable docker
+systemctl start docker
+</code></pre>
+<h3 id="workerbinaries">Worker binaries</h3>
+<p>Install these binaries on all worker nodes:</p>
+<pre><code class="language-bash">TAG=v1.6.4
+URL=https://storage.googleapis.com/kubernetes-release/release/$TAG/bin/linux/amd64
+
+curl -# -L -o /usr/bin/kube-proxy $URL/kube-proxy
+curl -# -L -o /usr/bin/kubelet $URL/kubelet
+curl -# -L -o /usr/bin/kubectl $URL/kubectl
+
+chmod +x -- /usr/bin/kube*
+mkdir -p /var/lib/{kubelet,kube-proxy}
+</code></pre>
+<h3 id="retrievecaandthebootstrapkubeconfig">Retrieve CA and the bootstrap kubeconfig</h3>
+<blockquote>
+<p>Note that this skips the TLS verification. You might choose to use an<br>
+alternative method for obtaining the CA certificate.</p>
+</blockquote>
+<pre><code class="language-bash">mkdir -p /etc/kubernetes/pki
+
+kubectl -n kube-public get cm/cluster-info \
+        --server https://k8s-controller-1:6443 --insecure-skip-tls-verify=true \
+        --username=system:anonymous --output=jsonpath='{.data.ca\.crt}' \
+  | tee /etc/kubernetes/pki/ca.crt
+
+kubectl -n kube-public get cm/cluster-info \
+        --server https://k8s-controller-1:6443 --insecure-skip-tls-verify=true \
+        --username=system:anonymous \
+        --output=jsonpath='{.data.bootstrap\.kubeconfig}' \
+  | tee /etc/kubernetes/bootstrap.kubeconfig
+</code></pre>
+<p>Now write previously generated <code>BOOTSTRAP_TOKEN</code> to the bootstrap kubeconfig:</p>
+<pre><code class="language-bash">read -r -s -p &quot;BOOTSTRAP_TOKEN: &quot; BOOTSTRAP_TOKEN
+
+kubectl config set-credentials kubelet-bootstrap \
+  --token=${BOOTSTRAP_TOKEN} \
+  --kubeconfig=/etc/kubernetes/bootstrap.kubeconfig
+</code></pre>
+<h3 id="installcniplugins">Install CNI plugins</h3>
+<p>Container Network Interface (CNI) - networking for Linux containers.</p>
+<p>To find the latest CNI binary release refer to -<br>
+<a href="https://github.com/kubernetes/kubernetes/blob/master/cluster/images/hyperkube/Makefile">https://github.com/kubernetes/kubernetes/blob/master/cluster/images/hyperkube/Makefile</a></p>
+<pre><code class="language-bash">cd
+mkdir -p /etc/cni/net.d /opt/cni
+
+ARCH=amd64
+CNI_RELEASE=0799f5732f2a11b329d9e3d51b9c8f2e3759f2ff
+URL=https://storage.googleapis.com/kubernetes-release/network-plugins
+curl -sSL $URL/cni-${ARCH}-${CNI_RELEASE}.tar.gz | tar -xz -C /opt/cni
+</code></pre>
+<h3 id="kuberneteskubelet">Kubernetes Kubelet</h3>
+<pre><code class="language-bash">CLUSTER_DNS_IP=10.96.0.10
+
+mkdir -p /etc/kubernetes/manifests
+
+cat &gt; /etc/systemd/system/kubelet.service &lt;&lt; EOF
+[Unit]
+Description=Kubernetes Kubelet
+Documentation=https://github.com/kubernetes/kubernetes
+After=docker.service
+Requires=docker.service
+
+[Service]
+ExecStart=/usr/bin/kubelet \\
+  --experimental-bootstrap-kubeconfig=/etc/kubernetes/bootstrap.kubeconfig \\
+  --kubeconfig=/etc/kubernetes/kubelet.conf \\
+  --require-kubeconfig=true \\
+  --pod-manifest-path=/etc/kubernetes/manifests \\
+  --allow-privileged=true \\
+  --network-plugin=cni \\
+  --cni-conf-dir=/etc/cni/net.d \\
+  --cni-bin-dir=/opt/cni/bin \\
+  --cluster-dns=${CLUSTER_DNS_IP} \\
+  --cluster-domain=cluster.local \\
+  --authorization-mode=Webhook \\
+  --client-ca-file=/etc/kubernetes/pki/ca.crt \\
+  --cgroup-driver=systemd \\
+  --cert-dir=/etc/kubernetes
+Restart=always
+RestartSec=10s
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable kubelet
+systemctl start kubelet
+systemctl status kubelet -l
+</code></pre>
+<p>Make controller nodes unschedulable by any pods:</p>
+<pre><code class="language-bash">for i in k8s-controller-1 k8s-controller-2; do
+  kubectl label node $i node-role.kubernetes.io/master=
+  kubectl taint nodes $i node-role.kubernetes.io/master=:NoSchedule
+done
+</code></pre>
+<h2 id="deployessentialkubernetescomponents">Deploy essential kubernetes components</h2>
+<p>Essential kubernetes components:</p>
+<ol>
+<li>kube-proxy;</li>
+<li>kube-dns;</li>
+<li>weave-net CNI plugin;</li>
+</ol>
+<h3 id="kubeproxy">kube-proxy</h3>
+<p>Install kube-proxy on all controllers &amp; workers.</p>
+<p>Create a kube-proxy service account:</p>
+<blockquote>
+<p>Create a kube-proxy service account only if you are not planning to use x509<br>
+certificate to authenticate the kube-proxy role.</p>
+<p>The JWT token will be automatically created once you create a service account.</p>
+</blockquote>
+<pre><code class="language-bash">kubectl -n kube-system create serviceaccount kube-proxy
+</code></pre>
+<p>Create a kube-proxy kubeconfig:</p>
+<pre><code class="language-bash">INTERNAL_IP=$(hostname -I | awk '{print $1}')
+KUBERNETES_PUBLIC_ADDRESS=$INTERNAL_IP
+
+export KUBECONFIG=/etc/kubernetes/admin.kubeconfig
+SECRET=$(kubectl -n kube-system get sa/kube-proxy \
+                 --output=jsonpath='{.secrets[0].name}')
+JWT_TOKEN=$(kubectl -n kube-system get secret/$SECRET \
+                    --output=jsonpath='{.data.token}' | base64 -d)
+
+CLUSTER_NAME=&quot;default&quot;
+KCONFIG=&quot;kube-proxy.kubeconfig&quot;
+cd /etc/kubernetes
+
+kubectl config set-cluster ${CLUSTER_NAME} \
+  --certificate-authority=pki/ca.crt \
+  --embed-certs=true \
+  --server=https://${KUBERNETES_PUBLIC_ADDRESS}:6443 \
+  --kubeconfig=${KCONFIG}
+
+kubectl config set-context ${CLUSTER_NAME} \
+  --cluster=${CLUSTER_NAME} \
+  --user=default \
+  --namespace=default \
+  --kubeconfig=${KCONFIG}
+
+kubectl config set-credentials ${CLUSTER_NAME} \
+  --token=${JWT_TOKEN} \
+  --kubeconfig=${KCONFIG}
+
+kubectl config use-context ${CLUSTER_NAME} --kubeconfig=${KCONFIG}
+kubectl config view --kubeconfig=${KCONFIG}
+</code></pre>
+<p>Bind a kube-proxy service account (from <code>kube-system</code> namespace) to a<br>
+clusterrole <code>system:node-proxier</code> to allow RBAC:</p>
+<pre><code class="language-bash">kubectl create clusterrolebinding kubeadm:node-proxier \
+        --clusterrole system:node-proxier \
+        --serviceaccount kube-system:kube-proxy
+</code></pre>
+<p>Deliver kube-proxy kubeconfig to the rest of worker nodes:</p>
+<pre><code class="language-bash">for i in k8s-worker-1 k8s-worker-2; do
+  scp -p -- /etc/kubernetes/kube-proxy.kubeconfig $i:/etc/kubernetes/
+done
+</code></pre>
+<p>Create a kube-proxy service file and run it:</p>
+<pre><code class="language-bash">mkdir /var/lib/kube-proxy
+
+cat &gt; /etc/systemd/system/kube-proxy.service &lt;&lt; EOF
+[Unit]
+Description=Kubernetes Kube Proxy
+Documentation=https://github.com/kubernetes/kubernetes
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/kube-proxy \\
+  --kubeconfig=/etc/kubernetes/kube-proxy.kubeconfig \\
+  --v=2
+Restart=always
+RestartSec=10s
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable kube-proxy
+systemctl start kube-proxy
+systemctl status kube-proxy -l
+</code></pre>
+<h3 id="kubedns">Kube-DNS</h3>
+<pre><code class="language-bash">export DNS_DOMAIN=&quot;cluster.local&quot;
+export DNS_SERVER_IP=&quot;10.96.0.10&quot;
+
+cd /etc/kubernetes/manifests/
+
+URL=https://raw.githubusercontent.com/kubernetes/kubernetes/master/cluster/addons/dns
+curl -sSL -o - $URL/kubedns-controller.yaml.sed \
+  | sed -e &quot;s/\\\$DNS_DOMAIN/${DNS_DOMAIN}/g&quot; &gt; kubedns-controller.yaml
+curl -sSL -o - $URL/kubedns-svc.yaml.sed \
+  | sed -e &quot;s/\\\$DNS_SERVER_IP/${DNS_SERVER_IP}/g&quot; &gt; kubedns-svc.yaml
+curl -sSLO $URL/kubedns-sa.yaml
+curl -sSLO $URL/kubedns-cm.yaml
+
+for i in kubedns-{sa,cm,controller,svc}.yaml; do
+  kubectl --namespace=kube-system apply -f $i;
+done
+</code></pre>
+<h3 id="weavenetcniplugin">Weave Net CNI plugin</h3>
+<p><a href="https://www.weave.works/docs/net/latest/kube-addon/">https://www.weave.works/docs/net/latest/kube-addon/</a></p>
+<pre><code class="language-bash">cd /etc/kubernetes/manifests
+curl -sSL -o weave-kube-1.6.yaml https://git.io/weave-kube-1.6
+kubectl apply -f weave-kube-1.6.yaml
+</code></pre>
+<p>To view weave-net status:</p>
+<pre><code class="language-bash">curl -sSL -o /usr/local/bin/weave \
+  https://github.com/weaveworks/weave/releases/download/latest_release/weave \
+  &amp;&amp; chmod +x /usr/local/bin/weave
+weave status
+weave status connections
+weave status peers
+</code></pre>
+<h3 id="end">End?</h3>
+<p>That's all folks!</p>
+<p>Kubernetes cluster is now up &amp; running.</p>
+<p>You can view its state by running:</p>
+<pre><code class="language-bash">kubectl get csr
+kubectl get nodes -o wide
+kubectl get pods --all-namespaces -o wide
+kubectl get svc --all-namespaces -o wide
+kubectl get all --all-namespaces --show-labels
+</code></pre>
+<h3 id="enablingweavenetencryption">Enabling weave-net encryption</h3>
+<p>To enable weave-net encryption, it is enough to export the <code>WEAVE_PASSWORD</code><br>
+environment variable to weave-net containers and restart the relevant pods:</p>
+<pre><code class="language-bash">[root@k8s-controller-1 ~]# diff -Nur weave-kube-1.6.yaml /etc/kubernetes/manifests/weave-kube-1.6.yaml
+--- weave-kube-1.6.yaml 2017-05-26 22:02:53.793355946 +0200
++++ /etc/kubernetes/manifests/weave-kube-1.6.yaml       2017-05-26 22:04:24.215869495 +0200
+@@ -59,6 +59,9 @@
+   image: weaveworks/weave-kube:1.9.5
+   command:
+ - /home/weave/launch.sh
++          env:
++            - name: WEAVE_PASSWORD
++              value: &quot;Tr7W2wTpjG5fzFXCV5PmXCp9ay4WLN21&quot;
+   livenessProbe:
+ initialDelaySeconds: 30
+ httpGet:
+</code></pre>
+<p>Delete weave-net pods so that weave-net daemonset will automatically redeploy<br>
+them applying a new configuration:</p>
+<pre><code class="language-bash">kubectl -n kube-system delete pods -l name=weave-net
+</code></pre>
+<p>Check the status:</p>
+<pre><code class="language-bash">[root@k8s-controller-1 ~]# weave status connections
+-&gt; [redacted]:6783     established encrypted   fastdp f6:50:45:ba:df:9d(k8s-controller-2) encrypted=truemtu=1376
+&lt;- [redacted]:44629    established encrypted   fastdp 3a:34:e8:06:06:e2(k8s-worker-1) encrypted=truemtu=1376
+&lt;- [redacted]:55055    established encrypted   fastdp fe:4c:df:33:4a:8e(k8s-worker-2) encrypted=truemtu=1376
+-&gt; [redacted]:6783     failed                  cannot connect to ourself, retry: never
+</code></pre>
+<h2 id="additionalapps">Additional apps</h2>
+<p>Since you have a running kubernetes cluster now, you may want to deploy some<br>
+apps.</p>
+<h3 id="kubernetesdashboard">Kubernetes Dashboard</h3>
+<pre><code class="language-bash">cd /etc/kubernetes/manifests
+curl -sSLO https://raw.githubusercontent.com/kubernetes/dashboard/master/src/deploy/kubernetes-dashboard.yaml
+kubectl apply -f kubernetes-dashboard.yaml
+kubectl -n kube-system expose deployment kubernetes-dashboard \
+        --name kubernetes-dashboard-nodeport --type=NodePort
+</code></pre>
+<p>At the current moment you<br>
+<a href="https://github.com/kubernetes/kubernetes/issues/25478">cannot specify the nodePort with &quot;kubectl expose&quot; command</a></p>
+<p>So you would need to find it this way:</p>
+<pre><code class="language-bash"># kubectl -n kube-system get svc/kubernetes-dashboard-nodeport
+NAME                            CLUSTER-IP      EXTERNAL-IP   PORT(S)          AGE
+kubernetes-dashboard-nodeport   10.97.194.198   &lt;nodes&gt;       9090:32685/TCP   1m
+</code></pre>
+<p>After that you can access the Kubernetes Dashboard by visiting either one:</p>
+<ul>
+<li><a href="http://k8s-controller-1:32685/">http://k8s-controller-1:32685/</a></li>
+<li>http://$KUBERNETES_PUBLIC_ADDRESS:32685/</li>
+</ul>
+<h3 id="weavescope">Weave Scope</h3>
+<p><a href="https://www.weave.works/docs/scope/latest/installing/#k8s">https://www.weave.works/docs/scope/latest/installing/#k8s</a></p>
+<pre><code class="language-bash">cd /etc/kubernetes/manifests
+curl -sSL -o scope.yaml \
+     &quot;https://cloud.weave.works/k8s/v1.6/scope.yaml?k8s-service-type=NodePort&quot;
+kubectl -n kube-system apply -f scope.yaml
+</code></pre>
+<p>Find out the nodePort:</p>
+<pre><code class="language-bash"># kubectl -n kube-system get svc/weave-scope-app
+NAME              CLUSTER-IP       EXTERNAL-IP   PORT(S)        AGE
+weave-scope-app   10.100.167.248   &lt;nodes&gt;       80:30830/TCP   31s
+</code></pre>
+<p>Now you can access the Weave Scope by visiting either one:</p>
+<ul>
+<li><a href="http://k8s-controller-1:30830/">http://k8s-controller-1:30830/</a></li>
+<li>http://$KUBERNETES_PUBLIC_ADDRESS:30830/</li>
+</ul>
+<h3 id="kubernetesgrafana">Kubernetes Grafana</h3>
+<p><a href="https://github.com/kubernetes/heapster/tree/master/deploy/kube-config/influxdb">https://github.com/kubernetes/heapster/tree/master/deploy/kube-config/influxdb</a></p>
+<pre><code class="language-bash">mkdir /etc/kubernetes/manifests/monitoring
+cd /etc/kubernetes/manifests/monitoring
+
+URL=https://raw.githubusercontent.com/kubernetes/heapster/master/deploy/kube-config
+curl -sSLO $URL/influxdb/influxdb.yaml
+curl -sSLO $URL/rbac/heapster-rbac.yaml
+curl -sSLO $URL/influxdb/heapster.yaml
+curl -sSLO $URL/influxdb/grafana.yaml
+</code></pre>
+<pre><code class="language-bash">kubectl apply -f influxdb.yaml
+kubectl apply -f heapster-rbac.yaml
+kubectl apply -f heapster.yaml
+kubectl apply -f grafana.yaml
+kubectl -n kube-system expose deployment monitoring-grafana \
+        --name monitoring-grafana-nodeport --type=NodePort
+</code></pre>
+<p>Find out the nodePort:</p>
+<pre><code class="language-bash"># kubectl -n kube-system get svc/monitoring-grafana-nodeport
+NAME                          CLUSTER-IP       EXTERNAL-IP   PORT(S)          AGE
+monitoring-grafana-nodeport   10.108.103.241   &lt;nodes&gt;       3000:31358/TCP   23s
+</code></pre>
+<p>Or alternatively:</p>
+<pre><code class="language-bash">kubectl -n kube-system get svc/monitoring-grafana \
+        --output=jsonpath='{.spec.clusterIP}:{.spec.ports[0].nodePort}'; echo
+</code></pre>
+<p>Now you can access the Grafana by visiting either one:</p>
+<ul>
+<li><a href="http://k8s-controller-1:31358/">http://k8s-controller-1:31358/</a></li>
+<li>http://$KUBERNETES_PUBLIC_ADDRESS:31358/</li>
+</ul>
+<h3 id="sockshop">Sock Shop</h3>
+<p>Sock Shop is pretty heavy app and it is going to take more resources than you<br>
+would have available by this time.</p>
+<p>Hence, you might want to join an additional worker node to your cluster or<br>
+delete apps that you have just deployed (grafana, heapster, influxdb,<br>
+weavescope, kubernetes dashboard).</p>
+<pre><code class="language-bash">kubectl create namespace sock-shop
+kubectl apply -n sock-shop -f &quot;https://raw.githubusercontent.com/microservices-demo/microservices-demo/fe48e0fb465ab694d50d0c9e51299ac75a7e3e47/deploy/kubernetes/complete-demo.yaml&quot;
+</code></pre>
+<p>Find out the nodePort:</p>
+<pre><code class="language-bash"># kubectl -n sock-shop get svc front-end
+NAME        CLUSTER-IP      EXTERNAL-IP   PORT(S)        AGE
+front-end   10.110.164.38   &lt;nodes&gt;       80:30001/TCP   19s
+
+# kubectl get pods -n sock-shop -o wide
+</code></pre>
+<p>Now you can access the Sock Shop by visiting either one:</p>
+<ul>
+<li><a href="http://k8s-controller-1:30001/">http://k8s-controller-1:30001/</a></li>
+<li>http://$KUBERNETES_PUBLIC_ADDRESS:30001/</li>
+</ul>
+<p>To uninstall the socks shop sample app, just remove its namespace:</p>
+<pre><code class="language-bash">kubectl delete namespace sock-shop
+</code></pre>
+<h3 id="weavenetnetworkperformancetest">Weave-net network performance test</h3>
+<p>Make sure to deploy your containers on different worker nodes.</p>
+<pre><code class="language-bash">kubectl run c1 --image centos:7 --labels k8s-app=my-centos -- sleep 3600
+kubectl run c2 --image centos:7 --labels k8s-app=my-centos -- sleep 3600
+</code></pre>
+<p>With weave-net encryption and <code>fastdp</code> enabled:</p>
+<pre><code class="language-bash">[root@c1-281931205-nflnh ~]# iperf3 -c 10.32.0.3
+Connecting to host 10.32.0.3, port 5201
+[  4] local 10.34.0.0 port 57352 connected to 10.32.0.3 port 5201
+[ ID] Interval           Transfer     Bandwidth       Retr  Cwnd
+[  4]   0.00-1.00   sec  75.0 MBytes   628 Mbits/sec   58    556 KBytes
+[  4]   1.00-2.00   sec  71.1 MBytes   598 Mbits/sec  222    446 KBytes
+[  4]   2.00-3.00   sec  77.2 MBytes   647 Mbits/sec    0    557 KBytes
+[  4]   3.00-4.00   sec  76.3 MBytes   640 Mbits/sec   33    640 KBytes
+[  4]   4.00-5.00   sec  81.2 MBytes   682 Mbits/sec  154    720 KBytes
+[  4]   5.00-6.00   sec  84.4 MBytes   707 Mbits/sec    0    798 KBytes
+[  4]   6.00-7.00   sec  70.7 MBytes   593 Mbits/sec   35    630 KBytes
+[  4]   7.00-8.00   sec  76.9 MBytes   645 Mbits/sec  175    696 KBytes
+[  4]   8.00-9.00   sec  71.1 MBytes   596 Mbits/sec    0    763 KBytes
+[  4]   9.00-10.00  sec  78.3 MBytes   658 Mbits/sec    0    833 KBytes
+- - - - - - - - - - - - - - - - - - - - - - - - -
+[ ID] Interval           Transfer     Bandwidth       Retr
+[  4]   0.00-10.00  sec   762 MBytes   639 Mbits/sec  677             sender
+[  4]   0.00-10.00  sec   760 MBytes   637 Mbits/sec                  receiver
+</code></pre>
+<p>Without weave-net encryption and without <code>fastdp</code>:</p>
+<pre><code class="language-bash">[root@c1-281931205-nflnh /]# iperf3 -c 10.32.0.3 -P1
+Connecting to host 10.32.0.3, port 5201
+[  4] local 10.34.0.0 port 59676 connected to 10.32.0.3 port 5201
+[ ID] Interval           Transfer     Bandwidth       Retr  Cwnd
+[  4]   0.00-1.01   sec  5.43 MBytes  45.3 Mbits/sec   27   68.5 KBytes
+[  4]   1.01-2.00   sec  5.44 MBytes  45.7 Mbits/sec   22   64.6 KBytes
+[  4]   2.00-3.00   sec  5.83 MBytes  49.1 Mbits/sec   17   82.8 KBytes
+[  4]   3.00-4.00   sec  6.00 MBytes  50.4 Mbits/sec   25   76.3 KBytes
+[  4]   4.00-5.00   sec  5.20 MBytes  43.5 Mbits/sec   21   64.6 KBytes
+[  4]   5.00-6.00   sec  5.26 MBytes  44.0 Mbits/sec   23   60.8 KBytes
+[  4]   6.00-7.00   sec  5.44 MBytes  45.9 Mbits/sec   16   54.3 KBytes
+[  4]   7.00-8.00   sec  6.04 MBytes  50.7 Mbits/sec   22   51.7 KBytes
+[  4]   8.00-9.00   sec  5.82 MBytes  48.8 Mbits/sec   15   60.8 KBytes
+[  4]   9.00-10.00  sec  5.75 MBytes  48.3 Mbits/sec    5   78.9 KBytes
+- - - - - - - - - - - - - - - - - - - - - - - - -
+[ ID] Interval           Transfer     Bandwidth       Retr
+[  4]   0.00-10.00  sec  56.2 MBytes  47.2 Mbits/sec  193             sender
+[  4]   0.00-10.00  sec  56.2 MBytes  47.2 Mbits/sec                  receiver
+
+iperf Done.
+</code></pre>
+<p>Surprisingly, I have got a worse bandwith without the encryption.</p>
+<p>This happened because fastdp (fast datapath) was not enabled when using<br>
+weave-net without encryption.</p>
+<p><code>sleeve</code> indicates Weave Net's fall-back encapsulation method is used:</p>
+<pre><code class="language-bash">[root@k8s-worker-1 ~]# weave status connections
+&lt;- [redacted]:57823 established sleeve f6:50:45:ba:df:9d(k8s-controller-2) mtu=1438
+&lt;- [redacted]:37717 established sleeve 46:d6:a6:c6:1e:f2(k8s-controller-1) mtu=1438
+&lt;- [redacted]:51252 established sleeve fe:4c:df:33:4a:8e(k8s-worker-2) mtu=1438
+-&gt; [redacted]:6783  failed      cannot connect to ourself, retry: never
+</code></pre>
+<p>Here is the result without encryption but with <code>fastdp</code> enabled:</p>
+<blockquote>
+<p>Note: tested after cluster reinstallation.</p>
+</blockquote>
+<pre><code class="language-bash">[root@c1-281931205-z5z3m /]# iperf3 -c 10.40.0.2
+Connecting to host 10.40.0.2, port 5201
+[  4] local 10.32.0.2 port 59414 connected to 10.40.0.2 port 5201
+[ ID] Interval           Transfer     Bandwidth       Retr  Cwnd
+[  4]   0.00-1.00   sec  79.9 MBytes   670 Mbits/sec  236    539 KBytes
+[  4]   1.00-2.00   sec  69.7 MBytes   584 Mbits/sec    0    625 KBytes
+[  4]   2.00-3.00   sec  69.9 MBytes   586 Mbits/sec    0    698 KBytes
+[  4]   3.00-4.00   sec  73.3 MBytes   615 Mbits/sec   38    577 KBytes
+[  4]   4.00-5.00   sec  88.8 MBytes   745 Mbits/sec   19    472 KBytes
+[  4]   5.00-6.00   sec  85.9 MBytes   721 Mbits/sec    0    586 KBytes
+[  4]   6.00-7.00   sec  92.1 MBytes   772 Mbits/sec    0    688 KBytes
+[  4]   7.00-8.00   sec  84.8 MBytes   712 Mbits/sec   39    575 KBytes
+[  4]   8.00-9.00   sec  80.2 MBytes   673 Mbits/sec    0    668 KBytes
+[  4]   9.00-10.00  sec  88.3 MBytes   741 Mbits/sec   19    568 KBytes
+- - - - - - - - - - - - - - - - - - - - - - - - -
+[ ID] Interval           Transfer     Bandwidth       Retr
+[  4]   0.00-10.00  sec   813 MBytes   682 Mbits/sec  351             sender
+[  4]   0.00-10.00  sec   811 MBytes   680 Mbits/sec                  receiver
+
+iperf Done.
+</code></pre>
+<pre><code class="language-bash"># weave status connections
+&lt;- [redacted]:34158 established fastdp 56:ae:60:6b:be:79(k8s-controller-2) mtu=1376
+-&gt; [redacted]:6783  established fastdp 12:af:67:0d:0d:1a(k8s-worker-1) mtu=1376
+&lt;- [redacted]:52937 established fastdp 86:27:10:95:00:e5(k8s-worker-2) mtu=1376
+-&gt; [redacted]:6783  failed      cannot connect to ourself, retry: never
+</code></pre>
+<p>More read on weave-net fast datapath:</p>
+<ol>
+<li><a href="https://www.weave.works/blog/weave-fast-datapath/">https://www.weave.works/blog/weave-fast-datapath/</a></li>
+<li><a href="https://www.weave.works/blog/weave-docker-networking-performance-fast-data-path/">https://www.weave.works/blog/weave-docker-networking-performance-fast-data-path/</a></li>
+<li><a href="https://www.weave.works/docs/net/latest/using-weave/fastdp/">https://www.weave.works/docs/net/latest/using-weave/fastdp/</a></li>
+<li><a href="https://github.com/weaveworks/weave/blob/master/docs/fastdp.md">https://github.com/weaveworks/weave/blob/master/docs/fastdp.md</a></li>
+</ol>
+<p>Cleanup:</p>
+<pre><code class="language-bash">kubectl delete deployments/c1
+kubectl delete deployments/c2
+</code></pre>
+
+            </section>
+
+            <section class="post-full-comments">
+                <script
+                  data-isso="https://comments.nixaid.com/"
+                  data-isso-lang="en"
+                  data-isso-vote="false"
+                  src="//comments.nixaid.com/js/embed.min.js"></script>
+                <section id="isso-thread"></section>
+            </section>
+
+
+            <footer class="post-full-footer">
+
+                <section class="author-card">
+                        <img class="author-profile-image" src="/content/images/2017/12/me-profile.jpg" alt="Andrey Arapov" />
+                    <section class="author-card-content">
+                        <h4 class="author-card-name"><a href="/author/andrey/">Andrey Arapov</a></h4>
+                            <p>&quot;If you want to live a happy life, tie it to a goal, not to people or things.&quot;
+
+- Albert Einstein</p>
+                    </section>
+                </section>
+                <div class="post-full-footer-right">
+                    <a class="author-card-button" href="/author/andrey/">Read More</a>
+                </div>
+
+            </footer>
+
+
+        </article>
+
+    </div>
+</main>
+
+<aside class="read-next outer">
+    <div class="inner">
+        <div class="read-next-feed">
+                <article class="read-next-card"
+                            style="background-image: url(/content/images/2018/07/Data_Center-2560x928.jpg)"
+                >
+                    <header class="read-next-card-header">
+                        <small class="read-next-card-header-sitetitle">&mdash; NIXAID.COM &mdash;</small>
+                        <h3 class="read-next-card-header-title"><a href="/tag/kubernetes/">kubernetes</a></h3>
+                    </header>
+                    <div class="read-next-divider"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 14.5s2 3 5 3 5.5-2.463 5.5-5.5S21 6.5 18 6.5c-5 0-7 11-12 11C2.962 17.5.5 15.037.5 12S3 6.5 6 6.5s4.5 3.5 4.5 3.5"/></svg>
+</div>
+                    <div class="read-next-card-content">
+                        <ul>
+                            <li><a href="/redeploying-kubernetes-master/">Redeploying Kubernetes master server</a></li>
+                            <li><a href="/frozen-openstack-servers/">Servers froze as Openstack lost free space</a></li>
+                        </ul>
+                    </div>
+                    <footer class="read-next-card-footer">
+                        <a href="/tag/kubernetes/">See all 2 posts →</a>
+                    </footer>
+                </article>
+
+                <article class="post-card post tag-privacy tag-ubuntu tag-zeitgeist tag-security">
+        <a class="post-card-image-link" href="/disable-zeitgeist-in-ubuntu-16-17/">
+            <div class="post-card-image" style="background-image: url(https://images.unsplash.com/photo-1453799527828-cf1bd7b2f682?ixlib&#x3D;rb-0.3.5&amp;q&#x3D;80&amp;fm&#x3D;jpg&amp;crop&#x3D;entropy&amp;cs&#x3D;tinysrgb&amp;w&#x3D;1080&amp;fit&#x3D;max&amp;s&#x3D;828231c2032dafe5d9182064f60382fa)"></div>
+        </a>
+    <div class="post-card-content">
+        <a class="post-card-content-link" href="/disable-zeitgeist-in-ubuntu-16-17/">
+            <header class="post-card-header">
+                    <span class="post-card-tags">privacy</span>
+                <h2 class="post-card-title">Disable Zeitgeist in Ubuntu 16, 17</h2>
+            </header>
+            <section class="post-card-excerpt">
+                <p>Zeitgeist is a service which logs the user's activities and events (files opened, websites visited, conversations hold with other people, etc.) and makes the information available to other applications. Below are the steps</p>
+            </section>
+        </a>
+        <footer class="post-card-meta">
+                <img class="author-profile-image" src="/content/images/2017/12/me-profile.jpg" alt="Andrey Arapov" />
+            <span class="post-card-author"><a href="/author/andrey/">Andrey Arapov</a></span>
+        </footer>
+    </div>
+</article>
+
+
+        </div>
+    </div>
+</aside>
+
+<div class="floating-header">
+    <div class="floating-header-logo">
+        <a href="https://nixaid.com">
+                <img src="/content/images/2018/07/nixaid-publication-icon.png" alt="NIXAID.COM icon" />
+            <span>NIXAID.COM</span>
+        </a>
+    </div>
+    <span class="floating-header-divider">&mdash;</span>
+    <div class="floating-header-title">Deploying Kubernetes cluster from scratch</div>
+    <div class="floating-header-share">
+        <div class="floating-header-share-label">Share this <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+    <path d="M7.5 15.5V4a1.5 1.5 0 1 1 3 0v4.5h2a1 1 0 0 1 1 1h2a1 1 0 0 1 1 1H18a1.5 1.5 0 0 1 1.5 1.5v3.099c0 .929-.13 1.854-.385 2.748L17.5 23.5h-9c-1.5-2-5.417-8.673-5.417-8.673a1.2 1.2 0 0 1 1.76-1.605L7.5 15.5zm6-6v2m-3-3.5v3.5m6-1v2"/>
+</svg>
+</div>
+        <a class="floating-header-share-tw" href="https://twitter.com/share?text=Deploying%20Kubernetes%20cluster%20from%20scratch&amp;url=https://nixaid.com/deploying-kubernetes-cluster-from-scratch/"
+            onclick="window.open(this.href, 'share-twitter', 'width=550,height=235');return false;">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><path d="M30.063 7.313c-.813 1.125-1.75 2.125-2.875 2.938v.75c0 1.563-.188 3.125-.688 4.625a15.088 15.088 0 0 1-2.063 4.438c-.875 1.438-2 2.688-3.25 3.813a15.015 15.015 0 0 1-4.625 2.563c-1.813.688-3.75 1-5.75 1-3.25 0-6.188-.875-8.875-2.625.438.063.875.125 1.375.125 2.688 0 5.063-.875 7.188-2.5-1.25 0-2.375-.375-3.375-1.125s-1.688-1.688-2.063-2.875c.438.063.813.125 1.125.125.5 0 1-.063 1.5-.25-1.313-.25-2.438-.938-3.313-1.938a5.673 5.673 0 0 1-1.313-3.688v-.063c.813.438 1.688.688 2.625.688a5.228 5.228 0 0 1-1.875-2c-.5-.875-.688-1.813-.688-2.75 0-1.063.25-2.063.75-2.938 1.438 1.75 3.188 3.188 5.25 4.25s4.313 1.688 6.688 1.813a5.579 5.579 0 0 1 1.5-5.438c1.125-1.125 2.5-1.688 4.125-1.688s3.063.625 4.188 1.813a11.48 11.48 0 0 0 3.688-1.375c-.438 1.375-1.313 2.438-2.563 3.188 1.125-.125 2.188-.438 3.313-.875z"/></svg>
+        </a>
+        <a class="floating-header-share-fb" href="https://www.facebook.com/sharer/sharer.php?u=https://nixaid.com/deploying-kubernetes-cluster-from-scratch/"
+            onclick="window.open(this.href, 'share-facebook','width=580,height=296');return false;">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><path d="M19 6h5V0h-5c-3.86 0-7 3.14-7 7v3H8v6h4v16h6V16h5l1-6h-6V7c0-.542.458-1 1-1z"/></svg>
+        </a>
+    </div>
+    <progress class="progress" value="0">
+        <div class="progress-container">
+            <span class="progress-bar"></span>
+        </div>
+    </progress>
+</div>
+
+
+
+
+        <footer class="site-footer outer">
+            <div class="site-footer-content inner">
+                <section class="copyright"><a href="https://nixaid.com">NIXAID.COM</a> &copy; 2018</section>
+                <nav class="site-footer-nav">
+                    <a href="https://nixaid.com">Latest Posts</a>
+                    
+                    
+                    <a href="https://ghost.org" target="_blank" rel="noopener">Ghost</a>
+                </nav>
+            </div>
+        </footer>
+
+    </div>
+
+
+    <script
+        src="https://code.jquery.com/jquery-3.2.1.min.js"
+        integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4="
+        crossorigin="anonymous">
+    </script>
+    <script type="text/javascript" src="/assets/js/jquery.fitvids.js?v=2da0edc76d"></script>
+
+
+    <script>
+
+// NOTE: Scroll performance is poor in Safari
+// - this appears to be due to the events firing much more slowly in Safari.
+//   Dropping the scroll event and using only a raf loop results in smoother
+//   scrolling but continuous processing even when not scrolling
+$(document).ready(function () {
+    // Start fitVids
+    var $postContent = $(".post-full-content");
+    $postContent.fitVids();
+    // End fitVids
+
+    var progressBar = document.querySelector('progress');
+    var header = document.querySelector('.floating-header');
+    var title = document.querySelector('.post-full-title');
+
+    var lastScrollY = window.scrollY;
+    var lastWindowHeight = window.innerHeight;
+    var lastDocumentHeight = $(document).height();
+    var ticking = false;
+
+    function onScroll() {
+        lastScrollY = window.scrollY;
+        requestTick();
+    }
+
+    function onResize() {
+        lastWindowHeight = window.innerHeight;
+        lastDocumentHeight = $(document).height();
+        requestTick();
+    }
+
+    function requestTick() {
+        if (!ticking) {
+            requestAnimationFrame(update);
+        }
+        ticking = true;
+    }
+
+    function update() {
+        var trigger = title.getBoundingClientRect().top + window.scrollY;
+        var triggerOffset = title.offsetHeight + 35;
+        var progressMax = lastDocumentHeight - lastWindowHeight;
+
+        // show/hide floating header
+        if (lastScrollY >= trigger + triggerOffset) {
+            header.classList.add('floating-active');
+        } else {
+            header.classList.remove('floating-active');
+        }
+
+        progressBar.setAttribute('max', progressMax);
+        progressBar.setAttribute('value', lastScrollY);
+
+        ticking = false;
+    }
+
+    window.addEventListener('scroll', onScroll, {passive: true});
+    window.addEventListener('resize', onResize, false);
+
+    update();
+});
+</script>
+
+
+    
+
+</body>
+</html>
