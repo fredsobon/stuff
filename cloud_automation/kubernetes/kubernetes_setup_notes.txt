@@ -14,6 +14,14 @@ Attention ajout du repo sid nécéssaire pour debian stretch
 root@kube1:/etc/apt/sources.list.d# apt install -t sid flannel
 
 
+========================================
+
+addressage réseau
+
+Infrastructure network: 192.168.0.0/24      <<<< infra physique
+Service Network: 10.254.0.0/24              <<<< couche addressage kuberenetes : gestion interne cluster
+Pod Network (Cluster CIDR): 10.0.0.0/16   <<<< couche adressage containers : gérés par cni ex : flannel
+
 
 = gestion des certificats ssl =
 
@@ -21,8 +29,8 @@ Toutes les connexions vont devoir etre maitrisées
 on va devoir par securité créer 2 CA ( authorité de certification) : 
 kube CA
 Etcd CA
-
-il faut en effet préserver l'acces aux données Etcd par n'importe quel user.
+>>> il faut en effet préserver l'acces aux données Etcd par n'importe quel user.
+Le premier certificat créé après la CA doit utiliser l'argument "-CAcreateserial" : cela servira a incrémenter un compteur pour verifier le nombre de fois ou un certif est créee et signer par CA
 
 Certains certifs seront uniques : "cluster"
 la plupart seront à créer par node
@@ -30,6 +38,7 @@ la plupart seront à créer par node
 Kube CA :
 Autorité de certification utilisée pour signer les certificats pour les communications purement Kubernetes (kubelet => kube-apiserver, user
 (kubectl) => kube-apiserver, kube-apiserver => kubelet, ...)
+
 
 
 - generation Kube CA :
@@ -90,7 +99,7 @@ DNS.4 = kubernetes.default.svc.cluster
 DNS.5 = kubernetes.default.svc.cluster.local
 DNS.6 = k8-master1.localhost.net
 DNS.7 = k8-master1.localhost.net
-IP.1 = 10.0.0.1
+IP.1 = 10.254.0.1
 IP.2 = 10.10.0.1
 [ v3_ext ]
 authorityKeyIdentifier=keyid,issuer:always
