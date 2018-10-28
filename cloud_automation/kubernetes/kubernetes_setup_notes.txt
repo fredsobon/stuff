@@ -30,6 +30,15 @@ Pod Network (Cluster CIDR): 10.0.0.0/16   <<<< couche adressage containers : gé
 
 = gestion des certificats ssl =
 
+liens :
+
+https://kubernetes.io/docs/concepts/cluster-administration/certificates/
+https://jvns.ca/blog/2017/08/05/how-kubernetes-certificates-work/
+https://nixaid.com/deploying-kubernetes-cluster-from-scratch/œ:x
+
+
+
+
 Toutes les connexions vont devoir etre maitrisées 
 on va devoir par securité créer 2 CA ( authorité de certification) : 
 kube CA
@@ -46,7 +55,9 @@ Autorité de certification utilisée pour signer les certificats pour les commun
 
 
 
-- generation Kube CA :
+== Kube CA :
+
+generation kube CA : 
 
 root@kube1:~# openssl genrsa -out ca.key 2048
 Generating RSA private key, 2048 bit long modulus (2 primes)
@@ -56,28 +67,15 @@ e is 65537 (0x010001)
 root@kube1:~# ls
 ca.key
 
-root@k8-master1:~# openssl req -x509 -new -nodes -key ca.key -sha256 -days 3650 -out ca.crt
-Can't load /root/.rnd into RNG
-140287228879296:error:2406F079:random number generator:RAND_load_file:Cannot open file:../crypto/rand/randfile.c:88:Filename=/root/.rnd
-You are about to be asked to enter information that will be incorporated
-into your certificate request.
-What you are about to enter is what is called a Distinguished Name or a DN.
-There are quite a few fields but you can leave some blank
-For some fields there will be a default value,
-If you enter '.', the field will be left blank.
------
-Country Name (2 letter code) [AU]:FR
-State or Province Name (full name) [Some-State]:paris
-Locality Name (eg, city) []:paris
-Organization Name (eg, company) [Internet Widgits Pty Ltd]:boogie
-Organizational Unit Name (eg, section) []:it
-Common Name (e.g. server FQDN or YOUR name) []:k8-master1.localhost.net
-Email Address []:boogie@localhost.net
+
+Attention le premier certificat qu'on va signer devra comporter l'option :
+"-CAcreateserial" : c'est un mecanisme qui va mettre un compteur sur les signaturesde certificats par CA. Un fichier ca.srl est crée automatiquement et va comporter un hash servant de compteur .
 
 
 
 
-- Creation du certificat apiserver : certif qui est donné par le master aux clients quand ils se connectent à lui : il y a un certif par master : 
+= Master :
+Creation du certificat apiserver : certif qui est donné par le master aux clients quand ils se connectent à lui : il y a un certif par master : 
 
 
 root@k8-master1:~# cat k8-master1.localhost.net_apiserver.conf 
@@ -104,8 +102,8 @@ DNS.4 = kubernetes.default.svc.cluster
 DNS.5 = kubernetes.default.svc.cluster.local
 DNS.6 = k8-master1.localhost.net
 DNS.7 = k8-master1.localhost.net
-IP.1 = 10.254.0.1
-IP.2 = 10.10.0.1
+IP.1 = 192.168.0.81    <<< ici on renseigne l'ip de notre host ( à verifier ..) 
+IP.2 = 192.168.0.90    <<< on met ici la vip de notre cluster k8
 [ v3_ext ]
 authorityKeyIdentifier=keyid,issuer:always
 basicConstraints=CA:FALSE
@@ -116,24 +114,593 @@ subjectAltName=@alt_names
 
 
 root@k8-master1:~# host=k8-master1.localhost.net
-root@k8-master1:/etc/pki/openssl# openssl req -out ${host}_apiserver.csr -newkey rsa:2048 -nodes -keyout ${host}_apiserver.key -config ${host}_apiserver.conf
-Generating a RSA private key
-...................................................+++++
-...................................................................+++++
-writing new private key to 'k8-master1.localhost.net_apiserver.key'
 
-root@k8-master1:/etc/pki/openssl# openssl x509 -req -in ${host}_apiserver.csr -CA ca.crt -CAkey ca.key -out ${host}_apiserver.crt -days 3650 -extfile ${host}_apiserver.conf -extensions v3_ext
+
+root@k8-master1:/etc/pki# openssl req -out ${host}_apiserver.csr -newkey rsa:2048 -nodes -keyout ${host}_apiserver.key -config ${host}_apiserver.conf
+
+root@k8-master1:/etc/pki#  openssl x509 -req -in ${host}_apiserver.csr -CA ca.crt -CAkey ca.key -out ${host}_apiserver.crt -days 3650 -extfile ${host}_apiserver.conf -extensions v3_ext -CAcreateserial
 Signature ok
-subject=C = FR, ST = paris, L = paris, O = boogie, OU = it, CN = Kube API server k8-master1.localhost.net
+subject=C = FR, ST = paris, L = paris, O = boogieland, OU = it, CN = Kube API server k8-master1.localhost.net
 Getting CA Private Key
-ca.srl: No such file or directory
-139631128424896:error:06067099:digital envelope routines:EVP_PKEY_copy_parameters:different parameters:../crypto/evp/p_lib.c:93:
-139631128424896:error:02001002:system library:fopen:No such file or directory:../crypto/bio/bss_file.c:72:fopen('ca.srl','r')
-139631128424896:error:2006D080:BIO routines:BIO_new_file:no such file:../crypto/bio/bss_file.c:79:
-root@k8-master1:/etc/pki/openssl# ls
-ca.crt           k8-master1.localhost.net_apiserver.crt
-ca.key           k8-master1.localhost.net_apiserver.csr
-k8-master1.localhost.net     k8-master1.localhost.net_apiserver.key
-k8-master1.localhost.net_apiserver.conf
-root@k8-master1:/etc/pki/openssl# 
+
+on a à l'issu de ces manips plusieurs fichiers dans notre repertoire :
+
+- les fichiers de notre ca : 
+ca.crt / ca.key / ca.srl
+
+- les fichiers propres au certif de notre server : 
+k8-master1.localhost.net_apiserver.conf 
+k8-master1.localhost.net_apiserver.csr
+k8-master1.localhost.net_apiserver.key
+k8-master1.localhost.net_apiserver.crt
+
+root@k8-master1:/etc/pki# ls
+ca.crt  ca.srl           k8-master1.localhost.net_apiserver.crt  k8-master1.localhost.net_apiserver.key
+ca.key  k8-master1.localhost.net_apiserver.conf  k8-master1.localhost.net_apiserver.csr
+
+on procede aux mêmes operations (declaration de variable, renseigne les fichiers de conf puis reation csr et crt ) pour les  masters
+
+host=k8-master2.localhost.net
+ vi k8-master2.localhost.net_apiserver.conf
+ root@k8-master1:/etc/pki# openssl req -out ${host}_apiserver.csr -newkey rsa:2048 -nodes -keyout ${host}_apiserver.key -config ${host}_apiserver.conf
+ root@k8-master1:/etc/pki# openssl x509 -req -in ${host}_apiserver.csr -CA ca.crt -CAkey ca.key -out ${host}_apiserver.crt -days 3650 -extfile ${host}_apiserver.conf -extensions v3_ext
+
+
+- creation du certif unique pour les client kubelet api : 
+Certificat client utilisé par les API server pour s'adresser aux kubelet. Ce certificat est commun aux API server
+
+
+root@k8-master1:/etc/pki# cat apiserver_kubelet_client.conf
+[ req ]
+default_bits = 2048
+prompt = no
+default_md = sha256
+distinguished_name = dn
+
+[ dn ]
+C = FR
+ST = paris
+L = paris
+O = boogieland
+OU = it
+CN = apiserver:kubelet-client
+
+[ v3_ext ]
+authorityKeyIdentifier=keyid,issuer:always
+basicConstraints=CA:FALSE
+keyUsage=keyEncipherment,dataEncipherment
+extendedKeyUsage=clientAuth
+
+
+root@k8-master1:/etc/pki#  openssl req -out apiserver_kubelet_client.csr -newkey rsa:2048 -nodes -keyout apiserver_kubelet_client.key -config apiserver_kubelet_client.conf
+Generating a RSA private key
+..............+++++
+...................................................+++++
+writing new private key to 'apiserver_kubelet_client.key'
+-----
+
+root@k8-master1:/etc/pki# openssl x509 -req -in apiserver_kubelet_client.csr -CA ca.crt -CAkey ca.key -out apiserver_kubelet_client.crt -days 3650 -extfile apiserver_kubelet_client.conf -extensions v3_ext
+Signature ok
+subject=C = FR, ST = paris, L = paris, O = boogieland, OU = it, CN = apiserver:kubelet-client
+Getting CA Private Key
+
+
+-  Kubernetes Scheduler - API server client
+Certificat client utilisé par kube-scheduler pour s'adresser aux API servers. Ce certificat est commun.
+
+root@k8-master1:/etc/pki# cat kube-scheduler_client.conf
+[ req ]
+default_bits = 2048
+prompt = no
+default_md = sha256
+distinguished_name = dn
+[ dn ]
+C = FR
+ST = paris
+L = paris
+O = boogieland
+OU = it
+CN = system:kube-scheduler
+[ v3_ext ]
+authorityKeyIdentifier=keyid,issuer:always
+basicConstraints=CA:FALSE
+keyUsage=keyEncipherment,dataEncipherment
+extendedKeyUsage=clientAuth
+
+
+root@k8-master1:/etc/pki# openssl req -out kube-scheduler_client.csr -newkey rsa:2048 -nodes -keyout kube-scheduler_client.key -config kube-scheduler_client.conf
+Generating a RSA private key
+.............................................................................................+++++
+.......+++++
+writing new private key to 'kube-scheduler_client.key'
+-----
+root@k8-master1:/etc/pki#  openssl x509 -req -in kube-scheduler_client.csr -CA ca.crt -CAkey ca.key -out kube-scheduler_client.crt -days 3650 -extfile kube-scheduler_client.conf -extensions v3_ext
+Signature ok
+subject=C = FR, ST = paris, L = paris, O = boogieland, OU = it, CN = system:kube-scheduler
+Getting CA Private Key
+
+-  Kubernetes Controller-Manager - API server client
+Certificat client utilisé par kube-controller-manager pour s'adresser aux API servers. Ce certificat est commun.
+
+root@k8-master1:/etc/pki#  cat kube-controller-manager_client.conf
+[ req ]
+default_bits = 2048
+prompt = no
+default_md = sha256
+distinguished_name = dn
+[ dn ]
+C = FR
+ST = paris
+L = paris
+O = boogieland
+OU = it
+CN = system:kube-controller-manager
+[ v3_ext ]
+authorityKeyIdentifier=keyid,issuer:always
+basicConstraints=CA:FALSE
+keyUsage=keyEncipherment,dataEncipherment
+extendedKeyUsage=clientAuth
+
+root@k8-master1:/etc/pki#  openssl req -out kube-controller-manager_client.csr -newkey rsa:2048 -nodes -keyout kube-controller-manager_client.key -config kube-controller-manager_client.conf
+Generating a RSA private key
+....................+++++
+............................................................................................+++++
+writing new private key to 'kube-controller-manager_client.key'
+-----
+root@k8-master1:/etc/pki#  openssl x509 -req -in kube-controller-manager_client.csr -CA ca.crt -CAkey ca.key -out kube-controller-manager_client.crt -days 3650 -extfile kube-controller-manager_client.conf -extensions v3_ext
+Signature ok
+subject=C = FR, ST = paris, L = paris, O = boogieland, OU = it, CN = system:kube-controller-manager
+Getting CA Private Key
+
+
+= Nodes :
+
+(###) Kubelet - Server
+Certificat serveur des kubelets. C'est le certificat que fournit un kubelet lorsque l'ont s'adresse à lui. Il y en a un par "node".
+
+
+
+t@k8-master1:/etc/pki/nodes# host=k8-node1.localhost.net
+root@k8-master1:/etc/pki/nodes# vim ${host}_kubelet_server.conf
+root@k8-master1:/etc/pki/nodes# cat ${host}_kubelet_server.conf
+[ req ]
+default_bits = 2048
+prompt = no
+default_md = sha256
+req_extensions = req_ext
+distinguished_name = dn
+[ dn ]
+C = FR
+ST = paris
+L = paris
+O = boogieland
+OU = it
+CN =  Kube kubelet server k8-node1.localhost.net
+[ req_ext ]
+subjectAltName = @alt_names
+[ alt_names ]
+DNS.1 = k8-node1
+DNS.2 = k8-node1.localhost.net
+# IP address ip required for Heapster which uses IP address to connect to Kubelet servers
+IP.1 = 192.168.0.83
+[ v3_ext ]
+authorityKeyIdentifier=keyid,issuer:always
+basicConstraints=CA:FALSE
+keyUsage=keyEncipherment,dataEncipherment
+extendedKeyUsage=serverAuth
+subjectAltName=@alt_names
+
+root@k8-master1:/etc/pki# openssl req -out ${host}_kubelet_server.csr -newkey rsa:2048 -nodes -keyout ${host}_kubelet_server.key -config ${host}_kubelet_server.conf 
+Generating a RSA private key
+..............................................+++++
+.............+++++
+writing new private key to 'k8-node1.localhost.net_kubelet_server.key'
+-----
+
+root@k8-master1:/etc/pki# openssl x509 -req -in ${host}_kubelet_server.csr -CA ca.crt -CAkey ca.key -out ${host}_kubelet_server.crt -days 3650 -extfile ${host}_kubelet_server.conf -extensions v3_ext
+Signature ok
+subject=C = FR, ST = paris, L = paris, O = boogieland, OU = it, CN = Kube kubelet server k8-node1.localhost.net
+Getting CA Private Key
+
+on repete l'operation pour le second node en adaptant la config 
+
+vi k8-node2.localhost.net_kubelet_server.conf
+root@k8-master1:/etc/pki# host=k8-node2.localhost.net
+root@k8-master1:/etc/pki# openssl req -out ${host}_kubelet_server.csr -newkey rsa:2048 -nodes -keyout ${host}_kubelet_server.key -config ${host}_kubelet_server.conf 
+Generating a RSA private key
+......................................................+++++
+..................................................................................................................+++++
+writing new private key to 'k8-node2.localhost.net_kubelet_server.key'
+-----
+root@k8-master1:/etc/pki# openssl x509 -req -in ${host}_kubelet_server.csr -CA ca.crt -CAkey ca.key -out ${host}_kubelet_server.crt -days 3650 -extfile ${host}_kubelet_server.conf -extensions v3_ext
+Signature ok
+subject=C = FR, ST = paris, L = paris, O = boogieland, OU = it, CN = Kube kubelet server k8-node2.localhost
+Getting CA Private Key
+
+
+- Kubelet - API server client
+Certificats client utilisés par les kubelet pour s'adresser aux API servers. Il y en a un par node.
+
+
+root@k8-master1:/etc/pki# host=k8-node1.localhost.netroot@k8-master1:/etc/pki#  vim ${host}_kubelet_client.conf
+root@k8-master1:/etc/pki#  cat ${host}_kubelet_client.conf
+[ req ]
+default_bits = 2048
+prompt = no
+default_md = sha256
+req_extensions = req_ext
+distinguished_name = dn
+[ dn ]
+C = FR
+ST = paris
+L = paris
+O = boogieland
+O = system:nodes
+CN = system:node:k8-node1.localhost.net
+[ req_ext ]
+subjectAltName = @alt_names
+[ alt_names ]
+DNS.1 = k8-node1
+DNS.2 = k8-node1.localhost.net
+[ v3_ext ]
+authorityKeyIdentifier=keyid,issuer:always
+basicConstraints=CA:FALSE
+keyUsage=keyEncipherment,dataEncipherment
+extendedKeyUsage=clientAuth
+subjectAltName=@alt_names
+
+root@k8-master1:/etc/pki# openssl req -out ${host}_kubelet_client.csr -newkey rsa:2048 -nodes -keyout ${host}_kubelet_client.key -config ${host}_kubelet_client.conf 
+Generating a RSA private key
+....................+++++
+.........................................................................+++++
+writing new private key to 'k8-node1.localhost.net_kubelet_client.key'
+-----
+root@k8-master1:/etc/pki#  openssl x509 -req -in ${host}_kubelet_client.csr -CA ca.crt -CAkey ca.key -out ${host}_kubelet_client.crt -days 3650 -extfile ${host}_kubelet_client.conf -extensions v3_ext
+Signature ok
+subject=C = FR, ST = paris, L = paris, O = system:nodes, CN = system:node:k8-node1.localhost.net
+
+
+on reproduit la conf en adaptant pour le second node 
+root@k8-master1:/etc/pki# cp k8-node1.localhost.net_kubelet_client.conf k8-node2.localhost.net_kubelet_client.conf
+root@k8-master1:/etc/pki# host=k8-node2.localhost.net
+root@k8-master1:/etc/pki#  vim ${host}_kubelet_client.confroot@k8-master1:/etc/pki# openssl req -out ${host}_kubelet_client.csr -newkey rsa:2048 -nodes -keyout ${host}_kubelet_client.key -config ${host}_kubelet_client.conf Generating a RSA private key
+..................................+++++
+...................................................................................................+++++
+writing new private key to 'k8-node2.localhost.net_kubelet_client.key'
+-----
+root@k8-master1:/etc/pki#  openssl x509 -req -in ${host}_kubelet_client.csr -CA ca.crt -CAkey ca.key -out ${host}_kubelet_client.crt -days 3650 -extfile ${host}_kubelet_client.conf -extensions v3_ext
+Signature ok
+subject=C = FR, ST = paris, L = paris, O = system:nodes, CN = system:node:k8-node2.localhost.net
+Getting CA Private Key
+
+= Kube-proxy - API server client
+Certificats client utilisés par les kube-proxy pour s'adresser aux API servers. Ce certificat est commun
+
+
+
+root@k8-master1:/etc/pki# cat kube-proxy_client.conf
+[ req ]
+default_bits = 2048
+prompt = no
+default_md = sha256
+distinguished_name = dn
+[ dn ]
+C = FR
+ST = paris
+L = paris
+O = boogieland
+OU = it
+CN = system:kube-proxy
+[ v3_ext ]
+authorityKeyIdentifier=keyid,issuer:always
+basicConstraints=CA:FALSE
+keyUsage=keyEncipherment,dataEncipherment
+extendedKeyUsage=clientAuth
+
+
+
+root@k8-master1:/etc/pki# openssl req -out kube-proxy_client.csr -newkey rsa:2048 -nodes -keyout kube-proxy_client.key -config kube-proxy_client.conf 
+Generating a RSA private key
+....+++++
+....................................................................................................+++++
+writing new private key to 'kube-proxy_client.key'
+-----
+root@k8-master1:/etc/pki# openssl x509 -req -in  kube-proxy_client.csr -CA ca.crt -CAkey ca.key -out kube-proxy_client.crt -days 3650 -extfile kube-proxy_client.conf -extensions v3_ext
+Signature ok
+subject=C = FR, ST = paris, L = paris, O = boogieland, OU = it, CN = system:kube-proxy
+Getting CA Private Key
+
+= Autres
+
+- Authenticating reverse proxy
+Certificat client utilisé par le reverse proxy authentifiant pour s'adresser aux API servers
+
+vi reverse_proxy.conf
+[ req ]
+default_bits = 2048
+prompt = no
+default_md = sha256
+distinguished_name = dn
+[ dn ]
+C = FR
+ST = paris
+L = paris
+O = boogieland
+OU = it
+CN = reverse-proxy
+[ v3_ext ]
+authorityKeyIdentifier=keyid,issuer:always
+basicConstraints=CA:FALSE
+keyUsage=keyEncipherment,dataEncipherment
+extendedKeyUsage=clientAuth
+
+root@k8-master1:/etc/pki#  openssl req -out reverse_proxy.csr -newkey rsa:2048 -nodes -keyout reverse_proxy.key -config reverse_proxy.conf 
+Generating a RSA private key
+.......................................................+++++
+....................+++++
+writing new private key to 'reverse_proxy.key'
+-----
+root@k8-master1:/etc/pki#  openssl x509 -req -in reverse_proxy.csr -CA ca.crt -CAkey ca.key -out reverse_proxy.crt -days 3650 -extfile reverse_proxy.conf -extensions v3_ext
+Signature ok
+subject=C = FR, ST = paris, L = paris, O = boogieland, OU = it, CN = reverse-proxy
+Getting CA Private Key
+
+
+Apache HTTPd nécessite d'avoir la clé (RSA) et le certificat dans un même fichier. Il faut donc générer ce fichier avec les commandes suivantes: 
+
+root@k8-master1:/etc/pki#  openssl rsa -in reverse_proxy.key -out reverse_proxy_rsa.key 
+writing RSA key
+root@k8-master1:/etc/pki# cat reverse_proxy.crt reverse_proxy_rsa.key > reverse_proxy.pem
+
+- Grafana : 
+
+Certificat client utilisé par Grafana (Kubernetes app/plugin) pour s'adresser aux API servers.
+
+root@k8-master1:/etc/pki# cat grafana.conf
+[ req ]
+default_bits = 2048
+prompt = no
+default_md = sha256
+distinguished_name = dn
+[ dn ]
+C = FR
+ST = paris
+L = paris
+O = boogieland
+OU = it
+CN = grafana
+[ v3_ext ]
+authorityKeyIdentifier=keyid,issuer:always
+basicConstraints=CA:FALSE
+keyUsage=keyEncipherment,dataEncipherment
+extendedKeyUsage=clientAuth
+
+root@k8-master1:/etc/pki#  openssl req -out grafana.csr -newkey rsa:2048 -nodes -keyout grafana.key -config grafana.conf
+Generating a RSA private key
+............................................+++++
+...................................................................................................................................................................................................................+++++
+writing new private key to 'grafana.key'
+-----
+root@k8-master1:/etc/pki#  openssl x509 -req -in grafana.csr -CA ca.crt -CAkey ca.key -out grafana.crt -days 3650 -extfile grafana.conf -extensions v3_ext
+Signature ok
+subject=C = FR, ST = paris, L = paris, O = boogieland, OU = it, CN = grafana
+Getting CA Private Key
+
+- User :
+
+Certificats client des utilisateurs, utilisés pour accéder directement aux API servers. Il y en a un par utilisateur.
+
+des conf user /group peuvent être settés par exemple dans un AD, des acl hiera etc ....
+
+root@k8-master1:/etc/pki# user=boogie
+root@k8-master1:/etc/pki# group=admin
+
+root@k8-master1:/etc/pki# openssl req -out user_${user}.csr -newkey rsa:2048 -nodes -keyout user_${user}.key -subj "/CN=${user}/O=${group}"
+Can't load /root/.rnd into RNG
+139990095888832:error:2406F079:random number generator:RAND_load_file:Cannot open file:../crypto/rand/randfile.c:88:Filename=/root/.rnd
+Generating a RSA private key
+...................................................................+++++
+.......+++++
+writing new private key to 'user_boogie.key'
+-----
+root@k8-master1:/etc/pki#  openssl x509 -req -in user_${user}.csr -CA ca.crt -CAkey ca.key -out user_${user}.crt -days 3650
+Signature ok
+subject=CN = boogie, O = admin
+Getting CA Private Key
+
+
+addon : 
+
+How to get BASE64 encoded key and certificate for kubeconfig file (~/.kube/config => client-key-data and client-certificate-data
+
+$ base64 user_${user}.key| xargs -n1 echo -en
+$ base64 user_${user}.crt| xargs -n1 echo -en
+
+
+== ETCd CA :
+
+= generation CA ETCd : 
+
+root@k8-master1:/etc/pki#  openssl genrsa -out etcd_ca.key 2048
+Generating RSA private key, 2048 bit long modulus (2 primes)
+...........+++++
+...................................................+++++
+e is 65537 (0x010001)
+root@k8-master1:/etc/pki#  openssl req -x509 -new -nodes -key etcd_ca.key -sha256 -days 3650 -out etcd_ca.crt
+Can't load /root/.rnd into RNG
+140670612689344:error:2406F079:random number generator:RAND_load_file:Cannot open file:../crypto/rand/randfile.c:88:Filename=/root/.rnd
+You are about to be asked to enter information that will be incorporated
+into your certificate request.
+What you are about to enter is what is called a Distinguished Name or a DN.
+There are quite a few fields but you can leave some blank
+For some fields there will be a default value,
+If you enter '.', the field will be left blank.
+-----
+Country Name (2 letter code) [AU]:FR
+State or Province Name (full name) [Some-State]:paris
+Locality Name (eg, city) []:paris
+Organization Name (eg, company) [Internet Widgits Pty Ltd]:boogieland
+Organizational Unit Name (eg, section) []:it
+Common Name (e.g. server FQDN or YOUR name) []:Kube ETCd CA
+Email Address Email Address []:
+
+
+- ETCd servers
+ETCd server
+Certificat serveur des serveurs ETCd. Ce sont les certificat fournis par les serveur ETCd lorsque l'on s'adresse à eux en tant que client (kube-apis
+erver => etcd, flannel => etcd, etcdctl => etcd, ...). Il y a en a un par serveur ETCd
+
+Dans notre config les serveurs ETCd sont hébergés sur les "master" on va donc indiqués ces nodes dans les confs . Il est biensur possible de mettre les etcd sur des servers independants : 
+
+
+
+
+
+root@k8-master1:/etc/pki# openssl req -out ${host}_etcd_server.csr -newkey rsa:2048 -nodes -keyout ${host}_etcd_server.key -config ${host}_etcd_server.confGenerating a RSA private key
+...............................................................+++++
+.............................................................+++++
+writing new private key to 'k8-master1.localhost.net_etcd_server.key'
+-----
+
+
+Attention : on ajoutera bien l'option : -CAcreateserial pour la signature de notre premier certif de la CA (sinon une erreur ) 
+root@k8-master1:/etc/pki#  openssl x509 -req -in ${host}_etcd_server.csr -CA etcd_ca.crt -CAkey etcd_ca.key -out ${host}_etcd_server.crt -days 3650 -extfile ${host}_etcd_server.conf -extensions v3_ext -CAcreateserial
+Signature ok
+subject=C = FR, ST = paris, L = paris, O = boogieland, OU = it, CN = ETCd server k8-master1.localhost.net
+Getting CA Private Key
+
+
+on génere la conf pour le second noeud en modifiant les infos : 
+
+root@k8-master1:/etc/pki# cp k8-master1.localhost.net_etcd_server.conf k8-master2.localhost.net_etcd_server.conf
+root@k8-master1:/etc/pki# vi k8-master2.localhost.net_etcd_server.conf
+root@k8-master1:/etc/pki# host=k8-master2.localhost.net
+root@k8-master1:/etc/pki# openssl req -out ${host}_etcd_server.csr -newkey rsa:2048 -nodes -keyout ${host}_etcd_server.key -config ${host}_etcd_server.confGenerating a RSA private key
+.......+++++
+.....................................................+++++
+writing new private key to 'k8-master2.localhost.net_etcd_server.key'
+-----
+root@k8-master1:/etc/pki#  openssl x509 -req -in ${host}_etcd_server.csr -CA etcd_ca.crt -CAkey etcd_ca.key -out ${host}_etcd_server.crt -days 3650 -extfile ${host}_etcd_server.conf -extensions v3_ext 
+Signature ok
+subject=C = FR, ST = paris, L = paris, O = boogieland, OU = it, CN = ETCd server k8-master2.localhost.net
+Getting CA Private Key
+
+
+- ETCd peer
+Certificat serveur et client des serveurs ETCd. Ces certificats sont utilisés à la fois en tant que certificat serveur et en tant que certificat client lors
+des communications entre serveurs ETCd (etcd <=> etcd). Il y en a un par serveur ETCd
+
+
+
+t@k8-master1:/etc/pki# host=k8-master1.localhost.netroot@k8-master1:/etc/pki# vim ${host}_etcd_peer.conf
+root@k8-master1:/etc/pki# cat ${host}_etcd_peer.conf
+[ req ]
+default_bits = 2048
+prompt = no
+default_md = sha256
+req_extensions = req_ext
+distinguished_name = dn
+[ dn ]
+C = FR
+ST = paris
+L = paris
+O = boogieland
+OU = it
+CN =  Kube ETCd peer k8-master1.localhost.net
+[ req_ext ]
+subjectAltName = @alt_names
+[ alt_names ]
+DNS.1 = k8-master1.localhost.net
+DNS.2 = k8-master1.localhost.net
+[ v3_ext ]
+authorityKeyIdentifier=keyid,issuer:always
+basicConstraints=CA:FALSE
+keyUsage=keyEncipherment,dataEncipherment
+extendedKeyUsage=serverAuth
+
+
+root@k8-master1:/etc/pki#  openssl req -out ${host}_etcd_peer.csr -newkey rsa:2048 -nodes -keyout  ${host}_etcd_peer.key -config ${host}_etcd_peer.conf
+Generating a RSA private key
+.......................................+++++
+..................................+++++
+writing new private key to 'k8-master1.localhost.net_etcd_peer.key'
+-----
+root@k8-master1:/etc/pki# openssl x509 -req -in ${host}_etcd_peer.csr -CA etcd_ca.crt -CAkey etcd_ca.key -out ${host}_etcd_peer.crt -days 3650 -extfile ${host}_etcd_peer.conf -extensions v3_ext
+Signature ok
+subject=C = FR, ST = paris, L = paris, O = boogieland, OU = it, CN = Kube ETCd peer k8-master1.localhost.net
+Getting CA Private Key
+
+on procede a la creation du certif pour le second noeud etcd :
+
+
+root@k8-master1:/etc/pki# cp k8-master1.localhost.net_etcd_peer.conf k8-master2.localhost.net_etcd_peer.conf
+root@k8-master1:/etc/pki# host=k8-master2.localhost.net
+root@k8-master1:/etc/pki# vim ${host}_etcd_peer.conf
+root@k8-master1:/etc/pki#  openssl req -out ${host}_etcd_peer.csr -newkey rsa:2048 -nodes -keyout  ${host}_etcd_peer.key -config ${host}_etcd_peer.confGenerating a RSA private key
+.....................................+++++
+.......................+++++
+writing new private key to 'k8-master2.localhost.net_etcd_peer.key'
+-----
+root@k8-master1:/etc/pki# openssl x509 -req -in ${host}_etcd_peer.csr -CA etcd_ca.crt -CAkey etcd_ca.key -out ${host}_etcd_peer.crt -days 3650 -extfile ${host}_etcd_peer.conf -extensions v3_ext
+Signature ok
+subject=C = FR, ST = paris, L = paris, O = boogieland, OU = it, CN = Kube ETCd peer k8-master2.localhost.net
+Getting CA Private Key
+
+
+root@k8-master1:/etc/pki# vi etcd_client.conf 
+root@k8-master1:/etc/pki# openssl req -out etcd_client.csr -newkey rsa:2048 -nodes -keyout etcd_client.key -config etcd_client.conf
+Generating a RSA private key
+......................+++++
+................+++++
+writing new private key to 'etcd_client.key'
+-----
+root@k8-master1:/etc/pki#  openssl x509 -req -in etcd_client.csr -CA etcd_ca.crt -CAkey etcd_ca.key -out etcd_client.crt -days 3650 -extfile etcd_client.conf -extensions v3_ext
+Signature ok
+subject=C = FR, ST = paris, L = paris, O = boogieland, OU = it, CN = Kube ETCd client
+Getting CA Private Key
+
+- ETCd clients
+ETCd client
+Certificat client utilisé pour s'adresser aux serveurs ETCd en tant que client (kube-apiserver => etcd, flannel => etcd, etcdctl => etcd, ...)
+
+root@k8-master1:/etc/pki# vi etcd_client.conf
+root@k8-master1:/etc/pki# cat etcd_client.conf
+[ req ]
+default_bits = 2048
+prompt = no
+default_md = sha256
+req_extensions = req_ext
+distinguished_name = dn
+[ dn ]
+C = FR
+ST = paris
+L = paris
+O = boogieland
+OU = it
+CN = Kube ETCd client
+[ req_ext ]   <<<<<< ici on rajoute une section "bidon" car bug sinon dans la génération du certif : on ajoute des altnames ..
+subjectAltName = @alt_names
+[ alt_names ]
+DNS.1 = etcd-client
+DNS.2 = etcd-client.localhost.net
+[ v3_ext ]
+authorityKeyIdentifier=keyid,issuer:always
+basicConstraints=CA:FALSE
+keyUsage=keyEncipherment,dataEncipherment
+extendedKeyUsage=serverAuth,clientAuth
+
+
+= Kubernetes Service Account key
+Il ne s'agit pas d'un certificat mais seulement d'une clé de chiffrement dont les parties privée et publique sont utilisées respectivement pour la signature (Controller manager) et la validation (API server) des tokens des Service Account.
+
+root@k8-master1:/etc/pki#  openssl genrsa -out service_account.key 2048
+Generating RSA private key, 2048 bit long modulus (2 primes)
+.................................................................................................................................................+++++
+.......+++++
+e is 65537 (0x010001)
+root@k8-master1:/etc/pki# openssl rsa -in service_account.key -pubout -out service_account.pub
+writing RSA key
+
+
+
 
