@@ -1,0 +1,116 @@
+==== notes kafka beguinner udemy ====
+
+= generalités= 
+
+systeme pour permette la gestion de flux de données.
+exemples d'utilisation :
+- message bus
+- tracking d'activité
+- recupération de métrique de differentes sources
+- consolidation de logs
+- stream processing ( avec spark par ex )
+archi distribuée, resilients ,scalable , très rapide (très peu de latence) 
+
+= topics / partitions / offsets : =
+
+- topics : est la base de kafka.
+-> c'est une flux de données ( similaire a une table en bdd )
+-> il est identifié par son nom 
+-> nombre de topic illimité
+les topics sont  découpés en partitions 
+
+- partitions :
+conteneur pour topics
+ex : 
+1 topic est découpé en trois partitions 
+Chaque  partition est ordonnées
+chaque  message arrivant dans une partition ont un id incrementés : c'est un offset
+Chaque offset n'a un sens que pour sa propre partition.
+
+on defini le nombre de partition d'un topic à sa creation
+
+L'ordre est garanti uniquement au sein de la même partition.
+
+Les données dans kafka on une durée de vie limitée ( de base un message est conservé 1 semaine )
+Dès qu'une data est ecrite on ne peut pas la modifier : c'est l'immutabilité.
+Les données sont assignées aléatoirement à une partition. Sauf si une clé est fournie.
+
+
+= brokers =
+
+-> les brokers sont les endroits ou sont stockées les partitions des topics. On a régulièrement des clusters de brokers
+-> Chaque broker est identifié par un id : obigatoirement un nombre.
+-> chaque broker contient uniquement certaines partitions de topics.
+
+Une fois connecté à un broker : on est automatiquement connecté à tous les noeuds du cluster.
+
+= topic replication facter : =
+
+-> les topics doivent avoir un facter de replication (ex : 2 , 3 ..) : si un broker est HS on continu à disposer de la data
+ex : un topic est reparti sur deux partitions avec un facter de repliaction de 2 : le tout hebergé sur un cluster de 3 broker :
+b : broker
+p: partition
+rp : replication de topic ( donc de partition )
+
+  b1    b2    b3
+
+  p0    p1    rp1
+        rp0
+
+on a donc  2 boker qui heberge les deux partitions du topics
+on a aussi deux partition répliquées des deux partitions initiale de topic
+
+Un facter de replication de 2 : signifie donc qu'on a deux copies de données.
+Si on perd b2 : on a peut toujours servir les données depuis b1 et b3
+
+= Leader de partition : =
+
+un broker et un seul peut être à tout moment le leader d'une partition donnée.
+Seulement le leader de la parition peut recevoir et distribuer les données pour une partition.
+Les autres brokers vont juste synchroniser  les data.
+Donc chaque partition a un leader et plusieurs ISR : in-sync-replica
+
+pour reprendre notre exemple 
+pour un topic de deux paritions avec un facter de replication de 2 :
+broker 1 est Leader de partition p0
+la replication de cette partition est faite sur broker2 qui est donc ISR de partition 0
+idem broker2 est leader pour la partition 1 qui est répliquee sur broker 3 qui est donc isr de celle ci 
+
+  b1    b2    b3
+
+ L p0    L p1    I rp1
+         I rp0
+
+Si on pert un broker leader d'une partition alors une élection à lieu et ici si on perd b1 alors b2 deviendra leader sur p0
+
+les synchros, elections sont faites par zookeeper.
+
+
+=  producers : =
+
+les producers ecrivent des messages dans des topics ( constitués de partitions.)
+ils savent automatiquement vers quels brokers et partitions ils doivent ecrire.
+En cas de panne d'un broker , le producer sait contourner le souci
+
+                         b1 partition1 :  012345...
+producer --> messages    b2 partition2 :  012345678...
+                         b3 partition0 :  012...
+la charge est repartie sur tous les brokers  grace au partitionnement 
+
+Le producer peut choisir de recevoir le ack de la transaction d'ecriture ou pas 
+
+acks=0 : pas de ack attendu avant d'emmettre un nouveau messages. Des données peuvent être perdues.
+acks=1 : on va attendre le ack d'un leader.
+acks=all : on attend de recevoir le ack de tout le monde : leader et isr ( pas de perte de données.)
+
+les producers peuvent choisir d'emettre une clé avec leur messages ( string, number ...)
+
+si la clé est nulle alors les messages sont envoyés en round robin sur les brokers
+key=null : round robin
+si une clé est définie : tous les messages pour cette clé iront sur la même partition : c'est capital dans le cas ou l'ordre des messages est important pour un champ particulier par exemple.
+
+= consumers / consumers group =
+
+
+
+         
