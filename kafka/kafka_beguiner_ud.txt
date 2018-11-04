@@ -223,4 +223,154 @@ source system   ->      producers        ->          kafka cluster              
 
 === cluster set up ===                                                           
 
+box vagrant pour lab : 
+vagrant init ubuntu/xenial64
+vagrant up
+vagrant ssh 
+
+
+- setup : 
+
+.java8 est mandatory : 
+
+root@ubuntu-xenial:~# apt install openjdk-8-jdk
+check de version ok :
+root@ubuntu-xenial:~# java -version
+openjdk version "1.8.0_181"
+OpenJDK Runtime Environment (build 1.8.0_181-8u181-b13-1ubuntu0.16.04.1-b13)
+OpenJDK 64-Bit Server VM (build 25.181-b13, mixed mode)
+
+. download et install kafka : 
+
+https://kafka.apache.org/downloads
+
+on travaille ici sur une version 2.0
+on recupere les binaires : version 2.12.2.0.0 : kafka_2.12-2.0.0.tgz
+on place le tgz par exemple dans /opt
+
+root@ubuntu-xenial:/opt/# tar -xzvf kafka_2.12-2.0.0.tgz 
+
+t@ubuntu-xenial:/opt/# ls
+kafka_2.12-2.0.0  kafka_2.12-2.0.0.tgz
+root@ubuntu-xenial:/opt/kafka_2.12-2.0.0# ls
+bin  config  libs  LICENSE  NOTICE  site-docs
+
+on teste :
+
+root@ubuntu-xenial:/opt/kafka_2.12-2.0.0/bin# ./kafka-topics.sh 
+Create, delete, describe, or change a topic.
+Option                                   Description                            
+------                                   -----------                            
+--alter                                  Alter the number of partitions,        
+                                           replica assignment, and/or           
+                                                                                      configuration for the topic.         
+
+..on a bien une sortie console : l'installe de java et de kafka est ok.
+
+on va créer un symlik kafka et ajouter le repertoire des bianaires dans notre profile :
+
+root@ubuntu-xenial:/opt# ln -s kafka_2.12-2.0.0 kafka
+root@ubuntu-xenial:/opt# /opt/kafka/bin/kafka-topics.sh 
+
+root@ubuntu-xenial:~# cat ~/.profile 
+# ~/.profile: executed by Bourne-compatible login shells.
+
+if [ "$BASH" ]; then
+  if [ -f ~/.bashrc ]; then
+    . ~/.bashrc
+      fi
+      fi
+mesg n || true
+export PATH=$PATH:/opt/kafka/bin
+
+
+on a maintenant la completion pour les commandes kafka : kafka- tab :
+root@ubuntu-xenial:~# kafka-
+kafka-acls.sh                        kafka-preferred-replica-election.sh
+kafka-broker-api-versions.sh         kafka-producer-perf-test.sh
+kafka-configs.sh                     kafka-reassign-partitions.sh
+kafka-console-consumer.sh            kafka-replica-verification.sh
+kafka-console-producer.sh            kafka-run-class.sh
+kafka-consumer-groups.sh             kafka-server-start.sh
+kafka-consumer-perf-test.sh          kafka-server-stop.sh
+kafka-delegation-tokens.sh           kafka-streams-application-reset.sh
+kafka-delete-records.sh              kafka-topics.sh
+kafka-dump-log.sh                    kafka-verifiable-consumer.sh
+kafka-log-dirs.sh                    kafka-verifiable-producer.sh
+kafka-mirror-maker.sh                
+
+- set up kafka :
+
+on cree un rep data dans le kafka directory et un repertoire zookeeper dans data :
+Setting up tree (1.7.0-3) ...
+mkdir -p data/zookeeper
+root@ubuntu-xenial:/opt/kafka# tree data/
+data/
+└── zookeeper
+
+on va editer le fichier de conf zookeeper :
+et ajouter le path de nos data :
+
+root@ubuntu-xenial:/opt/kafka# cat config/zookeeper.properties 
+# the directory where the snapshot is stored.
+dataDir=/opt/kafka/data/zookeeper
+# the port at which the clients will connect
+clientPort=2181
+# disable the per-ip limit on the number of connections since this is a non-production config
+maxClientCnxns=0
+
+
+on va demarrer zookeeper :
+
+root@ubuntu-xenial:/opt/kafka# zookeeper-server-start.sh config/zookeeper.properties 
+[2018-11-04 18:01:42,680] INFO Reading configuration from: config/zookeeper.properties (org.apache.zookeeper.server.quorum.QuorumPeerConfig)
+...
+[2018-11-04 18:01:42,749] INFO binding to port 0.0.0.0/0.0.0.0:2181 (org.apache.zookeeper.server.NIOServerCnxnFactory)
+
+->> si on bind sur le port 2181 alors c'est cool.
+
+
+on créer un folder kafka dans le repertoire data 
+root@ubuntu-xenial:/opt/kafka/data# mkdir kafka
+root@ubuntu-xenial:/opt/kafka/data# ls
+kafka  zookeeper
+
+et on edite le fichier server.properties :on rempli le path de notre repertoire kafka créee :
+
+root@ubuntu-xenial:/opt/kafka# grep log.dirs config/server.properties 
+log.dirs=/opt/kafka/data/kafka
+
+
+on va demarrer kafka : Attention zookeeper doit toujours être démarré ! 
+
+root@ubuntu-xenial:/opt/kafka# kafka-server-start.sh config/server.properties
+...
+[2018-11-04 18:13:55,087] INFO Kafka commitId : 3402a8361b734732 (org.apache.kafka.common.utils.AppInfoParser)
+[2018-11-04 18:13:55,089] INFO [KafkaServer id=0] started (kafka.server.KafkaServer)
+
+on voit que tout est ok et que notre broker a un id de setté id=0
+On peut remarquer également que des fichiers ont été crées dans le repertoire data/kafka :
+
+root@ubuntu-xenial:/opt/kafka/data/kafka# ll
+total 12
+drwxr-xr-x 2 root root 4096 Nov  4 18:13 ./
+drwxr-xr-x 4 root root 4096 Nov  4 18:04 ../
+-rw-r--r-- 1 root root    0 Nov  4 18:13 cleaner-offset-checkpoint
+-rw-r--r-- 1 root root    0 Nov  4 18:13 .lock
+-rw-r--r-- 1 root root    0 Nov  4 18:13 log-start-offset-checkpoint
+-rw-r--r-- 1 root root   54 Nov  4 18:13 meta.properties
+-rw-r--r-- 1 root root    0 Nov  4 18:13 recovery-point-offset-checkpoint
+-rw-r--r-- 1 root root    0 Nov  4 18:13 replication-offset-checkpoint
+ex : 
+root@ubuntu-xenial:/opt/kafka/data/kafka# cat meta.properties 
+#
+#Sun Nov 04 18:13:54 UTC 2018
+version=0
+broker.id=0
+
+
+== kafka cli ==
+
+
+
 
