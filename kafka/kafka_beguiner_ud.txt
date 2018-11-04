@@ -111,6 +111,30 @@ si une clé est définie : tous les messages pour cette clé iront sur la même 
 
 = consumers / consumers group =
 
+les consumers lisent les data des topics
+les consumers savent depuis quel broker lire
+En cas de crash d'un broker : comme les produceurs , les consumers savent retablir la situation.
+Les data sont lues dans l'ordre au sein d'UNE même partition.
+
+   broker 1                le message est lu dans l'ordre         
+   topic A - partition0  : message 012345...      ---------->     consumer
+
+Un consumer peut lire plusieurs partitions mais c'est toujours ordonné pour chaque partition.
+Les lectures de chaque partition se font en parrallèle.
+
+consumers groups :
+afin de pouvoir lire les data de plusieurs partitions, les consumers lisent les data dans des consumer groups.
+chaque consumer dans un group de consumer lit des data exclusives à une partition donnée.
+si on a plus de consumers que de partitions alors certains consumers seront inactifs.
+              
+                topic A - p0   topic A - p1   topic A - p2   
+                  
+                                                   
+      consumer1  consumer2            consumer1  consumer2            consumer1  consumer2
+      consumer group application 1    consumer group application 2    consumer group application 3    
+
+les 3 partitions peuvent envoyer chacune les data vers chacun des group de consumers qui seront par exemple dédié chacun a une application (dashboard, logs ...)
+au sein de ces groups , chaque consumer va pouvoir recevoir les data de 1 ou plusieurs partitions.
 
 
-         
+
