@@ -135,6 +135,80 @@ si on a plus de consumers que de partitions alors certains consumers seront inac
 
 les 3 partitions peuvent envoyer chacune les data vers chacun des group de consumers qui seront par exemple dédié chacun a une application (dashboard, logs ...)
 au sein de ces groups , chaque consumer va pouvoir recevoir les data de 1 ou plusieurs partitions.
+Les consumers vont automatiquement utiliser des GroupCoordinator et des ConsumerCordinator pour affecter un consumer à une partition.
+
+Si on a 3 partitions a consommer et qu'on a un consumer-group de 4 consumers : un sera donc inactif. Cela peut être voulu au cas ou on perd un consumer le 4eme inactif sert de spare.
+
+= consumer offset =
+
+kafka enregistre les offset que chaque consumer-group est en train de lire.
+Quand un consumer a recu les data de kafka , il commit les infos et les renvoient à kafka en ecrivant dans un topic special : __consumer_offset
+Si un consumer crash, a son retour en prod, il pourra reprendre la lecture à l'endroit ou il s'est arrêté.
+
+= Delivery semantic for consumer =
+
+Les consumers vont pouvoir  choisir quand ils décident de commiter les offsets dans kafka.
+Il y a trois possibilités :
+
+-> at most once : commit de l'offset des que le message est reçu.
+si le process a un probleme : le message est perdu.
+-> al least once : ( methode préférable et plus utilisée) : commit de l'offset des que le message a été traité.
+si le process a un probleme : le message sera de nouveau lu.
+Attention : dans ce cas on peut avoir un traitement de message en double : il faut s'assurer que cela ne pose pas de probleme à nos applis.
+-> Exactly once : cette methode est gérée par kafka en interne avec l'utilisation de kafka streams api.
+pour kafka et les systems externe il faut s'asurer de l'utilisation d'un consumer indempotent : afin de ne pas avoir de duplicate en bdd par exemple.
+
+= kafka broker discovery =
+chaque broker d'un cluster est appellé un boostrap server : des qu'on etabli la connexion a un broker , on est connecté au cluster.
+chaque broker connait tous les brokers du clusters, les topics et les partitions. Les infos sont stockées en metadata.
+
+kafka client    1-> connexion + metadata request                                                broker12  broker1   broker2
+                                                       2 <-  envoie de la liste des brokers     broker3   broker4
+                                             
+                3 -> connexion possible aux brokers nécéssaires (ex :broker4 )                             
+
+= zookeeper =
+
+zookeeper gére les broker ( leur liste). 
+Il aide à l'election de leader pour les partitions
+zookeeper envoi des notifs à kafka en cas de modification ( ajout de topics, suppression de topics, ajout de broker, crash de brokers ...) 
+
+Kafka ne peut pas travailler sans zookeeper
+zookeeper par defaut travaille avec un nombre impair de servers.
+zookeeper a un leader ( qui gere les ecritures ) et des followers qui s'occupent des lectures.
+
+Les producers et consumers n'ecrivent pas dans zookeeper. Ils ecrivent dans zookeeper.
+kafka gere les metadata dans zookeeper.
+
+A partir de la version 0.10 de kafka, zookeeper ne stocke pas les offsets de consumers.
+Il est maintenant complétement isolé des producers et consumers.
+
+ z: zookeeper
+ f: followers
+ l: leader
+ b: broker
+          z1 f   <--->  z2 l <---> z3 f
+           |\           | \        \
+
+          b1 b2        b3   b4        b5 
+
+on peut avoir des nodes zookeepers séparés des brokers .
+Il est possible de faire cohabiter les deux applis sur la même machine ( c'est cependant déconseillé.)
+
+= kafka garantee =
+
+-> les messages sont ajoutés dans les topics dans l'ordre de leur envoi.
+-> les consumers lisent les messages stockés dans les topics dans l'ordre.
+-> on peut avoir une tolerance de panne grace au facteur de réplication.
+avec un facter de repli de 3 : on peut donc avoir un noeud en maintenance et un node qui crash 
+-> tant que le nombre de partition pour un topic ne change pas , la même clé sera envoyée à la même partition.
+
+
+
+
+
+
+
 
 
 
