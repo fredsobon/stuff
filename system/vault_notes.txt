@@ -1,16 +1,38 @@
 = vault notes =
-on va gérer 
+
+
+=== vault theorie : ===
+
+on va pouvoir stocker des mots de passe ou des clés dans des env applicatifs / microservices .
+Vault permettant de stocker des secrets puis les récupérer dans une application. Il est également possible d' attribuer des droits différents suivant l’application.
+Il faut savoir que Vault est juste un service permettant d’échanger des données qu’il chiffre pour les stocker, mais il ne stocke rien lui-même ! Il a donc besoin d’un backend de stockage.
+Ce backend a un rôle très important : il doit assurer la disponibilité et la résilience des données. Il doit donc vérifier lui-même ces critères.
+Vault stocke ses secrets dans la partie base clefs/valeurs de Consul.
+Pour que Vault puisse communiquer avec Consul malgré l’activation des ACL, il faut lui préciser le  token : permettant l’écriture dans la base clefs/valeurs et l’ajout de service 
+a notion de scellement dans Vault permet de protéger vos données en les rendant inaccessibles en lecture et en écriture. Par exemple, lors d’une attaque de votre application, vous pouvez sceller votre Vault et plus personne n’y aura accès, même vos applications.
+Cela implique aussi qu’un redémarrage du démon vous obligera à désceller à nouveau votre Vault. Il vous faudra désceller votre Vault pour retrouver l’état initial. Si vous utilisez Consul comme backend de stockage vous pouvez constater que le service n’est indiqué comme accessible que si le Vault est déscellé.
+
+
+
+Shematiquement : dans le cas ou les clés sont déja crées.
+
+1/ les clients identifie la clé de l'appli dont il a besoin : il interroge vault 
+2/ vault pour la coup interroge consul qui sert juste à stocker les secrets : l'id de la clé demandée par le client ainsi que le secret sont envoyés au client.
+3/ le client peut maintenant chiffrer le messages 
+4/ le clients peut maintenant envoyer le message chiffrer + l'id de la clé correspondant à une bdd ( mysql, autre )
+
+pour recupérer le messages chiffrés , l 'id de la clé servira dont à requetter la db.
 
 
 
 L'initialisation de vault chez nous va générer 3 clés :
 
  /tmp  $  ./vault init -address=http://127.0.0.1:8200
-Unseal Key 1: rTm2MhoWVPtLb9jPcnjGh62ynq4+SZShWQqF0YMLXjtC
-Unseal Key 2: VyQglqEkCchV0bnOxPmNCbW0SXwY9f4LL2tonFf+9ivk
-Unseal Key 3: zJjwQ9v3ya90WuIG5sQamNOgV3y1a/rYpkJ+E/dP2Asj
-Unseal Key 4: rDSiX9KScDxV1yjs4HiSrRd5TF+a9a6Pv72+DQ7kufi1
-Unseal Key 5: iFHzk74eqOuswuWFqR2IzSW1YNkTvibcH+/d9qYTvEX8
+Unseal Key 1: dcdfdfdfdfdfdfdfdfdfd
+Unseal Key 2: cddsdsjljskjjjkj
+Unseal Key 3: cwrdsdfkljflktlkjnnj
+Unseal Key 4: dfdfdsffplmkl
+Unseal Key 5: dfelfzefzefzf 
 Initial Root Token: de6c41ad-be7d-8405-7e2c-2b5daa586dc9
 
 Vault initialized with 5 keys and a key threshold of 3. Please
@@ -36,11 +58,7 @@ Version: 0.9.0
 High-Availability Enabled: true
 	Mode: sealed
 
-
-
 on va forcer un export pour facilier 
-
-
 export VAULT_ADDR=http://127.0.0.1:8200
 
 
@@ -160,3 +178,36 @@ En cas de plantage de serveur on aura donc a unseal les clés .
 
 on a en archi 
 un HA qui va loadbalancer vers 2 vms chacune va porter le service vault 
+
+
+
+
+
+== lecture de clé 
+
+
+[root@bla ~] # export VAULT_ADDR='https://vault-app.meetic.ilius.net:8200'
+[root@bla ~] # vault list m2m
+Key
+----
+bla-20180604120006
+bla-20180702120006
+bla-20180806120003
+bla-20180903120003
+bla-20181001120002
+bla-20181105120003
+bla-active
+bla-init
+bla-recovery-20181106
+pouetpouet
+
+[root@bla ~] # vault read m2m/bla-20170601162739
+Key               Value
+---               -----
+refresh_interval  87600h0m0s
+iv                sdsddffgdfgdfgdfgdfgdfgdfg
+key               ffddsdsdfsdfsf
+method            AES-128-CBC
+
+
+
