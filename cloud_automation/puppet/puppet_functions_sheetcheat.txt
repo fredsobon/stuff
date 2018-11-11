@@ -1,0 +1,115 @@
+===== notes fonctions puppet =====
+
+
+
+
+
+
+
+
+
+= reduce : ==
+
+va permettre depuis une collection de données, d'effectuer des opérations par etapes successives sur toutes les data :
+
+ex additionner les nombres d'une liste entre eux :
+
+# setting  a list 
+$count = [1,2,3]
+# print it :
+notice("we are setting the list : $count")
+# set a func that cath the first list member 
+#$sum = reduce($count) | $total, $i | { notice("total => $total") ; $total + $i }
+$sum = reduce($count) | $total, $i | { notice("let us print total var content => $total") ; notice("let us print i var content => $i") ; notice("..and now let us add total var + i var => $total + $i ..this gonna be record in total var ..and becomes the new value in  the loop ") ; $total + $i }
+
+notice("total is $total and i is $i")
+notice("Sum is $sum")
+
+root@ubuntu-xenial:/examples# puppet apply reduce.pp 
+Notice: Scope(Class[main]): we are setting the list : [1, 2, 3]
+Notice: Scope(Class[main]): let us print total var content => 1
+Notice: Scope(Class[main]): let us print i var content => 2
+Notice: Scope(Class[main]): ..and now let us add total var + i var => 1 + 2 ..this gonna be record in total var ..and becomes the new value in  the loop 
+Notice: Scope(Class[main]): let us print total var content => 3
+Notice: Scope(Class[main]): let us print i var content => 3
+Notice: Scope(Class[main]): ..and now let us add total var + i var => 3 + 3 ..this gonna be record in total var ..and becomes the new value in  the loop 
+Warning: Unknown variable: 'total'. (file: /examples/reduce.pp, line: 11, column: 18)
+Warning: Unknown variable: 'i'. (file: /examples/reduce.pp, line: 11, column: 34)
+Notice: Scope(Class[main]): total is  and i is 
+Notice: Scope(Class[main]): Sum is 6
+Notice: Compiled catalog for ubuntu-xenial in environment production in 0.02 seconds
+Notice: Applied catalog in 0.01 seconds
+
+
+On va pouvoir effectuer des opérations assez complexes avec reduce : 
+
+ex :construire un hash dont les données seront issues de différents niveau de merge afin des l'envoyer vers un create ressource d'un define : 
+
+
+
+   1/ on recupere d'une classe ou de hiera des conf par default qui sont des hash enregistrées dans un hash default : 
+    # define defaults params for main cluster config : 
+    $defaults = {
+      config => {
+        cluster_hosts        => $cluster_hosts,
+        clients              => $clients,
+      }
+    }
+
+  2/ on recupére de hiera un hash de clients_config : 
+    $evaluated_config = lookup("clients_config")
+
+  3/ on va builder un hash qui se nomme $instance_config qui sera le resultat de la fonction reduce : 
+  
+   on va enregistrer dans un hash les elements de evaluated_config : on enregistre dans une variable temporaire $memo les valeurs de notre hash qui elles seront le resultat du deepmerge entre le hash default,default_app_config et evaluated_config[$value[0] ( cette valeur [$value[0] est la clé de notre hash) 
+Ces valeurs seront associées a chaque tour de boucle de  reduce : on aura donc au debut : premier tour de boucle $memo qui sera vide a qui on va associer la valeur du hash de $value[0]  
+
+    # Build instance config hash with 
+    $instance_config = $evaluated_config.reduce( {} ) |$memo,$value| {
+    # define defaults params for each application  config : 
+      $default_app_config = {
+        config        => {
+          default_cluster_port => $default_cluster_port,
+          default_client_port     => $default_client_port,
+        }
+      }
+    # Merge all previous hash in the mandatory data set to be sent in $instance_config
+      $build_config = deep_merge($defaults, $default_app_config, $evaluated_config[$value[0]])
+      $memo + { $value[0] => $build_config }
+    }
+
+le resultat sera donc 
+le hash $instance_config qui est le resultat de toutes les boucles et valeurs enregistrées dans $memo + { $value[0] => $build_config apres les opérations de deepmerge 
+
+ex : aucun interet juste pour preuve de la sortie existante : 
+  $  cat bigreduce.pp 
+
+$main = {
+  conf => {
+    anim => { lapin => "kiki" },
+  }
+}
+
+$persos =  {
+   bob => { gentil => "gato"}, 
+  }
+
+$conf_perso = $persos.reduce({}) |$memo, $value| {
+  $default_perso = {
+    config => {
+      default_paysage_bob => "plage",
+      default_paysage_bebert => "montagne",
+    }
+  }  
+  $build_conf = deep_merge($main, $conf_perso, $persos[$value[0]])
+   $memo + { $value[0] => $build_conf }
+}
+#notice("main ==     => ", $main, "conf_perso ===>",  $conf_perso , "perso[$value[0]]===>", $persos[$value[0]])
+notice("here is conf_perso", $conf_perso)
+
+
+  $  puppet apply bigreduce.pp 
+Notice: Scope(Class[main]): here is conf_perso {bob => {conf => {anim => {lapin => kiki}}, gentil => gato}}
+Notice: Compiled catalog for frlde01011 in environment production in 0.04 seconds
+Notice: Applied catalog in 0.01 seconds
+
