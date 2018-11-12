@@ -4,3 +4,32 @@ Testing de comportement ci en local sur pc de build puppet :
 
 docker run -it --rm -v ${PWD}:${PWD} -v ${PWD}/../hieradata/:${PWD}/../hieradata/ -v ${PWD}/profile/spec/fixtures/private:/etc/puppet/private  -w $PWD lapin.net/puppetenv:latest /bin/sh -c "cd profile && export LANG=en_US.utf8 STRICT_VARIABLES=no && parallel_rspec --serialize-stdout spec/classes/web/init_spec.rb" ; cd -
 
+
+
+
+
+Il est possible de débrayer les specs en forcant les run incorporant une machine sur un env special de hiera :
+De base les env de prod sont pris en compte.
+
+require 'spec_helper'
+
+describe 'profile::http::nginx', type: :class do
+  context 'with defaults for prod parameters - centos7' do
+    let(:node) { 'web01' }
+    let(:params) { {} }
+    let(:facts) do
+      facts_from_meetic_centos75.merge(
+        enc_env:  'sandbox',
+        enc_loc:  'bla',
+        enc_dom:  'http',
+        enc_role: 'nginx',
+        stage: 'sandbox',
+        datacenter: 'local'
+      )
+    end
+
+    it { should compile.with_all_deps }
+  end
+
+end
+
