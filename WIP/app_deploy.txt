@@ -84,8 +84,14 @@ ansible-playbook -i inventory deploy.yml $LIMIT -e "env=$ENV project=$PROJECT ap
 
 dans notre cas on a donc : 
 
-ansible-playbook -i inventory deploy.yml -e "env=recette project=api-geoip application=scala_app 
+ansible-playbook -i inventory deploy.yml -e "env=recette (var jenkins)  project=api-geoip (var jenkins)  application=scala_app (var jenkins)  scala-snapshots/net/ilius' if (artifact_version | regex_search('SNAPSHOT')) else 'scala-releases/net/ilius' ( var applications/scala_app.yml)  $VERSION ( var jenkins ) $ADDITIONAL_VARS : tout ce qui peut être surcharger : ex dans ansible la  version scala 
 
+pour les servers cibles : 
+on voit dans le playbook :
+---
+- hosts: "{{ group | default( project ~ '_' ~ env ) }}"
+
+> dans notre cas on a donc : r=group_names'
 
 
 
@@ -110,6 +116,121 @@ cat deploy.yml
   roles:
     - ansistrano.deploy
 
+Fichiers appellés dans deploy.yml et fournissant les "vars" : 
 
+
+ cat common.yml 
+ ---
+ # Dont send anonymous stats to the www.ansistrano.com servers
+ ansistrano_allow_anonymous_stats: false
+
+ registered_version_enabled: true
+
+ # Where the get previous version
+ registered_version_rootdir: "/var/lib/jenkins/userContent"
+ registered_version_path: "{{ registered_version_rootdir }}/{{ env }}/{{ project }}"
+ registered_version_file: "{{ registered_version_path }}/version"
+
+ artifact_version: "{{ lookup('file', registered_version_file) if registered_version_enabled}}"
+
+ # Where download Artifact.
+ artifact_server: "https://artifact.meetic.ilius.net"
+ artifact_server_path: "{{ artifact_server }}/artifactory"
+ artifact_download_force_basic_auth: false
+ artifact_download_headers: ""
+ artifact_download_dir: "{{ playbook_dir }}/temp"
+ artifact_extract_dir: "{{ artifact_download_dir }}/extract"
+
+ # Default Custom Hooks
+ # At the early start, we download artifact only one time.
+ ansistrano_before_setup_tasks_file: "common/download.yml"
+ # At the very end, we log deployed version, if necessary.
+ ansistrano_after_cleanup_tasks_file: "common/register_version.yml"
+
+
+
+cat applications/scala_app.yml 
+---
+# Default Scala version
+scala_version: '2.12'
+
+# Interval after service restart
+restarting_pause: 5
+
+# Count retry for check service
+retries_count: 20
+
+# Ansible Batch Size
+serial_var: 1
+
+# User used for ssh and remote command.
+ansible_user: "releasedeployer"
+
+# Where download Artifact.
+artifact_repo_path: "{{ 'scala-snapshots/net/ilius' if (artifact_version | regex_search('SNAPSHOT')) else 'scala-releases/net/ilius' }}"
+artifact_archive_name: "{{ project }}_{{scala_version}}-{{artifact_version}}-assembly.jar"
+artifact_download_url: "{{ artifact_server_path}}/{{ artifact_repo_path }}/{{ project }}_{{scala_version}}/{{ artifact_version }}/{{ artifact_archive_name }}"
+
+# Base path to deploy to.
+ansistrano_deploy_to: "/opt/{{ project }}"
+
+ansistrano_deploy_via: "copy"
+ansistrano_deploy_from: "{{ artifact_download_dir }}/{{ artifact_archive_name }}"
+
+# Custom Hooks
+ansistrano_after_update_code_tasks_file: "applications/scala_app/symlink_jar.yml"
+ansistrano_after_symlink_tasks_file: "applications/scala_app/restart_service.yml"
+ansistrano_before_cleanup_tasks_file: "applications/scala_app/check_service.yml"
+
+# Shared Files
+ansistrano_shared_files:
+  - "{{ project }}.conf"
+
+  # Keep old release to avoid issues during switch.
+  ansistrano_keep_releases: 3
+
+
+
+
+/applications/scala_app/
+ ls
+check_service.yml  restart_service.yml  symlink_jar.yml
+
+cat check_service.yml 
+---
+- name: scala_app | check if service is up
+  uri:
+    url: "{{ healthcheck }}"
+    status_code: 200
+  register: result
+  until: result.status == 200
+  delay: 3
+  retries: "{{ retries_count }}"
+  when: (healthcheck is defined)
+
+
+
+cat restart_service.yml 
+---
+- name: scala_app | Restart service
+  command: 'sudo service {{ project }} restart'
+  args:
+    warn: false
+- name: scala_app | Wait for restarting
+  pause:
+    seconds: "{{ restarting_pause }}"
+  when: (healthcheck is undefined)
+- name: scala_app | Check service
+  command: 'sudo service {{ project }} status '
+  args:
+    warn: false
+
+cat symlink_jar.yml 
+---
+- name: photoserver | Symlink to new release jar
+  file:
+    state: link
+    path: "{{ ansistrano_release_path.stdout }}/{{ project }}.jar"
+    src: "{{ artifact_archive_name }}"
 
 
