@@ -1,0 +1,115 @@
+== appdeploy ==
+
+
+1 / jenkins :
+
+desc projet pour deployment : 
+ex : 
+
+tpl de job 
+
+'scala_app' {
+  jobRepo = 'git@gitlab.meetic.ilius.net:infra-prod/releasefactory/deploy-ansible-playbooks.git'
+  jobBranch = 'master'
+  jobScript = './deploy.sh'
+  jobViewer = 'anonymous'
+  jobBuilder = 'RLS.All.DeployCode.Backend.MOD.DG'
+  env = [ 'recette', 'prod' ]
+  application = 'scala_app'
+}
+
+'scala_app' {
+  'api-geoip' {
+    additionalVars = 'healthcheck="http://releasedeployer:releasedeployer@localhost:8080/geoip/62.23.30.94"'
+  }
+  'websocket-frontend' {}
+  'photoserver' {
+    additionalVars = 'healthcheck="http://releasedeployer:releasedeployer@localhost:8080/photo/eGQZLQ--/photo.jpg"'
+  }
+}
+
+
+Description dans jenkins ui : 
+
+
+Deploy api-geoip to recette
+
+Keep	 Jenkins Environment Variables	￼	￼
+Keep Jenkins Build Variables
+
+This project is parameterized : 
+  ARTIFACT_VERSION
+  LIMIT 
+
+	￼
+ENV=recette
+PROJECT=api-geoip
+APPLICATION=scala_app
+ADDITIONAL_VARS=healthcheck="http://releasedeployer:releasedeployer@localhost:8080/geoip/62.23.30.94"
+ES_ANNOTATION_URL=http://mvs-logdb:9200/timeline
+VERBOSE=
+ANSIBLE_FORCE_COLOR=true
+
+
+
+repos : 
+
+Git 
+git@gitlab.meetic.ilius.net:infra-prod/releasefactory/deploy-ansible-playbooks.git
+
+
+Build : 
+
+./deploy.sh
+
+
+
+=  ansible = 
+
+script de déployment utilisé par jenkins : 
+
+deploy.sh 
+
+#!/bin/bash -ex
+
+ansible-galaxy install -r requirements.yml --force
+
+VERBOSE=${VERBOSE:-""}
+[[ $ARTIFACT_VERSION ]] && VERSION="artifact_version=$ARTIFACT_VERSION"
+[[ $LIMIT ]] && LIMIT="--limit $LIMIT"
+[[ $ARTIFACT_REPO_PATH ]] && ARTIFACT_REPO_PATH="artifact_repo_path=$ARTIFACT_REPO_PATH"
+
+ansible-playbook -i inventory deploy.yml $LIMIT -e "env=$ENV project=$PROJECT application=$APPLICATION $ARTIFACT_REPO_PATH $VERSION $ADDITIONAL_VARS" $VERBOSE
+
+
+dans notre cas on a donc : 
+
+ansible-playbook -i inventory deploy.yml -e "env=recette project=api-geoip application=scala_app 
+
+
+
+
+Les infos utilisées dans le script : 
+
+fichier récupérant le "role" ansistrano : 
+ cat requirements.yml
+- name: ansistrano.deploy
+  src: https://artifact.meetic.ilius.net/artifactory/api/vcs/downloadTag/vcs-github/ansistrano/deploy/2.7.0
+  version: 2.7.0
+
+
+
+cat deploy.yml
+---
+- hosts: "{{ group | default( project ~ '_' ~ env ) }}"
+  gather_facts: false
+  serial: "{{ serial_var | default('0') }}"
+  vars_files:
+    - "common.yml"
+    - "applications/{{ application | default('symfony') }}.yml"
+  roles:
+    - ansistrano.deploy
+
+
+
+
