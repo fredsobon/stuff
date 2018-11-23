@@ -1,0 +1,82 @@
+=  Using PHP with Apache Kafka =
+
+message-brokers Kafka
+
+Previously, we got Kafka installed and running on our Debian 8 instance. Now, we will put it to use with some sample PHP applications that will produce and consume messages.
+
+- Create our First Topic
+Before we write any software, we need to create a "test" topic that our php applications will use.
+
+./bin/kafka-topics.sh \
+--create --zookeeper localhost:2181 \
+--replication-factor 1 \
+--partitions 1 \
+--topic test
+
+You can list the topics with:
+
+./bin/kafka-topics.sh \
+--list \
+--zookeeper localhost:2181
+
+I need to figure out how to send the command to create the topic from within PHP (if possible).
+
+Set up PHP
+Firstly, we need to install the Zookeeper extension for PHP.
+
+- The Producer
+
+Create a folder for our producer and navigate to within it. For the purpose of this tutorial, I have called it "producer". We then need to install the relevant PHP package that we will use to interface with Kafka through composer.
+
+cd $HOME
+mkdir producer
+cd producer
+composer require "nmred/kafka-php"
+Now we can create our PHP script to produce messages by creating a file with the following contents.
+
+setRequireAck(-1);
+$produce->setMessages('test', 0, array('test1111111'));
+$result = $produce->send();
+var_dump($result);
+Now if you execute that script, you should see the following output:
+
+array(1) {
+  ["test"]=>
+  array(1) {
+    [0]=>
+    array(2) {
+      ["errCode"]=>
+      int(0)
+      ["offset"]=>
+      int(3)
+    }
+  }
+}
+
+- The Consumer
+As before, create a folder for our consumer and navigate to within it. For the purpose of this tutorial, I have called it "consumer". We then need to install the relevant PHP package that we will use to interface with Kafka through composer.
+
+cd $HOME
+mkdir consumer
+cd consumer
+composer require "nmred/kafka-php"
+Now we can create our PHP script to consume messages by creating a file with the following contents.
+
+setGroup('testgroup');
+$consumer->setPartition('test', 0);
+$result = $consumer->fetch();
+
+foreach ($result as $topicName => $topic)
+{
+    foreach ($topic as $partId => $partition)
+    {
+        foreach ($partition as $message)
+        {
+            var_dump((string)$message);
+        }
+    }
+}
+If you execute it once after having executed the producer only once, you should see the following output:
+
+string(11) "test1111111"
+If you repeat the script again without executing the consumer, you won't get any output. Likewise, if you execute the producer many times, you will get that many lines of string(11) "test1111111" as output.
