@@ -1,0 +1,192 @@
+== parameter and variable expansion. ==
+
+If you use bash you already know what Parameter Expansion is, although you may have used it without knowing its name. Anytime you use a dollar sign followed by a variable name you're doing what bash calls Parameter expansion, eg echo $a or a=$b. But parameter expansion has numerous other forms which allow you to expand a parameter and modify the value or substitute other values in the expansion process.
+
+Parameter expansion comes in many forms in bash, the simplest is just a dollar sign followed by a name, eg $a. This form merely substitutes the value of the variable in place of the parameter expansion expression. The variable name can also optionally be surround by braces, eg ${a}. If the variable name is immediately followed by characters that could be part of a variable name then the braces are needed to delimit the variable name, for example if you remove the braces from echo ${a}bc bash will try to expand the variable "abc" rather than "a".
+
+
+= Default variable : =
+
+One useful form of parameter expansion is to use a default value for a variable if it is not set. 
+This is done with the syntax: ${VAR:-DFLT}. 
+
+You might use this to allow your code to be modified via variables from the environment. Consider the following from a script, call it test.sh:
+
+  TEST_MODE=${TEST_MODE:-0}
+  ...
+  if [[ $TEST_MODE -eq 0 ]]; then
+      echo "Running in live mode"
+  else
+      echo "Running in test mode"
+  fi
+Normally the script runs in "live" mode but if you run it via:
+  $ env TEST_MODE=1 sh test.sh
+it runs in test mode.
+
+You might also use the default value expansion with command line arguments or values from a config file, for example:
+
+  # set cmd_param_x to 1 if seen on the command line
+  ...
+  if [[ ${cmd_param_x:-0} -eq 0 ]]; then
+      echo "-x not specified"
+  else
+      echo "-x specified"
+  fi
+
+= String substitution : =
+
+Another useful form of parameter expansion is to expand a variable and do string substitution on the value using the form ${VAR/search/replace}. For example:
+
+  VAR=aabbcc
+  echo ${VAR/b/-dd-}
+outputs "aa-dd-bcc". 
+
+Note that only the first instance of the search string is replaced, if you want to replace all instances use a double slash:
+  VAR=aabbcc
+  echo ${VAR//b/-dd-}
+which now outputs "aa-dd--dd-cc".
+
+
+= removing prefix /suffix = 
+
+
+There are also expansions for removing prefixes and suffixes. The form ${VAR#pattern} removes any prefix from the expanded value that matches the pattern. The removed prefix is the shortest matching prefix, if you use double pound-signs/hash-marks the longest matching prefix is removed. Similarily, the form ${VAR%pattern} removes a matching suffix (single percent for the shortest suffix, double for the longest). For example:
+
+  file=data.txt
+  echo ${file%.*}
+  echo ${file#*.}
+outputs the file base and extension respectively ("data" and "txt").
+Note: if you have trouble remembering which is which of these two syntaxes, the "#" is to the left of the "%" key on your keyboard, just as prefixes come before suffixes. Also note that these are glob patterns not regular expressions.
+
+Another expansion that exists is to extract substrings from the expanded value using the form ${VAR:offset:length}. This works in the expected form: offsets start at zero, if you don't specify a length it goes to the end of the string. For example:
+
+  str=abcdefgh
+  echo ${str:0:1}
+  echo ${str:1}
+outputs "a" and "bcdefgh".
+This form also accepts negative offsets which count backwards from the end of the string. So this:
+
+  str=abcdefgh
+  echo ${str:-3:2}
+produces "abcdefgh"... oops, what happened there? What happened was that bash misinterpretted what we wanted because the expansion looks like a default value expansion: ${VAR:-DFLT}. First time I tried this I stared at it for quite a while before a light came on as to how to do it (without using a variable [see below]):
+  str=abcdefgh
+  echo ${str:$((-3)):2}
+which outputs the desired value "fg". The "$((...))" causes bash to treat the value as an arithmetic expansion (ie a number). Another slightly longer way of doing this is:
+  str=abcdefgh
+  i=-3
+  echo ${str:$i:2}
+
+
+= length of a var =
+
+The final form of parameter expansion I want to mention is one which simply expands to the length of the variable's value, its form is ${#VAR}. So for example:
+
+  str=abcdef
+  echo ${#str}
+outputs "6".
+Using these forms of parameter expansion in your shell scripts can simplify and shorten your scripts. These are not the only forms of parameter expansion that bash supports but they're the ones that I've found most useful over time. For more information see the "Parameter Expansion" section of the bash man page.
+
+p.s. Note that all of the above forms of parameter expansion also work with bash's Special parameters: "$$", "$0", "$1", etc.
+
+
+= Case Conversion = 
+Gone are the days of using tr '[[:lower:]]' '[[:upper:]]' to convert strings to uppercase:
+
+$ a=hello
+$ echo ${a^}       # First character only
+Hello
+$ echo ${a^^}      # All characters
+HELLO
+And for going to lowercase:
+
+$ a=HELLO
+$ echo ${a,}       # First character only
+hELLO
+$ echo ${a,,}      # All characters
+hello
+You also can specify a character after the operator and change the case only of characters that match:
+
+$ a=hello
+$ echo ${a^l}      # First character if it is an 'l'
+hello
+$ echo ${a^^ll}    # All characters that are 'l's
+heLLo
+Names Starting with Some Prefix
+Need a list of all the variables whose names match a certain prefix? Do this:
+
+$ mya=1
+$ myb=2
+$ yourc=3
+$ echo ${!my*}
+mya myb
+
+= Indirection =
+Bash even can give you a taste of the good-old days of programming C and Assembler and using indirect addressing—well sort of:
+
+$ var=somevalue
+$ var_name=var
+$ echo ${!var_name}
+somevalue
+What's happening here is that the value of var_name gives you the name of the actual variable to be expanded. That variable then is expanded and becomes the result of the expansion. In this case, "var_name" has the value "var", so the variable "var" is expanded to yield the ultimate value of "somevalue".
+
+= Short Detour into Namerefs =
+As a bit of an aside, because it's not really about "parameter expansion", let's take a quick look at namerefs in bash. A nameref variable is a variable that references another variable:
+
+$ var=no
+$ declare -n ref=var   # -n == nameref
+$ ref=yes
+$ echo $ref
+yes
+The variable "ref" is a reference to the variable "var". When you assign to "ref", you actually change the value of "var". This can be particularly handy in getting values out of a function by passing the name of a variable to the function:
+
+$ cat nref.sh
+function func()
+  {
+  local -n up_value=$1  # -n == nameref
+  up_value=new_value
+  echo "Changing '${!up_value}' in ${FUNCNAME[0]}"
+ }
+aval=old_value
+echo
+echo "Before function call, aval is $aval"
+func aval  # pass var *name* to func
+echo "After function call, aval is $aval"
+Running that, you get:
+
+$ bash nref.sh
+Before function call, aval is old_value
+Changing 'aval' in func
+After function call, aval is new_value
+Since indirection is automatic with nameref variables, you don't use the exclamation point expansion to get the value of the referenced variable; normal $var expansion works. In the case of namerefs, the exclamation point expansion yields a different result: the name of the referenced variable. So, this slight detour dealt with parameter expansion after all.
+
+= Transformation =
+There are also a number of expansions of the form ${var@?}, where the "?" is one of the letters "Q", "E", "P", "A" or "a" that can transform the value or get you information about the variable itself. For example:
+$ declare -a array=(1 2)
+$ echo Attributes: ${array@a}
+Attributes: a         # i.e. array was declared with -a
+Check the man page for more information about these "@" expansions.
+
+= Unset or Null =
+And to wrap it up, one other subtle thing that can be easy to overlook when reading the parameter expansion section relates to the colon (:) in many of the expansions. For example, the :- form of expansion allows a default value to be specified if a variable is unset or null:
+
+unset var
+$ echo var: ${var:-default}
+var: default
+
+var=
+$ echo var: ${var:-default}
+var: default
+And now if you leave out the colon:
+
+unset var
+$ echo var: ${var-default}
+var: default
+
+var=
+$ echo var: ${var-default}
+var:
+So leaving out the colon changes the test from "unset or null" to just a test for "unset". This applies to the :-, :=, :?, and :+ forms of parameter expansion as well.
+
+Your Mileage May Vary If something doesn't seem to work, check your bash version:
+ $ echo $BASH_VERSION
+ 4.4.23(1)-release
