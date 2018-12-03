@@ -2,21 +2,21 @@ Appels curl en forcant le host :
 
 On test un appel avec l'ip du serveur et le domaine concerné avec l'option “-H fo-carrefour.fo.uat.e-merchant.com” Lors du premier appel on met 14 seconde
 
-time_curl -o /dev/null -H "Host:fo-carrefour.fo.uat.e-merchant.com" 10.3.195.2/jardin-exterieur/mobilier-de-jardin-barbecue/salon-de-jardin_m3202_frfr.html
+time_curl -o /dev/null -H "web01" 10.3.195.2/jardin-exterieur/mobilier-de-jardin-barbecue/salon-de-jardin_m3202_frfr.html
  
 HttpCode: 200 -- Time_connect: 0,008 -- Time_startransfert: 14,452 -- Time_TOTAL: 14,473
 
 Le second appel est généré en 1,8 seconde : la page a été mise en cache memcached
 
-time_curl -o /dev/null -H "Host:fo-carrefour.fo.uat.e-merchant.com" 10.3.195.2/jardin-exterieur/mobilier-de-jardin-barbecue/salon-de-jardin_m3202_frfr.html
+time_curl -o /dev/null -H "web01" 10.3.195.2/jardin-exterieur/mobilier-de-jardin-barbecue/salon-de-jardin_m3202_frfr.html
  
 HttpCode: 200 -- Time_connect: 0,006 -- Time_startransfert: 1,805 -- Time_TOTAL: 1,828
 
-curl -H "Host: wsint-client.e-merchant.local" 'http://192.168.22.56?d=webServices_Server&c=ServerRest&sCallerApp=bo-client-legacy&model=wsPayment&method=getPaypalPaymentsToValidate&rm=wsPayment&rf=getPaypalPaymentsToValidate&INCOMING_DB_ID=2'
+curl -H "Host: web.local" 'http://192.168.22.56?d=webServices_Server&c=ServerRest&sCallerApp=bo-client-legacy&model=wsPayment&method=getPaypalPaymentsToValidate&rm=wsPayment&rf=getPaypalPaymentsToValidate&INCOMING_DB_ID=2'
 
 Appel Curl en changeant le user agent
 
-curl -A "Mozilla/5.0 (Linux; U; Android 2.3; en-us) AppleWebKit/999+ (KHTML, like Gecko) Safari/999.9" -I http://staging.fo-apc-mobile.fo.e-merchant.net
+curl -A "Mozilla/5.0 (Linux; U; Android 2.3; en-us) AppleWebKit/999+ (KHTML, like Gecko) Safari/999.9" -I web01
 HTTP/1.1 403 Forbidden
 X-Backend: web01
 Content-Type: text/html; charset=iso-8859-1
@@ -73,17 +73,17 @@ MUTU][UAT][VIT] web01:~# curl -X GET -H "Content-type: application/json" -H "Acc
 
 Curl pour tester les healthcheck Lb
 
-curl  -H "Host:fo-carrefour.e-merchant.com"   http://f5-healthcheck:f5h3a1th-checK@10.3.30.18/healthcheck/check.php
+curl  -H "Host:web01.lapin.com"   http://f5-healthcheck:f5h3a1th-checK@10.3.30.18/healthcheck/check.php
 
 
 
 
 = Curl sur vip :
 
-[root@mwebwspub348u ~] # curl -s --connect-timeout 2 -m 3 -H 'Host: api-services' http://xwebwspriv145b:80/ok.php
-##ApiServices##[root@mwebwspub348u ~] #
-[root@mwebwspub348u ~] # curl -s --connect-timeout 2 -m 3 -H 'Host: api-private' http://xwebwspriv149b:80/authentication/ok.php
-##Authentication Microservice##[root@mwebwspub348u ~] #
+[root@web01 ~] # curl -s --connect-timeout 2 -m 3 -H 'Host: api-services' http://xwebwspriv145b:80/ok.php
+##ApiServices##[root@web01 ~] #
+[root@web01 ~] # curl -s --connect-timeout 2 -m 3 -H 'Host: api-private' http://webservice2:80/authentication/ok.php
+##Authentication Microservice##[root@web01 ~] #
 
 
 
@@ -147,4 +147,17 @@ pour tester la réponse d'un site en forcant l'interrogation depuis une ip preci
 
 curl -v --resolve 'www.lapin.fr:80:77.23.77.20' http://www.lapin.fr/
 
+
+== curl options : == 
+
+ -m -> max time out : temps max pour la connex et le transfert de data
+ -i ->  Include protocol headers in the output (H/F)
+ -N ->  -N, --no-buffer     Disable buffering of the output stream
+      --no-keepalive  Disable keepalive use on the connection
+       --no-npn        Disable the NPN TLS extension (H) 
+       --no-sessionid  Disable SSL session-ID reusing (SSL) 
+       --noproxy       List of hosts which do not use proxy
+       --ntlm          Use HTTP NTLM authentication (H)
+       --ntlm-wb       Use HTTP NTLM authentication with winbind (H)
+       --oauth2-bearer TOKEN  OAuth 2 Bearer Token (IMAP, POP3, SMTP)
 
