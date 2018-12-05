@@ -1,0 +1,151 @@
+==   WebSockets  ==
+notes theoriques sur websocket : 
+  
+   Une WebSocket est une spécification d'un protocole permettant une communication bidirectionnelle et full duplex sur une seule socket TCP entre un client et un serveur.
+   Initialement développé pour HTML 5, WebSocket a été normalisé par l'IETF et le W3C. Tous les navigateurs récents implémentent et supportent les WebSockets.
+   Ce protocole permet notamment d'implémenter facilement et de manière standard l'envoi de données en mode Push à l'initiative du serveur.
+   Les limitations du protocole HTTP
+   La spécification du protocole WebSocket
+   La connexion à une WebSocket
+   La mise en oeuvre des WebSockets
+
+    Les limitations du protocole HTTP
+    HTTP est un protocole sans état qui fonctionne sur le modèle requête/réponse.
+
+    Avant la version 1.1 d'HTTP, chaque requête faite au serveur utilise une nouvelle connexion. A partir d'HTTP 1.1, il est possible d'utiliser des connexions persistantes qui permettent au client d'utiliser la même connexion pour obtenir les autres éléments de la page.
+
+    HTTP est le protocole standard utilisé pour le Web : il a été conçu pour obtenir des éléments du web. Il répond à de nombreux besoins mais il possède plusieurs inconvénients notamment pour une utilisation dans une application web interactive :
+
+    half duplex : le protocole repose sur le modèle requête/réponse. Le client envoie une requête au serveur qui répond en lui renvoyant une réponse. Le client doit attendre la réponse. La transmission de données ne peut se faire que dans une direction en même temps.
+    verbeux : chaque requête et réponse HTTP doit avoir un en-tête (header) contenant plus au moins d'informations qui fait parti des données échangées, ce qui augmente le trafic sur le réseau.
+    il n'est pas possible d'utiliser un mode push de la part du serveur (le serveur envoie à son initiative des données au client).
+    Plusieurs techniques ont été développées pour contourner cette limitation :
+
+    polling : le client effectue périodiquement des requêtes synchrones au serveur pour obtenir des données ou pas selon qu'il y en ait de disponible. Cette technique est simple mais peu efficace car elle nécessite beaucoup de connexions selon la fréquence utilisée par le client pour obtenir potentiellement peu de données. Cette technique peut être intéressante si les données sont périodiquement modifiées côté serveur, ce qui permet de synchroniser les requêtes sur les modifications. Malheureusement ce cas de figure est plutôt rare et généralement de nombreuses requêtes sont inutiles.
+
+
+    long polling : le client ouvre une connexion et envoie une requête HTTP au serveur qui ne renvoie la réponse que si un événement force l'envoi de données au client ou après un certain timeout. Le nombre de requêtes/réponses peut ainsi être réduit sauf si le nombre d'événements est très important
+
+
+    Server Side Event : cette technologie permet à un navigateur de recevoir des mises à jour de la part d'un serveur. Elle est supportée par la majorité des navigateurs sauf Internet Explorer. HTML 5 propose de standardiser une API pour utiliser SSE.
+    Streaming : le client envoie une requête au serveur qui maintient le flux de la réponse ouvert en y envoyant des données au besoin. La durée du maintient de la réponse ouverte pour être limitée par un timeout ou infini. Cette technique reposant sur HTTP, elle pose généralement des soucis avec certains éléments réseaux comme les firewalls ou les proxys
+
+
+    Comet est un concept dont le but est de permettre à un serveur d'envoyer à son initiative des données à un navigateur. Plusieurs techniques sont utilisées pour répondre au concept Comet (streaming, hidden iframe, Ajax avec long polling, ...).
+
+    Cependant, il était nécessaire de définir un standard qui permette la communication entre les clients et le serveur de manière bi-directionnelle utilisant un canal en mode full duplex. Le mode full-duplex indique qu'une WebSocket permet d'envoyer des messages du côté client et serveur indépendamment l'un de l'autre.
+
+    En 2011, l'IETF a défini le protocole WebSocket sous la RFC 6455. Depuis, les principaux navigateurs implémentent le protocole WebSocket et plusieurs implémentations sont disponibles pour la plate-forme Java.
+
+
+  == La spécification du protocole WebSocket
+     Une WebSocket permet l'échange de données entre un client et un serveur de manière asynchrone, bidirectionnelle en mode full duplex utilisant une connections TCP.
+
+     Les WebSockets sont typiquement utilisées pour envoyer de petits messages.
+
+     La spécification du protocole WebSocket est définie dans la RFC 6455, publiée en décembre 2011.
+
+     L'utilisation d'une WebSocket dans une page web peut se faire avec l'API JavaScript dédiée proposée par HTML 5 : ceci facilite son adoption dans les applications web.
+
+     La demande d'interactivité des pages HTML se trouve limitée par le protocole HTML :
+
+     HTTP s'utilise en mode half duplex : il repose sur un modèle requête/réponse
+     HTTP est verbeux notamment car chaque requête et réponse contient un en-tête contenant un certain nombre d'informations
+     Les WebSockets sont plus efficaces et sont plus performantes que les autres solutions :
+
+     elles requièrent moins de bande passante car elles ne requièrent pas d'en-tête dans chaque message
+     la latence est réduite.
+     elles permettent de mettre en place des solutions quasi temps réel pour recevoir des données
+     Une WebSocket est un protocole réseau reposant sur TCP. Le protocole est composé de deux phases :
+
+     handshake : c'est une requête/réponse utilisant HTTP avec l'option upgrade du protocole qui permet d'établir une connexion entre un client et un serveur
+     data transfer : échange de données au format texte ou binaire en mode bidirectionnel, full duplex. Le format et le contenu des données échangées entre le client et le serveur est libre : les deux parties doivent donc connaître le format utilisé pour pouvoir exploiter les données.
+     Les données de type texte reçues d'une websocket sont encodées en UTF-8.
+
+     La mise en oeuvre des WebSockets requière plusieurs étapes :
+
+     établir une connexion
+     envoyer des messages côté client et serveur (bi-directionnel) indépendamment les uns des autres (full duplex)
+     fin de la connexion
+     Les cas d'utilisation des WebSockets sont nombreux : elles sont utilisables dès que des données doivent être envoyées du serveur vers le ou les clients.
+
+      
+      == La connexion à une WebSocket
+      Une connexion WebSocket est initialisée en utilisant le protocole HTTP : chaque connexion à une WebSocket débute par une requête HTTP qui utilise l'option upgrade dans son en-tête. Cette option permet de préciser que le client souhaite que la connexion utilise un autre protocole, en l'occurrence le protocole WebSocket. Cette requête HTTP s'appelle handshake dans le cas de l'utilisation d'une WebSocket.
+
+      Lorsque le serveur répond, la connexion est établie et le client et le serveur peuvent envoyer et recevoir des messages.
+
+      Le protocole HTTP n'est utilisé que pour établir la connexion d'une WebSocket : une fois la connexion établie le protocole HTTP n'est plus utilisé au profit du protocole WebSocket.
+
+      C'est toujours le client qui initie une demande de connexion : le serveur ne peut pas initier de connexions mais il est à l'écoute des clients qui le contacte pour créer une connexion.
+
+      Une WebSocket est identifiée par une URI particulière définie dans la RFC dont la syntaxe générale est :
+
+      ws(s)://host[:port]path[?param]
+
+      L'étape de connexion (Opening Handshake) requiert un unique échange HTTP (requête/réponse) entre le client qui initie la connexion et le serveur. La requête HTTP utilise l'option Upgrade qui permet de demander le changement du protocole utilisé pour les échanges.
+
+      La version 1.1 du protocole HTTP doit être utilisée car c'est à partir de cette version que le changement de protocole est supporté.
+
+      Exemple : la requête HTTP
+      GET /MaWebApp/echo HTTP/1.1
+      Cache-Control: no-cache
+      Connection: Upgrade
+      Host: localhost:8080
+      Origin: http://localhost:8080
+      Pragma: no-cache
+      Sec-WebSocket-Extensions: x-webkit-deflate-frame
+      Sec-WebSocket-Key: LwsTSMPv4TKzQscBprG1Iw==
+      Sec-WebSocket-Version: 13
+      Upgrade: websocket
+      User-Agent: Mozilla/5.0 (Windows NT 5.1)
+      AppleWebKit/537.36 (KHTML, like Gecko) Chrome/30.0.1599.101 Safari/537.36
+
+      La réponse HTTP contient le code 101 pour indiquer que le serveur a changé de protocole pour utiliser le protocole WebSocket.
+
+      Exemple : la réponse HTTP
+      HTTP/1.1 101 Switching Protocols
+      Connection: Upgrade
+      Sec-WebSocket-Accept:
+      9JUSDZQDUFa0yLScZ26xQdyzFy4=
+      Server: GlassFish Server Open Source
+      Edition  4.0 
+      Upgrade: websocket
+      X-Powered-By: Servlet/3.1 JSP/2.3
+      (GlassFish Server Open Source Edition 
+      4.0  Java/Oracle Corporation/1.7)
+
+      Une fois que le serveur a validé l'utilisation du protocole WebSocket, il n'est plus possible d'utiliser le protocole HTTP et tous les échanges suivants doivent utiliser le protocole WebSocket.
+
+      Si la connexion réussie, l'état de la WebSocket passe à l'état connected. Des données peuvent alors être échangées entre les deux endpoints de manière bi-directionnelle en mode full-duplex.
+
+      La fermeture de la connexion peut être à l'initiative du endpoint client ou serveur pour permettre de passer la WebSocket à l'état deconnected.
+
+       
+
+       68.4. La mise en oeuvre des WebSockets
+       Le protocole WebSocket possède de nombreuses implémentations pour permettre sa mise en oeuvre côté client et serveur.
+
+       Plusieurs implémentations des WebSockets sont disponibles pour la plate-forme Java :
+
+       Grizzly : https://grizzly.java.net/websockets.html
+       WebSocket SDK : https://java.net/projects/websocket-sdk
+       Apache Tomcat 7 : http://tomcat.apache.org/tomcat-7.0-doc/web-socket-howto.html
+       Webbit : https://github.com/webbit/webbit
+       Atmosphere : https://github.com/Atmosphere
+       websockets4j : http://code.google.com/p/websockets4j/
+       Jetty : http://wiki.eclipse.org/Jetty/Feature/WebSockets
+       Netty : http://netty.io/news/2011/11/17/websockets.html
+       jWebSocket : https://jwebsocket.org/
+       jWamp : https://github.com/ghetolay/jwamp
+       Les WebSocket ont été standardisées dans la plate-forme Java EE dans les spécifications de la JSR 356. La JSR 356 est ajoutée au Web Profile de Java EE 7. Plusieurs implémentations sont disponibles notamment Tyrus qui est l'implémentation de référence.
+
+       Le client peut utiliser n'importe quelle technologie qui propose un support des WebSockets, par exemple:
+
+       un navigateur web grâce à l'API WebSocket en JavaScript développée dans le cadre de HTML 5 par le W3C
+       une application développée en Java EE 7 ou ultérieure
+       une application standalone par exemple développée en Java SE avec une implémentation de la JSR 356 ou une implémentation qui propose un support des WebSockets
+       une application développée dans une technologie qui propose un support des WebSockets (.Net, PHP, ...)
+        
+
+
