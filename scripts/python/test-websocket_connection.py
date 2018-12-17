@@ -13,27 +13,11 @@ def handshaking():
     print("ok the handshake value is", handshake)
     if handshake != status:
         print("websocket handshake failed..please check backend server !")
+        webconn = "ko"
         exit(1)
     else:
         webconn = "ok"    
     return webconn
-
-
-#vars 
-url = "ws://echo.websocket.org"
-message = "ping"
-pattern= r'ping'
-status=101
-ws = websocket.create_connection(url)
-
-#Ensure any arg is provided when script is launched
-if (len(argv)) > 1:
-    usage()
-    exit(1)
-
-
-
-
 
 def main():
     webconn = handshaking()
@@ -64,6 +48,18 @@ def main():
     finally:        
         ws.close()
         exit(0)
+#vars 
+url = "ws://echo.websocket.org"
+message = "ping"
+pattern = r'ping'
+status = 101
+ws = websocket.create_connection(url)
+webconn = ""
+
+#Ensure any arg is provided when script is launched
+if (len(argv)) > 1:
+    usage()
+    exit(1)
 
 if __name__ == "__main__":
     main()
