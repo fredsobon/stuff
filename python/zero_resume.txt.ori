@@ -1,0 +1,4853 @@
+==== short resume python : zero ====
+
+=== intro /base python ===
+
+= chaine de caracteres = 
+
+il est possible d'ecrire des chaines de carateres str entre :
+""
+''
+ou 
+""" """ si on veut rediger du multiligne
+
+il faudra proteger nos caractères speciaux comme le " ' "  avec un "\" ex :
+>>> a = 'l\'huile'
+>>> a
+"l'huile"
+>>> a = "\"mon beau sapin\""
+>>> a
+'"mon beau sapin"'
+
+>>> a = """mon
+... beau
+... sapin"""
+>>> a
+'mon\nbeau\nsapin'
+on voit ici le retour chariot "\n" qui s'affiche ...
+
+
+= type =
+
+
+>>> a = "lapin"
+>>> type(a)
+<type 'str'>
+>>> a = 32
+>>> type(a)
+<type 'int'>
+>>> a = 3.4
+>>> type(a)
+<type 'float'>
+>>>a  = True
+>>> type(a)
+<type 'bool'>
+>>> b = False
+>>> type(b)
+<type 'bool'>
+
+
+
+
+= if / else / elif =
+
+#!/usr/bin/env python3
+#-*-coding: utf8 -*-
+import os 
+
+
+b = input("gimme a year : ")
+
+print("ok you gave me " + str(b))
+year = int(b)
+
+
+if year % 4 == 0 or year % 400 == 0:
+    print("you got it!")
+else:
+    year % 100 == 0
+    print("nop")
+
+
+- construction  elif 
+
+cat elif.py 
+#!/usr/bin/env python3
+
+
+# -*- coding: utf8 -*-
+
+a=int(input("gimme me a number ! " ))
+
+if a > 0:
+    print("ok you gave me a positive number !")
+elif  a < 0:
+    print("ok you gave me a negative number !")
+else:
+    print("hey for sure you gave me a zero !")
+
+
+= operateurs =
+
++ - * / % 
+> < 
+>= <= 
+== égalité 
+!= différence 
+
+
+= and /or /not =
+
+#!/usr/bin/env python3
+
+a = int(input("hey gimme a number smaller than 10 !"))
+
+if  a > 4 and a < 10:
+    print(a, " ..is in the upper range !!")
+elif a > 0 or a < 4:
+    print(a, "..is in the lower range !!")
+else:
+    print("did you miss something ??")
+
+
+>>> a = 5
+>>> type(a) is int
+True
+
+>>> type(a) is not str
+True
+
+>>> type(a) is not str and type(a) is not float and type(a) is not list and type(a) is not tuple and type(a) is not dict and type(a) is not bool
+True
+
+
+
+= while =
+
+#!/usr/bin/env python3
+#-*-coding: utf8 -*-
+
+multi = 7
+digit = 0
+
+while digit < 11:
+    print(digit * multi )
+    digit += 1
+
+
+
+= for = 
+
+#!/usr/bin/env python3
+#-*-coding: utf8 -*-
+
+word = "ragoutoutou"
+
+for w in word:
+    if w in "aeiouy":
+        print("hey yougot voyel :" + w)
+    else:
+        print("secret char: ###")
+
+= input / raw_input =
+
+#!/usr/bin/env python
+# -*- coding: utf8 -*-
+
+nom=raw_input("hello, what's yo name ? ")
+print("hugh ..." + nom)
+raw_input("press please the touche entrée ...")
+
+
+
+= Le module argparse =
+Le module argparse, c'est lui qui va nous permettre d'interpréter les arguments passés à la ligne de commande.
+Attention de base l'argument passé par défaut est une chaine de caractere : il va falloir indiquer a argparse le type précise d'argument attendu quand c'est nécéssaire (ex : pour faire un calcul sur des entiers ... )
+
+#!/usr/bin/env python3
+# coding: utf8
+
+# import du module argparse 
+import argparse
+
+# creation d'un objet parser
+parser = argparse.ArgumentParser()
+
+# ajout d'un argument ici on defini un nom indicatif qui sera remplacé par notre argument "réel", on affiche le message d'aide et on précise ensuite que l'argument est obligatoirement  de type int :
+
+parser.add_argument("square", help="display a square of a given number",
+                    type=int)
+
+#definition de l'argument 
+args = parser.parse_args()
+
+# calcul  de notre argument au carré 
+print(args.square**2)
+
+ce qui nous donne :
+
+> sans argument : on a un message d'avertissement : 
+
+boogie@apollo:/tmp$ ./arg.py 
+usage: arg.py [-h] square
+arg.py: error: the following arguments are required: square
+
+
+> avec le -h : l'aide s'affiche : 
+boogie@apollo:/tmp$ ./arg.py  -h
+usage: arg.py [-h] square
+
+positional arguments:
+  square      display a square of a given number
+
+optional arguments:
+  -h, --help  show this help message and exit
+
+> avec un argument de type int : pas de pb : le calcul se fait bien : 
+boogie@apollo:/tmp$ ./arg.py  25
+625
+
+> avec un argument de mauvais type : un message d'erreur apparait :  
+boogie@apollo:/tmp$ ./arg.py  bla
+usage: arg.py [-h] square
+arg.py: error: argument square: invalid int value: 'bla'
+
+
+
+
+= Expressions régulières - regexp =
+
+En python, les expressions régulières sont disponibles de manière plus traditionnelle, via le module re de la librairie standard.
+
+-> findall :
+
+On se donne deux exemples de chaînes
+￼
+sentences = ['Lacus a donec, vitae gravida proin sociis.', 
+             'Neque ipsum! rhoncus cras quam.']
+On peut chercher tous les mots se terminant par a ou m dans une chaîne avec findall
+￼
+for sentence in sentences:
+    print(f"---- dans >{sentence}<")
+    print(re.findall(r"\w*[am]\W", sentence))
+---- dans >Lacus a donec, vitae gravida proin sociis.<
+['a ', 'gravida ']
+---- dans >Neque ipsum! rhoncus cras quam.<
+['ipsum!', 'quam.']
+
+Ce code permet de chercher toutes (findall) les occurrences de l'expression régulière, qui ici est définie par le raw-string r"\w*[am]\W"
+
+details :
+\w* : on veut trouver une sous-chaîne qui commence par un nombre quelconque, y compris nul (*) de caractères alphanumériques (\w). Ceci est défini en fonction de votre LOCALE, on y reviendra.
+[am] : immédiatement après, il nous faut trouver un caratère a ou m.
+\W : et enfin, il nous faut un caractère qui ne soit pas alphanumérique. Ceci est important puisqu'on cherche les mots qui se terminent par un a ou un m, si on ne le mettait pas on obtiendrait ceci
+￼
+# le \W final est important
+# voici ce qu'on obtient si on l'omet
+for sentence in sentences:
+    print(f"---- dans >{sentence}<")
+    print(re.findall(r"\w*[am]", sentence))
+---- dans >Lacus a donec, vitae gravida proin sociis.<
+['La', 'a', 'vita', 'gravida']
+---- dans >Neque ipsum! rhoncus cras quam.<
+['ipsum', 'cra', 'quam']
+
+
+->split
+Une autre forme simple d'utilisation des regexps est re.split, qui fournit une fonctionnalité voisine de str.split, mais ou les séparateurs sont exprimés comme une expression régulière
+￼
+for sentence in sentences:
+    print(f"---- dans >{sentence}<")
+    print(re.split(r"\W+", sentence))
+    print()
+---- dans >Lacus a donec, vitae gravida proin sociis.<
+['Lacus', 'a', 'donec', 'vitae', 'gravida', 'proin', 'sociis', '']
+
+---- dans >Neque ipsum! rhoncus cras quam.<
+['Neque', 'ipsum', 'rhoncus', 'cras', 'quam', '']
+
+Ici l'expression régulière, qui bien sûr décrit le séparateur, est simplement \W+ c'est-à-dire toute suite d'au moins un caractère non alphanumérique.
+Nous avons donc là un moyen simple, et plus puissant que str.split, de couper un texte en mots.
+
+->sub
+Une troisième méthode utilitaire est re.sub qui permet de remplacer les occurrences d'une regexp, comme par exemple
+￼
+for sentence in sentences:
+    print(f"---- dans >{sentence}<")
+    print(re.sub(r"(\w+)", r"X\1Y", sentence))
+    print()
+---- dans >Lacus a donec, vitae gravida proin sociis.<
+XLacusY XaY XdonecY, XvitaeY XgravidaY XproinY XsociisY.
+
+---- dans >Neque ipsum! rhoncus cras quam.<
+XNequeY XipsumY! XrhoncusY XcrasY XquamY.
+
+Ici, l'expression régulière (le premier argument) contient un groupe : on a utilisé des parenthèses autour du \w+. Le second argument est la chaîne de remplacement, dans laquelle on a fait référence au groupe en écrivant \1, qui veut dire tout simplement "le premier groupe".
+Donc au final, l'effet de cet appel est d'entourer toutes les suites de caractères alphanumériques par X et Y.
+
+
+-> Pourquoi un raw-string ?
+En guise de digression, il n'y a aucune obligation à utiliser un raw-string, d'ailleurs on rappelle qu'il n'y a pas de différence de nature entre un raw-string et une chaîne usuelle
+￼
+raw = r'abc'
+regular = 'abc'
+# comme on a pris une 'petite' chaîne ce sont les mêmes objets
+print(f"both compared with is → {raw is regular}")
+# et donc a fortiori
+print(f"both compared with == → {raw == regular}")
+both compared with is → True
+both compared with == → True
+
+Il se trouve que le backslash \ à l'intérieur des expressions régulières est d'un usage assez courant - on l'a vu déjà plusieurs fois. C'est pourquoi on utilise fréquemment un raw-string pour décrire une expression régulière, et en général à chaque fois qu'elle comporte un backslash. On rappelle que le raw-string désactive l'interprétation des \ à l'intérieur de la chaîne, par exemple, \t est interprété comme un caractère de tabulation. Sans raw-string, il faut doubler tous les \ pour qu'il n'y ait pas d'interprétation.
+
+
+Un deuxième exemple
+Nous allons maintenant voir comment on peut d'abord vérifier si une chaîne est conforme au critère défini par l'expression régulière, mais aussi extraire les morceaux de la chaîne qui correspondent aux différentes parties de l'expression.
+Pour cela, supposons qu'on s'intéresse aux chaînes qui comportent 5 parties, une suite de chiffres, une suite de lettres, des chiffres à nouveau, des lettres et enfin de nouveau des chiffres.
+Pour cela on considère ces trois chaines en entrée
+￼
+samples = ['890hj000nnm890',    # cette entrée convient
+          '123abc456def789',   # celle-ci aussi
+          '8090abababab879',   # celle-ci non
+          ]
+
+-> match :
+
+pour commencer, voyons que l'on peut facilement vérifier si une chaîne vérifie ou non le critère.
+￼
+regexp1 = "[0-9]+[A-Za-z]+[0-9]+[A-Za-z]+[0-9]+"
+Si on applique cette expression régulière à toutes nos entrées
+￼
+for sample in samples:
+    match = re.match(regexp1, sample)
+    print(f"{sample:16s} → {match}")  # ici pour gérer proprement l'alignement on fixe une sortie à 16 caracteres alignés a droite 
+
+890hj000nnm890   → <_sre.SRE_Match object; span=(0, 14), match='890hj000nnm890'>
+123abc456def789  → <_sre.SRE_Match object; span=(0, 15), match='123abc456def789'>
+8090abababab879  → None
+
+Pour rendre ce résultat un peu plus lisible nous nous définissons une petite fonction de confort.
+
+# pour simplement visualiser si on a un match ou pas
+def nice(match):
+    # le retour de re.match est soit None, soit un objet match
+    return "no" if match is None else "Match!"
+
+Avec quoi on peut refaire l'essai sur toutes nos entrées.
+￼
+# la même chose mais un peu moins encombrant
+
+# on affiche le pattern de notre regexp pour un mémo visuel sur la sortie :
+print(f"REGEXP={regexp1}\n")
+for sample in samples:
+    match = re.match(regexp1, sample)
+    print(f"{sample:>16s} → {nice(match)}")  # on garde avec le formatage ":>16s" l'alignement désiré.
+
+REGEXP=[0-9]+[A-Za-z]+[0-9]+[A-Za-z]+[0-9]+
+
+  890hj000nnm890 → Match!
+ 123abc456def789 → Match!
+ 8090abababab879 → no
+
+Ici plutôt que d'utiliser les raccourcis comme \w j'ai préféré écrire explicitement les ensembles de caractères en jeu. De cette façon, on rend son code indépendant du LOCALE si c'est ce qu'on veut faire. Il y a deux morceaux qui interviennent tour à tour :
+[0-9]+ signifie une suite de au moins un caractère dans l'intervalle [0-9],
+[A-Za-z]+ pour une suite d'au moins un caractère dans l'intervalle [A-Z] ou dans l'intervalle [a-z].
+Et comme tout à l'heure on a simplement juxtaposé les morceaux dans le bon ordre pour construire l'expression régulière complète.
+
+
+
+> Nommer un morceau (un groupe)
+￼
+# on se concentre sur une entrée correcte
+haystack = samples[1]
+haystack
+'123abc456def789'
+
+Maintenant, on va même pouvoir donner un nom à un morceau de la regexp, ici on désigne par needle le groupe de chiffres du milieu.
+￼
+# la même regexp, mais on donne un nom au groupe de chiffres central
+regexp2 = "[0-9]+[A-Za-z]+(?P<needle>[0-9]+)[A-Za-z]+[0-9]+"
+# la même regexp, mais on donne un nom au groupe de chiffres central
+regexp2 = "[0-9]+[A-Za-z]+(?P<needle>[0-9]+)[A-Za-z]+[0-9]+"
+Et une fois que c'est fait, on peut demander à l'outil de nous retrouver la partie correspondante dans la chaine initiale:
+￼
+print(re.match(regexp2, haystack).group('needle'))
+456
+
+Dans cette expression on a utilisé un groupe nommé (?P<needle>[0-9]+), dans lequel :
+les parenthèses définissent un groupe,
+?P<needle> spécifie que ce groupe pourra être référencé sous le nom needle (cette syntaxe très absconse est héritée semble-t-il de perl).
+
+Un troisième exemple
+Enfin, et c'est un trait qui n'est pas présent dans tous les langages, on peut restreindre un morceau de chaîne à être identique à un groupe déjà vu plus tôt dans la chaîne. Dans l'exemple ci-dessus, on pourrait ajouter comme contrainte que le premier et le dernier groupes de chiffres soient identiques, comme ceci
+￼
+regexp3 = "(?P<id>[0-9]+)[A-Za-z]+(?P<needle>[0-9]+)[A-Za-z]+(?P=id)"
+Si bien que maintenant, avec les mêmes entrées que tout à l'heure
+￼
+print(f"REGEXP={regexp3}\n")
+for sample in samples:
+    match = re.match(regexp3, sample)
+    print(f"{sample:>16s} → {nice(match)}")    
+REGEXP=(?P<id>[0-9]+)[A-Za-z]+(?P<needle>[0-9]+)[A-Za-z]+(?P=id)
+
+  890hj000nnm890 → Match!
+ 123abc456def789 → no
+ 8090abababab879 → no
+Comme précédemment on a défini le groupe nommé id comme étant la première suite de chiffres. La nouveauté ici est la contrainte qu'on a imposée sur le dernier groupe avec (?P=id). Comme vous le voyez, on n'obtient un match qu'avec les entrées dans lesquelles le dernier groupe de chiffres est identique au premier.
+
+-> Notes techniques / perfs regexp :
+
+on utilise souvent les fonctions de "commodités" (match, findall ...) des regexp qui toutes passent par de manière invisible pour le user par une methode de compilation: on a donc un coup de traitement élevé.
+Il faut essayer de ne faire compiler qu'un minimum de fois pour les regex afin de ne pas avoir un surcout en calcul.   
+les methodes de regexp font dont en fait : 
+re.match(regexp, sample)  <==>  re.compile(regexp).match(sample)
+
+Donc :
+
+# au lieu de faire comme ci-dessus:
+
+# imaginez 10**6 chaînes dans samples
+for sample in samples:
+    match = re.match(regexp3, sample)
+    print(f"{sample:>16s} → {nice(match)}")    
+
+ 890hj000nnm890 → Match!
+ 123abc456def789 → no
+ 8090abababab879 → no
+
+
+on fera plutôt : 
+
+
+# dans du vrai code on fera plutôt:
+
+# on compile la chaîne en automate une seule fois
+re_obj3 = re.compile(regexp3)
+
+# ensuite on part directement de l'automate
+for sample in samples:
+    match = re_obj3.match(sample)
+    print(f"{sample:>16s} → {nice(match)}")
+890hj000nnm890 → Match!
+ 123abc456def789 → no
+ 8090abababab879 → no
+
+Cette deuxième version ne compile qu'une fois la chaîne en automate, et donc est plus efficace.
+
+
+-> Les méthodes sur la classe RegexObject
+
+Les objets de la classe RegexObject représentent donc l'automate à état fini qui est le résultat de la compilation de l'expression régulière. Pour résumer ce qu'on a déjà vu, les méthodes les plus utiles sur un objet RegexObject sont :
+
+-match et search, qui cherchent un match soit uniquement au début (match) ou n'importe où dans la chaîne (search),
+-findall et split pour chercher toutes les occurences (findall) ou leur négatif (split),
+-sub (qui aurait pu sans doute s'appeler replace, mais c'est comme ça) pour remplacer les occurrences de pattern.
+
+Exploiter le résultat
+Les méthodes disponibles sur la classe re.MatchObject: on en a déjà rencontré quelques-unes, en voici à nouveau un aperçu rapide.
+￼
+# exemple
+sample = "    Isaac Newton, physicist"
+match = re.search(r"(\w+) (?P<name>\w+)", sample)
+
+-re et string pour retrouver les données d'entrée du match.
+￼
+match.string
+'    Isaac Newton, physicist'
+￼
+match.re
+re.compile(r'(\w+) (?P<name>\w+)', re.UNICODE)
+
+
+- group, groups, groupdict pour retrouver les morceaux de la chaîne d'entrée qui correspondent aux groupes de la regexp. On peut y accéder par rang, ou par nom (comme on l'a vu plus haut avec needle).
+￼
+match.groups()
+￼
+match.group(1)
+'Isaac'
+￼
+match.group('name')
+'Newton'
+￼
+match.group(2)
+'Newton'
+￼
+match.groupdict()
+{'name': 'Newton'}
+
+Comme on le voit pour l'accès par rang les indices commencent à 1 pour des raisons historiques (on peut déjà référencer \1 en sed depuis la fin des années 70).
+On peut aussi accéder au groupe 0 comme étant la partie de la chaîne de départ qui a effectivement été filtrée par l'expression régulière, et qui peut tout à fait être au beau milieu de la chaîne de départ, comme dans notre exemple
+
+match.group(0)
+'Isaac Newton'
+
+- expand permet de faire une espèce de str.format avec les valeurs des groupes.
+￼
+match.expand(r"last_name \g<name> first_name \1")
+'last_name Newton first_name Isaac'
+
+- span pour connaître les index dans la chaîne d'entrée pour un groupe donné.
+￼
+begin, end = match.span('name')
+sample[begin:end]
+'Newton'
+
+-> Les différents modes (flags)
+Enfin il faut noter qu'on peut passer à re.compile un certain nombre de flags qui modifient globalement l'interprétation de la chaîne, et qui peuvent rendre service.
+Vous trouverez une liste exhaustive de ces flags sur la doc en ligne python ex : https://docs.python.org/3/library/re.html#module-contents
+Ils ont en général un nom long et parlant, et un alias court sur un seul caractère. Les plus utiles sontsans doute :
+
+- IGNORECASE (alias I) pour, eh bien, ne pas faire la différence entre minuscules et majuscules,
+- UNICODE (alias U) pour rendre les séquences \w et autres basées sur les propriétés des caractères dansla norme Unicode,
+- LOCALE (alias L) cette fois \w dépend du locale courant,
+- MULTILINE (alias M), et
+- DOTALL (alias S) 
+
+Comme c'est souvent le cas, on doit passer à re.compile un ou logique (caractère |) des différents flags que l'on veut utiliser, c'est-à-dire qu'on fera par exemple
+￼
+regexp = "a*b+"
+re_obj = re.compile(regexp, flags=re.IGNORECASE | re.DEBUG)
+MAX_REPEAT 0 MAXREPEAT
+  LITERAL 97
+MAX_REPEAT 1 MAXREPEAT
+  LITERAL 98
+￼
+# on ignore la casse des caractères 
+print(regexp, "->", nice(re_obj.match("AabB")))
+a*b+ -> Match!
+
+
+
+-> Construction de regexp 
+https://docs.python.org/3/library/re.html
+
+- La brique de base : le caractère
+Au commencement il faut spécifier des caractères.
+un seul caractère:
+vous le citez tel quel, en le précédent d'un backslash \ s'il a par ailleurs un sens spécial dans le micro-langage de regexps (comme +, *, [, etc.);
+
+- l'attrape-tout (wildcard):
+un point . signifie "n'importe quel caractère";
+
+- un ensemble de caractères avec la notation [...] qui permet de décrire par exemple:
+[a1=] un ensemble in extenso, ici un caractère parmi a, 1, ou =,
+[a-z] un intervalle de caractères, ici de a à z,
+[15e-g] un mélange des deux, ici un ensemble qui contiendrait 1, 5, e, f et g,
+[^15e-g] une négation, qui a ^ comme premier caractère dans les [], ici tout sauf l'ensemble précédent;
+
+- un ensemble prédéfini de caractères, qui peuvent alors dépendre de l'environnement (UNICODE et LOCALE) avec entre autres les notations:
+\w les caractères alphanumériques, et \W (les autres),
+\s les caractères "blancs" - espace, tabulation, saut de ligne, etc., et \S (les autres),
+\d pour les chiffres, et \D (les autres).
+
+exemple : 
+sample = "abcd"
+for regexp in ['abcd', 'ab[cd][cd]', 'ab[a-z]d', r'abc.', r'abc\.']:
+    match = re.match(regexp, sample)
+    print(f"{sample} / {regexp:<10s} → {nice(match)}")
+abcd / abcd       → Match!
+abcd / ab[cd][cd] → Match!
+abcd / ab[a-z]d   → Match!
+abcd / abc.       → Match!
+abcd / abc\.      → no
+
+Pour ce dernier exemple, comme on a backslashé le . il faut que la chaîne en entrée contienne vraiment un .
+￼
+print(nice(re.match (r"abc\.", "abc.")))
+Match!
+
+-> En série ou en parallèle
+Si je fais une analogie avec les montages électriques, jusqu'ici on a vu le montage en série, on met des expressions régulières bout à bout qui filtrent (match) la chaine en entrée séquentiellement du début à la fin. On a un peu de marge pour spécifier des alternatives, lorsqu'on fait par exemple
+"ab[cd]ef"
+mais c'est limité à un seul caractère. Si on veut reconnaitre deux mots qui n'ont pas grand-chose à voir comme abc ou def, il faut en quelque sorte mettre deux regexps en parallèle, et c'est ce que permet l'opérateur |
+￼
+regexp = "abc|def"
+for sample in ['abc', 'def', 'aef']:
+    match = re.match(regexp, sample)
+    print(f"{sample} / {regexp} → {nice(match)}")
+abc / abc|def → Match!
+def / abc|def → Match!
+aef / abc|def → no
+
+-> Fin(s) de chaîne
+Selon que vous utilisez match ou search, vous précisez si vous vous intéressez uniquement à un match en début (match) ou n'importe où (search) dans la chaîne.
+Mais indépendamment de cela, il peut être intéressant de "coller" l'expression en début ou en fin de lig
+ne, et pour ça il existe des caractères spéciaux:
+
+^ lorsqu'il est utilisé comme un caractère (c'est à dire pas en début de []) signifie un début de chaîne
+\A a le même sens (sauf en mode MULTILINE), et je le recommande de préférence à ^ qui est déjà pas mal surchargé;
+
+$ matche une fin de ligne;
+\Z est voisin mais pas tout à fait identique.
+
+Reportez-vous à la documentation pour le détails des différences. Attention aussi à entrer le ^ correctement, il vous faut le caractère ASCII et non un voisin dans la ménagerie Unicode.
+￼
+sample = 'abcd'
+for regexp in [ r'bc', r'\Aabc', r'^abc', 
+                r'\Abc', r'^bc', r'bcd\Z', 
+                r'bcd$', r'bc\Z', r'bc$' ]:
+    match = re.match(regexp, sample)
+    search = re.search(regexp, sample)
+    print(f"{sample} / {regexp:5s} match → {nice(match):6s} search → {nice(search)}")
+abcd / bc    match → no     search → Match!
+abcd / \Aabc match → Match! search → Match!
+abcd / ^abc  match → Match! search → Match!
+abcd / \Abc  match → no     search → no
+abcd / ^bc   match → no     search → no
+abcd / bcd\Z match → no     search → Match!
+abcd / bcd$  match → no     search → Match!
+abcd / bc\Z  match → no     search → no
+abcd / bc$   match → no     search → no
+On a en effet bien le pattern bc dans la chaine en entrée, mais il n'est ni au début ni à la fin.
+
+-> Parenthéser - (grouper)
+Pour pouvoir faire des montages élaborés, il faut pouvoir parenthéser.
+￼
+# une parenthése dans une RE 
+# pour mettre en ligne:
+# un début 'a', 
+# un milieu 'bc' ou 'de' 
+# et une fin 'f'
+regexp = "a(bc|de)f"
+￼
+for sample in ['abcf', 'adef',  'abef', 'abf']:
+    match = re.match(regexp, sample)
+    print(f"{sample:>4s} → {nice(match)}")
+abcf → Match!
+adef → Match!
+abef → no
+ abf → no
+
+Les parenthèses jouent un rôle additionel de groupe, ce qui signifie qu'on peut retrouver le texte correspondant à l'expression régulière comprise dans les (). Par exemple, pour le premier match
+￼
+sample = 'abcf'
+match = re.match(regexp, sample)
+print(f"{sample}, {regexp} → {match.groups()}")
+abcf, a(bc|de)f → ('bc',)
+dans cet exemple, on n'a utilisé qu'un seul groupe (), et le morceau de chaîne qui correspond à ce groupe se trouve donc être le seul groupe retourné par MatchObject.group.
+
+-> Compter les répétitions
+Vous disposez des opérateurs suivants :
+- * l'étoile qui signifie n'importe quel nombre, même nul, d'occurrences - par exemple, (ab)* pour indiquer '' ou 'ab' ou 'abab' ou etc.,
+- + le plus qui signifie au moins une occurrence - e.g. (ab)+ pour ab ou abab ou ababab ou etc,
+- ? qui indique une option, c'est-à-dire 0 ou 1 occurence - autrement dit (ab)? matche '' ou ab,
+- {n} pour exactement n occurrences de (ab) - e.g. (ab){3} qui serait exactement équivalent à ababab,
+- {m,n} entre m et n fois inclusivement.
+￼
+samples = [n*'ab' for n in [0, 1, 3, 4]] + ['baba']
+
+# on va avoir sur la ligne precedente une sortie de 5 lignes : rien (0*'ab'), ab (1*'ab'), ababab (3*'ab'), abababab (4*'ab') , baba (l'ajout de 'baba' en fin de comprehension de liste : 
+#>>> samples = [n*'ab' for n in [0, 1, 3, 4]] + ['baba']
+#>>> for s in samples:
+#...     print(s)
+#... 
+#
+#ab
+#ababab
+#abababab
+#baba
+
+# 
+for regexp in ['(ab)*', '(ab)+', '(ab){3}', '(ab){3,4}']:
+    # on ajoute \A \Z pour matcher toute la chaine   : donc debut et fin 
+    line_regexp = r"\A{}\Z".format(regexp)
+    for sample in samples:
+        match = re.match(line_regexp, sample)
+        print(f"{sample:>8s} / {line_regexp:14s} → {nice(match)}")
+         / \A(ab)*\Z      → Match!
+      ab / \A(ab)*\Z      → Match!
+  ababab / \A(ab)*\Z      → Match!
+abababab / \A(ab)*\Z      → Match!
+    baba / \A(ab)*\Z      → no
+         / \A(ab)+\Z      → no
+      ab / \A(ab)+\Z      → Match!
+  ababab / \A(ab)+\Z      → Match!
+abababab / \A(ab)+\Z      → Match!
+    baba / \A(ab)+\Z      → no
+         / \A(ab){3}\Z    → no
+      ab / \A(ab){3}\Z    → no
+  ababab / \A(ab){3}\Z    → Match!
+abababab / \A(ab){3}\Z    → no
+    baba / \A(ab){3}\Z    → no
+         / \A(ab){3,4}\Z  → no
+      ab / \A(ab){3,4}\Z  → no
+  ababab / \A(ab){3,4}\Z  → Match!
+abababab / \A(ab){3,4}\Z  → Match!
+    baba / \A(ab){3,4}\Z  → no
+
+
+-> Groupes et contraintes
+Nous avons déjà vu un exemple de groupe nommé (voir needle plus haut), les opérateurs que l'on peut citer dans cette catégorie sont :
+
+(...) les parenthèses définissent un groupe anonyme,
+
+(?P<name>...) définit un groupe nommé,
+
+(?:...) permet de mettre des parenthèses mais sans créer un groupe, pour optimiser l'exécution puisqu'on n'a pas besoin de conserver les liens vers la chaîne d'entrée,
+
+(?P=name) qui ne matche que si l'on retrouve à cet endroit de l'entrée la même sous-chaîne que celle trouvée pour le groupe name en amont,
+
+(?=...), (?!...)et (?<=...) permettent des contraintes encore plus élaborées, nous vous laissons le soin d'expérimenter avec elles si vous êtes intéressés; sachez toutefois que l'utilisation de telles constructions peut en théorie rendre l'interprétation de votre expression régulière beaucoup moins efficace.
+
+- Greedy vs non-greedy
+Lorsqu'on stipule une répétition un nombre indéfini de fois, il se peut qu'il existe plusieurs façons de filtrer l'entrée avec l'expression régulière. Que ce soit avec *, ou +, ou ?, l'algorithme va toujours essayer de trouver la séquence la plus longue, c'est pourquoi on qualifie l'approche de greedy - quelque chose comme glouton en français.
+￼
+# un fragment d'HTML 
+line='<h1>Title</h1>'
+# si on cherche un texte quelconque entre crochets
+# c'est-à-dire l'expression régulière "<.*>"
+re_greedy = '<.*>'
+# on obtient ceci
+# on rappelle que group(0) montre la partie du fragment
+# HTML qui matche l'expression régulière
+match = re.match(re_greedy, line)
+match.group(0)
+'<h1>Title</h1>'
+
+Ça n'est pas forcément ce qu'on voulait faire, aussi on peut spécifier l'approche inverse, c'est-à-dire de trouver la plus-petite chaîne qui matche, dans une approche dite non-greedy, avec les opérateurs suivants :
+*? : * mais non-greedy,
++? : + mais non-greedy,
+?? : ? mais non-greedy,
+￼
+# ici on va remplacer * par *? pour rendre l'opérateur * non-greedy
+re_non_greedy = re_greedy = '<.*?>'
+# mais on continue à cherche un texte entre <> naturellement
+# si bien que cette fois, on obtient
+match = re.match(re_non_greedy, line)
+match.group(0)
+'<h1>'
+
+-> S'agissant du traitement des fins de ligne
+Il peut être utile, pour conclure cette présentation, de préciser un peu le comportement de la librairie vis-à-vis des fins de ligne.
+Historiquement, les expressions régulières telles qu'on les trouve dans les librairies C, donc dans sed, grep et autre utilitaires Unix, sont associées au modèle mental où on filtre les entrées ligne par ligne.
+Le module re en garde des traces, puisque :
+# un exemple de traitement des 'newline' 
+sample = """une entrée
+sur
+plusieurs
+lignes
+"""
+match = re.compile("(.*)").match(sample)
+match.groups()
+('une entrée',)
+Vous voyez donc que l'attrape-tout '.' en fait n'attrape pas le caractère de fin de ligne \n, puisque si c'était le cas et compte tenu du coté greedy de l'algorithme on devrait voir ici tout le contenu de sample. Il existe un flag re.DOTALL qui permet de faire de . un vrai attrape-tout qui capture aussi les newline
+￼
+match = re.compile("(.*)", flags=re.DOTALL).match(sample)
+match.groups()
+('une entrée\nsur\nplusieurs\nlignes\n',)
+Cela dit, le caractère newline est par ailleurs considéré comme un caractère comme un autre, on peut le mentionner dans une regexp comme les autres. Voici quelques exemples pour illustrer tout ceci
+￼
+# sans mettre le flag unicode \w ne matche que l'ASCII
+match = re.compile("([\w ]*)").match(sample)
+match.groups()
+('une entrée',)
+￼
+# sans mettre le flag unicode \w ne matche que l'ASCII
+match = re.compile("([\w ]*)", flags=re.U).match(sample)
+match.groups()
+('une entrée',)
+￼
+# si on ajoute \n à la liste des caractères attendus 
+# on obtient bien tout le contenu initial
+# attention ici il ne FAUT PAS utiliser un raw string,
+# car on veut vraiment écrire un newline dans la regexp
+match = re.compile("([\w \n]*)", flags=re.UNICODE).match(sample)
+match.groups()
+('une entrée\nsur\nplusieurs\nlignes\n',)
+
+Conclusion
+La mise au point d'expressions régulières est certes un peu exigeante, et demande pas mal de pratique, mais permet d'écrire en quelques lignes des fonctionnalités très puissantes, c'est un investissement très rentable :)
+
+testeur de regexp ex : https://pythex.org
+on distingue en général l'analyse lexicale, qui découpe le texte en morceaux (qu'on appelle des tokens),
+et l'analyse syntaxique qui décrit pour simplifier à l'extrême l'ordre dans lequel on peut trouver les tokens.
+Avec les expression régulières, on adresse le niveau de l'analyse lexicale. 
+Pour l'analyse syntaxique on peut se tourner vers ex : pyparsing, PLY (Python Lex-Yacc)
+
+
+exemples :
+
+pour trouver toutes les variables python sous forme de regexp : les chaines qui commencent par une lettre ou un _, suivi de lettres, chiffres ou _. . On peut ecrire : 
+regexp_pythonid = r"\A([a-zA-Z]+|_+)+([a-zA-Z]+|[0-9]+|_+)*"
+
+pour identifier tous les num de tel francais sans tenir compte du 0 et +33 avec un groupe :
+regexp_phone = r"(0|\+33)(?P<number>([0-9]{9})+\Z)" 
+
+On veut reconnaître dans un fichier toutes les lignes qui contiennent un nom et un prénom.
+Plus précisément, on cherche les chaînes qui
+commencent par une suite - possiblement vide - de caractères alphanumériques (vous pouvez utiliser \w) ou tiret haut (-) qui constitue le prénom,
+contiennent ensuite comme séparateur le caractère 'deux-points' :
+contiennent ensuite une suite - cette fois jamais vide - de caractères alphanumériques, qui consitue le nom,
+et enfin contiennent un deuxième caractère : mais optionnellement seulement.
+On vous demande de construire une expression régulière qui définit les deux groupes nom et prenom, et qui rejette les lignes qui ne satisfont pas ces critères.
+￼
+# il faudra la faire terminer par \Z
+# regardez ce qui se passe si vous ne le faites pas
+regexp_agenda = r"(?P<prenom>(\w+(-?\w+)*)*):(?P<nom>\w+(-?\w+)*):?\Z"
+
+Exercice - niveau avancé
+
+Vu comment sont conçus les exercices, vous ne pouvez pas passer à re.compile un flag comme re.IGNORECASE ou autre; sachez cependant que vous pouvez embarquer ces flags dans la regexp elle-même; par exemple pour rendre la regexp insensible à la casse de caractères, au lieu d'appeler re.compile avec le flag re.I, vous pouvez utiliser (?i) comme ceci:
+￼
+import re
+￼
+# on peut embarquer les flags comme IGNORECASE 
+# directement dans la regexp
+# c'est équivalent de faire ceci
+re_obj = re.compile("abc", flags=re.IGNORECASE)
+re_obj.match("ABC").group(0)
+'ABC'
+￼
+# ou cela 
+re.match("(?i)abc","ABC").group(0)
+'ABC'
+￼
+# les flags comme (?i) doivent apparaître
+# en premier dans la regexp
+re.match("abc(?i)","ABC").group(0)
+Pour plus de précisions sur ce trait, que nous avons laissé de coté dans le complément pour ne pas trop l'alourdir, voyez la documentation sur les expressions régulières et cherchez la première occurrence de iLmsux.
+
+
+-> Décortiquer une URL
+On vous demande d'écrire une expression régulière qui permette d'analyser des URLs.
+
+Voici les conventions que nous avons adoptées pour l'exercice:
+la chaîne contient les parties suivantes
+<protocol>://<location>/<path>
+l'url commence par le nom d'un protocole qui doit être parmi http, https, ftp, ssh
+le nom du protocole peut contenir de manière indifférente des minuscules ou des majuscules,
+ensuite doit venir la séquence ://
+ensuite on va trouver une chaîne <location> qui contient:
+potentiellement un nom d'utilisateur, et s'il est présent, potentiellement un mot de passe,
+obligatoirement un nom de hostname,
+potentiellement un numéro de port;
+lorsque les 4 parties sont présentes dans <location>, cela se présente comme ceci:
+<location> = <user>:<password>@<hostname>:<port>
+si l'on note entre crochets les parties optionnelles, cela donne:
+<location> = [<user>[:<password>]@]<hostname>[:<port>]
+le champ <user> ne peut contenir que des caractères alphanumériques; si le @ est présent le champ <user> ne peut pas être vide
+le champ <password> peut contenir tout sauf un : et de même, si le : est présent le champ <password> ne peut pas être vide
+le champ <hostname> peut contenir un suite non-vide de caractères alphanumériques, underscores, ou .
+le champ <port> ne contient que des chiffres, et il est non vide si le : est spécifié
+le champ <path> peut être vide.
+Enfin, vous devez définir les groupes proto, user, password, hostname, port et path qui sont utilisés pour vérifier votre résultat. Dans la case Résultat attendu, vous trouverez soit None si la regexp ne filtre pas l'intégralité de l'entrée, ou bien une liste ordonnée de tuples qui donnent la valeur de ces groupes; vous n'avez rien à faire pour construire ces tuples, c'est l'exercice qui s'en occupe.
+￼
+# pour charger l'exercice
+from corrections.regexp_url import exo_url
+￼
+# exemples du résultat attendu
+exo_url.example()
+Arguments	Resultat Attendu
+  'http://www.google.com/a/b'
+[ ('proto', 'http'),
+  ('user', None),
+  ('password', None),
+  ( 'hostname',
+    'www.google.com'),
+  ('port', None),
+  ('path', 'a/b')]
+  'HttPS://www.google.com:8080/a/b'
+[ ('proto', 'HttPS'),
+  ('user', None),
+  ('password', None),
+  ( 'hostname',
+    'www.google.com'),
+  ('port', '8080'),
+  ('path', 'a/b')]
+  'http://user@www.google.com/a/b'
+[ ('proto', 'http'),
+  ('user', 'user'),
+  ('password', None),
+  ( 'hostname',
+    'www.google.com'),
+  ('port', None),
+  ('path', 'a/b')]
+  'FTP://username:hispass@www.google.com/'
+[ ('proto', 'FTP'),
+  ('user', 'username'),
+  ('password', 'hispass'),
+  ( 'hostname',
+    'www.google.com'),
+  ('port', None),
+  ('path', '')]
+
+
+
+
+
+= break = 
+
+break va permettre de stopper une boucle 
+
+#!/usr/bin/env python3
+#-*-coding: utf8 -*-
+
+while True:
+    a = input("gimme the secret to quit :" )
+    print("you gave me " + a)
+    if a  in "qQ":
+        print("ok bye")
+        break
+    else:
+        print("try again")
+
+= continue = 
+
+continue va permettre de recommencer immédiatement au point de départ de notre boucle for ou while sans executer les lignes de code suivant ce mot clé.
+
+
+
+
+
+= list = 
+
+#!/usr/bin/env python
+# -*- coding: utf8 -*-
+
+
+# On defini une variable.
+name="maggie"
+
+# on commence à compter à partir de 0 : omer=0 marge=3 . On peut creeer une liste vide []. On peut melanger les types.
+lst=["omer", "bart" , "lisa" , "marge"]
+
+print(lst[2])
+
+# va afficher lisa
+# pour un intervalle on inclu la première borne et on exclu la dernière : lst[1:3]
+
+print(lst[1:3])
+
+# va afficher ['bart', 'lisa']
+
+#print(lst[:2])  : on affiche tout jusqu'à 2 exclu
+#print(lst[:]) : on affiche tous les elements. on peut définir une nouvelle liste qui sera une copie de notre liste:
+liste2=lst[:]
+
+#python considere le texte comme une liste de lettres :
+print("texte"[1:3]) 
+
+# on va voir qu'on peut modifier une liste. Ici on copie notre liste . On affecte la valeur de la variable name à l'element 2 de notre liste : 
+simpson=lst
+
+lst[2]=name
+
+print(lst)
+
+# on a donc dans la liste lst et simpson les valeurs :["omer", "bart" , "maggie" , "marge"] .Simpson est un alias de lst
+
+# Si on affiche liste2 : elle n'aura pas changée : ["omer", "bart" , "lisa" , "marge"] . 
+
+# il faut faire attention au copies.
+
+# boucle for
+
+for elem in lst:
+    print("hello , in the loop")
+    print elem
+
+#hello , in the loop
+#omer
+#hello , in the loop
+#bart
+#hello , in the loop
+#maggie
+#hello , in the loop
+#marge
+
+#!/usr/bin/env python3
+#-*-coding: utf8 -*-
+
+i = 1
+while i < 10:
+    if i % 2 == 0:
+        print("hey even number ... " + str(i))
+        i += 1
+        continue
+    print("odd one : " + str(i))
+    i += 3
+
+= type /methodes =
+
+#!/usr/bin/env python
+# -*- coding: utf8 -*-
+
+# int() ; raw_input() ; str() ... : une fonction retourne une donnée. var=fonction(truc)  print var. 
+# le retour de la fonction est different en fonction de ce sur quoi elle s'applique.Exemple différence entre le len("mot") len("lapin"," "lulu") : on a d'un coté le nombre de lettre du mot et dans l'autre exemple le nombre d'élement de la liste .
+
+print(len("monty"))
+print(len(["lapin", "lulu"]))
+
+
+print(range(5))
+compte=3
+
+for x in range(compte):
+    print("hip")
+
+
+#[0, 1, 2, 3, 4]
+#hip
+#hip
+#hip
+#
+
+# Une methode est attachée au type . Pour appeller une fonction , on tape son nom et entre parenthese ses params: fonction(param) Pour invoquer /appeller une methode , on saisi le nom_var.nom_methode(param) . 
+# On voit ici clairement les methodes associées au type str . La methode upper met tout en maj , la methode capitalize met 'initale en maj , la methode title met toutes les premieres lettres en maj ( utiles pour nom composés) :
+nom="napoleon"
+print(nom.upper())
+print(nom.capitalize())
+
+name="Louis-philipPE"
+print(name.title())
+
+# on peut nettoyer le code ; les entrees des users : exemple supprimer des espaces en trop avec strip :
+
+a="          ..blabla avec plein d'espaces au debut et à la fin....       "
+print(a)
+
+print(a.strip())
+
+#nous affiche dans un premier temps          ..blabla avec plein d'espaces au debut et à la fin....       puis clean des espaces :
+#..blabla avec plein d'espaces au debut et à la fin....
+
+
+#On peut transformer du texte en liste en utilisant un separateur :
+b="lapin,lulu,lili"
+print(b)
+print(b.split(","))
+
+# nous affiche bien les mots , puis une liste dont le sep est la ","
+#lapin,lulu,lili
+#['lapin', 'lulu', 'lili']
+
+
+= Remplacements : replace
+replace est très pratique pour remplacer une sous-chaîne par une autre
+￼
+"abcdefabcdefabcdef".replace("abc", "zoo")
+'zoodefzoodefzoodef'
+on peut même définir une limite éventuelle sur le nombre de remplacements :
+"abcdefabcdefabcdef".replace("abc", "zoo", 2)
+'zoodefzoodefabcdef'
+
+Plusieurs appels à replace peuvent être chaînés comme ceci
+￼
+"les [x] qui disent [y]".replace("[x]", "chevaliers").replace("[y]", "Ni")
+Out[7]:
+'les chevaliers qui disent Ni'
+
+=Nettoyage : strip
+On pourrait par exemple utiliser replace pour enlever les espaces dans une chaîne, ce qui peut être utile pour "nettoyer" comme ceci
+￼
+" abc:def:ghi ".replace(" ", "")
+'abc:def:ghi'
+Toutefois bien souvent on préfère utiliser strip qui ne s'occupe que du début et de la fin de la chaîne, et gère aussi les tabulations et autres retour à la ligne
+￼
+" \tune chaine avec des trucs qui dépassent \n".strip()
+'une chaine avec des trucs qui dépassent'
+
+On peut appliquer strip avant split pour éviter le problème du dernier élément vide.
+ex : ici on utilise pas strip : on se retrouve avec un élément vide dans notre liste : si le séparateur est un terminateur : 
+￼
+'abc;def;ghi;jkl;'.split(';')
+['abc', 'def', 'ghi', 'jkl', '']
+
+Avec l'utilisation de commune de strip et split plus de souci : 
+￼
+'abc;def;ghi;jkl;'.strip(';').split(';')
+['abc', 'def', 'ghi', 'jkl']
+
+
+= Rechercher une sous-chaîne
+Plusieurs outils permettent de chercher une sous-chaîne. Il existe find qui renvoie le plus petit index où on trouve la sous-chaîne
+-> find￼
+# l'indice du début de la première occurrence
+"abcdefcdefghefghijk".find("def")
+3
+￼
+# ou -1 si la chaine n'est pas présente:
+"abcdefcdefghefghijk".find("zoo")
+-1
+-> rfind 
+rfind fonctionne comme find mais en partant de la fin de la chaîne
+# en partant de la fin
+"abcdefcdefghefghijk".rfind("fgh")
+13
+￼
+# notez que le résultat correspond
+# tout de même toujours au début de la chaine
+"abcdefcdefghefghijk"[13]
+'f'
+
+La méthode index se comporte comme find
+￼
+"abcdefcdefghefghijk".index("def")
+3
+En cas d'absence elle lève une exception (nous verrons ce concept plus tard) plutôt que de renvoyer -1
+try:
+    "abcdefcdefghefghijk".index("zoo")
+except Exception as e:
+    print("OOPS", type(e), e)
+OOPS <class 'ValueError'> substring not found
+
+Mais le plus simple pour chercher si une sous-chaîne est dans une autre chaîne est d'utiliser l'instruction in sur laquelle nous reviendrons lorsque nous parlerons des séquences.
+
+"def" in "abcdefcdefghefghijk"
+True
+La méthode count compte le nombre d'occurrences d'une sous-chaîne
+
+"abcdefcdefghefghijk".count("ef")
+3
+Signalons enfin les méthodes de commodité suivantes
+
+"abcdefcdefghefghijk".startswith("abcd")
+True
+
+"abcdefcdefghefghijk".endswith("ghijk")
+True
+
+
+
+# methode min et max :
+permettent d'afficher les plus petits ou plus grand élements trouvés dans une séquence 
+ex : pour des lettres c'est l'ordre alphabétique 
+
+>>> a = "eggspam"
+>>> min(a)
+'a'
+>>> max(a)
+'s'
+pour des nombres : la valeur :
+>>> b = [1, 5, 6, 8]
+>>> min(b)
+1
+>>> max(b)
+8
+
+
+
+
+
+= fonction = 
+
+on regroupe nos différents blocs de  code au sein de fonctions  pour les rappeller plus facilement , factoriser et eviter toute répétition inutile. 
+
+def nom _d e_la_fonction ( parametre1 , parametre2 , parametre3 ,parametreN ) :
+# Bloc d ' instructions
+Les paramètres sont séparés par des "," .
+>>> def test(a, b, c):
+...     print(a + b + c)
+... 
+>>> test(1,1,1)
+3
+>>> test(5,7,8)
+20
+Il va falloir respecter le nombre d'arguments fournis sous peine d'erreurs ... 
+>>> test(5,7,8,4)
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+TypeError: test() takes 3 positional arguments but 4 were given
+>>> test(5,7)
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+TypeError: test() missing 1 required positional argument: 'c'
+
+quand on créee une fonction on associe l'objet fonction a une variable. on peut copier la variable 
+dans une autre variable et utiliser la fonction via cette nouvelle variable.
+>>> def a(a,b):
+...     print(a +b)   
+... 
+>>> a(2,3)
+5
+>>> a
+<function a at 0x7f2a6c41c840>
+>>> b = a
+>>> b(2,3)
+5
+
+Les appels aux arguments des fonctions sont toujours par références.Il n'y a pas de copie sauf si la demande de copie est explicite.
+ex:  ici on cree une liste vide puis une fonction qui ajoute le mot youki dans une liste . quand on passe notre liste en argument de la fonction : celle ci est modifiée sans qu'on ait réaffecter quoi que ce soit
+>>> a = []
+>>> def f(l):
+...     l.append("youki")
+... 
+>>> f(a)
+>>> a
+['youki']
+
+Si on veut travailler sur une copie de la liste il faudra la preciser : ex on passe une shallow copie de la liste en argument de notre fonction :
+>>> f(a[:])
+>>> a
+['youki']
+..par contre on a pas le retour de la shallow copie : qui est perdue.
+
+Il faut donc si on veut travailler sur une copie specifier la copie dans notre fonction :
+
+>>> def f(l):
+...     l = l[:] <<< on fait une copie de notre liste originale 
+...     l.append("youki")
+...     return l
+... 
+>>> a   <<<< l'appel anotre liste originale n'est pas changé
+['youki']
+>>> f(a)  <<<< on a bien par contre le résultat du travail sur notre copie qui est effectué correctement 
+['youki', 'youki']
+si on veut réinjecter le retour dans notre liste originale on a plus qu'a lui affecter la fonction : 
+>>> a = f(a)
+>>> a
+['youki', 'youki']
+
+
+Les fonctions utilisent le polymorphysme : on peut utiliser implicitement différents types d'arguments dans notre fonction et les opérations incluent dans celle ci se feront correctement si elles sont biensur
+utilisable par les types en arguments : 
+>>> def f(a,b,c):
+...     print("ok here is the sum of {}, {} and {}".format(a,b,c))
+...     return a + b + c 
+... 
+>>> f(2,4,5)
+ok here is the sum of 2, 4 and 5
+11
+>>> f(1.2,2.55,5.77)
+ok here is the sum of 1.2, 2.55 and 5.77
+9.52
+>>> f("bob", " est" , " trop cool")
+ok here is the sum of bob,  est and  trop cool
+'bob est trop cool'
+
+
+
+on peut définir une valeur par défaut si un arg n'est pas fourni (voir exemple aprs avec docstring :)
+
+= docstring = 
+
+on ajoute une petite explication de texte à notre fonction que l'on encadre par des triple " , qui pourra être consulter via l'appel à la fonction help(nom_de_fonction) : c'est une très bonne habitude il faut documenter nos fonctions . 
+Pour rappel, il est recommandé de toujours documenter les fonctions en ajoutant une chaîne comme première instruction.
+
+L'usage est d'utiliser une chaîne simple (délimitée par « " » ou « ' ») lorsque le docstring tient sur une seule ligne, comme ci-dessus.
+Lorsque ce n'est pas le cas - et pour du vrai code, c'est rarement le cas - on utilise des chaînes multi-lignes (délimitées par « """ » ou « ''' »). Dans ce cas le format est très flexible, car le docstring est normalisé.
+http://legacy.python.org/dev/peps/pep-0257/
+
+
+
+
+
+
+
+#!/usr/bin/env python3
+#-*-coding: utf8 -*-
+
+def fonction(nb , max = 10):
+    """ fonction affichant la table de multiplication de n par multi jusqu'à la valeur max. Ici on defini la valeur par defaut de max à 10: si le user ne saisi pas de param 'max'"""
+    i = 1
+    while i < max:
+        print("hey let's count : ", i * nb)
+        i +=1
+    return 
+        
+#fonction(2, 11)
+fonction(4)
+
+l'appel a help(fonction) affiche notre docstring : 
+
+help(fonction)
+
+/!\ a voir : on peut mettre les param dans le désordre si on les identifie par des noms.
+
+
+>>> fonc()
+(' a = ', 1, ' b = ', 2, ' c = ', 3, ' d = ', 4, ' e = ', 5)
+>>> fonc(4)
+(' a = ', 4, ' b = ', 2, ' c = ', 3, ' d = ', 4, ' e = ', 5)
+>>> fonc(a=1)
+(' a = ', 1, ' b = ', 2, ' c = ', 3, ' d = ', 4, ' e = ', 5)
+>>> fonc(a=7)
+(' a = ', 7, ' b = ', 2, ' c = ', 3, ' d = ', 4, ' e = ', 5)
+>>> fonc(b=2, c=3)
+(' a = ', 1, ' b = ', 2, ' c = ', 3, ' d = ', 4, ' e = ', 5)
+>>> fonc(b=33, c=77)
+(' a = ', 1, ' b = ', 33, ' c = ', 77, ' d = ', 4, ' e = ', 5)
+>>> fonc( a =1 , b =2 , c =3 , d =4 , e = 5 )
+(' a = ', 1, ' b = ', 2, ' c = ', 3, ' d = ', 4, ' e = ', 5)
+>>> fonc(88)
+(' a = ', 88, ' b = ', 2, ' c = ', 3, ' d = ', 4, ' e = ', 5)
+>>> fonc(88,43)
+(' a = ', 88, ' b = ', 43, ' c = ', 3, ' d = ', 4, ' e = ', 5)
+>>> fonc(88,43,11,78,54)
+(' a = ', 88, ' b = ', 43, ' c = ', 11, ' d = ', 78, ' e = ', 54)
+
+La signature de fonction en python est simplement son nom.
+
+= return = 
+
+L'instruction return signifie qu'on va renvoyer  le resultat d'une fonction, sa valeur pour ensuite pouvoir par exemple la stocker dans une variable.
+/!\ attention tout le code situé après return ne s'executera pas.
+
+on va pouvoir envoyer des données en entrées à nos fonctions et renvoyer une information avec le keyword return.
+L'objet cité dans l'instruction return est retourné à l'appelant, qui peut utiliser cette valeur comme n'importe quelle expression.
+
+C'est d'ailleurs ce que l'on veut faire quasiment systematiquement avec les fonctions : 
+pouvoir calculer / faire une opération sur un /des éléments en entrées et renvoyer / retourner le résultat : qui sera souvent stocker dans une variable 
+
+
+On appelle cela la programmation fonctionnelle ( différent de la programmation procédurale : qui execute ligne à ligne les opérations dans l'ordre )
+
+
+Si on ne met pas le keyword return à la fin de la fonction on a en resultat de stocker le singleton None 
+
+ex :
+on defini notre fonction sans return : 
+>>> def test(n):
+...     var = n *n
+... 
+>>> test(5)
+# on check notre fonction : 
+>>> print(test)
+<function test at 0x7fd314ca0758>
+>>> print(test(5))
+None
+# on affecte le resultat de notre fonction à une variable et on test la valeur de cette variable : on voit bien le valeur à None sans keyword return :
+>>> result = test(5)
+>>> print('result vaut sans return dans la fonction :' ,result) 
+('result vaut sans return dans la fonction :', None)
+
+Maintenant la même chose avec return de défini dans notre fonction :
+
+>>> def test(n):
+...     var = n *n
+...     return var
+... 
+>>> print(test)
+<function test at 0x7fd314ca06e0>
+>>> print(test(5))
+25
+>>> result = test(5)
+>>> print('result vaut sans return dans la fonction :' ,result) 
+('result vaut sans return dans la fonction :', 25)
+
+
+avec le keyword return :
+
+
+>>> def square(val):
+...     return val * val
+... 
+>>> new = square(4)
+>>> print(new)
+16
+
+On peut renvoyer  plusieurs valeurs séparées par des virgules.
+
+
+On va aussi recupérer une valeur à None si on ne défini rien après notre keyword return :
+
+#!/usr/bin/env python3
+
+def test(n):
+    if n <= 0:
+        return
+    elif n == 1:
+        return False
+    else:
+        return True
+
+print(test(-2))
+print(test(1))
+print(test(5))
+
+nous donnes : 
+None
+False
+True
+
+
+exemple fonctions :
+
+>on va pouvoir renvoyer / retourner des résultats et chaines de caractères après l'execution de notre fonction et aussi permettre cette affichage directement via un print de notre fonction + param ou son affectation dans une variable : on peut donc formatter proprement du texte et le renvoyer pour être utilisé plus tard : 
+
+def label(prenom, note):
+    if note < 10:
+        return "{} est recalé".format(prenom)
+    elif 10 <= note < 16:
+        return "{} est reçu".format(prenom)
+    else:
+        16 <= note
+        return "félicitations à {}".format(prenom)
+
+result = label('lapin', 19)
+print(result)
+nous donnes : 
+félicitations à lapin
+
+
+>deduction et decoupage de mots 
+on va essayer de trouver un mot inconnu composant un mot global : composite de plusieurs  qu'on connait et d'un mot connu sachant  qu'on a :
+
+composite = connue + inconnue + connue
+On vous donne également la chaîne connue. Imaginez par exemple que vous avez (ce ne sont pas les vraies valeurs):
+connue = 0bf1
+composite = 0bf1a9730e150bf1
+alors dans ce cas inconnue vaut a9730e15
+ 
+
+def inconnue(composite, connue):
+    len_inconnue = len(composite) - 2 * len(connue)
+    start_inconnue = composite[len(connue):len(composite)]
+    inconnue = start_inconnue[0:len_inconnue]
+    return inconnue
+
+
+
+> on veut pouvoir afficher des elements d'une liste en fonction de paramètres 
+si la liste est vide on retourne None , si la liste comporte un nombre pair d'éléments on affiche le dernier de la liste , si c'est un nombre différent on affiche l'élément du milieu de la liste  
+
+
+def laccess(liste):
+    if len(liste) == 0:
+        return
+    elif len(liste) % 2 == 0:
+        return liste[-1]
+    else:
+       return liste[(len(liste) // 2) ]
+
+
+bob = laccess([1,2,5])
+print(bob)
+2
+
+
+bob = laccess([1,2,5, 8])
+print(bob)
+8
+
+bob = laccess([])
+print(bob)
+None
+
+
+
+
+= lambda = 
+
+ce  keyword permet de créer des fonctions  qui seront extremement courtes.
+on utilise donc le keyword lambda suivi d'un nombre d'argument désiré puis un ":" et ensuite l'instruction de la lambda. 
+on va stocker notre lambda dans une variable car il n'y a pas le moyen de l'appeller directement.
+
+#!/usr/bin/env python3
+#-*-coding: utf8 -*-
+
+f = lambda x: x * x
+
+print(f(5))
+Pour utiliser deux  param dans  notre lambda on pourra par exemple faire : 
+
+>>> z = lambda x, y: x * y
+>>> z(2,4)
+
+
+= modules = 
+
+ un module est du code ecrit dans un fichier.On defini des fonctions, variables.
+Si l'on veut travailler avec elles , il faut donc simplement importer le module.
+
+On importe un module avec par exemple le keyword import.
+On peut ensuite examiner les différentes fonctions et particularités du module avec la fonction help(module) 
+
+>>> import os
+>>> help(os)
+...
+Help on module os:
+
+NAME
+    os - OS routines for NT or Posix depending on what system we're on.
+
+FILE
+    /usr/lib/python2.7/os.py
+
+MODULE DOCS
+....
+
+
+on peut egalement examiner l'aide d'une fonction d'un module :
+
+
+>>> help(os.chmod)
+
+Help on built-in function chmod in module posix:
+
+chmod(...)
+    chmod(path, mode)
+    
+    Change the access permissions of a file.
+
+
+    
+#!/usr/bin/env python3
+#-*-coding: utf8 -*-
+
+import math
+import math as matos
+from math import fabs
+
+print("""3 methodes d'import de modules : import module + import module as mod + from module import fonc""")
+
+
+print(math.sqrt(5))
+print(matos.sqrt(4))
+print(fabs(-3))
+
+
+#!/usr/bin/env python3
+#-*- coding: utf8 -*-
+
+import os 
+
+year = input("gimme a year : ")
+year = int(year)
+
+if year % 400 == 0 or (year % 4 == 0 and year % 100 != 0):
+    print("year is bissextile !")
+else:
+    print(year , "classic year")
+
+os.system("date")
+print("here's the content of tmp folder : " )
+os.system("ls -lh /tmp")
+
+#!/usr/bin/env python3
+# -*- coding: utf8 -*-
+import os 
+
+from dix_10_multipli import *
+# test de la fonction table
+
+table(3,20)
+os.system("sleep 2")
+#!/usr/bin/env python3
+#-*- coding: utf8 -*-
+
+"""module multipli contenant la fonction table"""
+
+
+import os
+
+def table (nb, max =10):
+    """Fonction affichant la table de multiplication par nb de 1 * nb jasqu'à max nb """
+    i = 0
+    while i < max:
+        print(i + 1, "*" ,nb, "=", (i + 1) * nb)
+        i +=1
+
+# test de la fonction table 
+
+if __name__ == "__main__":
+    table(5)
+    os.system("date +%F")
+
+
+
+
+
+
+
+= espace de nommage =
+
+On doit faire attention avec le nom de nos fonctions, ou variables  afin de ne pas avoir de conflit avec des fonctions internes d'un module :
+Si on defini une variable ou fonction math ...on aura un souci avec l'utilisastrion du module du même nom ..
+
+>>> math = 2
+>>> import math
+>>> nombre = math * 2
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+TypeError: unsupported operand type(s) for *: 'module' and 'int'
+
+ On peut importer un module sous un autre bom ( rarement utilisé )
+
+>>> import math as mathematique
+>>> mathematique.sqrt(2)
+1.4142135623730951
+
+ 
+on peut sinon importer uniquement le fonction d'un module dont on a besoin :
+
+>>> from os import getcwd
+>>> getcwd()
+'/home/boogie/Documents/stuff/python'
+
+= encodage =
+Il est nécéssaire d'avoir une interpretation correcte des caractères (accents etc ..)
+
+# -* - coding : ENCODAGE -*
+
+sous linux on utilisera très souvent :
+
+# -*- coding : utf8 -*-
+
+sous windows on peut devoir utiliser 
+# -*- coding : Latin1 -*-
+
+= creation de module : =
+
+les modules ne sont que des fichiers plats qui seront dans unbe arbo precise et appellés dans nos script python:
+ex :
+on cree deux fichiers : le premier comporte la fonction de notre module.
+le second est un test de notre module de fonction. 
+tree module_test/
+module_test/
+├── multipli.py
+└── test.py
+
+
+ ~/Documents/stuff/python/misc/zero  ⑂ master +  $  cat module_test/multipli.py 
+#!/usr/bin/env python3
+
+# -*- coding: utf8 -*-
+
+""" module multipli : affiche une table de multiplication."""
+
+def multi(nb, max = 10):
+    """ fonction de table de multiplication. Un nb en param :celui qui sera l'élément à multiplier . Un second param optionnel qui sera le multiplicateur : s'il est omis par défaut 10 sera utilisé. """
+    i = 0
+    while i < max:
+        print( nb , "x", i, "=" , nb  * i )
+        i += 1
+
+ ~/Documents/stuff/python/misc/zero  ⑂ master +  $  cat module_test/test.py 
+#!/usr/bin/env python3
+
+import os
+
+from multipli import *
+
+multi(4, 5)
+
+os.getcwd()
+
+
+Quand on executera le fichier test.py :
+
+ ./test.py 
+4 x 0 = 0
+4 x 1 = 4
+4 x 2 = 8
+4 x 3 = 12
+4 x 4 = 16
+
+on aura bien nos appels à la fonctions définie dans le fichier multipli.py et importée dans test.py
+On aura après l'execution l'aparition de code semi compilé dans notre repertoire : 
+
+$  tree
+.
+├── multipli.py
+├── __pycache__
+│   └── multipli.cpython-35.pyc
+└── test.py
+
+= test de module interne : =
+
+on va pouvoir tester notre module directement au sein de celui-ci : comme si notre module etait un programme a lui seul. 
+ex: il pourrait être bon de vérifier que notre fonction 
+def multi(nb, max = 10): fonctionne correctement au sein de notre module 
+
+
+On peut ajouter du code qui doit être ajouter quand on lance le module directement pour le tester ou lorsque l'on cherche à l'importer.
+
+on va rajouter dans notre module après notre fonction :
+
+
+# test de la fonction multi
+if __name__ == " __main__ " :
+multi ( 4 )
+os . system ( " pause " )
+
+
+On pourra donc tester notre fonction en lancant le script python : la table de multi de 4 sera affichée. si on invoque uniquement le script de la fonction du module crée.
+Si on importe le module / fonction dans le fichier test.py crée prcedemment : la table de n'apparaitra pas.
+
+La variable __name__ est créee automatiquement au lancement de l'interpréteur python. Si elle vaut __main__ ( qui veut dire que le fichier appellé est celui qui est executé ) : on peut ajouter du code qui ne sera executé qu'a l'invocation du programme lancé comme un executable.
+
+
+
+= package = 
+
+moyen de regrouper plusieurs fonctions (classes aussi) : on peut regrouper des modules dans des packages .
+On peut ranger plus proprement nos modules, fonctions et classes python. On va devoir fournir le chemin complet pour acceder a nos modules : ce qui permet d'eviter d'eventuels conflits.
+Ceci est forcemement tres pratique lors de l'install de package / bibliotheque les objets sont de base categoriser par type , role et la hierarchisation est essentielle.
+
+en pratique un package est un repertoire qui peut contenir d'autre packages ou des modules.
+Pour l'import on utilise la même méthode que les modules 
+
+from package import module 
+import package 
+
+
+pour l'acces a un sous package / module : la separation avec le point se fait comme pour les modules :
+
+biblio.objects_graphiques
+biblio.objects_graphiques.formes_carrees
+
+Si on veut importer un seul module ou fonction d'un package on peut le faire assez intuitivement comme ceci :
+
+from biblio.objects_graphiques import buttons
+
+Creation de package :
+
+on creee un rep du nom du package puis on y met nos module portant l'extension py
+
+ tree package/
+package/
+└── un_1_fonctions.py
+
+Il n'est pas rare dans le repertoire du package d'avoir un fichier de type :
+__init__.py qui sera le fichier d'initialisation du package qui contiendra le code d'initialisation de notre package ( ceci n'est plus obligatoire depuis python 3.3 
+
+pour illustrer le propos : on créee un fichier test_package.py puis au même niveau un rep package au sein duquel on ajoute notre fonction / module table de multiplication.
+On va importer notre package dans notre fichier de test de package .
+
+
+ tree
+.
+├── package
+│   ├── fonction.py
+└── test_package.py
+
+
+ cat package/fonction.py 
+#!/usr/bin/env python3
+
+
+# -*- coding: utf8 -*-
+
+
+def table(nb, max=5):
+    """ fonction table : va nous afficher la table de multi de arg1  X arg2 (avec arg2 optionnel valant 5 si nom defini. """
+
+    i = 1
+    while i <= max:
+        print(nb, "X", i, "=", nb * i)
+        i += 1
+if __name__ == "__main__":
+    table(4,3)
+    print("hey we are testing", "__main__")
+
+
+cat test_package.py 
+#!/usr/bin/env python3
+
+# -*- coding: utf8 -*-
+
+from package.fonction import table
+table (5) # Appel de la fonction table
+
+# Ou ...import package . fonctions
+#fonctions.table (5) # Appel de la fonction table
+
+
+#!/usr/bin/env python3
+#-*- coding: utf8 -*-
+
+import os
+
+"""module multipli contenant la fonction table"""
+
+def table (nb, max =10):
+    """Fonction affichant la table de multiplication par nb de 1 * nb jusqu'à max nb """
+    i = 0
+    while i < max:
+        print(i + 1, "*" ,nb, "=", (i + 1) * nb)
+        i +=1
+# on a un moyen de pouvoir tester la validité de notre fonction en utilisant la méthode suivante : tester la fonction en lancant le script lui-même permet de setter  les variables python  '__name__' et '__main__' et donc invoquer notre fonction directement au sein du script . Si l'appel est externe alors le test __name__ == "__main__" n'est pas vrai donc pas de suite. Cette méthode est TRES utilisée.
+
+if __name__ == "__main__":
+    table(5)
+    os.system("date +%F")
+
+
+
+= exeption : try /except = 
+
+quand python rencontre une erreur dans le code ou dans une opération à executer : il lève une exeption.
+on a différents types d'exeptions qui dependent des erreurs rencontrées.
+ex : ValuesError : pb de valeur / type de données 
+
+- forme minimale : ( utilisable pour l'exemple et quand nous n'avons pas beaucoup de tests et de cas d'erreurs possibles : 
+on va donc avoir 
+python qui execute une action 
+si l'action est ok -> il continue
+si il y a une erreur -> on peut lui demander de tester autre chose .
+On utilise pour cela le bloc de forme :
+try / exept : 
+
+try:
+    # bloc à essayer
+except:
+    # bloc qui sera executé en cas d'erreur.
+
+exemple : 
+annee = input ()
+try : # On essaye de convertir l ' ann é e en entier
+    annee = int ( annee )
+except :
+    print ( " Erreur lors de la conversion de l ' ann é e . " ) 
+ 
+- forme complète :
+
+c'est la forme privilégiée qu'il faudra utiliser.
+On va completer notre bloc try en permet d'agir sur une type d'exeption précise lors du passage a except 
+
+
+>>> a = "a"
+>>> b = "b"
+>>> try: 
+...     res = a / b
+... except: 
+...     print("an error appeared ..which one ..?")
+... 
+an error appeared ..which one ..?
+
+on peut avoir plusieurs type d'erreurs ex :
+> NameError (var / noms : pas définis)
+> TypeError : pas possible de diviser ex lettre 
+> ZeroDivisionError : pb si on divise par 0
+ 
+n va donc  pouvoir renseigner apres except la type d'exeption et cze qu'on veut traiter :
+
+>>> a = "a"
+>>> b = "b"
+>>> try: 
+...     res = a / b
+... except TypeError: 
+...     print("hey on ne divise pas des bananes par des enclumes ! ")
+... 
+hey on ne divise pas des bananes par des enclumes ! 
+
+On peut cumuler et definir des actions pour différents type :
+
+try :
+    resultat = numerateur / denominateur
+except NameError :
+    print ("La variable numerateur ou denominateur n'a pas été définie.")
+except TypeError :
+    print ("La variable numerateur ou denominateur possè de untype incompatible avec la division")
+except ZeroDivisionError :
+    print ("La variable denominateur est égale à 0.")
+
+On peut capturer l'exeption et afficher son message avec le keyword as :
+
+try :
+# Bloc de test
+except type_de_l_exception as exception_retournee :
+    print ( " Voici l ' erreur : " , exception_retournee )
+
+dans ce cas une variable "exception_retournee" est créee si une exeption de type "type_de_l_exception" est rencontrée.
+
+Il est très conseillé de saisir le type d'exeption après except.
+
+= else / finally = 
+
+else :
+
+dans une bloc d'exeption on peut utilser else s'il n'y a pas d'erreur.
+
+try :
+    resultat = numerateur / denominateur
+except NameError :
+    print ( " La variable numerateur ou denominateur n 'a pas é t é dé finie . " )
+except TypeError :
+    print ( " La variable numerateur ou denominateur possède un type incompatible avec la division . " )
+except ZeroDivisionError :
+    print ( " La variable denominateur est é gale à 0 . " )
+else :
+    print ( " Le résultat obtenu est " , resultat )
+
+
+finally :
+
+permet d'executer du code apres l'execution du bloc try qu'il y ait des erreurs ou pas MEME si une instruction return est definie dans le bloc except
+
+try :
+# Test d ' instruction ( s )
+except TypeDInstruction :
+    # Traitement en cas d ' erreur
+finally :
+    # Instruction(s) exécutée(s) qu'il y ait eu des erreurs ou non
+
+
+= pass =
+on peut vouloir continuer à dérouler notre code dans un bloc try même s'il y a une erreur .
+Comme l'instruction try ne peut être seule on peut la combiner avec le keyword pass 
+
+try :
+    # Test d ' instruction ( s )
+except type_de_l_exception : # Rien ne doit se passer en cas d 'erreur
+    pass
+
+pas forcemment utile mais à connaitre en cas de lecture dans du code.
+
+
+= les assertions = 
+
+c'est un moyen simple de s'assurer avant de continuer que les conditions sont bien respectées : on les utilise tres souvent dans les blocs try ..except 
+ 
+on va utiliser le keyword assert 
+
+assert test : si le resulat est True alors on continue sinon une exeption de type : AssertionError est levée.
+
+ex :
+>>> var = 5
+>>> assert var == 5
+>>> assert var == 7
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+AssertionError
+
+on peut tester que pour tester si une année saisie par un user  est superrieur a 0 et lever une exeption si elle ne l'est pas.
+
+annee = input ( " Saisissez une ann é e sup é rieure à 0 : " )
+try :
+    annee = int (annee) # Conversion de l'année
+    assert annee > 0
+except ValueError :
+    print ( " Vous n 'avez pas saisi un nombre." )
+except AssertionError :
+    print ("L'année saisie est inférieure ou égale à 0." )
+
+
+= Lever une exeption =
+
+on va utiliser le mot clé raise : on va surtout utiliser ces methode pour tester les classes que l'on crée.
+
+raise TypeDeLException ("message à afficher")
+
+on va ici lever une exeption si l'annee saisie est null ou negative et on va dans la foulée l'interceptée : on peut biensur faire différemment mais c'est pour illustrer par un exemple.
+
+annee = input () # L'utilisateur saisit l'année
+try :
+    annee = int (annee) # On tente de convertir l 'année
+if annee <= 0 :
+    raise ValueError ( "l 'année saisie est négative ou nulle ")
+except ValueError :
+    print("La valeur saisie est invalide (l' année est peut  être négative). " )
+
+
+
+== FIN INTRO PYTHON ==
+
+
+===  programmation objet pour utilisateur === 
+
+L'objet est une notion fondamentale en python : en python tout est objet.
+Un objet est une structure de donnée (texte, variable ...)qui peut elle même contenir des variables, fonctions etc ...
+
+= les chaines de caractères =
+
+on va pouvoir travailler sur des methodes ( fonctions dédiées à un type de donnée) propres aux chaines de caractère
+
+ex : passer en minuscule du texte :
+
+>>> a = "PLEASE SHUT UP!"
+>>> a.lower()
+'please shut up!'
+
+on voit donc ici que lower est une fonction de la variable "a". C'est une fonction qui s'appliquera donc a toutes les chaines de caractères.
+En saisissant type(notre_objet) on a son type :
+
+>>> a = "lapin"
+>>> type(a)
+<class 'str'>
+
+on voit qu'un objet est issu d'une classe 
+Une classe est une forme de type de données , elle permet de définir des  fonctions et des variables propres aux types.
+on a donc ici la fonction lower qui a été définie dans la classe "str".
+ 
+Les fonctions définies dans des classes sont appellées des methodes.
+
+on appelle donc une methode d'un objet par le "." : objet.methode.
+Une classe est un modele qui servira a construire un objet. C'est dans la classe que l'on va définir les méthodes propres à l'objet.
+
+exemple de methode:
+# upper passe en maj :
+>>> a = "testo"
+>>> a.upper()
+'TESTO'
+# capitalize passe la premiere initiale en maj :
+>>> a.capitalize()
+'Testo'
+>>> a = "    some space in front and at the end ...   "
+# strip supprime les espaces en debut et à la fin des str :
+>>> a.strip()
+'some space in front and at the end ...'
+>>> b = " some texte!"
+
+# upper et center(nb) : center va permettre d'ajouter / aligner notre txt en ajoutant un nombre définie d'espace jusqu'a ce que notre chaine fasse le nombre défini dans la methode center(nb)  
+>>> b.upper().center(20)
+'     SOME TEXTE! 
+
+On peut biensur cumuler :
+>>> b.upper().center(20)
+'     SOME TEXTE! 
+
+
+
+Il va biensur être nécéssaire de pouvoir gérer l'encodage / décodage des caractères.
+quand on veut ecrire un fichier sur disque : on l'encode au format binaire et quand on veut afficher le fichier binaire sous forme de str on le decode.
+Ceci est fait quasiment de manière transaprente par python lors des opérations avec str mais il est important de comprendre le mécanisme 
+
+On doit de préférence utiliser systematiquement 'utf8' comme base de codage ( c'est par défaut en python3=
+
+ex :
+on saisi une chaine de caractere ( avec des accents pour l'exemple) 
+>>> a="été indien"
+on va maintenant encoder avec la methode encode ( le passé sous format binaire en précisant le type de codage )
+>>> a.encode('utf8')
+b'\xc3\xa9t\xc3\xa9 indien'
+
+/!\ on voit ici qua le sortie n'est pas binaire mais hexo : c'est uniquement la sortie faite à l'ecran par python pour faciliter la lecture : l'encodage est bien bianire sur disque 
+Pour décoder en utf8 un binaire on utilise la méthode decode
+>>> b=a.encode('utf8')
+>>> b.decode('utf8')
+'été indien'
+
+
+
+= formatage de chaine = 
+
+- print :
+
+La fonction print
+Nous avons jusqu'à maintenant presque toujours utilisé la fonction print pour afficher nos résultats. Comme on l'a vu, celle-ci réalise un formatage sommaire : elle insère un espace entre les valeurs qui lui sont passées.
+￼
+print(1, 'a', 12 + 4j)
+1 a (12+4j)
+La seule subtilité notable concernant print est que par défaut, elle ajoute un saut de ligne à la fin. Pour éviter ce comportement, on peut passer à la fonction un argument end, qui sera inséré au lieu du saut de ligne. Ainsi par exemple
+￼
+# une première ligne
+print("une", "seule", "ligne")
+une seule ligne
+￼
+# une deuxième ligne en deux appels à print
+print("une", "autre", end=' ')
+print("ligne")
+une autre ligne
+# on peut imprimer par exemple un objet 'module' 
+import math
+print('le module math est', math)
+le module math est <module 'math' from '/opt/conda/lib/python3.6/lib-dynload/math.cpython-36m-x86_64-linux-gnu.so'>
+
+voici comment print présente les instances de classe (ne vous inquiétez pas, nous apprendrons dans une semaine ultérieure ce que sont les classes et les instances).
+￼
+# pour définir la classe Personne
+class Personne: 
+    pass
+# et pour créer une instance de cette classe
+personne = Personne()
+￼
+# voila comment s'affiche une instance de classe
+print(personne)
+<__main__.Personne object at 0x7f5824cd7b00>
+
+On rencontre assez vite les limites de print.
+D'une part, il peut être nécessaire de formater une chaîne de caractères sans nécessairement vouloir l'imprimer, ou en tous cas pas immédiatement.
+D'autre part, les espaces ajoutés peuvent être plus néfastes qu'utiles.
+Enfin, on peut avoir besoin de préciser un nombre de chiffres significatifs, ou de choisir comment présenter un date.
+C'est pourquoi il est plus courant de formatter les chaines - c'est à dire de calculer des chaines en mémoire, sans nécessairement les imprimer de suit
+
+
+
+-> format :
+on va pouvoir utiliser une fonction/ methode  elegante du modele objet pour afficher notre texte : c'est la methode format :
+- utilisation 1 de format : 
+
+>>> name = "Bob"
+>>> surname = "Kool"
+>>> age = 77
+>>> print("my name is {0} {1} and i'm {2} years old !!" .format(name,subname,age))
+my name is Bob Kool and i'm 77 years old !!
+
+On voitr que la methode format va remplacer chaque element present entre {} par la valeur de la variable correspondant à son ordre de définition.  ( on commence toujours en programmation a compter à partir de 0 )
+
+On peut biensur afficher nos valeurs dans un ordre différents  
+
+>>> name = "Bebert"
+>>> surname = "Chameau"
+>>> age = "323"
+>>> print("hello gringo {1} ..you re not so young with {2} years old ! welcome {0}".format(surname,age,name)) 
+hello gringo 323 ..you re not so young with Bebert years old ! welcome Chameau
+
+Nb : on est pas obligé de preciser le numero de variable entre les {} : l'ordre passé dans la methode format est suivi. 
+On peut donc dans notre exemple utiliser la forme :
+
+>>> print("hello gringo {} ..you re not so young with {} years old ! welcome {}".format(surname,age,name)) 
+hello gringo Chameau ..you re not so young with 323 years old ! welcome Bebert
+
+
+- utilisation 2 de format :
+
+on va cette fois au lieu d'utiliser les "indices" des variables : nommer celles ci dans l'appel :
+
+>>> print("hello gringo {surname} ..you re not so young with {age} years old ! welcome {name}".format(name = "Bebert", surname= "Chameau",age = 323)) 
+hello gringo Chameau ..you re not so young with 323 years old ! welcome Bebert
+
+= concatenation de chaine = 
+
+on peut assembler plusieurs chaines via l'utilisation du signe "+" :
+ex :
+>>> a = "hello"
+>>> b = "world"
+>>> print("yopyop" + " " + a + b + "!!!") 
+yopyop helloworld!!!
+
+Attention python est un language au typage dynamique ( il est autonome sur la détection du type de données) mais est à fort typage .. il faudra biensur faire attention à nos type de data 
+ex:  
+
+>>> a = 21
+>>> print(" yop happy birthday! you are " +a + " " + "years now!!")
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+TypeError: Can't convert 'int' object to str implicitly
+>>> print(" yop happy birthday! you are " + str(a) + " " + "years now!!")
+ yop happy birthday! you are 21 years now!!
+
+
+-> f-strings :
+
+Depuis la version 3.6 de python, on peut utiliser les f-strings, le premier mécanisme de formatage que nous étudierons. C'est le mécanisme de formatage le plus simple et le plus agréable à utiliser.
+Je vous recommande tout de même de lire les sections à propos de format et de %, qui sont encore massivement utilisées dans le code existant (surtout % d'ailleurs, bien que essentiellement obsolète).
+Mais définissons d'abord quelques données à afficher.
+￼
+# donnons-nous quelques variables
+prenom, nom, age = 'Jean', 'Dupont', 35
+￼
+# mon premier f-string
+f"{prenom} {nom} a {age} ans"
+'Jean Dupont a 35 ans'
+Vous remarquez d'abord que le string commence par f", c'est bien sûr pour cela qu'on l'apelle un f-string.
+On peut bien entendu ajouter le f devant toutes les formes de strings, qu'ils commencent par  ' ou " ou ''' ou """.
+Ensuite vous remarquez que les zones délimitées entre {} sont remplacées. La logique d'un f-string, c'est tout simplement de considérer l'intérieur d'un {} comme du code python (une expression pour être précis), de l'évaluer, et d'utiliser le résultat pour remplir le {}.
+Ça veut dire, en clair, que je peux faire des calculs à l'intérieur des {}
+￼
+# toutes les expressions sont autorisées à l'intérieur d'un {}
+f"dans 10 ans {prenom} aura {age + 10} ans"
+'dans 10 ans Jean aura 45 ans'
+￼
+# on peut donc aussi mettre des appels de fonction
+notes = [12, 15, 19]
+f"nous avons pour l'instant {len(notes)} notes"
+"nous avons pour l'instant 3 notes"
+
+Comme vous le voyez, les f-strings fournissent une méthode très simple et expressive pour formatter des données dans des chaines de caractère. Redisons-le pour être bien clair : un f-string ne réalise pas d'impression, il faut donc le passer à print si l'impression est souhaitée.
+
+-> % : obsolete
+
+La toute première version du formatage : l'opérateur %
+format a été en fait introduite assez tard dans python, pour remplacer la technique que nous allons présenter maintenant.
+Étant donné le volume de code qui a été écrit avec l'opérateur %, il nous a semblé important d'introduire brièvement cette construction ici. Vous ne devez cependant pas utiliser cet opérateur dans du code moderne, la manière pythonique de formatter les chaînes de caractères est le f-string.
+Le principe de l'opérateur % est le suivant. On élabore comme ci-dessus un "format" c'est-à-dire le patron de ce qui doit être rendu, auquel on passe des arguments pour "remplir" les trous. Voyons les exemples de tout à l'heure rendus avec l'opérateur %
+￼
+# l'ancienne façon de formatter les chaînes avec %
+# est souvent moins lisible
+"%s %s a %s ans" % (prenom, nom, age)
+'Jean Dupont a 35 ans'
+On pouvait également avec cet opérateur recourir à un mécanisme de liaison par nommage, en passant par un dictionnaire. Pour anticiper un tout petit peu sur cette notion que nous verrons très bientôt, voici comment
+￼
+variables =  {'le_nom' : nom, 'le_prenom' : prenom, 'l_age' : age}
+"%(le_nom)s, %(le_prenom)s, %(l_age)s ans" % variables
+'Dupont, Jean, 35 ans'
+
+
+-> Complément - niveau avancé
+De retour aux f-strings et à la fonction format, il arrive qu'on ait besoin de spécifier plus finement la façon dont une valeur doit être affichée.
+
+-Précision des arrondis
+C'est typiquement le cas avec les valeurs flottantes pour lesquelles la précision de l'affichage vient au détriment de la lisibilité. Voici deux formes équivalentes pour obtenir une valeur de pi arrondie:
+￼
+from math import pi
+￼
+# un f-string
+f"pi avec seulement 2 chiffres apres la virgule {pi:.2f}"
+'pi avec seulement 2 chiffres apres la virgule 3.14'
+￼
+# avec format avec liaison par nom
+"pi avec seulement 2 chiffres apres la virgule {flottant:.2f}".format(flottant=pi)
+'pi avec seulement 2 chiffres apres la virgule 3.14'
+Dans ces deux exemples, la partie à l'intérieur des {} et à droite du : s'appelle le format, ici  :.2f; vous remarquez que c'est le même pour les f-strings et pour format, et c'est toujours le cas. C'est pourquoi on ne verra plus à partir d'ici que des exemples avec les f-strings.
+
+- 0 en début de nombre
+Pour forcer un petit entier à s'afficher sur 4 caractères, avec des 0 ajoutés au début si nécessaire
+x = 15
+f"{x:04d}"
+'0015'
+Ici on utilise le format d (toutes ces lettres d, f, g viennent des formats ancestraux de la libc comme printf). Ici avec :04d on précise qu'on veut une sortie sur 4 caractères et qu'il faut remplir avec des 0.
+>>> x=15
+>>> "ok x avec un 0 devant {dec:04d}".format(dec=x) 
+'ok x avec un 0 devant 0015'
+>>> 
+
+-Largeur fixe
+Dans certains cas, on a besoin d'afficher des données en colonnes de largeurs fixes, on utilise pour cela les formats < ^ et > pour afficher à gauche, au centre, ou à droite d'une zone de largeur fixe
+￼
+# les données à afficher
+comptes = [
+ ('Apollin', 'Dupont', 127),
+ ('Myrtille', 'Lamartine', 25432),
+ ('Prune', 'Soc', 827465),
+]
+for prenom, nom, solde in comptes:
+    print(f"{prenom:<10} -- {nom:^12} -- {solde:>8} €")
+
+Apollin    --    Dupont    --      127 €
+Myrtille   --  Lamartine   --    25432 €
+Prune      --     Soc      --   827465 €
+
+= parcours et selection de chaines =
+une chaine de caractere est une serie /sequence de caractere .
+
+- parcours par indice : 
+
+on va donc préciser l'indice (la position ) du caractere auquel on veut acceder :
+
+>>> a = "Bob Sponge !"
+>>> a[0]
+'B'
+>>> a[1]
+'o'
+>>> a[7]
+'n'
+on voit donc qu'on peut acceder à des caracteres en utilisant des indices positifs et des négatifs.
+
+Pour acceder au dernier caractere d'une chaine il suffit de saisir l'indice "-1" :
+
+>>> a[-1]
+'!'
+
+On peut utiliser la fonction len() pour connaitre le nombre de caracteres de notre chaine :
+>>> a="lapin32"
+>>> len(a)
+7
+
+On peut donc parcourir les indices de nos chaines et les afficher les carateres correspondant :
+
+ex :avec while :
+
+>>> chaine = "salut"
+>>> i = 0
+>>> while i < len(chaine):
+...     print(chaine[i])
+...     i += 1
+... 
+s
+a
+l
+u
+t
+
+ex : avec for :
+>>> chaine = "salut"
+>>> for i in chaine:
+...     print i
+... 
+s
+a
+l
+u
+t
+
+- selection de chaine :
+
+on va pouvoir utiliser des intervals :
+
+>>> a = "Bebert Chameau"
+>>> a[:]
+'Bebert Chameau'
+>>> a[0:1]
+'B'
+>>> a[0:2]
+'Be'
+>>> a[1:3]
+'eb'
+>>> a[1:]
+'ebert Chameau'
+>>> a[1:-1]
+'ebert Chamea'
+>>> a[1:-2]
+'ebert Chame'
+
+
+= les listes et tuples =
+
+- les listes :
+elles sont des sequences comportant des objets de même type ou différents 
+>>> lst = ["lapin", "nain" ]
+>>> lst
+['lapin', 'nain']
+>>> lst = [2, 56]
+>>> lst
+[2, 56]
+>>> lst = [ 3.1, 5.32]
+>>> lst
+[3.1, 5.32]
+>>> lst = ["lapin", 4, "toto" , 4.5]
+>>> lst
+['lapin', 4, 'toto', 4.5]
+>>> type(lst)
+<type 'list'>
+
+Une liste est un objet qui va en contenir d'autres.
+Pour créer une liste vide :
+>>> lst = []
+>>> type(lst)
+<type 'list'>
+
+
+on peut acceder à differents objets d'une liste par leur indice :
+>>> lst = ["lapin", [1,2], 5]
+>>> len(lst)
+3
+>>> lst[0]
+'lapin'
+>>> lst[1]
+[1, 2]
+>>> lst[1][0]
+1
+>>> lst[1][2]
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+IndexError: list index out of range
+>>> lst[1][1]
+2
+
+on peut modifier un element de la liste :
+
+>>> lst = ["lapin", [1,2], 5]
+>>> lst[0] = "Bob"
+>>> lst
+['Bob', [1, 2], 5]
+
+Les list sont donc des éléments mutables : que l'on peut changer (contraitrement à la classe str) 
+
+- actions sur lists :
+on peut utiliser des  methodes sur les listes :
+
+> ajout d'elements : append 
+
+>>> lst.append("cool")
+>>> lst
+['Bob', [1, 2], 5, 'cool']
+
+
+> suppression d'element : 
+
+- del : 
+on peut utiliser le keyword python del 
+
+del peut permettre de supprimer une variable / un objet :
+
+>>> a = "bob"
+>>> a
+'bob'
+>>> del(a)
+>>> a
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+NameError: name 'a' is not defined
+
+on peut aussi pour notre contexte supprimer un elemént d'une liste en donnant son indice : 
+>>> lst
+['Bob', 1, 5, 'Youki', 12]
+>>> del lst[0]
+>>> lst
+[1, 5, 'Youki', 12]
+>>> 
+
+- remove : 
+
+remove permet de supprimer un element d'une liste en donnant la valeur de l'objet à supprimer et pas son indice contrairement à del : 
+
+>>> lst
+[1, 5, 'Youki', 12]
+>>> lst.remove("Youki")
+>>> lst
+[1, 5, 12]
+
+
+-pop 
+
+
+de base pop supprime le dernier element mais on peut specifier l'indice de l'élement d'une liste que l'on veut supprimer :
+>>> lst.pop()
+'cool'
+>>> lst
+['Bob', [1, 2], 5]
+>>> lst.pop(0)
+'Bob'
+>>> lst
+[[1, 2], 5]
+
+
+> insertion d'objet dans une liste :
+
+on peut inserer un objet dans une liste en specifiant l'endroit ou l'on veut l'ajouter : on rensigne l'indice :
+
+>>> lst.insert(0, "Bob")
+>>> lst
+['Bob', 1, 5, 12]
+>>> lst.insert(3, "Youki")
+>>> lst
+['Bob', 1, 5, 'Youki', 12]
+
+> concatenation de liste : 
+on peut assembler deux listes :
+
+- avec extend on ajoute une liste a la fin d'une autre :
+
+>>> a = [ "bob", 2 ]
+>>> b = ["bebert", 4]
+>>> a.extend(b)
+>>> a
+['bob', 2, 'bebert', 4]
+>>> b
+['bebert', 4]
+>>> a
+['bob', 2, 'bebert', 4]
+
+- on peut le faire avec l'opération + également : 
+
+>>> a = [ "bob", 2 ]
+>>> b = ["bebert", 4]
+>>> a + b
+['bob', 2, 'bebert', 4]
+
+
+
+Les methodes sur les chaines de caracteres ne change pas l'objet original et renvoie un nouvel objet 
+Les methodes sur les listes elles modifient l'objet original mais ne renvoie rien :
+
+>>> a = "lapin nain"
+>>> b = a.upper()
+>>> b
+'LAPIN NAIN'
+>>> a
+'lapin nain'
+>>> lst = [ 1, 5 ]
+>>> lst2 = lst.append(12)
+>>> lst
+[1, 5, 12]
+>>> lst2
+>>> print(lst2)
+None
+
+
+= parcours de liste : =
+
+on va classiquement pouvoir boucler sur les elements d'une liste :
+
+- while :
+
+>>> a = [2, 3, 4, 5]
+>>> nb = 0
+>>> while nb < len(a):
+...     print(a[nb])
+...     nb = nb +1
+... 
+2
+3
+4
+5
+ 
+- for  : que l'on va préférer :
+
+>>> a
+[2, 3, 4, 5]
+>>> for elem in a:
+...     print(elem)
+... 
+2
+3
+4
+5
+
+On peut améliorer nos boucles 
+-> while n'est pas tres intuitif, permeable aux boucles infinies 
+
+-> for capture les elements de la liste et les met dans une variable.
+
+
+- enumerate : 
+on va pouvoir utiliser cette méthode qui permet une grande souplesse et d'afficher finement nos params :
+
+On va pouvoir avec enumerate recupérer les indices et les valeurs de notre liste 
+enumerate prend une liste en argument et permet de récupérer une liste d'element ayant deux valeurs : l'indice et le contenu de l'element de notre liste à l'indice correspondant.
+
+
+>>> for elem in enumerate(a):
+...     print(elem)
+... 
+(0, 2)
+(1, 3)
+(2, 4)
+(3, 5)
+
+On voit que l'objet renvoyé par enumerate est un tuple : serie entre () immutable .
+
+
+>>> a
+[2, 3, 4, 5]
+>>> for i , elem in enumerate(a):
+...     print("on recupere les valeurs des indices et leur contenu!")
+...     print(" à l'indice : {} -> on  a la valeur : {}".format(i,elem))
+... 
+on recupere les valeurs des indices et leur contenu!
+ à l'indice : 0 -> on  a la valeur : 2
+on recupere les valeurs des indices et leur contenu!
+ à l'indice : 1 -> on  a la valeur : 3
+on recupere les valeurs des indices et leur contenu!
+ à l'indice : 2 -> on  a la valeur : 4
+on recupere les valeurs des indices et leur contenu!
+ à l'indice : 3 -> on  a la valeur : 5
+
+
+= tuples = 
+
+Sequence immutable : une fois crée on ne peut modifier.
+On utilise en separateur des () au lieu des [] des listes.
+On peut utiliser les test d'appartenance, faire du slicing ,acceder aux différents elements avec un "[]"
+Attention si on veut créer un tuple d'un seul élément il faut quand même mettre une virgule à la fin : sinon python supprime automatiquement les parentheses et on a une variable "classique"
+
+
+>>> a = ()
+>>> type(a)
+<type 'tuple'>
+>>> a = (1,)
+>>> type(a)
+<type 'tuple'>
+>>> a = (1,2,5)
+>>> a
+(1, 2, 5)
+
+Les parenthèses pour les tuples sont optionnelles :
+>>> a = 1,2,5
+>>> type(a)
+<class 'tuple'>
+
+>>> 2 in a
+True
+>>> a[1]
+2
+>>> a[:2]
+(1, 2)
+
+On peut convertir un tuple en liste :
+
+>>> a = list(a)
+>>> a
+[1, 2, 5]
+>>> type(a)
+<class 'list'>
+
+on peut modifier la liste ..et la reconvertir en tuple 
+>>> a[0] = 7
+>>> a
+[7, 2, 5]
+>>> a = tuple(a)
+>>> a
+(7, 2, 5)
+>>> type(a)
+<class 'tuple'>
+
+
+C'est dont un type qu'on ne peut pas modifier 
+Quand python trouve des valeurs séparées par une virgule il va les mettre entre () et les associer à des tuples.
+
+On s'en sert quand on est sur que les data en entrées ne doivent pas être modifiées .
+
+On se sert du tuple tres souvent pour se qu'on appelle le tuple unpacking :
+on declare une sequence qui doit avoir des élements  associés à une liste de même nombre d'éléments :
+
+On s'en sert en cas d'affectation multiple : c'est très utile : 
+
+>>> a , b = 3 , 4
+>>> a
+3
+>>> b
+4 
+
+
+on peut s'en servir aussi pour l'extended tuple unpacking : on va regrouper des éléments dans une valeur du tuple et le reste de nos éléments dans une autre valeur de tuple 
+
+ex :
+
+on defini une liste de 10 elements , on associe le premier element à notre premier elem de tuple et le reste au second elem :
+>>> a = list((range(10)))
+>>> a
+[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+>>> x, *y = a
+>>> x
+0
+>>> y
+[1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+on peut biensur associer plusieurs elem au premier elem de tuple et un seul dans le second :
+>>> *x, y = a
+>>> x
+[0, 1, 2, 3, 4, 5, 6, 7, 8]
+>>> y
+9
+
+on peut donc construire un tuple à deux éléments - un couple - de quatre façons:
+￼
+# sans parenthèse ni virgule terminale
+couple1 = 1, 2
+# avec parenthèses
+couple2 = (1, 2)
+# avec virgule terminale
+couple3 = 1, 2,
+# avec parenthèse et virgule
+couple4 = (1, 2,)
+￼
+# toutes ces formes sont équivalentes; par exemple
+couple1 == couple4
+True
+Comme on le voit:
+en réalité la parenthèse est parfois superflue; mais il se trouve qu'elle est largement utilisée pour améliorer la lisibilité des programmes, sauf dans le cas du tuple unpacking; nous verrons aussi plus bas qu'elle est parfois nécessaire selon l'endroit où le tuple apparaît dans le programme;
+la dernière virgule est optionnelle aussi, c'est le cas pour les tuples à au moins 2 éléments - nous verrons plus bas le cas des tuples à un seul élément.
+Conseil pour la présentation sur plusieurs lignes
+En général d'ailleurs, la forme avec parenthèses et virgule terminale est plus pratique. Considérez par exemple l'initialisation suivante; on veut créer un tuple qui contient des listes (naturellement un tuple peut contenir n'importe quel objet python), et comme c'est assez long on préfère mettre un élément du tuple par ligne:
+￼
+mon_tuple = ([1, 2, 3],
+             [4, 5, 6],
+             [7, 8, 9],
+            )
+L'avantage lorsqu'on choisit cette forme (avec parenthèses, et avec virgule terminale), c'est que d'abord il n'est pas nécessaire de mettre un backslash à la fin de chaque ligne; parce que l'on est à l'intérieur d'une zone parenthésée, l'interpréteur python "sait" que l'instruction n'est pas terminée et va se continuer sur la ligne suivante.
+Deuxièmement, si on doit ultérieurement ajouter ou enlever un élément dans le tuple, il suffira d'enlever ou d'ajouter toute une ligne, sans avoir à s'occuper des virgules; si on avait choisi de ne pas faire figurer la virgule terminale, alors pour ajouter un item dans le tuple après le dernier, il ne faut pas oublier d'ajouter une virgule à la ligne précédente. Cette simplicité se répercute au niveau du gestionnaire de code source, ou les différences dans le code sont plus faciles à visualiser.
+Signalons enfin que ceci n'est pas propre aux tuples. La virgule terminale est également optionnelle pour les listes, ainsi d'ailleurs que pour tous les types python où cela fait du sens, comme les dictionnaires et les ensembles que nous verrons bientôt. Et dans tous les cas où on opte pour une présentation multi-lignes, il est conseillé de faire figurer une virgule terminale.
+
+Tuples à un élément
+Pour revenir à présent sur le cas des tuples à un seul élément, c'est un cas particulier, parmi les 4 syntaxes qu'on a vues ci-dessus, on obtiendrait dans ce cas
+￼
+# ATTENTION: ces deux premières formes ne construisent pas un tuple !
+simple1 = 1
+simple2 = (1)
+# celles-ci par contre construisent bien un tuple
+simple3 = 1,
+simple4 = (1,)
+Il est bien évident que la première forme ne crée pas de tuple;
+et en fait la seconde non plus, car python lit ceci comme une expression parenthésée, avec seulement un entier.
+Et en fait ces deux premières formes créent un entier simple:
+type(simple2)
+int
+Les deux autres formes créent par contre toutes les deux un tuple à un élément comme on cherchait à le faire:
+type(simple3)
+tuple
+simple3 == simple4
+True
+Pour conclure, disons donc qu'il est conseillé de toujours mentionner une virgule terminale lorsqu'on construit des tuples.
+Parenthèse parfois obligatoire
+Dans certains cas vous vous apercevrez que la parenthèse est obligatoire. Par exemple on peut écrire:
+x = (1,)
+(1,) == x
+True
+Mais si on essaie d'écrire le même test sans les parenthèses:
+# ceci provoque une SyntaxError
+1, == x
+  File "<ipython-input-9-219921aa55c4>", line 2
+    1, == x
+        ^
+SyntaxError: invalid syntax
+Python lève une erreur de syntaxe; encore une bonne raison pour utiliser les parenthèses.
+
+- Addition de tuples
+Bien que le type tuple soit immuable, il est tout à fait légal d'additionner deux tuples, et l'addition va produire un nouveau tuple.
+
+tuple1 = (1, 2,)
+tuple2 = (3, 4,)
+print('addition', tuple1 + tuple2)
+addition (1, 2, 3, 4)
+Ainsi on peut également utiliser l'opérateur += avec un tuple qui va créer, comme précédemment, un nouvel objet tuple:
+tuple1 = (1, 2,)
+tuple1 += (3, 4,)
+print('apres ajout', tuple1)
+apres ajout (1, 2, 3, 4)
+
+- Construire des tuples élaborés
+Malgré la possibilité de procéder par additions successives, la construction d'un tuple peut s'avérer fastidieuse.
+Une astuce utile consiste à penser aux fonctions de conversion, pour construire un tuple à partir de - par exemple - une liste. Ainsi on peut faire par exemple ceci:
+
+# on fabrique une liste pas à pas
+liste = list(range(10))
+liste[9] = 'Inconnu'
+del liste [2:5]
+liste
+[0, 1, 5, 6, 7, 8, 'Inconnu']
+
+# on convertit le résultat en tuple
+mon_tuple = tuple(liste)
+mon_tuple
+(0, 1, 5, 6, 7, 8, 'Inconnu')
+
+- Sequence unpacking
+Déjà rencontré
+L'affectation dans python peut concerner plusieurs variables à la fois. ex :
+for i in range(2, n + 1):
+    f2, f1 = f1, f1 + f2
+Nous allons dans ce complément décortiquer les mécanismes derrière cette phrase
+Un exemple simple
+Commençons par un exemple simple à base de tuple. Imaginons qu'on dispose d'un tuple couple dont on sait qu'il a deux éléments:
+￼
+couple = (100, 'spam')
+On souhaite à présent extraire les deux valeurs, et les affecter à deux variables distinctes. Une solution naïve consiste bien sûr à faire simplement:
+￼
+gauche = couple[0]
+droite = couple[1]
+print('gauche', gauche, 'droite', droite)
+gauche 100 droite spam
+Cela fonctionne naturellement très bien, mais n'est pas très pythonique - comme on dit ;) Vous devez toujours garder en tête qu'il est rare en python de manipuler des indices. Dès que vous voyez des indices dans votre code, vous devez vous demander si votre code est pythonique.
+On préfèrera la formulation équivalente suivante:
+￼
+(gauche, droite) = couple
+print('gauche', gauche, 'droite', droite)
+gauche 100 droite spam
+
+La logique ici consiste à dire, affecter les deux variables de sorte que le tuple (gauche, droite ) soit égal à couple. On voit ici la supériorité de cette notion d'unpacking sur la manipulation d'indices: vous avez maintenant des variables qui expriment la nature de l'objet manipulé, votre code devient expressif, c'est-à-dire auto-documenté.
+Remarquons que les parenthèses ici sont optionnelles - comme lorsqu'on construit un tuple - et on peut tout aussi bien écrire, et c'est le cas d'usage le plus fréquent d'omission des paranthèses pour le tuple:
+￼
+gauche, droite = couple
+print('gauche', gauche, 'droite', droite)
+gauche 100 droite spam
+
+-> Autres types
+Cette technique fonctionne aussi bien avec d'autres types. Par exemple je peux utiliser:
+une syntaxe de liste à gauche du =
+une liste comme expression à droite du =
+￼
+# comme ceci
+liste = [1, 2, 3]
+[gauche, milieu, droit] = liste
+print('gauche', gauche, 'milieu', milieu, 'droit', droit)
+gauche 1 milieu 2 droit 3
+
+Et on n'est même pas obligés d'avoir le même type à gauche et à droite du signe =, comme ici:
+￼
+# membre droit: une liste
+liste = [1, 2, 3]
+# membre gauche : un tuple
+gauche, milieu, droit = liste
+print('gauche', gauche, 'milieu', milieu, 'droit', droit)
+gauche 1 milieu 2 droit 3
+
+En réalité, les seules contraintes fixées par python sont que
+le terme à droite du signe = est un iterable (tuple, liste, string, etc.),
+le terme à gauche soit écrit comme un tuple ou une liste - notons tout de même que l'utilisation d'une liste à gauche est rare et peu pythonique,
+les deux termes aient la même longueur - en tous cas avec les concepts que l'on a vus jusqu'ici, mais voir aussi plus bas l'utilisation de *arg avec le extended unpacking.
+La plupart du temps le terme de gauche est écrit comme un tuple. C'est pour cette raison que les deux termes tuple unpacking et sequence unpacking sont en vigueur.
+La façon pythonique d'échanger deux variables
+Une caractéristique intéressante de l'affectation par sequence unpacking est qu'elle est sûre; on n'a pas à se préoccuper d'un éventuel ordre d'évaluation, les valeurs à droite de l'affectation sont toutes évaluées en premier, et ainsi on peut par exemple échanger deux variables comme ceci:
+a = 1
+b = 2
+a, b = b, a
+print('a', a, 'b', b)
+a 2 b 1
+
+-> Extended unpacking
+Le extended unpacking a été introduit en python3; commençons par en voir un exemple:
+￼
+reference = [1, 2, 3, 4, 5]
+a, *b, c = reference
+print(f"a={a} b={b} c={c}")
+a=1 b=[2, 3, 4] c=5
+Comme vous le voyez, le mécanisme ici est une extension de sequence unpacking; python vous autorise à mentionner une seule fois, parmi les variables qui apparaissent à gauche de l'affectation, une variable précédée de *, ici *b.
+Cette variable est interprétée comme une liste de longueur quelconque des éléments de reference. On aurait donc aussi bien pu écrire:
+￼
+reference = range(20)
+a, *b, c = reference
+print(f"a={a} b={b} c={c}")
+a=0 b=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18] c=19
+Ce trait peut s'avérer pratique, lorsque par exemple on s'intéresse seulement aux premiers éléments d'une structure:
+￼
+# si on sait que data contient prenom, nom, et un nombre inconnu d'autres informations
+data = [ 'Jean', 'Dupont', '061234567', '12', 'rue du chemin vert', '57000', 'METZ', ]
+# on peut utiliser la variable _ qui véhicule l'idée qu'on ne s'y intéresse pas vraiment
+prenom, nom, *_ = data
+print(f"prenom={prenom} nom={nom}")
+prenom=Jean nom=Dupont
+
+
+
+On a vu les principaux cas d'utilisation de la sequence unpacking, voyons à présent quelques subtilités.
+Plusieurs occurrences d'une même variable
+On peut utiliser plusieurs fois la même variable dans la partie gauche de l'affectation.
+￼
+# ceci en toute rigueur est legal
+# mais en pratique on évite de le faire
+entree = [1, 2, 3]
+a, a, a = entree
+print(f"a = {a}")
+a = 3
+Attention toutefois, comme on le voit ici, python n'impose pas que les différentes occurrences de a correspondent à des valeurs identiques (en langage savant, on dirait que cela ne permet pas de faire de l'unification). De manière beaucoup plus pragmatique, l'interpréteur se contente de faire comme s'il faisait l'affectation plusieurs fois de gauche à droite, c'est-à-dire comme s'il faisait:
+￼
+a = 1; a = 2; a = 3
+Cette technique n'est utilisée en pratique que pour les parties de la structure dont on n'a que faire dans le contexte. Dans ces cas-là, il arrive qu'on utilise le nom de variable _, dont on rappelle qu'il est légal, ou tout autre nom comme ignored pour manifester le fait que cette partie de la structure ne sera pas utilisée, par exemple:
+￼
+entree = [1, 2, 3]
+_, milieu, _ = entree
+print('milieu', milieu)
+ignored, ignored, right = entree
+print('right', right)
+
+milieu 2
+right 3
+
+En profondeur
+Le sequence unpacking ne se limite pas au premier niveau dans les structures, on peut extraire des données plus profondément imbriquées dans la structure de départ; par exemple avec en entrée la liste:
+￼
+structure = ['abc', [(1, 2), ([3], 4)], 5]
+structure = ['abc', [(1, 2), ([3], 4)], 5]
+Si on souhaite extraire la valeur qui se trouve à l'emplacement du 3, on peut écrire:
+￼
+(a, (b, ((trois,), c)), d) = structure
+print('trois', trois)
+trois 3
+Ou encore, sans doute un peu plus lisible:
+￼
+(a, (b, ([trois], c)), d) = structure
+print('trois', trois)
+trois 3
+Naturellement on aurait aussi bien pu écrire ici quelque chose comme:
+￼
+trois = structure[1][1][0][0]
+print('trois', trois)
+trois = structure[1][1][0][0]
+print('trois', trois)
+trois 3
+
+-> Plusieurs variables dans une boucle for
+Nous avons vu précédemment ('Sequence unpacking')la possibilité d'affecter plusieurs variables à partir d'un seul objet, comme ceci:
+
+item = (1, 2)
+a, b = item
+print(f"a={a} b={b}")
+a=1 b=2
+D'une façon analogue, il est possible de faire une boucle for qui itère sur une seule liste mais qui agit sur plusieurs variables, comme ceci:
+
+entrees = [(1, 2), (3, 4), (5, 6)]
+for a, b in entrees:
+    print(f"a={a} b={b}")
+a=1 b=2
+a=3 b=4
+a=5 b=6
+À chaque itération, on trouve dans entree un tuple (d'abord (1, 2), puis à l'iteration suivante (3, 4), etc..).
+A ce stade les variables a et b vont être affectées à, respectivement, le premier et le deuxième élément du tuple, exactement comme dans le sequence unpacking. Cette mécanique est massivement utilisée en python.
+
+
+- La fonction zip
+Voici un exemple très simple qui utilise la technique qu'on vient de voir.
+Imaginons qu'on dispose de deux listes de longueurs égales, dont on sait que les entrées correspondent une à une, comme par exemple:
+
+villes = ["Paris", "Nice", "Lyon"]
+populations = [2*10**6, 4*10**5, 10**6]
+Afin d'écrire facilement un code qui "associe" les deux listes entre elles, python fournit une fonction built-in baptisée zip; voyons ce qu'elle peut nous apporter sur cet exemple:
+
+list(zip(villes, populations))
+[('Paris', 2000000), ('Nice', 400000), ('Lyon', 1000000)]
+
+
+On le voit, on obtient en retour une liste composée de tuples. On peut à présent écrire une boucle for comme ceci:
+
+for ville, population in zip(villes, populations):
+    print(population, "habitants à", ville)
+
+2000000 habitants à Paris
+400000 habitants à Nice
+1000000 habitants à Lyon
+
+Qui est, nous semble-t-il, beaucoup plus lisible que ce que l'on serait amené à écrire avec des langages plus traditionnels.
+Tout ceci se généralise naturellement à plus de deux variables.
+
+for i, j, k in zip(range(3), range(100, 103), range(200, 203)):
+    print(f"i={i} j={j} k={k}")
+i=0 j=100 k=200
+i=1 j=101 k=201
+i=2 j=102 k=202
+
+Remarque: lorsqu'on passe à zip des listes de tailles différentes, le résultat est tronqué, c'est l'entrée de plus petite taille qui détermine la fin du parcours.
+
+# on n'itère que deux fois 
+# car le premier argument de zip est de taille 2
+for units, tens in zip( [1, 2], [10, 20, 30, 40]):
+    print(units, tens)
+1 10
+2 20
+
+-> La fonction enumerate
+Une autre fonction très utile permet d'itérer sur une liste avec l'indice dans la liste, il s'agit de enumerate:
+
+for i, ville in enumerate(villes):
+    print(i, ville)
+0 Paris
+1 Nice
+2 Lyon
+
+
+Cette forme est plus simple et plus lisible que les formes suivantes qui sont équivalentes, mais qui ne sont pas pythoniques:
+
+for i in range(len(villes)):
+    print(i, villes[i])
+
+0 Paris
+1 Nice
+2 Lyon
+
+
+
+for i, ville in zip(range(len(villes)), villes):
+    print(i, ville)
+
+0 Paris
+1 Nice
+2 Lyon
+
+
+
+
+Un fonction peut renvoyer deux valeurs : 
+
+>>> def compose(entier, divise_par):
+...     """ cette fonction renvoie la partie entiere et le reste de entier / divise_par """
+...     pe_entier = entier // divise_par
+...     reste = entier % divise_par
+...     return pe, reste 
+
+
+on pourra recupérer la partie entiere et le reste dans deux variables au retour de la fonction :
+
+>>>partie_entiere , reste = compose(20, 3)
+>>> partie_entiere 
+6
+>>> reste
+2
+
+
+
+=  methodes speciales sur listes et tuples =
+
+
+on va pouvoir effectuer des operations un peu speciales sur les listes  et tuples.
+
+- des chaines aux listes :
+
+on  va pouvoir convertir nos types de données .
+
+on va pouvoir utiliser une méthode "split" pour passer d'une chaine de caractère à une liste :
+split prend un argument : le séparateur qui sera pris en compte pour créer notre liste 
+
+ex :  ici on defini l'escpace comme separateur et on a donc une liste de caractere séparé d'un espace en sortie : 
+
+>>> a = "hello, World ! "
+>>> a.split(" ")
+['hello,', 'World', '!', '']
+
+
+NB : split prend comme parametre par defaut les espaces, tab et saut de ligne.
+on a donc le même résultat sur notre exmple précedent si on ne précise pas le separateur :
+
+>>> a = "hello, World ! "
+>>> a.split()
+['hello,', 'World', '!']
+
+- des listes aux chaines :
+on va pouvoir transformer des listes en chaines via la methode join :
+
+>>> b
+['hello,', 'World', '!']
+>>> " ".join(b)
+'hello, World !'
+>>> c= " ".join(b)
+>>> type(c)
+<type 'str'>
+ 
+
+La methode join prend en parametre la liste d'objets que l'on veut "recoller".
+La methode va travailler sur l'objet qui l'appelle : ici une chaine de caractere " " (espace).
+ 
+
+
+= Listes et parametres de fonctions = 
+Il est tout a fait possible d'avoir des fonctions dont le nombre de parametres à fournir est inconnu a l'avance (ex : print ..)
+On va pouvoir utiliser la syntaxe :
+
+def fonction(*param):
+
+ on place une * devant le nom du param qui recupérera la liste d'arguments.
+>>> def fonction_inconnue(*params):
+...     print("jai recu : {}.".format(params))
+... 
+>>> fonction_inconnue()
+jai recu : ().
+>>> fonction_inconnue("bla")
+jai recu : ('bla',).
+>>> fonction_inconnue("bla", "blou")
+jai recu : ('bla', 'blou').
+>>> fonction_inconnue(["bla"], 1, 3.14)
+jai recu : (['bla'], 1, 3.14).
+>>> a = "bebert"
+>>> fonction_inconnue(a)
+jai recu : ('bebert',).
+>>> 
+
+on voit qu'on recupere des tuples.
+
+->Attention: la saisie de paramètres nommés ne fonctionne pas.
+>>> fonction_inconnue(a = "yop") 
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+TypeError: fonction_inconnue() got an unexpected keyword argument 'a'
+
+on peut par contre construire une fonction qui comportera des param définis suivis de parametres indéfinis :
+
+>>> def mul(bob, youp, *lapin):
+...     return bob, youp, lapin
+...
+>>> 
+>>> a = 2
+>>> b =44
+>>> c = "yup"
+>>> mul(a,b,c)
+(2, 44, ('yup',))
+>>> c = "yup"
+>>> d = 55
+>>> mul(a,b,c)
+(2, 44, ('yup',))
+>>> mul(a,b,c,d)
+(2, 44, ('yup', 55)) 
+
+
+
+
+Attention cependant si on veut saisir des parametres nommés ils devront être après notre param indéfini.
+
+>>> def h(*plein, a=1, b=2):
+...     print("ok here it is {} suivi de {} et de {}".format(plein,a,b))
+... 
+>>> h("yop","yap","yip",a,b)
+ok here it is ('yop', 'yap', 'yip', 2, 44) suivi de 1 et de 2
+
+Comme on le voit les paramètres  nommés ne sont pas dans le tuple.
+
+
+exo : 
+faire une fonction afficher identique à print, c’est-à-dire prenant un nombre indéterminé de paramètres, les affichant en les séparant à l’aide du paramètre nommé sep et terminant l’affichage par la variable fin.En outre, elle devra passer par print pour afficher (on ne connaît pas encore d’autres façons de faire). La seule contrainte est que l’appel à print ne doit compter qu’un seul paramètre non nommé. Autrement dit, avant l’appel à print, la chaîne devra avoir été déjà formatée, prête à l’affichage.
+
+# on cree notre fonction : param indefinis puis separateur et fin :
+>>> def afficher(*params,sep=' ',end='\n'):
+# on converti de suite le tuple généré par l'appel a la fonction de params en liste :
+...     params = list(params)
+# on va ensuite parcourir les elements de la liste et transformér chacun en str grâce a la methode enumerate qui va nous faire parcourir les index et les valeurs : 
+...     for i, p in enumerate(params):
+...         params[i] = str(p)
+# on va maintenant créer nos chaine qui seront separées par un espace grace a join :
+...     chaine = sep.join(params)
+# on ajoute la fin à notre texte 
+...     chaine +=end
+# on affiche donc nos paramètres et la fin : 
+...     print(chaine,end='')
+... 
+ex : 
+>>> afficher("bla", 5, 3.4,"yop")
+bla 5 3.4 yop
+>>> afficher(4, "bebert", "bob", 55.4)
+4 bebert bob 55.4
+
+
+
+= Transformer une liste en parametres de fonctions = 
+si on a un tuple ou une liste qu'on doit passer en param à une fonction ;
+on peut simplement les envoyer en params avec la syntaxe * 
+
+>>> lst = ["lapin", "dodu", 77]
+>>> print("elems en params" ,*lst)
+elems en params lapin dodu 77
+
+
+En utilisant * on a donc deux comportements :
+-> en definition de fonction : en param non connus : on recupera un tuple
+-> en appel a une fonction : la variable sera decomposée en plusieurs params envoyés à la fonction.
+ 
+= Compréhension de liste = 
+moyen tres puissant de filtrer  ou modifier une liste.
+Attention la syntaxe est troublante .
+
+-> parcours simple :
+
+on parcourt une liste et on renvoie une seconde filtree ou modifiee :
+ex :calcul 
+>>> lst = [ 1,2,3,4]
+>>> [nb * nb for nb in lst ]
+[1, 4, 9, 16]
+# ex  : transformation chaine de caractères : 
+
+prenom = ["boB", "Lapin", "lAla"]
+prenom = [ p.lower() for p in prenom]
+print(prenom)
+['bob', 'lapin', 'lala']
+
+
+on a donc les [] qui sont les delimiteurs de compréhension de liste.
+la valeur de retour (ici nb * nb)
+notre variable ici nb dans une boucle for classique
+
+-> filtrage avec branchement conitionnel : 
+on va pouvoir ajouter une condition et donc avoir une liste en sortie dépendante de cette condition : 
+
+>>> lst = [ 1,2,3,4]
+>>> [nb * nb for nb in lst if nb%2==0]
+[4, 16]
+
+
+ex : on a une liste de fruits. toutes les semaines  on va prendre dans le stock une quantité à mettre en vente .Le stock diminue et on supprime de la vente un fruit plus en stock.
+
+>>> qtt_a_retirer = 7 # On retire chaque semaine 7 fruits de
+chaque sorte
+>>> fruits_stockes = [15 , 3 , 18 , 21] # Par exemple 15 pommes , 3
+melons ...
+>>> [ nb_fruits - qtt_a_retirer for nb_fruits in fruits_stockes if
+nb_fruits > qtt_a_retirer ]
+[8 , 11 , 14]
+
+
+La puissance des comprehension de liste est très importante pour toute transformation de liste : 
+ex : on a une liste de fruits avec chacun une quantité on doit trier  la liste par combre de fruits decroissants :
+
+>>> inventory = [ (" pommes " , 22) ,(" melons " , 4) ,(" poires " , 18) ,(" fraises " , 76) ,(" prunes " , 51) ,]
+
+# tout d'abord on va transformer notre liste pour que les nombres soient afficher en premier :
+>>> new_inventory = [ (nb, fruit) for fruit, nb in inventory ]
+>>> new_inventory
+[(22, ' pommes '), (4, ' melons '), (18, ' poires '), (76, ' fraises '), (51, ' prunes ')]
+# on va maintenant reconstituer l'inventaire décroissant en utilisant fonction sorted et une methode reverse définie à True :
+>>> inventory = [(fruit, nb) for nb, fruit in sorted(new_inventory ,reverse=True)]
+>>> inventory
+[(' fraises ', 76), (' prunes ', 51), (' pommes ', 22), (' poires ', 18), (' melons ', 4)]
+>>> 
+
+ 
+= les dictionnaires =
+
+les dictionnaires sont des objects pouvant en contenir d'autres (comme les listes) mais cette fois ils assoccient chaque object contenus à une clé (la plupart du temps une chaine de caracteres).
+ex : un carnet d'adresse ou on accede aux infos par le nom du contact.
+
+Les dictionnaires sont des tables de hash ( on a donc des temps d'access , insertion, effacement très rapide pour les éléments) . Ce xont des objets mutables : que l'on peut donc modifier en place.
+On peut dans un dico avoir n'importe quelle clé qui est hashable : un objet sur lequel on peut calculer la fonction de hash . Il s'agit exclusivement d'obejet immutable ( la clé ne doit pas pouvoir changer pour assurer un resultat sur . on a donc les str, entier ...mais pas les listes  par exemple ) 
+
+/!\ Attention un dictionnaire n'est pas ordonné (contrairement aux listes ou l'on doit connaitre la cpoistion(l'indice) d'un object pour acceder à son contenu. De plus on utilise la clé des dictionnaire pour acceder aux valeurs des objects.
+Le dictionnaire est une collection de couple clé/ valeur.
+
+- on utilise le keyword dict pour la classe dictionnaire.
+>>> a = dict()
+>>> type(a)
+<class 'dict'>
+>>> a
+{}
+
+- on peut donc créer un dict vide :
+>>> a = {}
+>>> a
+{}
+
+- on peut créer directement un dictionnaire avec les couples clé / valeur :
+age = {'bob': 55, 'youki': 44, 'lulu': 30}
+
+pour ajouter des clés et des valeurs à un dictionnaire vide :
+
+>>> blaze = {}
+>>> blaze["surname"] = "bebert"
+>>> blaze["age"] = 27
+>>> blaze
+{'age': 27, 'surname': 'bebert'}
+On peut appeller un objet par sa clé :
+>>> blaze["surname"]
+'bebert'
+si on ajoute une clé /valeur : le dico est compléter :
+>>> blaze["adresse"] = "stadium"
+>>> blaze
+{'age': 27, 'surname': 'bebert', 'adresse': 'stadium'
+si on ajoute une nouvelle valeur a une clé , l'ancienne est supprimée :
+>>> blaze["surname"] = "bob"
+>>> blaze
+{'age': 27, 'surname': 'bob', 'adresse': 'stadium'}
+
+Si on essaye d'acceder a une valeur dont la clé n'existe pas on a une keyerror :
+>>> blaze["player"]
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+KeyError: 'player'
+Les clés peuvent être de différents type (str,int list ...)
+On est obligé d'avoir des clés uniques, mais on peut avoir des valeurs identiques :
+>>> a[1] = "bobo"
+>>> a[2] = "bibi"
+>>> a[3] = "bobo"
+>>> a
+{1: 'bobo', 2: 'bibi', 3: 'bobo'}
+
+On peut créer des clés sous forme de tuples : ex pour représenter les coordonnées de pieces sur un jeu d'echecs : ( colonne de a à h et ligne de 1 à 8 )
+on peut créer directement une entrée dans un dictionnaire en séparant la clé de sa valeur par un ":" 
+>>> echec = {("a",1): "white tower"}
+>>> echec
+{('a', 1): 'white tower'}
+# ici on complete le dico en rajoutant une clé ( un tuple ) et une valeur
+>>> echec[("b",2)] = "white queen"
+>>> echec
+{('a', 1): 'white tower', ('b', 2): 'white queen'}
+# ici le tuple est implicite on doit toujours considérer que c'est un tuple même si les parenthèses ne sont pas présentes :
+>>> echec["c",3] = "white horse"
+>>> echec
+{('a', 1): 'white tower', ('c', 3): 'white horse', ('b', 2): 'white queen'}
+
+on voit que les couples clés/ valeurs sont séparées par des "," .
+
+
+# creation d'une liste de couple de valeur : tuples
+a = [ ("lulu", 30), ("youki", 44), ("bob", 55)]
+# convertion de la liste en dictionnaire :
+age = dict(a)
+
+print(a)
+print(age)
+
+[('lulu', 30), ('youki', 44), ('bob', 55)]
+{'bob': 55, 'youki': 44, 'lulu': 30}
+
+- on peut modifier une valeur d'une dictionnaire : 
+age["bob"] = 12
+print(age)
+{'bob': 12, 'youki': 44, 'lulu': 30}
+
+
+/!\ attention un construction du type :
+b = { "lapin" , "nain" } : n'est pas un dico mais un set : qui est un object conteneur qui ne peut pas  contenir d'objet en double.
+
+- Delete des clés d'un dictionnaire : 
+
+> del 
+
+>>> echec
+{('a', 1): 'white tower', ('c', 3): 'white horse', ('b', 2): 'white queen'}
+
+on utilise la fonction del :
+>>> del(echec["a",1])
+>>> echec
+{('c', 3): 'white horse', ('b', 2): 'white queen'}
+
+
+> pop : 
+la méthode pop des dico fonctionne egalement : 
+>>> echec.pop(("b",2))
+'white queen'
+>>> echec
+{('c', 3): 'white horse'}
+
+
+> la fonction len va nous permettre de connaitre le nombre de couples - clé/valeur ont a dans notre dico :
+a = [ ("lulu", 30), ("youki", 44), ("bob", 55)]
+print(len(age))
+3
+
+> le test d'appratenance fonctionne aussi : 
+print("bib" in age)
+False
+
+
+
+- Recupération des élements de dictionnaire :
+
+on peut recupérer via les méthodes dédiées : les clés , les valeurs ou les élements des dictionnaires.
+
+age =  {"bob": 38 , "bebert": 50}
+print(type(age))
+<class 'dict'>
+print(age)
+{'bebert': 50, 'bob': 38}
+print(age.keys())
+dict_keys(['bebert', 'bob'])
+print(age.values())
+dict_values([50, 38])
+print(age.items())
+dict_items([('bebert', 50), ('bob', 38)])
+
+
+Les methodes keys,values et items retournent un objet particulier qu'on appelle une "vue".
+Une vue en python est un objet sur lequel on va pouvoir itérer (faire une boucle for ) et faire des tests d'appartenance.
+La vue est mise à jour en même temps que le dictionnaire.
+
+age =  {"bob": 38 , "bebert": 50}
+# test mise a jour de vue . on associe une vue (resultat ici de age.keys )a une variable. on modifie notre dictionnaire \
+# et on voit que la vue est automatiquement modifiée
+k = age.keys()
+print(k)
+dict_keys(['bob', 'bebert'])
+age["bernard"] = 22
+print(k)
+dict_keys(['bernard', 'bob', 'bebert'])
+
+
+- Parcours de dictionnaire :
+
+on peut parcourir classiquement avec une boucle for notre dictionnaire .
+On va egalement pouvoir utiliser dans notre boucle for la methode de tuple unpacking (voir plus bas )
+
+# on set un dico :
+>>> fruits = {" pommes ":21 , " melons ":3 , " poires ":31}
+# on va parcourir notre dico et afficher les clés : 
+>>> for  key in fruits:
+...     print(key)
+... 
+ pommes 
+ poires 
+ melons 
+
+Ici on note que l'ordre n'est pas respecté : c'est normal pour un dico : non ordonné.
+
+-> parcours des clés : 
+on va pouvoir utiliser la méthode keys pour récupérer les clés du dico explicitement :
+
+>>> for  key in fruits.keys():
+...     print(key)
+... 
+ pommes 
+ poires 
+ melons 
+
+-> parcours des valeurs :
+on va pouvoir récupérer explicitement les valeurs de nos objects grâce à la méthode values :
+
+>>> for val in fruits.values():
+...     print(val)
+... 
+21
+31
+3
+
+on peut se servir de cette methode avec des condition ex :
+# si on a un des fruits dont la valeur vaut 21 :
+>>> if 21 in fruits.values():
+...     print("hey ! we got a twentyone fruit number !")
+... 
+hey ! we got a twentyone fruit number !
+
+-> recupération des clés et valeurs : 
+On va utiliser la methode items pour recupérer les clés et valeurs d'un dico (comme on utilise enumerate pour récupérer les indices et les objects d'une liste.)
+>>> fruits
+{' pommes ': 21, ' poires ': 31, ' melons ': 3}
+>>> for fruit, number in fruits.items():
+...     print("hey we got {} for this kind  of fruit {}".format(number,fruit))
+... 
+hey we got 21 for this kind  of fruit  pommes 
+hey we got 31 for this kind  of fruit  poires 
+hey we got 3 for this kind  of fruit  melons 
+
+
+On voit donc que cette méthode est celle des tuples unpacking : 
+
+for p, a in age.items():
+    print("clé =>  {}  valeur => {}".format(p,a))
+clé =>  bernard  valeur => 22
+clé =>  bob  valeur => 38
+clé =>  bebert  valeur => 50
+
+-> methode get : 
+
+Pour accéder à la valeur associée à une clé, on utilise la notation à base de crochets []
+print('la valeur pour marc est', annuaire['marc'])
+
+Cette forme d’accès ne fonctionne que si la clé est effectivement présente dans le dictionnaire.
+parcours de dictionnaire suite à insérer :
+
+On peut recupérer donc les items, clés et valeurs. Si une clé n'existe pas : une exception KeyError est levée. Aussi si vous n’êtes pas sûr que la clé soit
+présente, vous pouvez utiliser la méthode get qui accepte une valeur par défaut:
+ex :
+>>> a = {"web": 3 , "db": 5}
+>>> print(a)
+{'web': 3, 'db': 5}
+on set une valeur par défaut a une clé qui n'existe pas dans notre dico :
+>>> print(a.get('fw', 5))
+5
+
+On peut modifier un dico avec le contenu d'un autre dico avec la methode update :
+
+>>> print(a)
+{'web': 3, 'db': 5}
+>>> print(a)
+{'web': 3, 'db': 5}
+>>> a.update({"fw": 5})
+>>> print(a)
+{'web': 3, 'fw': 5, 'db': 5}
+
+
+
+
+- Dictionnaire et parametre de fonction :
+on peut recupérer les parametres nommés d'une fonction : dans ce cas ils sont placés dans un dico.
+on ne pouvait pas le faire avec les listes comme on l'avait vu précédemment . ici on peut on utilise pour cela la syntaxe : "**" pour notre fonction : 
+
+
+on va pouvoir injecter dans un dico nos clés et valeurs via une fonction 
+>>> def fonction_inconnue(**parametres_nommes):
+...     """ Fonction permettant de voir comment récupérer les \
+...     parametres nommés dans un dico"""
+        print ("J’ai reçu en paramètres nommés:{}.".format (
+...     parametres_nommes) )
+
+>>> fonction_inconnue()
+J’ai reçu en paramètres nommés:{}.
+>>> fonction_inconnue(p=4,j=8)
+J’ai reçu en paramètres nommés:{'j': 8, 'p': 4}.
+
+
+Si on passe des parametres non nommés à notre fonction on aura une erreur : python levera une exeption.
+
+
+Pour avoir une fonction qui accepte n'importe quel type de parametres (nommés ou non) : il faut la déclarer de cette manière :
+def fonc(*lst,**dico):
+tous les params non nommés seront dans la variable lst et tous les params nommés dans la variable dico.
+
+- Tranformer un dictionnaire en parametres nommés d'une fonction :
+
+>>> parametres = {"sep":">>","end":"-\n"}
+>>> print ("Voici "," un "," exemple "," d’appel ",**parametres)
+Voici >> un >> exemple >> d’appel-
+les params sont transmis a la fonction par un dico. pour indiquer que le dico doit être transmis en param nommés on place ** avant son nom.
+C'est comme si nous avions ecrit : 
+>>> print ("Voici "," un ", " exemple "," d’appel",sep =">>",end ="-\n")
+Voici >> un >> exemple >> d ’ appel -
+
+
+
+
+== Les sets ==
+
+les sets sont des ensembles.
+
+ils permettent comme les dictionnaires de faire des tests d'appartenance, ils sont des objets mutables. Ils ne stockent qu'une cle : pas de valeur.
+Ils ont été crée uniquement pour des fonctions bien définies comme par exemple garder les éléments uniques d'une liste d'élements : 
+on peut y stocker des immuables ( qui sont hashables, contrairement au mutable qui ne sont pas hashable.)
+
+
+# creation de set : 
+>>> s = set()
+>>> type(s)
+<class 'set'>
+>>> s = {1 , 5, "True", "lapin", 5}
+>>> s
+{1, 'lapin', 5, 'True'}
+# creation de liste comportant des éléments présents plusieurs fois : 
+>>> y = [ 1 , 5 , 5 , "lapin" , "tutu" , "lapin" ]
+# creation d'un set et affichage de notre liste d'eleme qui cette fois ne comporte que des éléménts uniques : 
+>>> set(y)
+{1, 'tutu', 'lapin', 5}
+
+# on peut faire des actions classiques et habituelles : 
+# longeur de set 
+>>> b = set(y)
+>>> len(b)
+4
+# ajout :
+>>> b.add('bob')
+>>> b
+{1, 'tutu', 'lapin', 5, 'bob'}
+# test d'appartenance : 
+>>> "tutu" in b
+True
+>>> "toto" in b
+# ajout de nouveaux éléments dans le set : 
+>>> b.update(["bebert", 77])
+>>> b
+{1, 5, 't', 'bob', 'bebert', 'lapin', 77, 'e', 'b', 'r', 'tutu'}
+
+
+# operations sur les set : 
+>>> s1 = {1, 2, 3}
+>>> s2 = {4, 5}
+# différences : 
+>>> s1 - s2
+{1, 2, 3}
+# union :
+>>> s1 |s2
+{1, 2, 3, 4, 5}
+# intersection : 
+>>> s1 & s2
+set()
+
+
+- Tests d'appartenance : 
+
+un set etant une table de hash : on va donc faire un calcul sur notre elements : il faut donc toujours convertir nos sequences en set pour vraiment gagner du temps.
+
+
+
+= Création - la fonction frozenset
+Un frozenset est un ensemble qu'on ne peut pas modifier, et qui donc peut servir de clé dans un dictionnaire, ou être inclus dans un autre ensemble (mutable ou pas).
+Il n'existe pas de raccourci syntaxique comme les {} pour créer un ensemble immuable, qui doit être créé avec la fonction frozenset. Toutes les opérations vues jusqu'à present et qui n'ont pas besoin de modifier l'ensemble, sont disponibles sur un frozenset.
+Parmi les fonctions exclues sur un frozenset, on peut citer:  update, pop, clear, remove ou discard.
+Opérations simples
+￼
+# pour rappel
+heteroclite
+{(1, 2, 3), 12, 'marc', 'pierre'}
+- Test d'appartenance
+(1, 2, 3) in heteroclite
+True
+-Cardinal
+len(heteroclite)
+4
+-Manipulations
+￼
+ensemble = {1, 2, 1}
+ensemble
+{1, 2}
+￼
+# pour nettoyer
+ensemble.clear()
+ensemble
+set()
+￼
+# ajouter un element
+ensemble.add(1)
+ensemble
+{1}
+￼
+# ajouter tous les elements d'un autre *ensemble*
+ensemble.update({2, (1, 2, 3), (1, 3, 5)})
+ensemble
+{(1, 2, 3), (1, 3, 5), 1, 2}
+￼
+# enlever un element avec discard
+ensemble.discard((1, 3, 5))
+ensemble
+{(1, 2, 3), 1, 2}
+￼
+# discard fonctionne même si l'élément n'est pas présent
+ensemble.discard('foo')
+ensemble
+{(1, 2, 3), 1, 2}
+￼
+# enlever un élément avec remove
+ensemble.remove((1, 2, 3))
+ensemble
+{1, 2}
+￼
+# contrairement à discard, l'élément doit être présent, 
+# sinon il y a une exception
+try:
+    ensemble.remove('foo')
+except KeyError as e:
+    print("remove a levé l'exception", e)
+remove a levé l'exception 'foo'
+La capture d'exception avec try et except sert à capturer une erreur d'exécution du programme (qu'on appelle exception) pour continuer le programme. Le but de cet exemple est simplement de montrer (d'une manière plus élégante que de voir simplement le programme planter avec une exception non capturée) que l'expression ensemble.remove('foo') génère une exception.
+
+
+-> Opérations classiques sur les ensembles
+Donnons-nous deux ensembles simples:
+￼
+A2 = set([0, 2, 4, 6])
+print('A2', A2)
+A3 = set([0, 6, 3])
+print('A3', A3)
+A2 {0, 2, 4, 6}
+A3 {0, 3, 6}
+
+N'oubliez pas que les ensembles, comme les dictionnaires, ne sont pas ordonnés.
+Remarques
+Les notations des opérateurs sur les ensembles rappellent les opérateurs "bit-à-bit" sur les entiers.
+Ces opérateurs sont également disponibles sous la forme de méthodes
+
+Union
+A2 | A3
+{0, 2, 3, 4, 6}
+
+Intersection
+A2 & A3
+{0, 6}
+
+Différence
+A2 - A3
+{2, 4}
+￼
+A3 - A2
+{3}
+
+Différence symétrique
+On rappelle que AΔB=(A−B)∪(B−A)AΔB=(A−B)∪(B−A)
+A2 ^ A3
+{2, 3, 4}
+
+Comparaisons
+Ici encore on se donne deux ensembles:
+superset = {0, 1, 2, 3}
+print('superset', superset)
+subset =  {1, 3}
+print('subset', subset)
+superset {0, 1, 2, 3}
+subset {1, 3}
+
+Égalité￼
+heteroclite == heteroclite2
+True
+
+Inclusion￼
+subset <= superset
+True
+subset < superset
+True
+heteroclite < heteroclite2
+False
+
+Ensembles disjoints
+heteroclite.isdisjoint(A3)
+True
+Pour en savoir plus
+Reportez vous à la section sur les ensembles dans la documentation python : https://docs.python.org/3/library/stdtypes.html#set-types-set-frozenset
+
+
+
+
+
+== les fichiers ==
+
+Des notions à comprendre sont nécéssaire pour une bonne gestion des fichiers :
+
+-> l'encodage :
+
+c'est l'objet fichier qui va se charger d'encoder et décoder les chaines de caractères pour nous.
+
+# ex ici on crée un fichier ( s'il n'existe pas déjà) en raw ( on recupère tel quel les caratères saisis), en mode w (write) avec un encodage qu'on set en utf8 ( à toujours privilégier ) 
+fichier = open(r"/tmp/testo", "w", encoding = "utf8")
+pour ecrire dans le fichier on a juste besoin de passer la methode write à notre objet fichier créer et injecter du texte dedans 
+ex :
+fichier = open(r"/tmp/testo", "w", encoding="utf8")
+for i in range(10):
+    fichier.write("Ligne number {}\n".format(i))
+
+cat /tmp/testo 
+Ligne number 0
+Ligne number 1
+Ligne number 2
+Ligne number 3
+Ligne number 4
+Ligne number 5
+Ligne number 6
+Ligne number 7
+Ligne number 8
+Ligne number 9
+Il va juste falloir à la fin de notre ecriture bien fermer le fichier avec la methode close
+fichier.close()
+
+Les fichiers sont des iterateurs ont peu les mettre dans une boucle "for"
+Pour lire un fichier et ecrire dans un nouveau fichier : 
+
+#on va injecter le contenu de fichier dans fichier2 tout en modifiant du texte :
+fichier = open(r"/tmp/testo", "r", encoding="utf8")
+fichier2 = open(r"/tmp/testa", "w", encoding="utf8")
+# on parcours fichier
+for line in fichier:
+    # maintenant on transforme notre chaine en liste avec la methode split
+    line = line.split()
+    # on va maintenant passer en maj la premiere colonne de notre liste avec la methode upper
+    line[0] = line[0].upper()
+    # puis on ecrit dans le fichier2 chacune de nos lignes reconverties de liste en str avec la methode join suivi \
+    # d'un "\n" pour un retour chariot propre
+    fichier2.write(" ".join(line) + "\n")
+    # on ferme nos  fichiers :
+    fichier.close()
+    fichier2.close()
+
+cat /tmp/testa
+LIGNE number 0
+LIGNE number 1
+LIGNE number 2
+LIGNE number 3
+LIGNE number 4
+LIGNE number 5
+LIGNE number 6
+LIGNE number 7
+LIGNE number 8
+LIGNE number 9
+
+Il est important de toujours gérer la fermeture des fichiers sous python : quand on gere les fichiers on correspond avec l'os : qui lui est limité en nombre maximum de fichiers ouvert : il est donc fondamental de ne pas se retrouver en saturation de l'os à cause de fichiers non fermés.
+
+
+- Changer de repertoire courant :
+il va être forcement utile quand on veut travailler sur les fichiers de définir un repertoire de travail courant .
+Pour cela on va importer le module os et indiquer le repertoire de dest dans lequel on veut aller . Noter que le chemin se précise avec des "/" même sous microsoft.
+
+>>> import os
+>>> os.chdir("/tmp")
+>>>
+
+- chemins absolus et relatifs :
+
+-> le chemin absolus partira du debut de l'arborescence systeme (ex :"/" sous unix) 
+on precisera donc le chemin complet du debut de la'arbo à la fin 
+
+/home/boogie/test_dir
+
+
+-> le chemin relatif : sera lui defini en fonction de l'endroit ou l'on se trouve :
+ex : je suis dans /home/boogie je veurx aller dans test_dir 
+test_dir 
+
+Pour verifier le repertoire dans lequel on va travailler on utilise la methode getcwd() 
+
+>>> import os
+>>> os.chdir("/tmp")
+>>> os.getcwd()
+'/tmp'
+
+
+- Lecture et ecriture dans un fichier :
+on va creer avec un interpreteur un fichier dans un rep :
+ ~/Documents/lab/python/zero  $  pwd
+/home/boogie/Documents/lab/python/zero
+ ~/Documents/lab/python/zero  $  cat test_file.py 
+testo
+
+Nous devons pour lire un fichier l'ouvrir : on utilise donc  la fonction open qui prend en param 
+-> le path (relatif ou absolu du fichier à ouvrir) 
+-> le mode d'ouverture qui est préciser sous forme de caractères :
+- 'r' : read - lecture 
+- 'w' : write - ecriture : le contenu du fichier est ecrasé.Si le fichier n'existe pas il est créee
+- 'a' : append - ajout : le texte saisi sera ajouté au contenu du fichier existant. Si le fichier n'existe pas il sera créee.
+- 'b' : binary on va ici utiliser conjointement à  w et a le mode binaire b si nos data doivent être sous forme bruts ( cf module pickle plus bas )  
+
+->pour lire simplement le fichier  :
+
+>>> open = open("test_file.py","r")
+>>> open
+<_io.TextIOWrapper name='test_file.py' mode='r' encoding='UTF-8'>
+
+ on voit l'encodage du fichier 
+on voit que le type de notre object est un fichier texte (TextIOWrapper) 
+>>> type(open)
+<class '_io.TextIOWrapper'>
+
+Il est impératif de fermer le fichier quand on a fini de l'utiliser ( même en lecture seule c'est une bonne habitude à prendre) 
+on utilise la méthode close :
+>>> open.close()
+
+-> pour lire l'integralité de notre fichier : 
+on utilise la méthode read de la classe TextIOWrapper 
+# on defini une var pour notre fichier qu'on ouvre en lecture seule : 
+>>> file = open("test_file.py", "r")
+# on associe une nouvelle variable en lui donnant le resultat de la methode read sur notre object precedent :
+>>> content = file.read()
+# on affiche notre nouvel object : qui contient notre texte : 
+>>> print(content)
+testo
+
+- Ecriture dans un fichier :
+
+on doit biensur ouvrir le fichier d'abord . On peut utiliser le mode "w" ou "a" en fonction de nos besoins.
+Puis on utilise la methode write qui va nous servir à inserer du contenu. Une fois saisi on a le nombre caractère inséré dans le texte : qui peut donc être récupérer si besoin .
+Attention la méthode write ne permet de saisir que des chaines de caractères : il faudra donc convertir nos autres types si besoin .
+
+# on passe en mode append :
+>>> file = open("test_file.py", "a")
+# on rajoute le texte voulu à notre fichier 
+>>> file.write("okokok ! let's gonna write in our python file from python code ! ")
+65
+# on ferme 
+>>> file.close()
+# on check l'ecriture : 
+>>> file = open("test_file.py", "r")
+>>> content = file.read()
+>>> print(content)
+testo
+okokok ! let's gonna write in our python file from python code !
+
+
+
+- context manager : 
+c'est un protocole interne à python qui permet de gérer automatiquement la fermeture des fichiers : qui sont des objects dès qu'on n'en a plus besoin : c'est la methode à utiliser sous python  
+
+- "with" : ce keyword permet de gérer le contexte manager des fichiers : 
+
+il est fondamental de toujours fermer le fichier sur lequel on a travailler.
+On peut faire des erreurs en ecriture etc..Si notre programme a besoin d'acceder au fichier et que celui ci est deja ouvert : il ne pourra pas le faire.
+Le mot clé "with" permet d'eviter ce pb.
+on va donc créer si elle n'existe pas une  variable apres avoir utiliser le keyword with , ouvert notre fichier dans le mode que l'on veut et utiliser le keyword "as" devant le nom de la variable que l'on veut utiliser : 
+
+le keyword "with" permet de créer un context manager qui vérifie que le fichier est ouvert ou fermé même si des erreurs apparaissent pendant le bloc.
+Le fichier sera automatiquement fermé à la fin du bloc et on peut le vérifier avec la méthode  closed.
+
+On commence par le keyword with ensuite on ouvre notre fichier en tant qu'objet avec (as) fichier que l'on nomme comme on veut puis on met un ":" pour montrer la creation d'un bloc d'instructions:
+A la sortie du bloc de code la methode exit est automatiquement appellée et le fichier est fermé 
+De plus en cas d'exeption le fichier est automatiquement fermé
+
+>>> with open(r"test_file.py", "r", encoding="utf8") as file:
+...     content = file.read()
+... 
+>>> content
+'hey!!welcome[1, 4]'
+# on vérifie que le fichier a bien été fermé par le contexte manager : 
+>>> file.closed
+True
+
+Cela va nous permettre de garantir que si une exeption se produit : notre fichier sera quand même fermé à la fin du bloc.
+python le fait automatiquement.
+
+on peut ecrire dans un fichier en mode binaire  : dans ce cas on ecrit des objects de type binaire 
+# ouverture d'un fichier en mode binaire : on rajoute b devant notre mode , l'encodage n'est pas necessaire en binaire
+with open(r"/tmp/testu", "bw") as binaryfile:
+    for i in range(10):
+        binaryfile.write(b'\x3d')
+# ce qui nous donne le carractere "=" ecris 10 fois : 
+cat /tmp/testu
+==========
+
+Il est important de pouvoir consulter les différents mode d'ouverture de fichier sous python :
+https://docs.python.org/3/library/functions.html#open
+
+
+Un fichier - qui donc est itérable puisqu'on peut le lire par une boucle for - est aussi son propre itérateur. Cela implique que l'on ne peut le parcourir qu'une fois dans une boucle for. Pour le reparcourir, il faut le fermer et l'ouvrir de nouveau.
+Par conséquent, écrire deux boucles for imbriquées sur le même objet fichier ne fonctionnerait pas comme on pourrait s'y attendre.
+
+with open(r"/tmp/testu", "bw") as binaryfile:
+    for i in range(10):
+        binaryfile.write(b'\x3d')
+    # test la methode iter est ok sur l'objet fichier binaryfile
+    print(binaryfile.__iter__() is binaryfile)
+
+True
+
+Methodes bas niveau / os pour lecture de fichier / texte :
+
+-> repr()
+
+# construisons à la main une chaine qui contient deux lignes
+lines = "abc"+ "\n" + "def"  + "\n"
+print(lines, end="")
+abc
+def
+# avec repr() 
+print(repr(lines))
+'abc\ndef\n'
+
+-> read() : permet de lire le contenu de tout un fichier en buffer . Attention ne pas utiliser sur les gros fichiers.
+
+# read() retourne TOUT le contenu
+# une autre façon de montrer tout le contenu du fichier
+with open("foo.txt", encoding='utf-8') as entree:
+    full_contents = entree.read()
+    print(f"Contenu complet\n{full_contents}", end="")
+Contenu complet
+0
+1
+100
+101
+￼
+# lire dans le fichier deux blocs de 4 caractères
+with open("foo.txt", encoding='utf-8') as entree:
+    for bloc in range(2):
+        print(f"Bloc {bloc} >>{repr(entree.read(4))}<<")
+Bloc 0 >>'0\n1\n'<<
+Bloc 1 >>'100\n'<<
+
+On voit donc que chaque bloc contient bien 4 caractères en comptant les sauts de ligne
+bloc #		contenu
+0		un 0, un newline, un 1, un newline
+1		un 1, deux 0, un newline
+
+
+-> flush()
+La méthode flush
+Les entrées-sortie sur fichier sont bien souvent bufferisées par le système d'exploitation. Cela signifie qu'un appel à write ne provoque pas forcément une écriture immédiate, car pour des raisons de performance on attend d'avoir suffisamment de matière avant d'écrire sur le disque.
+Il y a des cas où ce comportement peut s'avérer gênant, et où on a besoin d'écrire immédiatement (et donc de vider le buffer), et c'est le propos de la méthode flush().
+
+
+fichiers textuels et fichiers binaires
+De la même façon que le langage propose les deux types str et bytes, il est possible d'ouvrir un fichier en mode textuel ou en mode binaire.
+Les fichiers que nous avons vus jusqu'ici étaient ouverts en mode textuel (c'est le défaut), et c'est pourquoi quand nous avons interagi avec eux avec des objets de type str:
+￼
+# un fichier ouvert en mode textuel nous donne des str
+with open('foo.txt', encoding='utf-8') as input:
+    for line in input:
+        print("on a lu un objet de type", type(line))
+on a lu un objet de type <class 'str'>
+on a lu un objet de type <class 'str'>
+on a lu un objet de type <class 'str'>
+on a lu un objet de type <class 'str'>
+Lorsque ce n'est pas le comportement souhaité, on peut
+ouvrir le fichier en mode binaire - pour cela on ajoute le caractère b au mode d'ouverture
+et on peut alors interagir avec le fichier avec des objets de type bytes
+Pour illustrer ce trait, nous allons:
+créer un fichier en mode texte, et y insérer du texte en UTF-8
+relire le fichier en mode binaire, et retrouver le codage des différents caractères.
+￼
+# phase 1 : on écrit un fichier avec du texte en UTF-8
+# on ouvre le donc le fichier en mode texte
+# en toute rigueur il faut préciser l'encodage, 
+# si on ne le fait pas il sera déterminé 
+# à partir de vos réglages système
+with open('strbytes', 'w', encoding='utf-8') as output:
+    output.write("déjà l'été\n")
+￼
+# phase 2: on rouvre le fichier en mode binaire
+with open('strbytes', 'rb') as rawinput:
+    # on relit tout le contenu
+    octets = rawinput.read()
+    # qui est de type bytes
+    print("on a lu un objet de type", type(octets))
+    # si on regarde chaque octet un par un
+    for i, octet in enumerate(octets):
+        print(f"{i} → {repr(chr(octet))} [{hex(octet)}]")
+on a lu un objet de type <class 'bytes'>
+0 → 'd' [0x64]
+1 → 'Ã' [0xc3]
+2 → '©' [0xa9]
+3 → 'j' [0x6a]
+4 → 'Ã' [0xc3]
+5 → '\xa0' [0xa0]
+6 → ' ' [0x20]
+7 → 'l' [0x6c]
+8 → "'" [0x27]
+9 → 'Ã' [0xc3]
+10 → '©' [0xa9]
+11 → 't' [0x74]
+12 → 'Ã' [0xc3]
+13 → '©' [0xa9]
+14 → '\n' [0xa]
+Vous retrouvez ainsi le fait que l'unique caractère unicode "é", a été encodé par UTF-8 sous la forme de deux octets de code hexadécimal 0xc3 et 0xa9.
+Vous pouvez également consulter ce site qui visualise l'encodage UTF-8, avec notre séquence d'entrée :
+
+https://mothereff.in/utf-8#d%C3%A9j%C3%A0%20l%27%C3%A9t%C3%A9%0A
+
+# on peut comparer le nombre d'octets et le nombre de caractères
+with open('strbytes', encoding='utf-8') as textfile:
+    print(f"en mode texte, {len(textfile.read())} caractères")
+with open('strbytes', 'rb') as binfile:
+    print(f"en mode binaire, {len(binfile.read())} octets")
+en mode texte, 11 caractères
+en mode binaire, 15 octets
+Ce qui correpond au fait que nos 4 caractères non-ASCII (3 é et 1 à) sont tous encodés par UTF-8 comme 2 octets, comme vous pouvez vous en assurer ici pour é et  à.
+é => \xC3\xA9
+à => \xC3\xA0
+
+urls : 
+
+https://docs.python.org/3/glossary.html#term-file-object
+https://docs.python.org/3/library/io.html#module-io
+
+= Utilitaires fichiers :
+
+
+Outre les objets fichiers créés avec la fonction open et qui servent à lire et écrire à un endroit précis, une application a besoin d'un minimum d'utilitaires pour parcourir l'arborescence de répertoires et fichiers, c'est notre propos dans ce complément.
+-> Le module os.path (obsolète) : avant python3.4 :
+Avant la version python-3.4, la librairie standard offrait une conjonction d'outils pour ce type de fonctionnalités:
+le module os.path, pour faire des calculs sur  les chemins et noms de fichiers doc,
+le module os pour certaines fonctions complémentaires comme renommer ou détruire un fichier doc,
+et enfin le module glob pour la recherche de fichiers, par exemple pour trouver tous les fichiers en *.txt doc.
+Cet ensemble un peu disparate a été remplacé par une librairie unique pathlib, qui fournit toutes ces fonctionnalités sous un interface unique et moderne, que nous recommandons évidemment d'utiliser pour du nouveau code.
+Bref aperçu de ces trois anciens modules :  tous les noms qui suivent correspondent à des fonctions - par opposition à pathlib qui comme nous allons le voir offre une interface orientée objet:
+
+os.path.join ajoute '/' ou '\' entre deux morceaux de chemin, selon l'OS
+
+os.path.basename trouve le nom de fichier dans un chemin
+>>> os.path.basename("/home/boogie/Documents")
+'Documents'
+os.path.dirname trouve le nom du directory dans un chemin
+>>> os.path.dirname("/home/boogie/Documents")
+'/home/boogie'
+os.path.abspath calcule un chemin absolu, c'est-à-dire à partir de la racine du filesystem
+>>> os.path.abspath("/home/boogie/Documents")
+'/home/boogie/Documents'
+os.path.exists pour savoir si un chemin existe ou pas (fichier ou répertoire)
+>>> os.path.exists("/home/boogie/Documents")
+True
+os.path.isfile (et isdir) pour savoir si un chemin est un fichier (et un répertoire)
+>>> os.path.isfile("/home/boogie/Documents")
+False
+>>> os.path.isdir("/home/boogie/Documents")
+True
+os.path.getsize pour obtenir la taille du fichier
+>>> os.path.getsize("/tmp/testo")
+150
+os.path.getatime et aussi getmtime et getctime pour obtenir les dates de création/modification d'un fichier
+>>> os.path.getatime("/tmp/testo")
+1515162196.7593696
+os.remove (ou son ancien nom os.unlink), qui permet de supprimer un fichier
+>>> os.remove("/tmp/testo")
+>>> os.remove("/tmp/testo")
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+OSError: [Errno 2] No such file or directory: '/tmp/testo'
+
+os.rmdir pour supprimer un répertoire (mais qui doit être vide)
+mkdir /tmp/bla
+>>> os.rmdir('/tmp/bla')
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+OSError: [Errno 2] No such file or directory: '/tmp/bla'
+os.removedirs pour supprimer tout un répertoire avec son contenu, récursivement si nécessaire
+mkdir /tmp/bla
+>>> os.removedirs('/tmp/bla')
+>>> os.removedirs('/tmp/bla')
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+  File "/usr/lib/python2.7/os.py", line 170, in removedirs
+    rmdir(name)
+OSError: [Errno 2] No such file or directory: '/tmp/bla'
+
+os.rename pour renommer un fichier
+os.rename("/tmp/testu","/tmp/tata")
+>>> os.path.getsize("/tmp/tata")
+10
+glob.glob comme dans par exemple glob.glob("*.txt")
+for i in $(seq 1 4) ; do touch $i.txt ;done 
+>>> import glob
+>>> glob.glob("/tmp/*.txt")
+['/tmp/3.txt', '/tmp/2.txt', '/tmp/4.txt', '/tmp/1.txt']
+
+
+= Le module pathlib
+Orienté Objet : et correspond aux manières recentes d'utiliser les outils pour les fichiers en python : 
+De même que le langage nous propose les types builtin int et str, le module pathlib nous expose un type (on dira plutôt une classe) qui s'appelle Path, que nous allons importer comme ceci:
+￼
+from pathlib import Path
+#Nous allons faire tourner un petit scénario qui va créer un fichier:
+nom = 'fichier-temoin'
+Pour commencer, nous allons vérifier si le fichier en question existe.
+Pour ça nous créons un objet qui est une instance de la classe Path, comme ceci:
+￼
+# on crée un objet de la classe Path, associé au nom de fichier
+path = Path(nom)
+i = int(3.5)
+en ce sens que le type (int ou Path) se comporte comme une usine pour créer des objets du type en question.
+Quoi qu'il en soit, cet objet path offre un certain nombre de méthodes; pour les voir il suffit d'appuyer  sur la touche 'Tabulation' après avoir ajouté un . comme si vous alliez envoyer une méthode à cet objet
+path.[taper la touch TAB ]
+# ajouter un . et utilisez la touche <Tabulation>
+Ainsi par exemple on peut savoir si le fichier existe avec la méthode exists()
+￼
+# au départ le fichier n'existe pas
+path.exists()
+False
+￼
+# si j'écris dedans je le crée
+with open(nom, 'w', encoding='utf-8') as output:
+    output.write('0123456789\n')
+￼
+# et maintenant il existe
+path.exists()
+True
+
+-> métadonnées
+Voici quelques exemples qui montrent comment accéder aux métadonnées de ce fichier:
+￼
+# cette méthode retourne (en un seul appel système) les métadonnées agrégées
+path.stat()
+os.stat_result(st_mode=33188, st_ino=2155977, st_dev=43, st_nlink=1, st_uid=37068, st_gid=37068, st_size=11, st_atime=1515167973, st_mtime=1515167973, st_ctime=1515167973)
+l'objet retourné par cette méthode stat est un namedtuple.On accède aux différentes informations comme ceci:
+￼
+# la taille du fichier en octets est de 11 
+# car il faut compter un caractère "newline" en fin de ligne 
+path.stat().st_size
+11
+￼
+# la date de dernière modification, sous forme d'un entier
+# c'est le nombre de secondes depuis le 1er Janvier 1970
+mtime = path.stat().st_mtime
+mtime
+1515167973.4433136
+￼
+# que je peux rendre lisible comme ceci
+# en anticipant sur le module datetime
+from datetime import datetime
+mtime_datetime = datetime.fromtimestamp(mtime)
+mtime_datetime
+datetime.datetime(2018, 1, 5, 15, 59, 33, 443314)
+￼
+# ou encore, si je formatte pour n'obtenir que
+# l'heure et la minute
+f"{mtime_datetime:%H:%M}"
+re un fichier
+In [20]:
+￼
+# je peux maintenant détruire le fichier
+path.unlink()
+￼
+# ou encore mieux, si je veux détruire 
+# seulement dans le cas où il existe je peux aussi faire
+try: 
+    path.unlink()
+except FileNotFoundError:
+    print("no need to remove")
+no need to remove
+￼
+# et maintenant il n'existe plus
+path.exists()
+False
+￼
+# je peux aussi retrouver le nom du fichier comme ceci
+# attention ce n'est pas une méthode mais un attribut 
+# c'est pourquoi il n'y a pas de parenthèses
+path.name
+'fichier-temoin'Out[19]:
+'15:59'
+
+-> Recherche de fichiers
+Maintenant je voudrais connaître la liste des fichiers de nom *.json dans le directory data.
+La méthode la plus naturelle consiste à créer une instance de Path associée au directory lui-même:
+￼
+dirpath = Path('./data/')
+Sur cet objet la méthode glob nous retourne un itérable qui contient ce qu'on veut:
+￼
+# tous les fichiers *.json dans le répertoire data/
+for json in dirpath.glob("*.json"):
+    print(json)
+data/cities_europe.json
+data/cities_france.json
+data/cities_idf.json
+data/cities_world.json
+data/marine-e1-abb.json
+data/marine-e1-ext.json
+data/marine-e2-abb.json
+data/marine-e2-ext.json
+
+voir :  https://docs.python.org/3/library/pathlib.html
+
+Le type de notre objet path
+￼
+type(path)
+pathlib.PosixPath
+qui n'est pas Path, mais en fait une sous-classe de Path qui fonctionne sous linux - un objet de type PosixPath, qui est une sous-classe de Path, comme on peut  le voir:
+￼
+from pathlib import PosixPath
+issubclass(PosixPath, Path)
+True
+Ce qui fait que mécaniquement, path est bien une instance de Path
+isinstance(path, Path)
+True
+
+= format fichiers  json  /csv / pickle ...  
+
+Voici quelques mots sur des outils python fournis dans la librairie standard, et qui permettent de lire ou écrire des données dans des fichiers.
+Le problème : les données dans un programme python sont stockés en mémoire (la RAM), sous une forme propice aux calculs. Par exemple un petit entier est fréquemment stocké en binaire dans un mot de 64 bits, qui est prêt à être soumis au processeur pour faire une opération arithmétique.
+Ce format ne se prête pas forcément toujours à être transposé tel quel lorsqu'on doit écrire des données sur un support plus pérenne, comme un disque dur, ou encore sur un réseau pour transmission distante - ces deux supports étant à ce point de vue très voisins.
+Ainsi par exemple il pourra être plus commode d'écrire notre entier sur disque, ou de le transmettre à un programme distant, sous une forme décimale qui sera plus lisible, sachant que par ailleurs toutes les machines ne codent pas un entier de la même façon.
+Il convient donc de faire de la traduction dans les deux sens entre représentations d'une part en mémoire, et d'autre part sur disque ou sur réseau (à nouveau, on utilise en général les mêmes formats pour ces deux usages).
+
+-> Le format JSON
+Le format sans aucun doute le plus populaire à l'heure actuelle est le format JSON pour JavaScript Object Notation.
+Sans trop nous attarder nous dirons que JSON est un encodage - en anglais marshalling - qui se prête bien à la plupart des types de base qu'on trouve dans les langages modernes comme python, ruby ou JavaScript.
+La librairie standard python contient le module json que nous illustrons très rapidement ici:
+￼
+import json
+# En partant d'une donnée construite à partir de types de base
+data = [
+    # des types qui ne posent pas de problème
+    [1, 2, 'a', [3.23, 4.32], {'eric': 32, 'jean': 43}],
+    # un tuple
+    (1, 2, 3),
+]
+# sauver ceci dans un fichier
+with open("s1.json","w", encoding='utf-8') as json_output:
+    json.dump(data, json_output)
+    
+# et relire le résultat 
+with open("s1.json", encoding='utf-8') as json_input:
+    data2 = json.load(json_input)
+
+Limitations de json :
+Certains types de base ne sont pas supportés par le format JSON (car ils ne sont pas natifs en JavaScript), c'est le cas notamment de:
+tuple, qui se fait encoder comme une liste;
+complex, set et frozenset, qu'on ne peut pas encoder du tout (sans étendre la librairie).
+C'est ce qui explique ce qui suit:
+￼
+# le premier élément de data est intact, 
+# comme si on avait fait une *deep copy* en fait
+print("première partie de data", data[0] == data2[0])
+première partie de data True
+￼
+# par contre le `tuple` se fait encoder comme une `list`
+print("deuxième partie", "entrée", type(data[1]), "sortie", type(data2[1]))
+deuxième partie entrée <class 'tuple'> sortie <class 'list'>
+Malgré ces petites limitations, ce format est de plus en plus populaire, notamment parce qu'on peut l'utiliser pour communiquer avec des applications web écrites en JavaScript, et aussi parce qu'il est très léger, et supporté par de nombreux langages.
+
+
+
+-> Le format csv
+Le format csv pour Comma Separated Values, originaire du monde des tableurs, peut rendre service à l'occasion, il est proposé dans le module csv.
+
+https://docs.python.org/3/library/csv.html
+
+
+-> Le format pickle
+Le format pickle remplit une fonctionnalité très voisine de JSON, mais est spécifique à python. C'est pourquoi, malgré des limites un peu moins sévères, son usage tend à rester plutôt marginal pour l'échange de données, on lui préfère en général le format JSON.
+Par contre, pour la sauvegarde locale d'objets python (pour, par exemple, faire des points de reprises d'un programme), il est très utile. Il est implémenté dans le module pickle.
+
+https://docs.python.org/3/library/pickle.html
+
+- Enregistrer des objets dans un fichier : module pickle.
+
+
+on va pouvoir enregistrer nos objects dans un fichier pour les récupérer plus tard.
+on va utiliser deux classes du module : Pickler et Unpickler 
+
+/!\ Attention on va devoir écrire nos data en mode binaire : on passe donc en mode b apres w 
+
+
+On créer d'abord notre pickler :
+>>> import pickle
+>>> with open("data","wb") as file:
+...     my_pickle = pickle.Pickler(file)
+... 
+>>>
+
+On va maintenant pouvoir injecter un object  avec la méthode dump 
+ex : dico = {"singer": "bob", "guitar": "bebert"}
+
+>>> dico = {"singer": "bob", "guitar": "bebert"}
+>>> with open("data","wb") as file:
+...     my_pickle = pickle.Pickler(file)
+...     my_pickle.dump(dico)
+...
+>>>
+on a maintenant quand on examine un fichier nommé data dans notre repertoire courant :
+
+>>> os.listdir()
+['tp_casino', 'test_file.py', 'algo_tp', 'data', 'test_dir', 'casino.py']
+
+- Recupérer un objet enregistré : 
+
+on va cette fois utiliser la classe Unpickler : on va créer un object "deplicker"
+on va ouvrir notre fichier data en mode lecture binaire ( c'est le format dans lequel sont ecrites nos data), on creer un objet deplickler et on utilise la méthode load pour charger le contenu de notre fichier.
+Quand on appelle notre variable on voit quelle contient les data en provenance de notre fichier : 
+>>> with open("data","rb") as file:
+...     my_depickler = pickle.Unpickler(file)
+...     get_member = my_depickler.load()
+... 
+>>> get_member
+{'guitar': 'bebert', 'singer': 'bob'}
+
+
+
+-> le format xml :
+XML est un format assez populaire également.
+Cela dit, la puissance, et donc le coût, de XML et JSON ne sont pas du tout comparables, XML étant beaucoup plus flexible mais au prix d'une complexité de mise en œuvre très supérieure.
+Il existe plusieurs souches différentes de librairies prenant en charge le format XML, qui sont introduites ici.
+https://docs.python.org/3/library/xml.html
+
+
+= Fichiers systèmes
+python interagit avec ce qu'il est convenu d'appeler le système d'entrées-sorties standard du système d'exploitation.
+Dans un ordinateur, le système d'exploitation (Windows, Linux, ou MacOS) est un logiciel (kernel) qui a l'exclusivité pour interagir physiquement avec le matériel (CPU, mémoire, disques, périphériques, etc.); il offre aux programmes utilisateur (userspace) des abstractions pour interagir avec ce matériel.
+La notion de fichier correspond à une de ces abstractions; elle repose principalement sur les 4 opérations élémentaires
+open
+close
+read
+write
+Parmi les autres conventions d'interaction entre le système (pour être précis: le shell) et une application, il y a les notions de
+entrée standard (standard input, en abrégé stdin)
+sortie standard (standard output, en abrégé stdout)
+erreur standard (standard error, en abrégé stderr)
+Ceci est principalement pertinent dans le contexte d'un terminal. L'idée c'est qu'on a envie de pouvoir rediriger les entrées-sorties d'un programme sans avoir à le modifier. De la sorte, on peut également chaîner des traitements à l'aide de pipes, sans avoir besoin de sauver les résultats intermédiaires sur disque.
+Ainsi par exemple lorsqu'on écrit
+
+$ monprogramme < fichier_entree > fichier_sortie
+les deux fichiers en question sont ouverts par le shell, et passés à monprogramme - que celui-ci soit écrit en C, en python ou en Java - sous la forme des fichiers stdin et stdout respectivement, et donc déjà ouverts.
+- Le module sys
+L'interpréteur python vous expose ces trois fichiers sous la forme d'attributs du module sys:
+
+import sys
+for channel in (sys.stdin, sys.stdout, sys.stderr):
+    print(channel)
+import sys
+for channel in (sys.stdin, sys.stdout, sys.stderr):
+    print(channel)
+<_io.TextIOWrapper name='<stdin>' mode='r' encoding='UTF-8'>
+<_io.TextIOWrapper name='<stdout>' mode='w' encoding='UTF-8'>
+<_io.TextIOWrapper name='<stderr>' mode='w' encoding='UTF-8'>
+On n'a pas extrêmement souvent besoin d'utiliser ces variables en règle générale, mais elles peuvent s'avérer utiles dans des contextes spécifiques.
+Par exemple, l'instruction print écrit dans sys.stdout (c'est-à-dire la sortie standard). Et comme sys.stdout est une variable (plus exactement stdout est un attribut dans le module référencé par la variable sys) et qu'elle référence un objet fichier, on peut lui faire référencer un autre objet fichier et ainsi rediriger depuis notre programme tous les sorties, qui sinon iraient sur le terminal, vers un fichier de notre choix:
+
+# ici je fais exprès de ne pas utiliser un `with`
+# car très souvent les deux redirections apparaissent
+# dans des fonctions différentes
+import sys
+# on ouvre le fichier destination
+autre_stdout = open('ma_sortie.txt', 'w', encoding='utf-8')
+# on garde un lien vers le fichier sortie standard
+# pour le réinstaller plus tard si besoin. 
+tmp = sys.stdout
+# 
+print('sur le terminal')
+# première redirection
+sys.stdout = autre_stdout
+# 
+print('dans le fichier')
+# on remet comme c'était au début
+sys.stdout = tmp
+# et alors pour être propre on n'oublie pas de fermer 
+autre_stdout.close()
+# 
+print('de nouveau sur le terminal')
+sur le terminal
+de nouveau sur le terminal
+
+# et en effet, dans le fichier on a bien
+with open("ma_sortie.txt", encoding='utf-8') as check:
+    print(check.read())
+dans le fichier
+
+
+
+
+
+
+
+
+
+
+
+== portée de variables et références  ==
+
+
+- portée des variables :
+en gros : comment les variables sont accessibles ? 
+quand on crée une fonction, quelle variables sont utilisables dans son corps ? 
+est ce qu'on peut créer dans notre corps de fonction des variables utilisablesen dehors ?
+
+-> dans nos fonctions quelles variables sont accessibles ?
+
+ex : on defini une variable :puis on l'affiche via une fonction . On change la valeur de la variable puis on rappelle la fonction :
+>>> a = 5
+>>> def fonct():
+...     print("hey ! dans notre fonction le nb vaut  {}".format(a))
+... 
+>>> fonct()
+hey ! dans notre fonction le nb vaut  5
+>>> a = 8 
+>>> fonct()
+hey ! dans notre fonction le nb vaut  8
+
+Ici on voit que la variable a n'est  pas passée en parametres de la fonction ..et pourtant python la trouve : c'est parce que cette variable a été définie avant l'appel .
+c'est là qu'intervienne les différents espaces :
+
+-> espace local  :
+
+quand on fait reference à une variable dans la fonction : python va regarder si elle est définie dans l'espace local de la fonction ( cet espace contient les param passés à la fonction et les variables définies dans son corps. 
+Python voit que cette variable n'existe pas dans l'espace local de la fonction.Il va donc regarder dans l'espace local dans lequel la fonction a été appellée : et là il trouve la variable : il peut donc l'afficher. 
+
+Il est déconseiller d'appeller des variables qui ne sont pas dans l'espace local : dans l'absolu il vaut mieux travailler avec une variable globale.
+
+-> portée des variables :
+Que deviennent les variables définies dans une fonction ?
+
+>>> def set_var(x):
+...     try: 
+...         print("avant affectation notre variable var vaut {}".format(var))
+...     except NameError:
+...         print("la variable n'existe pas encore!")
+...     var = x
+...     print("apres la nouvelle affectation var vaut {}".format(var))
+... 
+>>> set_var(4)
+la variable n'existe pas encore!
+apres la nouvelle affectation var vaut 4
+>>> var
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+NameError: name 'var' is not defined
+
+
+Decomposition : 
+quand on appelle la premiere fois la fonction set_var : la variable n'existe pas encore: on ne l'a pas défini dans le corps de la fonction ou du programme.
+ensuite python affecte 4 à la variable var , l'affiche et s'arrête.
+Quand on essaye d'afficher la variable var après la sortie de la fonction : python ne la trouve pas : c'est  normal elle n'est présente que dans la fonction et est détruite ensuite.
+
+python a une regle pour les acces exterrieurs aux variables locales : on peut les afficher mais pas les modifier.Si on modifie une valeur dans le corps de notre fonction : on ne modifiera en aucun cas la variable exterrieure à la fonction portant le même nom.
+
+Une fonction ne peut modifier par affectation la valeur d'une variable exterrieure a son espace local.
+
+->  une fonction modifiant un object :
+
+quand on passe des params à une fonction : on passe des objects (pas des valeurs).on pourrait donc essayer d'appeller une methode  qui modifie l'object que l'on passe à notre fonction ...
+
+>>> def add(liste, valeur_to_add):
+...     liste.append(valeur_to_add)
+... 
+>>> m = ["a","e","i","o"]
+>>> add(m,"u")
+>>> m
+['a', 'e', 'i', 'o', 'u']
+
+Pour résumer on aura donc :
+parametre = nouvelle_valeur, le paramètre ne sera modifié que dans le corps de la fonction. Alors que si vous faites parametre.methode_pour_modifier(...), l’objet
+derrière le paramètre sera bel et bien modifié.
+
+- les reférences : 
+
+en fait une variable est un nom identifiant pointant vers la référence d'un object : sa position en mémoire.
+donc deux variables ne peuvent pas pointer sur le même object.
+
+>>> m = ["a","e","i","o"]
+>>> n = m
+>>> n.append("Z")
+>>> print(n)
+['a', 'e', 'i', 'o', 'Z']
+>>> print(m)
+['a', 'e', 'i', 'o', 'Z']
+
+ on voit ici que m et n contiennent une reférence vers le même object ( puisque m est aussi modifier quand on change n)
+
+Cela ne fonctionne pas sur les entiers, chaine et float qui n'ont pas de methode pour modifier l'objet.
+
+Si on veut modifier une liste sans toucher à l'autre on va devoir faire autrement : 
+>>> m = ["a","e","i","o"]
+# cela revient a copier le contenu de la liste dans un nouvel object :
+>>> n = list(m)
+>>> n.append("Z")
+>>> print(n)
+['a', 'e', 'i', 'o', 'Z']
+>>> print(m)
+['a', 'e', 'i', 'o']
+
+les deux objects ne pointent plus sur la même référence.
+On utilise les constructeurs pour faire une copie : ex list, dict ..
+
+on peut vérifier la reference d'un object avec la fonction id qui prend en param nun objet et renvoie un nombre entier représentant la position de l'objet en mémoire : 
+# on creee deux listes et on verifie laref de l'object :
+>> a = [1,2]
+>>> b = [1,2]
+>>> id(a)
+140074665253896
+>>> id(b)
+140074665272648
+# on associe une liste à l'autre ( on copie son contenu) et on verifie les references : cette fois elles sont identiques : 
+>>> b = a
+>>> id(b)
+140074665253896
+>>> id(a)
+140074665253896
+# on recrée un nouvel objet : on retrouve deux references diff"érentes : 
+>>> b = list(a)
+>>> id(b)
+140074665273224
+>>> id(a)
+140074665253896
+
+/!\ Attention pour la comparaison de liste :
+-> avec "==" on va comparer le contenu des listes : 
+>>> a == b
+True
+-> avec is on compare la réference des objects : 
+>>> a is  b
+False
+
+
+Bien être prudent avec l'utilisation de is  :
+
+
+- les variables globales : 
+
+il est tout a fait possible dans une fonction de modifier les variables exterrieures à celle-ci : pour cela on v modifier les variables globales :
+/!\ il est déconseillé de trop travailler avec les globales.
+
+principe : on déclare dans le corps de notre programme une variable.Dans notre fonction on declare que la modif de variable touche à une globale (hors de la fonction donc).
+Python pour l'affectation de la variable va examiner les différents espaces ( en partant de l'espace local puis en remontant ) jusqu'a ce qu'il trouve la variable à modifier : et donner la possibilité à la fonction de modifier celle-ci.
+on doit pour permettre ce mecanisme utiliser dans le corps de notre fonction le  keyword "global" qu'on place générallement sous la def de fonction, sous le docstring.
+
+
+>>> nb = 2
+>>> def fonct(nb):
+...     """function in order to test the modification of a var set outside the function , using global spec"""
+...     nb += 1
+...     return "ok for now our var value is {}".format(nb)
+... 
+>>> fonct(3)
+ok for now our var value is 4
+>>> 
+
+
+== Tp "hangman" =
+
+Un jeu du pendu
+Le premier point de la mission est de réaliser un jeu du pendu. Je rappelle brièvement
+les règles, au cas où : l’ordinateur choisit un mot au hasard dans une liste, un mot
+de huit lettres maximum. Le joueur tente de trouver les lettres composant le mot. À
+chaque coup, il saisit une lettre. Si la lettre figure dans le mot, l’ordinateur affiche le
+mot avec les lettres déjà trouvées. Celles qui ne le sont pas encore sont remplacées par
+des étoiles (*). Le joueur a 8 chances. Au delà, il a perdu.
+On va compliquer un peu les règles en demandant au joueur de donner son nom, au
+début de la partie. Cela permettra au programme d’enregistrer son score.
+Le score du joueur sera simple à calculer : on prend le score courant (0 si le joueur
+n’a aucun score déjà enregistré) et, à chaque partie, on lui ajoute le nombre de coups
+restants comme points de partie. Si, par exemple, il me reste trois coups au moment
+où je trouve le mot, je gagne trois points.
+Par la suite, vous pourrez vous amuser à faire un décompte plus poussé du score, pour l’instant cela suffira bien. 
+
+
+
+Le côté technique du problème
+Le jeu du pendu en lui-même, vous ne devriez avoir aucun problème à le mettre en
+place. Rappelez-vous que le joueur ne doit donner qu’une seule lettre à la fois et que le
+programme doit bien vérifier que c’est le cas avant de continuer. Nous allons découper
+notre programme en trois fichiers :
+– Le fichier donnees.py qui contiendra les variables nécessaires à notre application (la
+liste des mots, le nombre de chances autorisées. . .).
+– Le fichier fonctions.py qui contiendra les fonctions utiles à notre application. Là, je
+ne vous fais aucune liste claire, je vous conseille de bien y réfléchir, avec une feuille et
+un stylo si cela vous aide (Quelles sont les actions de mon programme ? Que puis-je
+mettre dans des fonctions ?).
+– Enfin, notre fichier pendu.py qui contiendra notre jeu du pendu.
+Gérer les scores
+Vous avez, j’espère, une petite idée de comment faire cela. . . mais je vais quand même
+clarifier : on va enregistrer dans un fichier de données, que l’on va appeler scores (sans
+aucune extension) les scores du jeu. Ces scores seront sous la forme d’un dictionnaire :
+en clés, nous aurons les noms des joueurs et en valeurs les scores, sous la forme d’entiers.
+164CORRECTION PROPOSÉE
+Il faut gérer les cas suivants :
+– Le fichier n’existe pas. Là, on crée un dictionnaire vide, aucun score n’a été trouvé.
+– Le joueur n’est pas dans le dictionnaire. Dans ce cas, on l’ajoute avec un score de 0.
+À vous de jouer
+Vous avez l’essentiel. Peut-être pas tout ce dont vous avez besoin, cela dépend de
+comment vous vous organisez, mais le but est aussi de chercher ! Encore une fois, c’est
+un exercice pratique, ne sautez pas à la correction tout de suite, cela ne vous apprendra
+pas grand chose.
+Bonne chance !
+
+
+=================================================================================
+
+>>> a="lapin"
+>>> b
+['b', 'a', 'n']
+>>> c=""
+>>> for i in a:
+...     if i in b:
+...         c = c + i
+...         print("in if" + c)
+...     else:
+...         c = c + "*"
+...         print("in if" + c)
+...     print("out if " + c)
+... 
+in if*
+out if *
+in if*a
+out if *a
+in if*a*
+out if *a*
+in if*a**
+out if *a**
+in if*a**n
+out if *a**n
+
+
+====================
+
+hangman_minimal : debug pedagogique : 
+
+#!/usr/bin/env python3
+#-*- coding: utf-8 -*-
+
+def decode(word, liste):
+    """ Cette fonction décode un mot en fonction des lettres trouvées si elles font parti du mot """
+    code=""
+    for l in word:
+        if l in liste:
+            print("nouveau_mode_code vaut => " + code)
+            print("lettres_jouees vaut => " + str(liste))
+            code += l
+            print("nouveau_mode_code dans if vaut => " + code)
+
+        else:
+            code += "*"
+            print("nouveau_mode_code dans if vaut => " + code)
+    print("mot_code =>" + code)
+    return code
+
+word ="coco"
+liste = list() #
+code=""
+
+while code != word:
+    give= str(input("Faites votre choix de lettre : ")).lower()
+    liste.append(give)
+    print("lettres_jouees cette fois vaut => " + str(liste))
+    code = decode(word, liste)
+    print("mot_code dans la boucle vaut  =>" + code)
+    print("you got it the secret word was : " + code)
+=========================
+
+
+
+
+
+correction trouvée sur le net :  https://github.com/John361/jeu_du_pendu.git :
+
+## -- Ce fichier contient les variables de base nécessaires à l'application -- ##
+
+liste_mots = ["abri", "accable", "accord", "accroc",
+    "avion", "aveugle", "canard", "candide",
+    "ciment", "chouchou", "cheval", "chaud",
+    "banlieue", "banque", "balai", "bague"
+]
+
+coups_total = 8
+liste_mots_joueur = list() #Contiendra les mots entrés par le joueur au cours d'une partie
+## -- Ce fichier contient toutes les fonctions nécessaires à l'application -- ##
+from random import choice as random_choice
+import pickle
+
+
+## -- Fonctions relatives aux mots -- ##
+def choisir_mot_hasard(ma_liste):
+    """ Cette fonction permet de choisir un mot au hasard dans une liste et la retourne """
+    mot_choisi = str(random_choice(ma_liste))
+    return mot_choisi
+
+def coder_mot(mot):
+    """ Cette fonction, pour la taille d'un mot, retourne son mot codé """
+    mot_code = str()
+    for lettre in mot:
+        mot_code += "*"
+    return mot_code
+
+def decoder_mot(mot, lettres_trouvees):
+    """ Cette fonction décode un mot en fonction des lettres trouvées si elles font parti du mot """
+    nouveau_mot_code = str()
+    for une_lettre in mot:
+        if une_lettre in lettres_trouvees:
+            nouveau_mot_code += une_lettre
+        else:
+            nouveau_mot_code += "*"
+    return nouveau_mot_code
+
+
+## -- Fonctions relatives au joueur -- ##
+def demander_nom_joueur():
+    """ Cette fonction demande un nom au joueur et le retourne seulement si il est correct """
+    nom_correct = False
+    while(nom_correct == False):
+        nom_joueur = input("Veuillez entrer votre nom de joueur : ")
+        nom_joueur = str(nom_joueur)
+        nom_joueur = nom_joueur.capitalize()
+
+        if(nom_joueur.isalpha() and len(nom_joueur) >= 3):
+            nom_correct = True
+        else:
+            print("Vous ne pouvez choisir que des lettres avec une longueur de trois mots minimum pour le nom de votre joueur.")
+
+    return nom_joueur
+
+def enregistrer_joueur(joueur_score):
+    """ Cette fonction enregistre un joueur dans le fichier scores """
+    with open("scores", "wb") as mon_fichier_score:
+        mon_pickler = pickle.Pickler(mon_fichier_score)
+        mon_pickler.dump(joueur_score)
+# -*-coding:utf-8 -*
+from donnees import *
+from fonctions import *
+
+
+## -- On demande un nom de joueur et on choisi un mot au hasard et on le code -- ##
+nom_joueur = demander_nom_joueur()
+mot_a_trouve = choisir_mot_hasard(liste_mots)
+mot_code = coder_mot(mot_a_trouve)
+
+
+## -- On commence la partie -- ##
+partie_terminee = False
+while partie_terminee == False:
+    print("Le mot à trouver est : {0} et il vous reste {1} coup(s) à jouer".format(mot_code, coups_total))
+
+    ## -- On demande au joueur une lettre -- ##
+    try:
+        lettre_choix_joueur = str(input("Faites votre choix de lettre : ")).lower()
+        if len(lettre_choix_joueur) != 1:
+            print("Entrez une lettre et seulement une")
+            continue
+    except:
+        print("Veuillez entrez une lettre")
+        continue
+
+    ## -- On cherche la lettre dans le mot -- ##
+    liste_mots_joueur.append(lettre_choix_joueur)
+    mot_code = decoder_mot(mot_a_trouve, liste_mots_joueur)
+
+    coups_total -= 1
+    if coups_total == 0 or mot_code == mot_a_trouve:
+        partie_terminee = True
+
+
+## -- Lorsque la partie est terminée -- ##
+if partie_terminee == True:
+    if mot_code == mot_a_trouve:
+        print("Félicitations, vous avez trouvé le mot, votre score est de {0}".format(coups_total))
+    else:
+        print("Dommage, vous n'avez pas trouvé que le mot était : {0}, votre score est de : {1}.".format(mot_a_trouve, coups_total))
+
+    ## -- On enregistre le joueur -- ##
+    dico_joueur = {nom_joueur: coups_total}
+    enregistrer_joueur(dico_joueur)
+====================================================================================  
+
+==== programmation objet orientée developpeur : ====
+
+
+=== classes : ===
+
+classe : sorte de modèles à partir duquel on va construire nos objects: on va définir nos méthodes et attributs dans la classe ; les attributs étant des variables contenues dans nos objets.
+Les fonctions contenues dans nos objects sont des méthodes.
+L'orienté object est utile des que l'on veut modéliser.
+python défini des classes pour nous (nombre, chaine ..) mais on peut créer les notres.
+
+/!\ La convention (pep8) veut qu'on définisse nos classes en "camel case". : pas d'"_" entre les noms. /!\
+
+pour définir une classe on fait :
+class MaClasse:
+
+On va pour l'exemple définir une personne.
+pour la modélisation on va définir des éléments simples :
+nom, prenom, age,lieu de résidence. : ce seront les attributs de notre classe.
+
+Les attributs sont les variables internes à notre objet.Pour définir ces attributs , il faut défnir un constructeur.
+Pour définir les attributs de notre classe il faut définir un constructeur dans notre classe.
+Un constructeur est une methode qui sera toujours appellée quand on veut créer un object dans notre classe.
+un constructeur est une methode de notre objet permettant de creer des attributs
+Il s'agit d'une methode unique qui sert à la fois à créer les objets et les attributs de l'objet.
+
+
+
+ex: premiere classe : 
+
+class Personne : # Définition de notre classe Personne    <<<< definition de classe suivie de ":" 
+""" Classe définissant une personne caractérisée par :    <<<< on rajoute un docstring : bestpractice
+- son nom
+- son prenom
+- son âge
+- son lieu de résidence """
+
+    def __init__(self) : # Notre méthode constructeur     <<<< definition de constructeur : en python c'est toujours __init__  . on passe ici un premier param self
+    """ Pour l ' instant , on ne va définir qu'un seul attribut  <<< on ajoute une docstring
+    """
+        self.nom = "bebert"   <<<< dans notre constructeur on retrouve l'instanciation de notre attribut nom . on cree une variable self.nom avec comme valeur "Dupont"
+
+Appel de la classe : 
+
+maintenant nous allons créer un objet issu de notre classe : 
+
+>>> chameau = Personne ()
+L'affichage de notre objet : nous montre juste l'appel à notre classe : 
+>>> chameau
+< __main__ . Personne object at 0 x00B42570 >
+
+on essaye maintenant d'afficher l'attribut nom de notre objet chameau : 
+>>> chameau.nom
+’bebert’
+
+
+si on crée une classe avec 4 parametres :
+
+>>> class Person:
+...     def __init__(self):
+...         self.nom = "bebert"
+...         self.age = 32
+...         self.home = "12 rue du lapin"
+...         self.prenom = "bob"
+... 
+
+on peut appeller directement les attributs :
+>>> jako = Person()
+>>> jako.nom
+'bebert'
+>>> jako.prenom
+'bob'
+>>> jako.age
+32
+>>> jako.home
+'12 rue du lapin'
+>>>
+
+on peut modifier notre objet directement :
+'12 rue du lapin'
+>>> jako.home = "23 rue de la belette"
+>>> jako.home
+'23 rue de la belette'
+
+on peut biensur et heureusement eviter d'avoir des param avec des valeurs fixes même si on peut les modifier par la suite :
+
+>>> class Person:
+...     def __init__(self, nom, prenom):
+...         self.nom = nom
+...         self.prenom = prenom
+...         self.age = 32
+...         self.home = "1 rue du lapin"
+... 
+>>> capitain_flam = Person("bebert", "chameau")
+>>> capitain_flam.nom
+'bebert'
+>>> capitain_flam.prenom
+'chameau'
+
+on doit donc toujours utiliser self en premier argument. 
+Quand on veut creer un object on peut donc passer en arguments les éléments dans notre classe.
+Un constructeur est donc une fonction basique à laquelle on peut faire passer des paramètres (par defaut ou non , nommés ou non) 
+
+Attribut de classe :
+
+il va être utile de définir des attributs au niveau de notre classe : pour l'instant tous les attributs créés sont propres à l'objet.
+si on cree plusieurs objets les attributs nom et prenom ne seront pas forcement identique pour tous nos objets.
+Mais on peut aussi vouloir definir des attributs dans notre classe.
+
+ex : ici on creer une classe avec un compteur egal à 0 au début.
+A chaque création d'objet de type Compteur, on verra l'attribut de classe s'incrementer.
+class Compteur:
+...     objets_crees = 0
+...     def __init__(self):
+...         Compteur.objets_crees += 1
+... 
+>>> a = Compteur()
+>>> a
+<__main__.Compteur object at 0x7f98dbe05828>
+>>> a.objets_crees
+1
+>>> b = Compteur()
+>>> b.objets_crees
+2
+>>> c= Compteur()
+>>> c.objets_crees
+3
+
+- les methodes :
+
+les attributs peuvent être vus comme des variables propres à notre objet et qui servent à le caracteriser.
+les methodes sont des actions permettant d'agir sur l'objet.
+
+on va modéliser nos méthodes.
+ex avec un tableau noir qui va posseder une surface (attribut) sur laquelle on pourra lire, effacer, 
+on créer une méthode avec un constructeur qui est une methode donc pas de surprise :
+
+
+>>> class Tableau:
+...     def __init__(self):
+...         self.surface = ""
+...     def write(self, message):
+...         if self.surface != "":
+...             self.surface = "\n"
+			...u()
+>>> dash.surface
+''
+>>> dash.write("ok first message!")
+>>> dash.surface
+'ok first message!'
+>>> dash.write("hey second one!")
+>>> dash.surface
+'\nhey second one!'
+         
+
+
+
+
+
+
+
+
+
