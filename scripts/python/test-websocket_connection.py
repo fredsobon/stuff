@@ -10,13 +10,13 @@ def usage():
 
 def handshaking():
     handshake = ws.getstatus()
-    print("ok the handshake value is", handshake)
     if handshake != status:
         print("websocket handshake failed..please check backend server !")
         webconn = "ko"
         exit(1)
     else:
         webconn = "ok"    
+        print("ok status code is => ", handshake)
     return webconn
 
 def main():
@@ -25,7 +25,6 @@ def main():
         #first step - create websocket connection
         print("send ping to websocket server...")
         ws.send(message)
-        print(ws.send)
         result =  ws.recv()
         if "i" in result:
             print("Received '%s'" % result )
@@ -36,7 +35,6 @@ def main():
         #second step - send message through the websocket tunnel     
         print("send ping to websocket server...")
         ws.send(message)
-        print(ws.send)
         
         #last step - check the receiving message from backend server . 
         result =  ws.recv()
@@ -49,7 +47,7 @@ def main():
         ws.close()
         exit(0)
 #vars 
-url = "ws://echo.websocket.org"
+url = "wss://echo.websocket.org"
 message = "ping"
 pattern = r'ping'
 status = 101
