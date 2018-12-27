@@ -31,3 +31,104 @@ rename 'y/A-Z/a-z/' COMMANDE_C1572E263678O45681.pdf
 
 
 
+
+===  rename  : ===
+
+rename syntax
+rename [ -v ] [ -n ] [ -f ] perlexpr [ files ]
+Options
+-v, --verbose Verbose: print names of files successfully renamed.
+-n, --no-act  No Action: show what files would have been renamed.
+-f, --force Force: overwrite existing files.
+Perl Expressions: A Quick Overview
+The perlexpr argument is a regular expression as used by the Perl programming language. Perl regular expressions is a complex and nuanced subject, but here is a brief overview:
+
+Substitution
+
+To substitute one expression for another, the form of perlexpr is:
+
+s/expr1/expr2/[gi]
+...where expr1 is an expression describing the string you want to replace, and expr2 is an expression describing the string you want to replace. For instance,
+
+s/silly/foolish/
+...would substitute the first occurrence of the string 'silly' with the string 'foolish'.
+
+To perform global substitution (that is, to substitute expr2 for expr1 as many times as expr1 occurs), add the modifier g at the end of the substitution expression. For instance:
+
+s/silly/foolish/g
+...would substitute every occurrence of 'silly' with 'foolish', no matter how many times it occurs.
+
+To perform matching in a case-insensitive manner, add an i at the end of the substitution expression. For instance,
+
+s/silly/foolish/i
+...would substitute 'SILLY', 'Silly', or 'siLLY' with 'foolish'.
+
+The g and i modifiers may both be specified in the same expression, to perform case-insensitive global substitution, for example:
+
+s/silly/foolish/gi
+Metacharacters
+
+A metacharacter is a character (or characters) which has a special meaning. They can be used in an expression to precisely define which strings should be matched and replaced.
+
+These are some common metacharacters that can be used in a Perl Expression:
+
+metacharacters  meaning
+^ Matches the beginning of a string.
+$ Matches the end of a string.
+. Matches any character, except a newline.
+* Matches occurrences of the preceding character, or group of characters, zero or more times.
++ Matches occurrences of the preceding character, or group of characters, one or more times.
+? Match occurrences of the preceding character, or group of characters, zero or one times.
+
+If used after a repetition modifier, '?' specifies that the shortest possible match should be used. For instance, 'a{2,4}?' will match 'aa' even if 'aaa' and 'aaaa' would also match. See repetition modifiers, below.
+| Alternation; behaves like a boolean 'OR'. For instance, 'butter|jelly' will match either butter or jelly.
+(...) Grouping. For instance, '(eg|le)gs' will match either 'eggs' or 'legs'.
+[...] A set of characters. For instance, '[abc]' will match either 'a' or 'b' or 'c'. Character sets can be defined as:
+
+[characters]  Matches any one of the characters listed.
+[x-y] Matches any in a range of characters between x and y, inclusive. For instance, '[c-e]' will match either c, d, or e, and '[a-z]' will match any lowercase letter.
+[^characters] Does not match characters; in other words, matches any character except those listed. Can also negate a character range; for instance, '[^a-d]' matches any character except a, b, c, or d.
+[\-]  Matches the hyphen character ("-").
+[x-yX-Z]  Multiple character ranges can be placed in a character set consecutively. For instance, '[a-zA-Z]' matches any letter, uppercase or lowercase.
+{m[,[n]]} A repetition modifier which matches at least m and at most n of the preceding characters. For instance, 'a{2}' will match 'aa', 'a{2,4}' will match either 'aa', 'aaa', or 'aaaa', and 'b{2,}' will match two or more consecutive b characters.
+\ Escapes a metacharacter so that it is treated literally. For instance, '\+' matches a literal '+' (instead of the plus symbol having its special metacharacter meaning).
+\t  Matches a tab character.
+\n  Matches a newline character.
+\r  Matches a carriage return character.
+\w  Matches any single character classified as a "word" character (either an alphanumeric character or an underscore '_').
+\W  Matches any single non-"word" character.
+\s  Matches any single whitespace character (space, tab, newline).
+\S  Matches any single non-whitespace character.
+\d  Matches any digit character. This switch is equivalent to the character set '[0-9]'
+\D  Matches any non-digit character.
+\b  A "zero-width" matching assertion which matches any "word boundary".
+\B  A "zero-width" matching assertion which matches any non-"word boundary".
+Translation
+
+Translation is similar to substitution. It can be used to translate one string to another, character-for-character. Translation expressions are specified as follows:
+
+y/charset1/charset2/
+...where each character in the set charset1, in order, is to be translated into the corresponding character from the character set charset2. (These sets are just like the character sets above, except you don't need to put them in brackets.) For example, the translation expression:
+
+y/abc/def/
+...would translate every letter a into the letter d, every b into an e, etc.
+
+This also works for charsets defined as ranges. For example:
+
+y/a-z/A-Z/
+Would translate every lowercase letter into its uppercase equivalent.
+
+rename examples
+rename 's/\.jpeg$/.jpg/' *
+Rename any files with the extension ".jpeg" to have the extension ".jpg."
+
+find -type f -name '*.jpg' | rename 's/holiday/honeymoon/'
+For all files with the extension ".jpg", if they contain the string "holiday", replace it with "honeymoon". For instance, this command would rename the file "ourholiday001.jpg" to "ourhoneymoon001.jpg".
+
+This example also illustrates how to use the find command to send a list of files (-type f) with the extension .jpg (-name '*.jpg') to rename via a pipe (|). rename then reads its file list from standard input.
+
+rename 's/\.bak$//' *.bak
+Rename all files matching "*.bak" to strip the file name of its extension. For instance, this command would rename the file "project.bak" to "project".
+
+rename 'y/A-Z/a-z/' *
+Rename files such that all uppercase letters are changed to their lowercase equivalents.
