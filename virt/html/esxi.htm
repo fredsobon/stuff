@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<!--[if IE 7]>
+<html class="ie ie7" lang="fr-FR">
+<![endif]-->
+<!--[if IE 8]>
+<html class="ie ie8" lang="fr-FR">
+<![endif]-->
+<!--[if !(IE 7) & !(IE 8)]><!-->
+<html lang="fr-FR">
+<!--<![endif]-->
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width">
+	<title>Topologie CPU &amp; VMware vSphere | enioka</title>
+	<link rel="profile" href="http://gmpg.org/xfn/11">
+	<link rel="pingback" href="http://blog.enioka.com/xmlrpc.php">
+	<!--[if lt IE 9]>
+	<script src="http://blog.enioka.com/wp-content/themes/twentythirteen/js/html5.js"></script>
+	<![endif]-->
+	<link rel='dns-prefetch' href='//s0.wp.com' />
+<link rel='dns-prefetch' href='//secure.gravatar.com' />
+<link rel='dns-prefetch' href='//fonts.googleapis.com' />
+<link rel='dns-prefetch' href='//s.w.org' />
+<link href='https://fonts.gstatic.com' crossorigin rel='preconnect' />
+<link rel="alternate" type="application/rss+xml" title="enioka &raquo; Flux" href="http://blog.enioka.com/feed/" />
+<link rel="alternate" type="application/rss+xml" title="enioka &raquo; Flux des commentaires" href="http://blog.enioka.com/comments/feed/" />
+<link rel="alternate" type="application/rss+xml" title="enioka &raquo; Topologie CPU &amp; VMware vSphere Flux des commentaires" href="http://blog.enioka.com/post/2017/07/06/topologie-cpu-vmware-vsphere/feed/" />
+		<script type="text/javascript">
+			window._wpemojiSettings = {"baseUrl":"https:\/\/s.w.org\/images\/core\/emoji\/11\/72x72\/","ext":".png","svgUrl":"https:\/\/s.w.org\/images\/core\/emoji\/11\/svg\/","svgExt":".svg","source":{"concatemoji":"http:\/\/blog.enioka.com\/wp-includes\/js\/wp-emoji-release.min.js?ver=5.0.2"}};
+			!function(a,b,c){function d(a,b){var c=String.fromCharCode;l.clearRect(0,0,k.width,k.height),l.fillText(c.apply(this,a),0,0);var d=k.toDataURL();l.clearRect(0,0,k.width,k.height),l.fillText(c.apply(this,b),0,0);var e=k.toDataURL();return d===e}function e(a){var b;if(!l||!l.fillText)return!1;switch(l.textBaseline="top",l.font="600 32px Arial",a){case"flag":return!(b=d([55356,56826,55356,56819],[55356,56826,8203,55356,56819]))&&(b=d([55356,57332,56128,56423,56128,56418,56128,56421,56128,56430,56128,56423,56128,56447],[55356,57332,8203,56128,56423,8203,56128,56418,8203,56128,56421,8203,56128,56430,8203,56128,56423,8203,56128,56447]),!b);case"emoji":return b=d([55358,56760,9792,65039],[55358,56760,8203,9792,65039]),!b}return!1}function f(a){var c=b.createElement("script");c.src=a,c.defer=c.type="text/javascript",b.getElementsByTagName("head")[0].appendChild(c)}var g,h,i,j,k=b.createElement("canvas"),l=k.getContext&&k.getContext("2d");for(j=Array("flag","emoji"),c.supports={everything:!0,everythingExceptFlag:!0},i=0;i<j.length;i++)c.supports[j[i]]=e(j[i]),c.supports.everything=c.supports.everything&&c.supports[j[i]],"flag"!==j[i]&&(c.supports.everythingExceptFlag=c.supports.everythingExceptFlag&&c.supports[j[i]]);c.supports.everythingExceptFlag=c.supports.everythingExceptFlag&&!c.supports.flag,c.DOMReady=!1,c.readyCallback=function(){c.DOMReady=!0},c.supports.everything||(h=function(){c.readyCallback()},b.addEventListener?(b.addEventListener("DOMContentLoaded",h,!1),a.addEventListener("load",h,!1)):(a.attachEvent("onload",h),b.attachEvent("onreadystatechange",function(){"complete"===b.readyState&&c.readyCallback()})),g=c.source||{},g.concatemoji?f(g.concatemoji):g.wpemoji&&g.twemoji&&(f(g.twemoji),f(g.wpemoji)))}(window,document,window._wpemojiSettings);
+		</script>
+		<style type="text/css">
+img.wp-smiley,
+img.emoji {
+	display: inline !important;
+	border: none !important;
+	box-shadow: none !important;
+	height: 1em !important;
+	width: 1em !important;
+	margin: 0 .07em !important;
+	vertical-align: -0.1em !important;
+	background: none !important;
+	padding: 0 !important;
+}
+</style>
+<link rel='stylesheet' id='wp-block-library-css'  href='http://blog.enioka.com/wp-includes/css/dist/block-library/style.min.css?ver=5.0.2' type='text/css' media='all' />
+<link rel='stylesheet' id='wp-block-library-theme-css'  href='http://blog.enioka.com/wp-includes/css/dist/block-library/theme.min.css?ver=5.0.2' type='text/css' media='all' />
+<link rel='stylesheet' id='twentythirteen-fonts-css'  href='https://fonts.googleapis.com/css?family=Source+Sans+Pro%3A300%2C400%2C700%2C300italic%2C400italic%2C700italic%7CBitter%3A400%2C700&#038;subset=latin%2Clatin-ext' type='text/css' media='all' />
+<link rel='stylesheet' id='genericons-css'  href='http://blog.enioka.com/wp-content/plugins/jetpack/_inc/genericons/genericons/genericons.css?ver=3.1' type='text/css' media='all' />
+<link rel='stylesheet' id='twentythirteen-style-css'  href='http://blog.enioka.com/wp-content/themes/twentythirteen/style.css?ver=2013-07-18' type='text/css' media='all' />
+<link rel='stylesheet' id='twentythirteen-block-style-css'  href='http://blog.enioka.com/wp-content/themes/twentythirteen/css/blocks.css?ver=2018-10-18' type='text/css' media='all' />
+<!--[if lt IE 9]>
+<link rel='stylesheet' id='twentythirteen-ie-css'  href='http://blog.enioka.com/wp-content/themes/twentythirteen/css/ie.css?ver=2013-07-18' type='text/css' media='all' />
+<![endif]-->
+<link rel='stylesheet' id='social-logos-css'  href='http://blog.enioka.com/wp-content/plugins/jetpack/_inc/social-logos/social-logos.min.css?ver=1' type='text/css' media='all' />
+<link rel='stylesheet' id='jetpack_css-css'  href='http://blog.enioka.com/wp-content/plugins/jetpack/css/jetpack.css?ver=6.8.1' type='text/css' media='all' />
+<script type='text/javascript' src='http://blog.enioka.com/wp-includes/js/jquery/jquery.js?ver=1.12.4'></script>
+<script type='text/javascript' src='http://blog.enioka.com/wp-includes/js/jquery/jquery-migrate.min.js?ver=1.4.1'></script>
+<script type='text/javascript'>
+/* <![CDATA[ */
+var related_posts_js_options = {"post_heading":"h4"};
+/* ]]> */
+</script>
+<script type='text/javascript' src='http://blog.enioka.com/wp-content/plugins/jetpack/_inc/build/related-posts/related-posts.min.js?ver=20150408'></script>
+<link rel='https://api.w.org/' href='http://blog.enioka.com/wp-json/' />
+<link rel="EditURI" type="application/rsd+xml" title="RSD" href="http://blog.enioka.com/xmlrpc.php?rsd" />
+<link rel="wlwmanifest" type="application/wlwmanifest+xml" href="http://blog.enioka.com/wp-includes/wlwmanifest.xml" /> 
+<link rel='prev' title='Benchmark de l&rsquo;Open Source dans les grandes sociétés' href='http://blog.enioka.com/post/2017/02/27/benchmark-de-lopen-source-dans-les-grandes-societes/' />
+<link rel='next' title='Manifeste pour du développement de haute-couture' href='http://blog.enioka.com/post/2017/07/17/manifeste-pour-du-developpement-de-haute-couture/' />
+<meta name="generator" content="WordPress 5.0.2" />
+<link rel="canonical" href="http://blog.enioka.com/post/2017/07/06/topologie-cpu-vmware-vsphere/" />
+<link rel='shortlink' href='https://wp.me/p5qJzk-3W' />
+<link rel="alternate" type="application/json+oembed" href="http://blog.enioka.com/wp-json/oembed/1.0/embed?url=http%3A%2F%2Fblog.enioka.com%2Fpost%2F2017%2F07%2F06%2Ftopologie-cpu-vmware-vsphere%2F" />
+<link rel="alternate" type="text/xml+oembed" href="http://blog.enioka.com/wp-json/oembed/1.0/embed?url=http%3A%2F%2Fblog.enioka.com%2Fpost%2F2017%2F07%2F06%2Ftopologie-cpu-vmware-vsphere%2F&#038;format=xml" />
+
+		<script>
+			(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+			(i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+			m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+			})(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+			ga('create', 'UA-16605341-1', 'auto');
+			ga('send', 'pageview');
+		</script>
+
+	
+<link rel='dns-prefetch' href='//v0.wordpress.com'/>
+<link rel='dns-prefetch' href='//i0.wp.com'/>
+<link rel='dns-prefetch' href='//i1.wp.com'/>
+<link rel='dns-prefetch' href='//i2.wp.com'/>
+<style type='text/css'>img#wpstats{display:none}</style>	<style type="text/css" id="twentythirteen-header-css">
+			.site-header {
+			background: url(http://blog.enioka.com/wp-content/uploads/2015/12/cropped-bandeau.png) no-repeat scroll top;
+			background-size: 1600px auto;
+		}
+		@media (max-width: 767px) {
+			.site-header {
+				background-size: 768px auto;
+			}
+		}
+		@media (max-width: 359px) {
+			.site-header {
+				background-size: 360px auto;
+			}
+		}
+			.site-title,
+		.site-description {
+			position: absolute;
+			clip: rect(1px 1px 1px 1px); /* IE7 */
+			clip: rect(1px, 1px, 1px, 1px);
+		}
+		</style>
+	
+<!-- Jetpack Open Graph Tags -->
+<meta property="og:type" content="article" />
+<meta property="og:title" content="Topologie CPU &amp; VMware vSphere" />
+<meta property="og:url" content="http://blog.enioka.com/post/2017/07/06/topologie-cpu-vmware-vsphere/" />
+<meta property="og:description" content="Quelle est la performance des processeurs dans un contexte virtualisé ? L&rsquo;architecture des processeurs ne peut être complètement oubliée quand il s&rsquo;agit de virtualiser des infrastructur…" />
+<meta property="article:published_time" content="2017-07-06T13:56:07+00:00" />
+<meta property="article:modified_time" content="2017-07-10T08:58:36+00:00" />
+<meta property="og:site_name" content="enioka" />
+<meta property="og:image" content="http://blog.enioka.com/wp-content/uploads/2017/03/diag_choix-300x150.png" />
+<meta property="og:image:width" content="696" />
+<meta property="og:image:height" content="348" />
+<meta property="og:locale" content="fr_FR" />
+<meta name="twitter:creator" content="@enioka_IT" />
+<meta name="twitter:site" content="@enioka_IT" />
+<meta name="twitter:text:title" content="Topologie CPU &amp; VMware vSphere" />
+<meta name="twitter:card" content="summary" />
+
+<!-- End Jetpack Open Graph Tags -->
+<link rel="icon" href="https://i1.wp.com/blog.enioka.com/wp-content/uploads/2014/12/ENIOKA-logo-E-big-548043cc_site_icon.png?fit=32%2C32" sizes="32x32" />
+<link rel="icon" href="https://i1.wp.com/blog.enioka.com/wp-content/uploads/2014/12/ENIOKA-logo-E-big-548043cc_site_icon.png?fit=192%2C192" sizes="192x192" />
+<link rel="apple-touch-icon-precomposed" href="https://i1.wp.com/blog.enioka.com/wp-content/uploads/2014/12/ENIOKA-logo-E-big-548043cc_site_icon.png?fit=180%2C180" />
+<meta name="msapplication-TileImage" content="https://i1.wp.com/blog.enioka.com/wp-content/uploads/2014/12/ENIOKA-logo-E-big-548043cc_site_icon.png?fit=270%2C270" />
+</head>
+
+<body class="post-template-default single single-post postid-244 single-format-standard wp-embed-responsive sidebar">
+	<div id="page" class="hfeed site">
+		<header id="masthead" class="site-header" role="banner">
+			<a class="home-link" href="http://blog.enioka.com/" title="enioka" rel="home">
+				<h1 class="site-title">enioka</h1>
+				<h2 class="site-description">managing IT Complexity</h2>
+			</a>
+
+			<div id="navbar" class="navbar">
+				<nav id="site-navigation" class="navigation main-navigation" role="navigation">
+					<button class="menu-toggle">Menu</button>
+					<a class="screen-reader-text skip-link" href="#content" title="Aller au contenu">Aller au contenu</a>
+					<div id="primary-menu" class="nav-menu"></div>
+					<form role="search" method="get" class="search-form" action="http://blog.enioka.com/">
+				<label>
+					<span class="screen-reader-text">Rechercher :</span>
+					<input type="search" class="search-field" placeholder="Recherche&hellip;" value="" name="s" />
+				</label>
+				<input type="submit" class="search-submit" value="Rechercher" />
+			</form>				</nav><!-- #site-navigation -->
+			</div><!-- #navbar -->
+		</header><!-- #masthead -->
+
+		<div id="main" class="site-main">
+
+	<div id="primary" class="content-area">
+		<div id="content" class="site-content" role="main">
+
+						
+				
+<article id="post-244" class="post-244 post type-post status-publish format-standard hentry category-enioka">
+	<header class="entry-header">
+		
+				<h1 class="entry-title">Topologie CPU &amp; VMware vSphere</h1>
+		
+		<div class="entry-meta">
+			<span class="date"><a href="http://blog.enioka.com/post/2017/07/06/topologie-cpu-vmware-vsphere/" title="Permalien vers Topologie CPU &amp; VMware vSphere" rel="bookmark"><time class="entry-date" datetime="2017-07-06T15:56:07+00:00">6 juillet 2017</time></a></span><span class="categories-links"><a href="http://blog.enioka.com/post/category/enioka/" rel="category tag">enioka</a></span><span class="author vcard"><a class="url fn n" href="http://blog.enioka.com/post/author/pco/" title="Afficher tous les articles par Pierre Coppée" rel="author">Pierre Coppée</a></span>					</div><!-- .entry-meta -->
+	</header><!-- .entry-header -->
+
+		<div class="entry-content">
+		<p>Quelle est la <strong>performance</strong> des <strong>processeurs</strong> dans un contexte <strong>virtualisé</strong> ? L&rsquo;architecture des processeurs ne peut être complètement oubliée quand il s&rsquo;agit de virtualiser des infrastructures importantes. NUMA ? Virtual CPU ? Virtual Socket ? Wide VM ? Cet article fait le point sur ces concepts clés de la virtualisation, leur impact sur la performance des VM et comment cela se matérialise avec VMware vSphere.</p>
+<h2>Introduction</h2>
+<h3>Contexte</h3>
+<p>Au cours d&rsquo;une mission chez un de mes clients, j&rsquo;ai accompagné un certain nombre de projets sur la partie architecture infrastructure. L&rsquo;un de ces projets reposait sur la technologie <a href="https://activeviam.com/">Active Pivot</a>. Ce logiciel permet, à partir d&rsquo;un jeu de données, de créer des cubes en mémoire et de l&rsquo;offrir aux utilisateurs sous la vue d&rsquo;un tableau croisé dynamique.</p>
+<p>La question de la configuration et l&rsquo;optimisation des processeurs sur ce type de technologie dans un environnement <strong>dédié</strong> et <strong>virtualisé</strong> (VMware) s’est posé. L’enjeu était de valider les performances des traitements sur un gros volume de données en mémoire (128/256 Go par VM) et comprendre l&rsquo;impact de la virtualisation.</p>
+<h3>Problématique</h3>
+<p>La première fois que l&rsquo;on voit l&rsquo;interface de vSphere, certains paramètres peuvent sembler étranges sur la partie CPU. En particulier :</p>
+<ul>
+<li>Le paramètre « core per socket »</li>
+<li>Le paramètre « vSocket »</li>
+</ul>
+<p>Plus globalement, il faut comprendre que, chercher à optimiser le traitement CPU d’une machine virtuelle revient à s’interroger sur l’optimisation CPU de<strong> la totalité de la stack</strong> de virtualisation: l’hôte -&gt; l&rsquo;hyperviseur-&gt; le matériel virtuel. Ces deux paramètres ont des impacts sur deux des composants de cette stack, nous allons expliquer pourquoi dans cet article.</p>
+<h3>Périmètre de l&rsquo;article</h3>
+<p>Le sujet est large. C&rsquo;est pourquoi cet article se limite volontairement à l&rsquo;impact de la topologie des processeurs sur la virtualisation avec VMware et ESXi. Par exemple, le CPU scheduling n&rsquo;est pas traité et pourra faire l&rsquo;objet d&rsquo;un autre article.</p>
+<h3>Rappel des composants VMware vSphere</h3>
+<p><a href="https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/03/vmware_archi_logiq.png"><img class="wp-image-251 aligncenter" src="https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/03/vmware_archi_logiq.png?resize=604%2C475" alt="" width="604" height="475" srcset="https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/03/vmware_archi_logiq.png?resize=300%2C236 300w, https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/03/vmware_archi_logiq.png?resize=768%2C605 768w, https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/03/vmware_archi_logiq.png?w=1001 1001w" sizes="(max-width: 604px) 100vw, 604px" data-recalc-dims="1" /></a></p>
+<p>Dans un datacenter, on va trouver des serveurs physiques sur lesquels sont installés des hyperviseurs natifs (type 1) nommés ESXi. Ces serveurs (des hosts) par le biais des ESXi portent des VMs (des guests). Le tout est  opéré par une suite logicielle nommée vCenter. L&rsquo;administrateur à l&rsquo;aide de l&rsquo;IHM web ou du client lourd vSphere administre l&rsquo;ensemble de cette ferme. Un lexique technique est proposé en fin d&rsquo;article.</p>
+<p>Dans la suite de cet article, nous ne parlerons que de VMware vSphere.</p>
+<h3></h3>
+<h2>Structure d&rsquo;un processeur et NUMA</h2>
+<h3>En vrai</h3>
+<p>Une <strong>socket</strong> est l&rsquo;<strong>emplacement physique</strong> sur lequel se branche le composant qui contient le ou les <strong>processeur</strong>(s).</p>
+<p>Sur cette image on voit que les barrettes de RAM sont plus rapprochées de certaines sockets que d&rsquo;autres. Cette affinité entre les processeurs et la mémoire est au cœur de la problématique <strong>NUMA</strong> (cf. chapitre suivant).</p>
+<p><a href="https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/03/diap_motherboard.png"><img class="wp-image-257 aligncenter" src="https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/03/diap_motherboard.png?resize=571%2C526" alt="" width="571" height="526" srcset="https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/03/diap_motherboard.png?resize=300%2C276 300w, https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/03/diap_motherboard.png?resize=768%2C707 768w, https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/03/diap_motherboard.png?w=857 857w" sizes="(max-width: 571px) 100vw, 571px" data-recalc-dims="1" /></a></p>
+<p>Ici on peut imaginer deux nœuds NUMA qui comprennent une socket chacun et la RAM immédiatement positionnée au dessus et en dessous de la dite socket.</p>
+<h3>Les nœuds NUMA</h3>
+<p>Mais qu&rsquo;est-ce donc qu&rsquo;un noeud NUMA ? Et pourquoi est-ce important de le comprendre ?</p>
+<p>Une socket peut contenir plusieurs processeurs, des cœurs physiques. Ces cœurs font partie d&rsquo;un ensemble que l&rsquo;on nomme <strong>CPU package</strong>. Un CPU package contient donc X cœurs et un cœur ne peut faire parti que d&rsquo;une seul CPU package.</p>
+<p>Un nœud NUMA est <strong>l&rsquo;association</strong> entre un CPU package et la mémoire accessible localement par l&rsquo;ensemble des cœurs du CPU package. Quand on parle d&rsquo;un nœud NUMA, on parle autant de processeurs que de mémoire.</p>
+<p><a href="https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/03/diap_decomposition_noeud_numa1.png"><img class="wp-image-258 aligncenter" src="https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/03/diap_decomposition_noeud_numa1.png?resize=604%2C292" alt="" width="604" height="292" srcset="https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/03/diap_decomposition_noeud_numa1.png?resize=300%2C145 300w, https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/03/diap_decomposition_noeud_numa1.png?resize=768%2C372 768w, https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/03/diap_decomposition_noeud_numa1.png?resize=1024%2C495 1024w, https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/03/diap_decomposition_noeud_numa1.png?w=1333 1333w, https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/03/diap_decomposition_noeud_numa1.png?w=1208 1208w" sizes="(max-width: 604px) 100vw, 604px" data-recalc-dims="1" /></a></p>
+<p>Dans cette exemple, nous avons un serveur de 512 Go de RAM et de 16 cores répartis sur deux sockets.</p>
+<ul>
+<li>Serveur physique de 512Go de RAM et de 16 cores
+<ul>
+<li>Socket 0:
+<ul>
+<li>Un package CPU
+<ul>
+<li>8 cœurs</li>
+</ul>
+</li>
+<li>A accès à 256Go de mémoire en local et 256 Go en distant</li>
+</ul>
+</li>
+<li>Socket 1:
+<ul>
+<li>Un package CPU
+<ul>
+<li>8 cœurs</li>
+</ul>
+</li>
+<li>A accès à 256Go de mémoire et 256 Go en distant</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p>Il existe différents types de sockets et de processeurs. On peut trouver des sockets avec plusieurs CPU packages et donc plusieurs nœuds NUMA. On parle dans ce cas d&rsquo;architecture Cluster-On-Die.</p>
+<p>Le schéma ci-dessous illustre ce concept. On a une socket de 16 cœurs mais ces cores sont répartis en deux CPU packages de 8 cœurs. Chacun de ces CPU Packages ont un accès local à une partie de la RAM (256 Go pour être précis) ce qui fait deux nœuds NUMA pour un seul processeur.</p>
+<p><a href="https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/03/diap_decomposition_noeud_numa2.png"><img class="wp-image-259 aligncenter" src="https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/03/diap_decomposition_noeud_numa2.png?resize=435%2C508" alt="" width="435" height="508" srcset="https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/03/diap_decomposition_noeud_numa2.png?resize=257%2C300 257w, https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/03/diap_decomposition_noeud_numa2.png?resize=768%2C897 768w, https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/03/diap_decomposition_noeud_numa2.png?w=784 784w" sizes="(max-width: 435px) 100vw, 435px" data-recalc-dims="1" /></a></p>
+<p>Un autre exemple avec le processeur AMD Opteron 6174. Cette gamme de processeur dispose de 12 cœurs par socket mais répartis en deux CPU Packages de 6 cœurs. Si on dispose donc de 4 sockets, on va voir apparaître 8 nœuds NUMA de 6 cœurs.</p>
+<h3>Accès à la mémoire</h3>
+<p>Nous avons dit précédemment qu&rsquo;un nœud NUMA est l&rsquo;association entre un ensemble de cœurs regroupés dans un CPU Package et la mémoire (RAM). Pourquoi ?</p>
+<p>Tout simplement parce qu&rsquo;avec le concept NUMA (Non Unified Memory Access) il existe deux types d&rsquo;accès à la mémoire :</p>
+<ul>
+<li>Un accès dit <strong>local</strong> (un accès direct à la mémoire « proche », c&rsquo;est à dire sans passer par les liaisons <a href="http://www.intel.com/content/www/us/en/io/quickpath-technology/quickpath-technology-general.html">QPI</a> (QuickPath Interconnect, bus de données entre les CPU) pour les technologies Intel</li>
+</ul>
+<p><a href="https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/03/diap_decomposition_noeud_numa3.png"><img class="wp-image-260 aligncenter" src="https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/03/diap_decomposition_noeud_numa3.png?resize=604%2C372" alt="" width="604" height="372" srcset="https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/03/diap_decomposition_noeud_numa3.png?resize=300%2C185 300w, https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/03/diap_decomposition_noeud_numa3.png?resize=768%2C474 768w, https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/03/diap_decomposition_noeud_numa3.png?resize=1024%2C631 1024w, https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/03/diap_decomposition_noeud_numa3.png?w=1046 1046w" sizes="(max-width: 604px) 100vw, 604px" data-recalc-dims="1" /></a></p>
+<ul>
+<li>Un accès dit en <strong>remote</strong>, c&rsquo;est-à-dire que l&rsquo;on est obligé de passer à travers les liens QPI pour avoir accès à la mémoire<a href="https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/03/diap_decomposition_noeud_numa4.png"><img class="wp-image-261 aligncenter" src="https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/03/diap_decomposition_noeud_numa4.png?resize=604%2C373" alt="" width="604" height="373" srcset="https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/03/diap_decomposition_noeud_numa4.png?resize=300%2C185 300w, https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/03/diap_decomposition_noeud_numa4.png?resize=768%2C474 768w, https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/03/diap_decomposition_noeud_numa4.png?resize=1024%2C631 1024w, https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/03/diap_decomposition_noeud_numa4.png?w=1046 1046w" sizes="(max-width: 604px) 100vw, 604px" data-recalc-dims="1" /></a></li>
+</ul>
+<p>On trouve l&rsquo;équivalent de la technologie QPI chez AMD sous le nom de <a href="http://www.amd.com/fr-fr/innovations/software-technologies/hypertransport">HyperTransport</a>.</p>
+<p>Ce qu&rsquo;il faut retenir c&rsquo;est que l&rsquo;accès, du fait que l&rsquo;on soit obligé de passer par des bus supplémentaire, augmente <strong>le temps d&rsquo;accès à la mémoire</strong>. Cette problématique d&rsquo;accès à la mémoire est au cœur ( 🙂 ) des enjeux des constructeurs de CPU, et l&rsquo;arrivée d&rsquo;une nouvelle gamme de CPU est souvent accompagnée d&rsquo;optimisations côté QPI ou HyperTransport.</p>
+<h3>La mémoire cache</h3>
+<p>L&rsquo;accès à la mémoire est au centre des problématiques de performance, parce qu&rsquo;un accès long à la mémoire bloque un processeur (qui attend, « iowait »). Plus le temps d&rsquo;accès à la mémoire est long plus le processeur sera bloqué et terminera son calcul tardivement.</p>
+<p>Pour palier à cette problématique les constructeurs ont implémenté différents niveaux de cache pour améliorer les temps d&rsquo;accès. L&rsquo;image ci dessous montre à quoi ressemble ces caches au sein d&rsquo;un CPU.</p>
+<p>Il existe deux grands types de cache:</p>
+<ul>
+<li>Les caches <strong>non partagés</strong> (L1 et L2) c&rsquo;est à dire ceux qui appartiennent à un cœur physique</li>
+<li>Les caches <strong>partagés</strong> entre les cœurs d&rsquo;une même socket physique. C&rsquo;est le cas des caches type L3 et L4 qui font partis d&rsquo;un ensemble que l&rsquo;on nomme LLC (Last Level Cache)</li>
+</ul>
+<p><a href="https://i0.wp.com/blog.enioka.com/wp-content/uploads/2017/03/diap_memoire_cache.png"><img class="wp-image-262 aligncenter" src="https://i0.wp.com/blog.enioka.com/wp-content/uploads/2017/03/diap_memoire_cache.png?resize=550%2C273" alt="" width="550" height="273" srcset="https://i0.wp.com/blog.enioka.com/wp-content/uploads/2017/03/diap_memoire_cache.png?resize=300%2C149 300w, https://i0.wp.com/blog.enioka.com/wp-content/uploads/2017/03/diap_memoire_cache.png?resize=768%2C381 768w, https://i0.wp.com/blog.enioka.com/wp-content/uploads/2017/03/diap_memoire_cache.png?resize=1024%2C508 1024w, https://i0.wp.com/blog.enioka.com/wp-content/uploads/2017/03/diap_memoire_cache.png?w=1208 1208w" sizes="(max-width: 550px) 100vw, 550px" data-recalc-dims="1" /></a></p>
+<p>Ce qu&rsquo;il est intéressant de regarder, dans le tableau ci-dessus, sont<strong> les temps d&rsquo;accès</strong> aux caches et à la mémoire. On remarque globalement une grande différence entre les temps d&rsquo;accès aux différents niveaux de caches (Lx) et la RAM qu&rsquo;elle soit locale ou non. Ces temps d&rsquo;accès nous permettent de nous rendre compte de l&rsquo;importance de rester le plus possible dans un contexte mémoire <strong>local</strong> et donc au sein<strong> d&rsquo;un même nœud NUMA.</strong></p>
+<h3>Résumé et Hyperthreading</h3>
+<p>Deux grands axes intimement liés quand on parle des nœuds NUMA :</p>
+<ul>
+<li>L&rsquo;accès <strong>mémoire</strong> qui se doit d&rsquo;être le plus local et optimisé possible</li>
+<li>les <strong>cœurs</strong> sur lesquels repose la VM doivent faire partis du même nœud NUMA pour optimiser l&rsquo;allocation et l&rsquo;accès mémoire par ces cœurs</li>
+</ul>
+<p>Le schéma ci-dessous résume les différentes couches que nous avons vu dans les chapitres précédents:</p>
+<p><a href="https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_resume_hyperthreading-1.png"><img class="wp-image-275 aligncenter" src="https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_resume_hyperthreading-1.png?resize=537%2C206" alt="" width="537" height="206" srcset="https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_resume_hyperthreading-1.png?resize=300%2C115 300w, https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_resume_hyperthreading-1.png?resize=768%2C294 768w, https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_resume_hyperthreading-1.png?resize=1024%2C393 1024w, https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_resume_hyperthreading-1.png?w=1208 1208w" sizes="(max-width: 537px) 100vw, 537px" data-recalc-dims="1" /></a></p>
+<p>L&rsquo;<a href="http://www.intel.fr/content/www/fr/fr/architecture-and-technology/hyper-threading/hyper-threading-technology.html">hyperThreading</a> (HT) est un terme commercial <a href="http://www.intel.fr/content/www/fr/fr/homepage.html">Intel</a>. On trouve l&rsquo;équivalent chez <a href="http://ww.amd.com/">AMD</a> avec l&rsquo;architecture Bulldozer, qui implémente du CMT (Cluster Multi Threading), et plus récemment sur l&rsquo;architecture Zen qui implémente du SMT (Simultaneous Multi Threading).</p>
+<p>Il est à noter que dans le cas d&rsquo;une utilisation de technologies type HyperThreading, les caches L1 et L2 sont partagés entre les deux cœurs logiques d&rsquo;un même cœur physique.</p>
+<h2>L’enjeu du NUMA alignment</h2>
+<p>L&rsquo;enjeu de cette partie est de décrire et expliquer l&rsquo;importance des nœuds NUMA dans un contexte non virtualisé dans un premier temps et dans un contexte virtualisé dans un second temps.</p>
+<h3>Les nœuds NUMA sur du bare metal</h3>
+<p>Les nœuds NUMA n&rsquo;ont pas une importance qu&rsquo;au sein de contextes virtualisés.</p>
+<p>Prenons l&rsquo;exemple ici d&rsquo;un serveur physique sur lequel est installé un système d&rsquo;exploitation. L&rsquo;OS quel qu’il soit voit la topologie NUMA des processeurs qui lui sont rattachés. Par des appels système, l&rsquo;OS <strong>optimise lui même les allocations mémoires</strong> affectées aux applications installées. Cette optimisation se fait, tant que faire se peut, en fonction de la quantité de RAM demandée initialement par l&rsquo;application et les espaces mémoires disponibles sur le serveur.</p>
+<p>Au cours du temps, si l&rsquo;application demande plus de RAM à l&rsquo;OS ces même optimisations peuvent être assurées par l&rsquo;OS ou par un administrateur système avec des outils type <a href="https://linux.die.net/man/8/numad">numad</a> sous Linux.</p>
+<p>Exemple :</p>
+<p><a href="https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/03/diap_numa_serveur_physique.png"><img class="wp-image-267 aligncenter" src="https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/03/diap_numa_serveur_physique.png?resize=475%2C217" alt="" width="475" height="217" srcset="https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/03/diap_numa_serveur_physique.png?resize=300%2C137 300w, https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/03/diap_numa_serveur_physique.png?resize=768%2C352 768w, https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/03/diap_numa_serveur_physique.png?w=985 985w" sizes="(max-width: 475px) 100vw, 475px" data-recalc-dims="1" /></a></p>
+<h3>Les nœuds NUMA pour une VM</h3>
+<p>Les nœuds NUMA, s&rsquo;ils sont mal gérés, peuvent poser deux problèmes :</p>
+<ol>
+<li> Le cas le plus classique : des cœurs sont alloués à <strong>une VM mais répartis sur deux nœuds NUMA distincts</strong>. Dans l&rsquo;exemple ci-dessous, nous avons une VM de 8 vCPU répartis sur deux nœuds NUMA. Si on part du principe que la RAM allouée à la VM a été provisionnée sur la mémoire accessible en local par le nœud NUMA 0, les deux cœurs du nœud NUMA 1 y accèdent en remote<a href="https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/03/diap_enjeux_numa1.png"><img class="wp-image-265 aligncenter" src="https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/03/diap_enjeux_numa1.png?resize=581%2C273" alt="" width="581" height="273" srcset="https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/03/diap_enjeux_numa1.png?resize=300%2C141 300w, https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/03/diap_enjeux_numa1.png?resize=768%2C361 768w, https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/03/diap_enjeux_numa1.png?resize=1024%2C481 1024w, https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/03/diap_enjeux_numa1.png?w=1208 1208w" sizes="(max-width: 581px) 100vw, 581px" data-recalc-dims="1" /></a></li>
+<li>Le second cas possible : la quantité de RAM demandée par la VM est <strong>plus importante que la quantité de RAM au sein d&rsquo;un nœud NUMA.</strong> Dans ce cas, la RAM de la VM va être partagée au sein des deux nœuds NUMA et un accès en remote à cette mémoire va avoir lieu<a href="https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/03/diap_enjeux_numa2.png"><img class="wp-image-266 aligncenter" src="https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/03/diap_enjeux_numa2.png?resize=571%2C268" alt="" width="571" height="268" srcset="https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/03/diap_enjeux_numa2.png?resize=300%2C141 300w, https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/03/diap_enjeux_numa2.png?resize=768%2C361 768w, https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/03/diap_enjeux_numa2.png?resize=1024%2C481 1024w, https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/03/diap_enjeux_numa2.png?w=1208 1208w" sizes="(max-width: 571px) 100vw, 571px" data-recalc-dims="1" /></a></li>
+</ol>
+<p>Nous verrons dans les chapitres suivants comment se prémunir et superviser ces comportements.</p>
+<h2>Revenons à la problématique</h2>
+<p>On l&rsquo;a vu en première partie de cet article, la définition d&rsquo;une VM passe par la définition d&rsquo;éléments de configuration qu&rsquo;il est important de comprendre.</p>
+<h3>Une VM dans VMware vSphere</h3>
+<p>Une VM, c&rsquo;est :</p>
+<ul>
+<li>un OS</li>
+<li>des resources de stockage</li>
+<li>des interfaces réseaux</li>
+<li>de la mémoire RAM</li>
+<li>des resources de traitement (un nombre de vCPU)</li>
+</ul>
+<p>Sur ce dernier point, celui qui nous intéresse le plus, on remarque que plusieurs éléments, configurables, définissent le nombre de vCPU :</p>
+<ul>
+<li>vCPU = nombre de vSocket x cores per socket</li>
+</ul>
+<p><a href="https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_une_vm_dans_vmware_vsphere-1.png"><img class="wp-image-282 aligncenter" src="https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_une_vm_dans_vmware_vsphere-1.png?resize=604%2C175" alt="" width="604" height="175" srcset="https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_une_vm_dans_vmware_vsphere-1.png?resize=300%2C87 300w, https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_une_vm_dans_vmware_vsphere-1.png?resize=768%2C222 768w, https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_une_vm_dans_vmware_vsphere-1.png?resize=1024%2C297 1024w, https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_une_vm_dans_vmware_vsphere-1.png?w=1578 1578w, https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_une_vm_dans_vmware_vsphere-1.png?w=1208 1208w" sizes="(max-width: 604px) 100vw, 604px" data-recalc-dims="1" /></a></p>
+<p>Comme le montre l&rsquo;image ci-dessus, le paramètre vSocket correspond à la socket « physique » vue par l&rsquo;OS. Dans la VM de test <a href="https://archlinux.fr/">Archlinux</a> utilisée ici, dont le paramétrage sur l&rsquo;hyperviseur VMware Fusion apparait à droite, on identifie clairement grâce à la commande « lscpu » :</p>
+<ul>
+<li>2 sockets</li>
+<li>2 processeurs (l&rsquo;OS voit une socket de 1 cœur physique, chaque cœur possède un thread unique, il n&rsquo;y a pas d&rsquo;hyperthreading)</li>
+<li>1 nœud NUMA</li>
+</ul>
+<p>Dans la suite de la présentation, ces paramétrages seront représentés sous la forme suivante :</p>
+<p><a href="https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_representation_vm.png"><img class=" wp-image-305 aligncenter" src="https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_representation_vm.png?resize=369%2C117" alt="" width="369" height="117" srcset="https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_representation_vm.png?resize=300%2C95 300w, https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_representation_vm.png?w=536 536w" sizes="(max-width: 369px) 100vw, 369px" data-recalc-dims="1" /></a></p>
+<h3>vSocket et cores per socket</h3>
+<p>La notion de vSocket a été introduite dans vSphere 4.1 pour passer outre les restrictions des OS sur le nombre de CPU &#8211; dans les versions précédentes il n&rsquo;y avait pas possibilité de paramétrer le nombre de cœurs par vSocket :</p>
+<ul>
+<li>Le vSocket est vu par l’OS comme étant le CPU (la socket)</li>
+<li>Le nombre de « cores per socket » est vu comme le nombre de cœurs par CPU</li>
+<li>Ex : Un Microsoft Windows Server 2008 R2 Standard Edition ne supporte que 4 processeurs maximum</li>
+</ul>
+<p><a href="https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_vsocket_vs_corepersocket.png"><img class=" wp-image-313 aligncenter" src="https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_vsocket_vs_corepersocket.png?resize=509%2C183" alt="" width="509" height="183" srcset="https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_vsocket_vs_corepersocket.png?resize=300%2C108 300w, https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_vsocket_vs_corepersocket.png?resize=768%2C277 768w, https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_vsocket_vs_corepersocket.png?w=837 837w" sizes="(max-width: 509px) 100vw, 509px" data-recalc-dims="1" /></a>Les éléments de configuration « vSocket» et « cores per sockets » :</p>
+<ul>
+<li><b>Affectent</b> les performances lorsque le <u>nombre de </u><u>vCPU</u> (totaux) paramétrés sur la VM <b>est plus grand </b>que le nombre de CPU dans le <u>CPU package</u></li>
+<li><b>N’affectent (normalement) pas </b>les performances dans le cas contraire et peuvent permettre d’économiser en licence</li>
+</ul>
+<div>Je dis « normalement » parce que VMware est on ne peut plus claire (cf. VMware Performance Best Practices on vSphere 6.0 White Paper) :</div>
+<div>
+<blockquote>
+<div>For non-wide virtual machines, the number of cores per virtual socket is not as critical as for wide virtual machines. On rare occasions, however, configuring cores per socket to a value other than 1 could influence guest CPU scheduling in either helpful or harmful ways. Careful testing is therefore recommended before changing this configuration.</div>
+</blockquote>
+</div>
+<div>Résumé : sur une VM dont les vCPU ne tournent pas dans un seul noeud NUMA (non wide), toucher au cores per socket n&rsquo;a normalement pas de conséquences mais rien ne permet d&rsquo;en être certain. Chaque cas nécessite d&rsquo;être testé.</div>
+<div></div>
+<div>L&rsquo;objectif n&rsquo;est pas de tourner en dérision les propos de VMware, dans de nombreux cas (réel) la gestion des fermes VMware changent du tout au tout :</div>
+<ul>
+<li>différentes gammes de serveurs au sein d&rsquo;une même ferme</li>
+<li>différentes gammes de CPU au sein d&rsquo;une même ferme</li>
+<li>parfois les administrateurs VMware privilégient la modification des cores per socket plutôt que le nombre de vSocket (ce qui va à l&rsquo;encontre des best practices VMware)</li>
+<li>souvent la configuration de la VM dépend plus de l&rsquo;admin que des standards d&rsquo;infrastructure</li>
+</ul>
+<p>Pour conclure, dans une entreprise qui a un SI depuis plusieurs années, une ferme VMware est en général très <strong>hétérogène</strong> et ce sur plusieurs plans (software, hardware, etc.).</p>
+<p>Dans ce genre de contexte, difficile de déterminer l&rsquo;évolution des performances de la VM (que ce soit sur le CPU ou autre) au cours de son évolution dans le temps, en particulier si on ajoute un déplacement automatique de la VM sur les hosts qui composent la ferme VMware&#8230;</p>
+<h3>vSocket vs cores per socket</h3>
+<p>Pour vous montrer les conséquences de ces paramétrages depuis la machine invitée, voici quelques exemples:</p>
+<p><a href="https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_vsocket_vs_corepersocket_impact1.png"><img class=" wp-image-310 aligncenter" src="https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_vsocket_vs_corepersocket_impact1.png?resize=416%2C436" alt="" width="416" height="436" srcset="https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_vsocket_vs_corepersocket_impact1.png?resize=286%2C300 286w, https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_vsocket_vs_corepersocket_impact1.png?w=764 764w" sizes="(max-width: 416px) 100vw, 416px" data-recalc-dims="1" /></a></p>
+<p>L&rsquo;OS voit 4 processeurs de 1 cœur physique (1 thread montre qu&rsquo;il n&rsquo;y a pas de HT parce que: x threads = x cœurs).</p>
+<p><a href="https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_vsocket_vs_corepersocket_impact2.png"><img class=" wp-image-311 aligncenter" src="https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_vsocket_vs_corepersocket_impact2.png?resize=446%2C468" alt="" width="446" height="468" srcset="https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_vsocket_vs_corepersocket_impact2.png?resize=286%2C300 286w, https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_vsocket_vs_corepersocket_impact2.png?w=754 754w" sizes="(max-width: 446px) 100vw, 446px" data-recalc-dims="1" /></a></p>
+<p>L&rsquo;OS voit 2 sockets de 2 cœurs physiques.</p>
+<p><a href="https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_vsocket_vs_corepersocket_impact3.png"><img class=" wp-image-312 aligncenter" src="https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_vsocket_vs_corepersocket_impact3.png?resize=512%2C428" alt="" width="512" height="428" srcset="https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_vsocket_vs_corepersocket_impact3.png?resize=300%2C251 300w, https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_vsocket_vs_corepersocket_impact3.png?resize=768%2C643 768w, https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_vsocket_vs_corepersocket_impact3.png?resize=1024%2C858 1024w, https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_vsocket_vs_corepersocket_impact3.png?w=1077 1077w" sizes="(max-width: 512px) 100vw, 512px" data-recalc-dims="1" /></a></p>
+<p>L&rsquo;OS voit 1 sockets de 4 cœurs physiques.</p>
+<h3>Les bonnes pratiques</h3>
+<p>Dans la littérature, il est recommandé de laisser le nombre de core per sockets à 1.</p>
+<p>Pour de nombreuses raisons (en général du licencing), on peut être amené à mettre plus de 1 core per socket, dans ce cas :</p>
+<ul>
+<li>Pour une « wide » VM, le nombre de cores par socket va déterminer la taille des vNUMA exposés à la VM (cf. chapitre suivant)</li>
+<li>Pour une « non-wide » VM, modifier cette configuration peut, dans de rares cas, améliorer ou détériorer les performances de la machine par son influence sur le CPU scheduler (host)</li>
+</ul>
+<h2>Les « wides » VMs</h2>
+<h3>Exposition du vNUMA</h3>
+<p>Depuis vSphere 5.0 il est possible de présenter au système invité la topologie NUMA via la technologie vNUMA. Le terme vNUMA est un terme spécifique à  VMware.</p>
+<p>Ça a donc pour effet de permettre :</p>
+<ul>
+<li>des optimisations NUMA depuis l’OS invité</li>
+<li>des optimisations NUMA pour le/les application(s) du système invité</li>
+</ul>
+<p>Par défaut, une VM est considérée comme « <strong>wide VM</strong> » si :</p>
+<ul>
+<li>Le nombre de vCPU vu par la VM est strictement supérieur à 8 (chiffre par défaut dans la configuration VMware vSphere)</li>
+<li>Le nombre de vCPU de la machine invitée dépasse le nombre de cœurs d’un nœud NUMA</li>
+</ul>
+<p><a href="https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_expo_vnuma.png"><img class="wp-image-314 aligncenter" src="https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_expo_vnuma.png?resize=512%2C157" alt="" width="512" height="157" srcset="https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_expo_vnuma.png?resize=300%2C92 300w, https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_expo_vnuma.png?resize=768%2C235 768w, https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_expo_vnuma.png?resize=1024%2C313 1024w, https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_expo_vnuma.png?w=1226 1226w" sizes="(max-width: 512px) 100vw, 512px" data-recalc-dims="1" /></a></p>
+<p>La terminologie « wide VM » est un terme commercial utilisé par VMware.</p>
+<p>Ce qu&rsquo;il faut retenir: <strong>Quand une VM est une <span style="text-decoration: underline;">wide VM</span>, la topologie NUMA est remontée à l’OS. On parle alors de <span style="text-decoration: underline;">vNUMA.</span></strong></p>
+<h3>Faire remonter la topologie NUMA au guest</h3>
+<p>Plusieurs éléments de configuration permettent de paramétrer et gérer l&rsquo;exposition de la topologie NUMA à l&rsquo;OS de la VM. Ces configurations peuvent se faire par VM ou directement par host.</p>
+<p><a href="https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/04/options_NUMA.png"><img class="wp-image-315 aligncenter" src="https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/04/options_NUMA.png?resize=604%2C308" alt="" width="604" height="308" srcset="https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/04/options_NUMA.png?resize=300%2C153 300w, https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/04/options_NUMA.png?resize=768%2C393 768w, https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/04/options_NUMA.png?resize=1024%2C523 1024w, https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/04/options_NUMA.png?w=1208 1208w, https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/04/options_NUMA.png?w=1812 1812w" sizes="(max-width: 604px) 100vw, 604px" data-recalc-dims="1" /></a></p>
+<h3>Comment vérifier la topologie NUMA remontée</h3>
+<h4>De manière générale, sur un OS (ex avec Linux)</h4>
+<p>Nous l&rsquo;avons vu, la topologie concerne autant les machines physiques que les VMs. Regardons ici comment afficher les informations liées à la topologie NUMA et comment les interpréter.</p>
+<p>Nous l&rsquo;avons vu, <a href="http://manpages.courier-mta.org/htmlman1/lscpu.1.html">lscpu</a> permet d&rsquo;avoir des informations génériques sur tout ce qui est lié aux processeurs:</p>
+<p><a href="https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/04/lscpu.png"><img class="wp-image-302 aligncenter" src="https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/04/lscpu.png?resize=604%2C157" alt="" width="604" height="157" srcset="https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/04/lscpu.png?resize=300%2C78 300w, https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/04/lscpu.png?resize=768%2C199 768w, https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/04/lscpu.png?resize=1024%2C265 1024w, https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/04/lscpu.png?zoom=2&amp;resize=1223%2C318 2446w" sizes="(max-width: 604px) 100vw, 604px" data-recalc-dims="1" /></a>Sur notre machine de test, il y a deux sockets physiques, chacune contient:</p>
+<ul>
+<li>1 core physique (« cœurs par socket »)</li>
+<li>de 1 thread (pas de HT, ligne « threads par cœur »)</li>
+<li>1 nœud NUMA (« nœuds NUMA »)</li>
+<li>la taille des caches et leur nombre (cf. chapitre précédent)</li>
+</ul>
+<p>On peut obtenir la correspondance et les relations entre ces différentes informations avec l&rsquo;option « -p » ou « -e »:</p>
+<p><a href="https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/04/lscpu_e.png"><img class=" wp-image-300 aligncenter" src="https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/04/lscpu_e.png?resize=497%2C111" alt="" width="497" height="111" srcset="https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/04/lscpu_e.png?resize=300%2C67 300w, https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/04/lscpu_e.png?w=748 748w" sizes="(max-width: 497px) 100vw, 497px" data-recalc-dims="1" /></a></p>
+<p>Il faut lire cette sortie comme un tableau à double entrée. Le cœur physique 0 (« core » dans le tableau) appartient au nœud NUMA 0 (tout comme le core 1) et est sur la socket 0. Il a un unique cœur logique (« CPU » dans le tableau). Aucun des caches ne sont partagés (logique puisque sur des sockets distinctes, rappelez-vous).</p>
+<p>L&rsquo;exemple n&rsquo;est ici pas très complexe, en voici un autre avec l&rsquo;option « -p » qui a un peu plus la classe :</p>
+<pre>$ lscpu -p
+# The following is the parsable format, which can be fed to other
+# programs. Each different item in every column has an unique ID
+# starting from zero.
+# CPU,Core,Socket,Node,,L1d,L1i,L2,L3
+0,0,0,0,,0,0,0,0
+1,1,1,1,,1,1,1,1
+2,2,0,0,,2,2,2,0
+3,3,1,1,,3,3,3,1
+4,4,0,0,,4,4,4,0
+5,5,1,1,,5,5,5,1
+6,6,0,0,,6,6,6,0
+7,7,1,1,,7,7,7,1
+8,8,0,0,,8,8,8,0
+9,9,1,1,,9,9,9,1
+10,10,0,0,,10,10,10,0
+11,11,1,1,,11,11,11,1
+12,0,0,0,,0,0,0,0
+13,1,1,1,,1,1,1,1
+14,2,0,0,,2,2,2,0
+15,3,1,1,,3,3,3,1
+16,4,0,0,,4,4,4,0
+17,5,1,1,,5,5,5,1
+18,6,0,0,,6,6,6,0
+19,7,1,1,,7,7,7,1
+20,8,0,0,,8,8,8,0
+21,9,1,1,,9,9,9,1
+22,10,0,0,,10,10,10,0
+23,11,1,1,,11,11,11,1</pre>
+<p>On peut voir que les cœurs logiques (CPU) 0 et 12 partagent un certain nombre de choses :</p>
+<ul>
+<li>ils sont sur la même socket (0)</li>
+<li>ils sont sur le même cœur physique (0)</li>
+<li>ils sont sur le même nœud NUMA (0)</li>
+<li>ils partagent les même caches
+<ul>
+<li>L1i et L1d (évident, ils sont sur le même cœur physique)</li>
+<li>L2 (idem)</li>
+<li>L3 (parce que sur la même socket)</li>
+</ul>
+</li>
+</ul>
+<p>A propos des caches, on peut voir que le cœur logique (CPU) numéro 2 n&rsquo;appartient pas au même cœur physique (core) que les 0 et 12 mais la même socket. Il n&rsquo;a donc pas les mêmes cache L1x/L2 mais le même cache L3.</p>
+<p>La commande « <a href="https://linux.die.net/man/8/numactl">numactl</a> &#8211;hardware » permet d&rsquo;avoir plus de détails sur ce qui nous intéresse :</p>
+<p><a href="https://i0.wp.com/blog.enioka.com/wp-content/uploads/2017/04/numactl.png"><img class="wp-image-301 aligncenter" src="https://i0.wp.com/blog.enioka.com/wp-content/uploads/2017/04/numactl.png?resize=376%2C138" alt="" width="376" height="138" srcset="https://i0.wp.com/blog.enioka.com/wp-content/uploads/2017/04/numactl.png?resize=300%2C110 300w, https://i0.wp.com/blog.enioka.com/wp-content/uploads/2017/04/numactl.png?w=744 744w" sizes="(max-width: 376px) 100vw, 376px" data-recalc-dims="1" /></a></p>
+<p>La distance ici exprime la latence d&rsquo;accès à la mémoire. La  configuration de cet exemple étant simple, voici un autre exemple avec cette fois-ci 8 nœuds NUMA :</p>
+<pre><code>node   0   1   2   3   4   5   6   7
+  0:  10  21  21  21  21  21  21  21
+  1:  21  10  21  21  21  21  21  21
+  2:  21  21  10  21  21  21  21  21
+  3:  21  21  21  10  21  21  21  21
+  4:  21  21  21  21  10  21  21  21
+  5:  21  21  21  21  21  10  21  21
+  6:  21  21  21  21  21  21  10  21
+  7:  21  21  21  21  21  21  21  10
+</code></pre>
+<p>La valeur 10 représente un accès local à la mémoire (entre les nœuds 0 et 0 ou les nœuds 1 et 1, etc&#8230;). les autres des accès en remote.</p>
+<h4>Vu de la machine invitée (VM VMware) : coreinfo</h4>
+<p>Configuration des machines de l&rsquo;infra pour ces exemples.</p>
+<p>Host :</p>
+<ul>
+<li>Socket: 2</li>
+<li>CPU Package: 10</li>
+<li>NUMA: 2</li>
+</ul>
+<p>VM :</p>
+<ul>
+<li>vSocket : 16</li>
+<li>Cores per socket : 1</li>
+</ul>
+<p>la commande « <a href="https://technet.microsoft.com/en-us/sysinternals/cc835722.aspx">coreinfo</a> » (équivalent de « lscpu » sous Linux):</p>
+<p><a href="https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_verif_vnuma_coreinfo.png"><img class="wp-image-308 aligncenter" src="https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_verif_vnuma_coreinfo.png?resize=539%2C647" alt="" width="539" height="647" srcset="https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_verif_vnuma_coreinfo.png?resize=250%2C300 250w, https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_verif_vnuma_coreinfo.png?w=742 742w" sizes="(max-width: 539px) 100vw, 539px" data-recalc-dims="1" /></a>On retrouve ici les même informations que dans le chapitre précédent mais sous une autre forme :</p>
+<ul>
+<li>la quantité de cœurs physiques et le mapping par rapport aux cœurs logiques</li>
+<li>la quantité de sockets et le mapping des cœurs physique par rapport aux sockets</li>
+<li>des infos sur les nœuds NUMA et les cœurs physiques associés</li>
+<li>des infos sur les caches</li>
+</ul>
+<h3>Vu du host</h3>
+<p>La commande « vmdumper » permet d&rsquo;avoir les configurations d&rsquo;une machine allumée sur un ESXi :</p>
+<p><a href="https://i0.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_verif_vnuma_vmdumper.png"><img class="wp-image-309 aligncenter" src="https://i0.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_verif_vnuma_vmdumper.png?resize=603%2C565" alt="" width="603" height="565" srcset="https://i0.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_verif_vnuma_vmdumper.png?resize=300%2C281 300w, https://i0.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_verif_vnuma_vmdumper.png?w=718 718w" sizes="(max-width: 603px) 100vw, 603px" data-recalc-dims="1" /></a></p>
+<p>On y retrouve nos configurations VMware vSphere :</p>
+<ul>
+<li>Mémoire/CPU de la VM</li>
+<li>Cores per socket</li>
+<li>vSocket</li>
+<li>Nœuds NUMA</li>
+<li>Nous parlerons des autres métriques dans le chapitre suivant</li>
+</ul>
+<p>La commande « <a href="https://pubs.vmware.com/vsphere-51/index.jsp?topic=%2Fcom.vmware.vsphere.monitoring.doc%2FGUID-D89E8267-C74A-496F-B58E-19672CAB5A53.html">esxtop</a> » permet de sortir des métriques plus liées à la vie de la VM au sein de l&rsquo;ESX :</p>
+<p><img class="wp-image-307 aligncenter" src="https://i0.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_esxtop.png?resize=543%2C355" alt="" width="543" height="355" srcset="https://i0.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_esxtop.png?resize=300%2C196 300w, https://i0.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_esxtop.png?resize=768%2C501 768w, https://i0.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_esxtop.png?resize=1024%2C667 1024w, https://i0.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_esxtop.png?w=1189 1189w" sizes="(max-width: 543px) 100vw, 543px" data-recalc-dims="1" /></p>
+<p>Les métriques intéressantes :</p>
+<ul>
+<li><b>NRMEM :</b> NUMA Remote Memory (doit être le plus bas possible)</li>
+<li><b>NLMEM :</b> NUMA Local Memory (doit être le plus élevé possible)</li>
+<li><b>N%L: </b> pourcentage de la mémoire accédée en local par la VM</li>
+<li><b>NMIG  :</b> NUMA migration: Nombre de fois que la VM à migré d’un NUMA à un autre</li>
+</ul>
+<h2>La topologie processeur par VMware vSphere</h2>
+<h3>Les couches</h3>
+<p>Chaque couche qui compose la stack de virtualisation (ici ESX et VM) s&rsquo;approprie et enrichie la topologie CPU du host.</p>
+<p>Reprenons notre modèle de nœud NUMA sur un host :</p>
+<p><a href="https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_les_couches_1.png"><img class="wp-image-285 aligncenter" src="https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_les_couches_1.png?resize=604%2C151" alt="" width="604" height="151" srcset="https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_les_couches_1.png?resize=300%2C75 300w, https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_les_couches_1.png?resize=768%2C191 768w, https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_les_couches_1.png?resize=1024%2C255 1024w, https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_les_couches_1.png?w=1178 1178w" sizes="(max-width: 604px) 100vw, 604px" data-recalc-dims="1" /></a></p>
+<p>Ajoutons à ce modèle la couche ajoutée par l&rsquo;ESX (hyperviseur de VMware).</p>
+<p>On retrouve de nouveaux concepts :</p>
+<ul>
+<li>NUMA Home Node : Surcouche de l&rsquo;ESX qui interprète la topologie NUMA présente sur le host</li>
+<li>pCPU : pour physical CPU, représente un <span style="text-decoration: underline;">cœur physique</span> <strong>ou</strong> un <span style="text-decoration: underline;">cœur logique</span> dans l&rsquo;hyperviseur</li>
+<li>NUMA Client : ensemble cœurs/mémoire remonté à la VM. Ça ne veut pas forcément dire que la VM voit la topologie NUMA</li>
+</ul>
+<p><a href="https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_les_couches_2.png"><img class="wp-image-286 aligncenter" src="https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_les_couches_2.png?resize=604%2C280" alt="" width="604" height="280" srcset="https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_les_couches_2.png?resize=300%2C139 300w, https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_les_couches_2.png?resize=768%2C355 768w, https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_les_couches_2.png?resize=1024%2C473 1024w, https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_les_couches_2.png?w=1588 1588w, https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_les_couches_2.png?w=1208 1208w" sizes="(max-width: 604px) 100vw, 604px" data-recalc-dims="1" /></a></p>
+<p>On ajoute la couche VM. On retrouve les vSocket et vCPU :</p>
+<p><a href="https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_les_couches_3.png"><img class="wp-image-287 aligncenter" src="https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_les_couches_3.png?resize=604%2C296" alt="" width="604" height="296" srcset="https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_les_couches_3.png?resize=300%2C147 300w, https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_les_couches_3.png?resize=768%2C377 768w, https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_les_couches_3.png?resize=1024%2C503 1024w, https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_les_couches_3.png?w=1547 1547w, https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_les_couches_3.png?w=1208 1208w" sizes="(max-width: 604px) 100vw, 604px" data-recalc-dims="1" /></a></p>
+<h3>Décomposition du vNUMA</h3>
+<p>Plongeons donc au sein de ce NUMA Client qui nous intéresse tant. En le décomposant, on retrouve deux choses :</p>
+<ul>
+<li><strong>le Physical Proximity Domain (PPD)</strong>
+<ul>
+<li>il assure la corrélation entre un pool de vCPU et un pool de cœur physique au sein du même CPU package</li>
+<li>C’est la garant de la relation suivante :
+<ul>
+<li>« j’assure que tel groupe de vCPU sera affilié à tel CPU Package » (qui peut changer au cours du temps en fonction des choix du CPU scheduler)</li>
+<li>Ce n’est pas du pinning</li>
+</ul>
+</li>
+<li>il se construit automatiquement à partir du nombre de cœurs physiques présents au sein d’un CPU Package (sauf si le paramétrage « core per socket » n’est pas égal à 1, dans ce cas, c&rsquo;est ce paramétrage qui détermine la taille du PPD)</li>
+<li>il est utilisé pour le placement initial des vCPU et pour le load-balancing</li>
+</ul>
+</li>
+<li><strong>le Virtual Proximity Domain (VPD)</strong>
+<ul>
+<li>il expose la topologie vNUMA à la VM</li>
+<li>sa taille dépend du nombre de vCPU et du nombre de cœurs physiques sur la machine physique ou du paramétrage <strong>« core per socket » </strong>(pour les version ESX inférieures 6.5)</li>
+<li>Peut reposer sur <strong>plusieurs</strong> PPDs</li>
+</ul>
+</li>
+</ul>
+<p>Reprenons notre modèle et ajoutons les VPDs et les PPDs. Vous trouverez ci-dessous, sous forme de schémas, tous les impacts possibles en fonction de la configuration pour laquelle on opte.</p>
+<p>Dans cet exemple, on a créé une machine virtuelle. Ses configuration sont les suivantes :</p>
+<ul>
+<li>cores per socket: 1</li>
+<li>vSocket: 16</li>
+<li>Total vCPU: 16 (16 x 1)</li>
+</ul>
+<p>On a donc suivi les bonnes pratiques de base recommandées par VMware (cf. VMware Performance Best Practices on vSphere 6.0 White Paper) :</p>
+<blockquote>
+<div>When creating a virtual machine you have the option to specify the number of virtual sockets and the number of cores per virtual socket. In general, we recommend leaving this at the default value of 1 core per socket (with the number of virtual sockets therefore equal to the number of vCPUs).</div>
+</blockquote>
+<div></div>
+<div>Ce qui nous donne la modélisation suivante :</div>
+<p><a href="https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_decomposition_vNUMA_1.png"><img class="wp-image-289 aligncenter" src="https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_decomposition_vNUMA_1.png?resize=604%2C322" alt="" width="604" height="322" srcset="https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_decomposition_vNUMA_1.png?resize=300%2C160 300w, https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_decomposition_vNUMA_1.png?resize=768%2C411 768w, https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_decomposition_vNUMA_1.png?resize=1024%2C548 1024w, https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_decomposition_vNUMA_1.png?w=1569 1569w, https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_decomposition_vNUMA_1.png?w=1208 1208w" sizes="(max-width: 604px) 100vw, 604px" data-recalc-dims="1" /></a></p>
+<p>Le VMdumper nous confirme cette modélisation :</p>
+<p><a href="https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_decomposition_vNUMA_2.png"><img class="wp-image-290 aligncenter" src="https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_decomposition_vNUMA_2.png?resize=604%2C565" alt="" width="604" height="565" srcset="https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_decomposition_vNUMA_2.png?resize=300%2C281 300w, https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_decomposition_vNUMA_2.png?resize=768%2C720 768w, https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_decomposition_vNUMA_2.png?w=961 961w" sizes="(max-width: 604px) 100vw, 604px" data-recalc-dims="1" /></a></p>
+<p>On remarque cependant un commentaire intéressant : « Exposing multicore topology with cpuid.CoresPerSocket = 8 is suggested for best performance ».</p>
+<p>Il serait donc intéressant, selon VMware, de modifier la configuration « cores per socket » pour avoir de meilleurs performances. Ce qui est normal :</p>
+<ul>
+<li>Comme vu dans le chapitre précédent sur les Wides VMs, une VM est considérée comme étant une wide VM si la machine possède plus de 8 vCPU (paramètre par défaut)</li>
+<li><strong>ou si le nombre de vCPU de la machine invitée dépasse le nombre de cœurs d’un nœud NUMA</strong></li>
+</ul>
+<p>Ce log est cohérent avec les bonnes pratiques de VMware dans le cas de wide WMs (cf. VMware Performance Best Practices on vSphere 6.0 White Paper):</p>
+<blockquote>
+<div>For wide virtual machines, be very careful about setting cores per virtual socket to a value other than the default (1 core per socket). It&rsquo;s best to first try the default to determine what vNUMA size ESXi selects for your virtual machine in your environment. Once you know the vNUMA size, use it to choose a value for cores per socket.</div>
+</blockquote>
+<div>
+<blockquote>
+<div>For example, when running a 16-vCPU virtual machine on a host system with 10 cores per physical socket, ESXi will select a vNUMA size of 8. Once this vNUMA size is known, you would configure this virtual machine to have 8 cores per virtual socket.</div>
+</blockquote>
+</div>
+<div></div>
+<div>Donc, si on crée une wide VM, cette fois-ci de 20 vCPU, et en suivant tous les conseils de VMware :</div>
+<ul>
+<li>cores per socket: 10</li>
+<li>vSocket: 2</li>
+<li>Total vCPU: 20 (10 x 2)</li>
+</ul>
+<p>On a la modélisation suivante :</p>
+<ul>
+<li>Nos PPD sont répartis sur nos deux nœuds NUMA et se composent de l&rsquo;intégralité des processeurs du host</li>
+<li>On trouve autant de VPDs que de PPDs et ceux ci se composent d&rsquo;autant de cores que ces derniers</li>
+</ul>
+<p>Bref, tout est bien aligné&#8230; On voit qu&rsquo;a travers cette configuration le travail du CPU Scheduler s&rsquo;en retrouve simplifié. Vous aurez le temps de vous en rendre compte en jetant un œil aux modélisations suivantes 😉</p>
+<p><a href="https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_decomposition_vNUMA_3.png"><img class="wp-image-291 aligncenter" src="https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_decomposition_vNUMA_3.png?resize=604%2C328" alt="" width="604" height="328" srcset="https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_decomposition_vNUMA_3.png?resize=300%2C163 300w, https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_decomposition_vNUMA_3.png?resize=768%2C417 768w, https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_decomposition_vNUMA_3.png?resize=1024%2C556 1024w, https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_decomposition_vNUMA_3.png?w=1571 1571w, https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_decomposition_vNUMA_3.png?w=1208 1208w" sizes="(max-width: 604px) 100vw, 604px" data-recalc-dims="1" /></a></p>
+<p>Entrons maintenant dans la maison des horreurs de la configuration VMware.</p>
+<p>Prenons l&rsquo;exemple de l&rsquo;élève qui à tout compris de travers et qui a toujours modifié le nombre de cores per socket plutôt que le nombre de vSocket.</p>
+<p>Configuration de notre nouvelle VM:</p>
+<ul>
+<li>cores per socket: 12</li>
+<li>vSocket: 1</li>
+<li>Total vCPU: 12 (12 x 1)</li>
+</ul>
+<p>La modélisation associée :</p>
+<ul>
+<li>un VPD de 12 cœurs et réparti sur deux PPDs</li>
+<li>deux PPDs de 6 cœurs répartis sur les deux nœuds NUMA</li>
+</ul>
+<p>On sent que ça va bien se passer&#8230;</p>
+<p><a href="https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_decomposition_vNUMA_4.png"><img class="wp-image-292 aligncenter" src="https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_decomposition_vNUMA_4.png?resize=604%2C332" alt="" width="604" height="332" srcset="https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_decomposition_vNUMA_4.png?resize=300%2C165 300w, https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_decomposition_vNUMA_4.png?resize=768%2C422 768w, https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_decomposition_vNUMA_4.png?resize=1024%2C563 1024w, https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_decomposition_vNUMA_4.png?w=1580 1580w, https://i2.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_decomposition_vNUMA_4.png?w=1208 1208w" sizes="(max-width: 604px) 100vw, 604px" data-recalc-dims="1" /></a>On a donc une VM dont l&rsquo;OS va voir un nœud NUMA au lieu de deux. La mémoire va vite se retrouver répartie entre les deux NHN (NUMA Home Node) et des accès en remote vont apparaitre. Le travaille du CPU scheduler au sein de l&rsquo;ESXi va s&rsquo;en trouver affecté et on peut s&rsquo;attendre à beaucoup de context switch.</p>
+<p>Prenons maintenant l&rsquo;élève qui a compris à peu près la moitié de tous les concepts et qui, pour se rassurer, va donc tout mélanger.</p>
+<p>Configuration de notre nouvelle VM :</p>
+<ul>
+<li>cores per socket: 2</li>
+<li>vSocket: 6</li>
+<li>Total vCPU: 12 (2 x 6)</li>
+</ul>
+<p>La modélisation associée :</p>
+<ul>
+<li>six VPDs de 2 cœurs</li>
+<li>six PPDs de 2 cœurs</li>
+</ul>
+<p>Un carnage, la VM va voir une topologie de six nœuds NUMA au lieu des deux qui existent réellement. Au niveau de l&rsquo;ESXi, le CPU scheduler va devoir scheduler 6 PPD au lieu de 2. L&rsquo;OS quant à lui va être amené à faire beaucoup plus d&rsquo;optimisations que nécessaire et qui, au final, n&rsquo;en seront pas.</p>
+<p><a href="https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_decomposition_vNUMA_5.png"><img class="wp-image-293 aligncenter" src="https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_decomposition_vNUMA_5.png?resize=604%2C338" alt="" width="604" height="338" srcset="https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_decomposition_vNUMA_5.png?resize=300%2C168 300w, https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_decomposition_vNUMA_5.png?resize=768%2C430 768w, https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_decomposition_vNUMA_5.png?resize=1024%2C573 1024w, https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_decomposition_vNUMA_5.png?w=1580 1580w, https://i1.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_decomposition_vNUMA_5.png?w=1208 1208w" sizes="(max-width: 604px) 100vw, 604px" data-recalc-dims="1" /></a>Tous ces exemples montrent bien l&rsquo;impacte de l&rsquo;option « cores per socket » sur la taille des VPDs/PPDs et toutes les horreurs associées si l&rsquo;on ne fait pas attention.</p>
+<p>L&rsquo;article « <a href="https://blogs.vmware.com/vsphere/2013/10/does-corespersocket-affect-performance.html">Does corespersocket Affect Performance</a> » publié sur le blog de VMware appuie ces théories.</p>
+<p>Faut-il le répéter ? Le plus simple reste tout de même de faire en sorte de n&rsquo;occuper qu&rsquo;un <strong>seul nœud NUMA</strong>.  Pourquoi ? Tout simplement parce que le travail de l&rsquo;OS de la VM et de l&rsquo;ESXi vont s&rsquo;en trouver simplifiés. Comment faire si la quantité de vCPU de la VM dépasse le nombre de cœurs d&rsquo;un nœud NUMA ? (Je pars ici du principe que la quantité de RAM souhaitée sur la VM soit inférieur à la quantité de RAM du nœud NUMA.)</p>
+<p>C&rsquo;est là que l&rsquo;option PerferHT entre en jeux. Pour rappel, cette option va faire en sorte que les cœurs logiques comptent lors de la contruction du NUMA Home Node.</p>
+<p>Configuration de notre nouvelle VM :</p>
+<ul>
+<li>cores per socket: 12</li>
+<li>vSocket: 1</li>
+<li>Total vCPU: 12 (12 x 1)</li>
+</ul>
+<p>La modélisation associée :</p>
+<ul>
+<li>un VPD de 12 cœurs</li>
+<li>un PPD de 10 cœurs</li>
+</ul>
+<p><a href="https://i0.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_decomposition_vNUMA_6.png"><img class="wp-image-294 aligncenter" src="https://i0.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_decomposition_vNUMA_6.png?resize=604%2C342" alt="" width="604" height="342" srcset="https://i0.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_decomposition_vNUMA_6.png?resize=300%2C170 300w, https://i0.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_decomposition_vNUMA_6.png?resize=768%2C434 768w, https://i0.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_decomposition_vNUMA_6.png?resize=1024%2C579 1024w, https://i0.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_decomposition_vNUMA_6.png?w=1590 1590w, https://i0.wp.com/blog.enioka.com/wp-content/uploads/2017/04/diap_decomposition_vNUMA_6.png?w=1208 1208w" sizes="(max-width: 604px) 100vw, 604px" data-recalc-dims="1" /></a>Au final notre VM, même si elle a plus de vCPU que de cœurs physiques sur notre nœud NUMA, tient au sein d&rsquo;un même NUMA Home Node. Attention cependant, il faut avoir en tête que ce sont des cœurs logiques (HyperThreading ici) qui vont être utilisés. En fonction de l&rsquo;applicatif de la VM cela peut dégrader ou améliorer les performances.</p>
+<h4>Et si on validait cela avec un vrai benchmark ?</h4>
+<p>Pour valider ces différentes configurations et les théories associées, <a href="http://www.enioka.com">enioka</a> prépare un benchmark qui prendra en compte :</p>
+<ul>
+<li>les config CPU (dans un contexte de stress sur l&rsquo;host ou non)</li>
+<li>l&rsquo;applicatif sur la VM (workload court et long)</li>
+<li>d&rsquo;autres technologies de virtualisation</li>
+</ul>
+<p>Dès que ce benchmark sera réalisé, un compte rendu sera fait dans ce blog.</p>
+<h3>Les nouveautés (vSphere 6.5)</h3>
+<p>vSphere 6.5 permet de rattraper beaucoup de bêtises, en particulier, pour la topologie vNUMA :</p>
+<ul>
+<li>L’option cores per socket est découplée de la taille du VPD</li>
+<li>Le sizing du VPD se fait automatiquement par VMware</li>
+</ul>
+<h2>Conclusions</h2>
+<h3>Quand on ne connait pas, on ne touche pas</h3>
+<p>Dans le doute, laissez le paramètre « cores per socket » à 1. Faites des tests dans le cas contraire.</p>
+<h3>Les bonnes questions à se poser</h3>
+<p>Le sujet est complexe, il y a beaucoup de paramètres à prendre en compte et deux bonnes questions à se poser :</p>
+<ul>
+<li>Ai-je vraiment besoin de ce niveau de performance ?</li>
+<li>Ai-je vraiment vraiment besoin d’autant de vCPU ?</li>
+</ul>
+<h3>Diagramme de choix</h3>
+<p>Si la réponse à ses deux questions est « oui », vous pouvez-vous aider de ce diagramme de choix pour déterminer la configuration CPU à faire sur votre VM.</p>
+<p>Faites tout de même attention, ce diagramme n&rsquo;a pas la prétention de vous donner à coup sûr la bonne configuration pour votre VM et surtout il ne remplace en rien des tests de performance et d&rsquo;intégration. Il est peut probable que votre VM soit seule au monde, mais plutôt ajoutée au sein d&rsquo;une ferme existante et potentiellement vieillissante (la version des ESXi a une grande importance). Sans compter que les hosts qui composent cette ferme peuvent porter des CPU de gammes différentes et donc avec des topologies NUMA différentes. Les impacts peuvent être très visibles si le DRS en mode automatique est activé.</p>
+<p><a href="https://i0.wp.com/blog.enioka.com/wp-content/uploads/2017/03/diag_choix.png"><img class="wp-image-253 aligncenter" src="https://i0.wp.com/blog.enioka.com/wp-content/uploads/2017/03/diag_choix.png?resize=604%2C302" alt="" width="604" height="302" srcset="https://i0.wp.com/blog.enioka.com/wp-content/uploads/2017/03/diag_choix.png?resize=300%2C150 300w, https://i0.wp.com/blog.enioka.com/wp-content/uploads/2017/03/diag_choix.png?resize=768%2C384 768w, https://i0.wp.com/blog.enioka.com/wp-content/uploads/2017/03/diag_choix.png?resize=1024%2C513 1024w, https://i0.wp.com/blog.enioka.com/wp-content/uploads/2017/03/diag_choix.png?w=1208 1208w" sizes="(max-width: 604px) 100vw, 604px" data-recalc-dims="1" /></a></p>
+<h2>Webo/Biblio/Humanographie</h2>
+<ul>
+<li>Le Web:
+<ul>
+<li><b><a href="http://frankdenneman.nl/">http://frankdenneman.nl</a></b> (architecte CPU VMware) : pour ses articles « NUMA Deep Dive »</li>
+<li><b><a href="http://www.exitthefastlane.com/">http://</a></b><b><a href="http://www.exitthefastlane.com/">www.exitthefastlane.com</a></b><b><a href="http://www.exitthefastlane.com/">/ </a></b>: vSphere Design for NUMA Architecture and Alignment</li>
+<li><b><a href="http://kendrickcoleman.com/">http://kendrickcoleman.com/</a></b> : vSphere 5 Hardware Version 8 &amp; New vCPU Config for Licensing Trickery</li>
+<li><b><a href="https://blogs.vmware.com/">https://blogs.vmware.com/</a></b> (euh oui mais non) : Does corespersocket Affect Performance?</li>
+<li><b><a href="http://superuser.com/">http://superuser.com/</a></b> : Pour les explications sur les caches processeur</li>
+</ul>
+</li>
+</ul>
+<ul>
+<li>Les livres :
+<ul>
+<li><b>The CPU </b><b>scheduler</b><b> in VMware </b><b>vSphere</b><b> 5.1 </b>: pour les impacts du NUMA alignment</li>
+<li><b>VMware </b><b>vSphere</b><b> Performance </b>: Designing CPU, Memory, Storage, and Networking for Performance-Intensive Workloads. Pour les éléments de configuration et plus tard pour le CPU scheduling</li>
+</ul>
+</li>
+<li>Et les hommes :
+<ul>
+<li><b>Gael</b> <b>Lalleman</b> : pour nos discussions passionnées sur le sujet</li>
+</ul>
+</li>
+</ul>
+<h2>Lexique</h2>
+<ul>
+<li><a href="https://www.vladan.fr/what-is-the-difference-between-vmware-vsphere-esxi-and-vcenter/?utm_source=feedburner&amp;utm_medium=feed&amp;utm_campaign=Feed:+EsxVirtualization+(ESX+Virtualization)&amp;utm_term=feedburner"><b>vCenter</b></a> : API et IHM qui permet d’opérer les fermes vSphere VMware (permet de communiquer avec les ESX)</li>
+<li><a href="https://www.vladan.fr/what-is-the-difference-between-vmware-vsphere-esxi-and-vcenter/?utm_source=feedburner&amp;utm_medium=feed&amp;utm_campaign=Feed:+EsxVirtualization+(ESX+Virtualization)&amp;utm_term=feedburner"><b>vSphere</b></a> : Solution qui comprend vCenter + ESXi + Modules vCenter (ex: vSAN)</li>
+<li><a href="https://www.vladan.fr/what-is-the-difference-between-vmware-vsphere-esxi-and-vcenter/?utm_source=feedburner&amp;utm_medium=feed&amp;utm_campaign=Feed:+EsxVirtualization+(ESX+Virtualization)&amp;utm_term=feedburner"><b>ESXi</b></a>: vSphere ESXi est un hyperviseur bare-metal (type 1 &#8211; natif)</li>
+<li><b>Host</b>: Machine physique sur laquelle est installée ESXi et qui héberge les VMs crées</li>
+<li><b>Guest</b>: Une VM qui repose sur un host</li>
+<li><b>NUMA</b>: Non Unified Memory Access, architecture répartissant la mémoire physique par ensemble de cœurs processeurs</li>
+<li><b>Hyperthreading</b>: Technologie Intel (HyperTransport chez AMD) permettant de présenter deux cœurs logique à partir d’un cœur physique</li>
+<li><b>Socket</b>: Connexion physique d’un processeur à la carte mère (HW)</li>
+<li><b>vCPU</b>: Virtual CPU, le matériel présenté à la machine virtuelle</li>
+<li><b>«</b><b>Wide » VM </b>: Une VM dont la topologie NUMA lui est remontée par la technologie vNUMA</li>
+<li><b>PPD</b>: Physical Proximity Domain, pool de cœurs physiques associés à un CPU package</li>
+<li><b>VPD</b>: Virtual Proximity Domain, (ensemble de) pool(s) de cœurs logiques/physiques associé(s) à un ou plusieurs PPD</li>
+<li><b>pCPU</b>: Physical CPU vu par l’ESX (peut-être associée à un processeur logique ou physique)</li>
+<li><b>vSocket</b>: Virtual Socket (vu par la VM comme une socket physique)</li>
+<li><strong>core/coeur physique:</strong> processeur physique intégré à une socket physique</li>
+<li><strong>core/coeur logique:</strong> processeur logique s&rsquo;exécutant sur un processeur physique</li>
+</ul>
+<h2>Pour aller plus loin</h2>
+<p>Des articles complémentaires sont en cours de rédaction pour prolonger la réflexion  :</p>
+<ul>
+<li>Benchmark sur les configurations CPU pour VMware/KVM/Hyper-V (permettra de valider/réfuter les théories avancées ci-dessus en fonction des contextes et des paramétrages) &#8211; à venir</li>
+<li>VMware CPU Scheduling: fonctionnement et principes &#8211; à venir</li>
+<li>Virtualisation des CPU &#8211; à venir</li>
+</ul>
+<div class="sharedaddy sd-sharing-enabled"><div class="robots-nocontent sd-block sd-social sd-social-icon-text sd-sharing"><h3 class="sd-title">Partager :</h3><div class="sd-content"><ul><li class="share-linkedin"><a rel="nofollow noopener noreferrer" data-shared="sharing-linkedin-244" class="share-linkedin sd-button share-icon" href="http://blog.enioka.com/post/2017/07/06/topologie-cpu-vmware-vsphere/?share=linkedin" target="_blank" title="Cliquez pour partager sur LinkedIn"><span>LinkedIn</span></a></li><li class="share-twitter"><a rel="nofollow noopener noreferrer" data-shared="sharing-twitter-244" class="share-twitter sd-button share-icon" href="http://blog.enioka.com/post/2017/07/06/topologie-cpu-vmware-vsphere/?share=twitter" target="_blank" title="Cliquez pour partager sur Twitter"><span>Twitter</span></a></li><li class="share-google-plus-1"><a rel="nofollow noopener noreferrer" data-shared="sharing-google-244" class="share-google-plus-1 sd-button share-icon" href="http://blog.enioka.com/post/2017/07/06/topologie-cpu-vmware-vsphere/?share=google-plus-1" target="_blank" title="Cliquez pour partager sur Google+"><span>Google</span></a></li><li class="share-print"><a rel="nofollow noopener noreferrer" data-shared="" class="share-print sd-button share-icon" href="http://blog.enioka.com/post/2017/07/06/topologie-cpu-vmware-vsphere/#print" target="_blank" title="Cliquer pour imprimer"><span>Imprimer</span></a></li><li class="share-end"></li></ul></div></div></div>
+<div id='jp-relatedposts' class='jp-relatedposts' >
+	<h3 class="jp-relatedposts-headline"><em>Articles similaires</em></h3>
+</div>	</div><!-- .entry-content -->
+	
+	<footer class="entry-meta">
+		
+			</footer><!-- .entry-meta -->
+</article><!-- #post -->
+					<nav class="navigation post-navigation" role="navigation">
+		<h1 class="screen-reader-text">Navigation des articles</h1>
+		<div class="nav-links">
+
+			<a href="http://blog.enioka.com/post/2017/02/27/benchmark-de-lopen-source-dans-les-grandes-societes/" rel="prev"><span class="meta-nav">&larr;</span> Benchmark de l&rsquo;Open Source dans les grandes sociétés</a>			<a href="http://blog.enioka.com/post/2017/07/17/manifeste-pour-du-developpement-de-haute-couture/" rel="next">Manifeste pour du développement de haute-couture <span class="meta-nav">&rarr;</span></a>
+		</div><!-- .nav-links -->
+	</nav><!-- .navigation -->
+					
+<div id="comments" class="comments-area">
+
+	
+		<div id="respond" class="comment-respond">
+		<h3 id="reply-title" class="comment-reply-title">Laisser un commentaire <small><a rel="nofollow" id="cancel-comment-reply-link" href="/post/2017/07/06/topologie-cpu-vmware-vsphere/#respond" style="display:none;">Annuler la réponse</a></small></h3>			<form action="http://blog.enioka.com/wp-comments-post.php" method="post" id="commentform" class="comment-form" novalidate>
+				<p class="comment-notes"><span id="email-notes">Votre adresse de messagerie ne sera pas publiée.</span> Les champs obligatoires sont indiqués avec <span class="required">*</span></p><p class="comment-form-comment"><label for="comment">Commentaire</label> <textarea id="comment" name="comment" cols="45" rows="8" maxlength="65525" required="required"></textarea></p><p class="comment-form-author"><label for="author">Nom <span class="required">*</span></label> <input id="author" name="author" type="text" value="" size="30" maxlength="245" required='required' /></p>
+<p class="comment-form-email"><label for="email">Adresse de messagerie <span class="required">*</span></label> <input id="email" name="email" type="email" value="" size="30" maxlength="100" aria-describedby="email-notes" required='required' /></p>
+<p class="comment-form-url"><label for="url">Site web</label> <input id="url" name="url" type="url" value="" size="30" maxlength="200" /></p>
+<p class="comment-subscription-form"><input type="checkbox" name="subscribe_comments" id="subscribe_comments" value="subscribe" style="width: auto; -moz-appearance: checkbox; -webkit-appearance: checkbox;" /> <label class="subscribe-label" id="subscribe-label" for="subscribe_comments">Prévenez-moi de tous les nouveaux commentaires par e-mail.</label></p><p class="comment-subscription-form"><input type="checkbox" name="subscribe_blog" id="subscribe_blog" value="subscribe" style="width: auto; -moz-appearance: checkbox; -webkit-appearance: checkbox;" /> <label class="subscribe-label" id="subscribe-blog-label" for="subscribe_blog">Prévenez-moi de tous les nouveaux articles par e-mail.</label></p><p class="form-submit"><input name="submit" type="submit" id="submit" class="submit" value="Laisser un commentaire" /> <input type='hidden' name='comment_post_ID' value='244' id='comment_post_ID' />
+<input type='hidden' name='comment_parent' id='comment_parent' value='0' />
+</p><p style="display: none;"><input type="hidden" id="akismet_comment_nonce" name="akismet_comment_nonce" value="985c529588" /></p><p style="display: none;"><input type="hidden" id="ak_js" name="ak_js" value="219"/></p>			</form>
+			</div><!-- #respond -->
+		<script type="text/javascript">
+        jQuery( document ).ready( function( $ ) {
+            $( '.comment-form, #registerform' ).append( '<input type="hidden" name="js-spam-prevention" value="b62345ff6a7ad820c21db16d8fd074a1"/>' );
+        } );
+	</script>
+	
+</div><!-- #comments -->
+			
+		</div><!-- #content -->
+	</div><!-- #primary -->
+
+	<div id="tertiary" class="sidebar-container" role="complementary">
+		<div class="sidebar-inner">
+			<div class="widget-area">
+				<aside id="text-3" class="widget widget_text">			<div class="textwidget"><a href="http://www.enioka.com">managing IT complexity - enioka.com</a></div>
+		</aside><aside id="tag_cloud-3" class="widget widget_tag_cloud"><h3 class="widget-title">Étiquettes</h3><div class="tagcloud"><ul class='wp-tag-cloud' role='list'>
+	<li><a href="http://blog.enioka.com/post/tag/architecture/" class="tag-cloud-link tag-link-22 tag-link-position-1" style="font-size: 8pt;" aria-label="Architecture (1 élément)">Architecture</a></li>
+	<li><a href="http://blog.enioka.com/post/tag/batch/" class="tag-cloud-link tag-link-6 tag-link-position-2" style="font-size: 13.25pt;" aria-label="batch (2 éléments)">batch</a></li>
+	<li><a href="http://blog.enioka.com/post/tag/big-data/" class="tag-cloud-link tag-link-25 tag-link-position-3" style="font-size: 13.25pt;" aria-label="Big Data (2 éléments)">Big Data</a></li>
+	<li><a href="http://blog.enioka.com/post/tag/business-intelligence/" class="tag-cloud-link tag-link-26 tag-link-position-4" style="font-size: 8pt;" aria-label="Business Intelligence (1 élément)">Business Intelligence</a></li>
+	<li><a href="http://blog.enioka.com/post/tag/complexite/" class="tag-cloud-link tag-link-7 tag-link-position-5" style="font-size: 19.666666666667pt;" aria-label="Complexité (4 éléments)">Complexité</a></li>
+	<li><a href="http://blog.enioka.com/post/tag/cout/" class="tag-cloud-link tag-link-8 tag-link-position-6" style="font-size: 16.75pt;" aria-label="Coût (3 éléments)">Coût</a></li>
+	<li><a href="http://blog.enioka.com/post/tag/decisionnel/" class="tag-cloud-link tag-link-27 tag-link-position-7" style="font-size: 13.25pt;" aria-label="Décisionnel (2 éléments)">Décisionnel</a></li>
+	<li><a href="http://blog.enioka.com/post/tag/developpement/" class="tag-cloud-link tag-link-41 tag-link-position-8" style="font-size: 8pt;" aria-label="développement (1 élément)">développement</a></li>
+	<li><a href="http://blog.enioka.com/post/tag/formats/" class="tag-cloud-link tag-link-9 tag-link-position-9" style="font-size: 8pt;" aria-label="Formats (1 élément)">Formats</a></li>
+	<li><a href="http://blog.enioka.com/post/tag/haute-couture/" class="tag-cloud-link tag-link-39 tag-link-position-10" style="font-size: 8pt;" aria-label="haute-couture (1 élément)">haute-couture</a></li>
+	<li><a href="http://blog.enioka.com/post/tag/interfaces/" class="tag-cloud-link tag-link-10 tag-link-position-11" style="font-size: 16.75pt;" aria-label="Interfaces (3 éléments)">Interfaces</a></li>
+	<li><a href="http://blog.enioka.com/post/tag/integration/" class="tag-cloud-link tag-link-23 tag-link-position-12" style="font-size: 8pt;" aria-label="Intégration (1 élément)">Intégration</a></li>
+	<li><a href="http://blog.enioka.com/post/tag/java/" class="tag-cloud-link tag-link-11 tag-link-position-13" style="font-size: 8pt;" aria-label="Java (1 élément)">Java</a></li>
+	<li><a href="http://blog.enioka.com/post/tag/jqm/" class="tag-cloud-link tag-link-12 tag-link-position-14" style="font-size: 8pt;" aria-label="jqm (1 élément)">jqm</a></li>
+	<li><a href="http://blog.enioka.com/post/tag/modelisation/" class="tag-cloud-link tag-link-13 tag-link-position-15" style="font-size: 22pt;" aria-label="Modélisation (5 éléments)">Modélisation</a></li>
+	<li><a href="http://blog.enioka.com/post/tag/mutualisation/" class="tag-cloud-link tag-link-29 tag-link-position-16" style="font-size: 8pt;" aria-label="mutualisation (1 élément)">mutualisation</a></li>
+	<li><a href="http://blog.enioka.com/post/tag/methode/" class="tag-cloud-link tag-link-14 tag-link-position-17" style="font-size: 8pt;" aria-label="Méthode (1 élément)">Méthode</a></li>
+	<li><a href="http://blog.enioka.com/post/tag/open-source/" class="tag-cloud-link tag-link-35 tag-link-position-18" style="font-size: 8pt;" aria-label="Open Source (1 élément)">Open Source</a></li>
+	<li><a href="http://blog.enioka.com/post/tag/organisation/" class="tag-cloud-link tag-link-28 tag-link-position-19" style="font-size: 16.75pt;" aria-label="Organisation (3 éléments)">Organisation</a></li>
+	<li><a href="http://blog.enioka.com/post/tag/orientation-service/" class="tag-cloud-link tag-link-15 tag-link-position-20" style="font-size: 8pt;" aria-label="Orientation service (1 élément)">Orientation service</a></li>
+	<li><a href="http://blog.enioka.com/post/tag/performance/" class="tag-cloud-link tag-link-16 tag-link-position-21" style="font-size: 19.666666666667pt;" aria-label="Performance (4 éléments)">Performance</a></li>
+	<li><a href="http://blog.enioka.com/post/tag/pivot/" class="tag-cloud-link tag-link-17 tag-link-position-22" style="font-size: 8pt;" aria-label="Pivot (1 élément)">Pivot</a></li>
+	<li><a href="http://blog.enioka.com/post/tag/representation-visuelle/" class="tag-cloud-link tag-link-18 tag-link-position-23" style="font-size: 8pt;" aria-label="Représentation visuelle (1 élément)">Représentation visuelle</a></li>
+	<li><a href="http://blog.enioka.com/post/tag/referentiels/" class="tag-cloud-link tag-link-19 tag-link-position-24" style="font-size: 16.75pt;" aria-label="Référentiels (3 éléments)">Référentiels</a></li>
+	<li><a href="http://blog.enioka.com/post/tag/securite/" class="tag-cloud-link tag-link-30 tag-link-position-25" style="font-size: 8pt;" aria-label="sécurité (1 élément)">sécurité</a></li>
+	<li><a href="http://blog.enioka.com/post/tag/transformation-si/" class="tag-cloud-link tag-link-20 tag-link-position-26" style="font-size: 13.25pt;" aria-label="Transformation SI (2 éléments)">Transformation SI</a></li>
+	<li><a href="http://blog.enioka.com/post/tag/urbanisme/" class="tag-cloud-link tag-link-21 tag-link-position-27" style="font-size: 19.666666666667pt;" aria-label="Urbanisme (4 éléments)">Urbanisme</a></li>
+</ul>
+</div>
+</aside><aside id="top-posts-3" class="widget widget_top-posts"><h3 class="widget-title">Articles les plus consultés</h3><ul>				<li>
+										<a href="http://blog.enioka.com/post/2017/07/06/topologie-cpu-vmware-vsphere/" class="bump-view" data-bump-view="tp">
+						Topologie CPU &amp; VMware vSphere					</a>
+										</li>
+								<li>
+										<a href="http://blog.enioka.com/post/2012/08/17/concevoir-des-interfaces-inter-applicatives-les-formats-pivots/" class="bump-view" data-bump-view="tp">
+						Concevoir des interfaces inter-applicatives : les formats pivots					</a>
+										</li>
+								<li>
+										<a href="http://blog.enioka.com/post/2011/12/30/problematiques-des-interfaces-entre-applications/" class="bump-view" data-bump-view="tp">
+						Problématiques des interfaces entre applications					</a>
+										</li>
+								<li>
+										<a href="http://blog.enioka.com/post/2012/09/15/introduction-a-la-performance-des-systemes-dinformation/" class="bump-view" data-bump-view="tp">
+						Introduction à la performance des systèmes d&#039;information					</a>
+										</li>
+								<li>
+										<a href="http://blog.enioka.com/post/2012/07/24/urbanisme-des-referentiels-partie-i/" class="bump-view" data-bump-view="tp">
+						Urbanisme des référentiels - partie I					</a>
+										</li>
+								<li>
+										<a href="http://blog.enioka.com/post/2012/10/18/urbanisme-des-referentiels-partie-ii/" class="bump-view" data-bump-view="tp">
+						Urbanisme des référentiels - partie II					</a>
+										</li>
+				</ul></aside><aside id="archives-4" class="widget widget_archive"><h3 class="widget-title">Archives</h3>		<ul>
+			<li><a href='http://blog.enioka.com/post/2018/03/'>mars 2018</a></li>
+	<li><a href='http://blog.enioka.com/post/2017/07/'>juillet 2017</a></li>
+	<li><a href='http://blog.enioka.com/post/2017/02/'>février 2017</a></li>
+	<li><a href='http://blog.enioka.com/post/2016/10/'>octobre 2016</a></li>
+	<li><a href='http://blog.enioka.com/post/2015/09/'>septembre 2015</a></li>
+	<li><a href='http://blog.enioka.com/post/2015/07/'>juillet 2015</a></li>
+	<li><a href='http://blog.enioka.com/post/2015/05/'>mai 2015</a></li>
+	<li><a href='http://blog.enioka.com/post/2015/04/'>avril 2015</a></li>
+	<li><a href='http://blog.enioka.com/post/2015/03/'>mars 2015</a></li>
+	<li><a href='http://blog.enioka.com/post/2015/02/'>février 2015</a></li>
+	<li><a href='http://blog.enioka.com/post/2013/12/'>décembre 2013</a></li>
+	<li><a href='http://blog.enioka.com/post/2013/04/'>avril 2013</a></li>
+	<li><a href='http://blog.enioka.com/post/2012/11/'>novembre 2012</a></li>
+	<li><a href='http://blog.enioka.com/post/2012/10/'>octobre 2012</a></li>
+	<li><a href='http://blog.enioka.com/post/2012/09/'>septembre 2012</a></li>
+	<li><a href='http://blog.enioka.com/post/2012/08/'>août 2012</a></li>
+	<li><a href='http://blog.enioka.com/post/2012/07/'>juillet 2012</a></li>
+	<li><a href='http://blog.enioka.com/post/2011/12/'>décembre 2011</a></li>
+	<li><a href='http://blog.enioka.com/post/2011/01/'>janvier 2011</a></li>
+		</ul>
+		</aside><aside id="rss-3" class="widget widget_rss"><h3 class="widget-title"><a class="rsswidget" href="http://blog.enioka.com/feed/"><img class="rss-widget-icon" style="border:0" width="14" height="14" src="http://blog.enioka.com/wp-includes/images/rss.png" alt="RSS" /></a> <a class="rsswidget" href="http://blog.enioka.com/">Derniers articles</a></h3><ul><li><a class='rsswidget' href='http://blog.enioka.com/post/2018/03/01/commentaires-sur-larticle-vmware-does-corespersockets-affect-performances/'>Commentaires sur l’article VMware « Does corespersockets Affect Performances ? »</a></li><li><a class='rsswidget' href='http://blog.enioka.com/post/2017/07/17/manifeste-pour-du-developpement-de-haute-couture/'>Manifeste pour du développement de haute-couture</a></li><li><a class='rsswidget' href='http://blog.enioka.com/post/2017/07/06/topologie-cpu-vmware-vsphere/'>Topologie CPU &amp; VMware vSphere</a></li><li><a class='rsswidget' href='http://blog.enioka.com/post/2017/02/27/benchmark-de-lopen-source-dans-les-grandes-societes/'>Benchmark de l’Open Source dans les grandes sociétés</a></li><li><a class='rsswidget' href='http://blog.enioka.com/post/2016/10/19/pour-un-urbanisme-concret/'>Pour un urbanisme concret</a></li><li><a class='rsswidget' href='http://blog.enioka.com/post/2015/09/21/quelle-organisation-autour-de-la-business-intelligence-et-du-big-data-dans-les-grandes-entreprises-55/'>Quelle organisation autour de la Business Intelligence et du Big data dans les grandes entreprises ? (5/5)</a></li><li><a class='rsswidget' href='http://blog.enioka.com/post/2015/07/03/quelle-organisation-autour-de-la-business-intelligence-et-du-big-data-dans-les-grandes-entreprises-45/'>Quelle organisation autour de la Business Intelligence et du Big data dans les grandes entreprises ? (4/5)</a></li><li><a class='rsswidget' href='http://blog.enioka.com/post/2015/05/28/quelle-organisation-autour-de-la-business-intelligence-et-du-big-data-dans-les-grandes-entreprises-35/'>Quelle organisation autour de la Business Intelligence et du Big data dans les grandes entreprises ? (3/5)</a></li><li><a class='rsswidget' href='http://blog.enioka.com/post/2015/04/27/quelle-organisation-autour-de-la-business-intelligence-et-du-big-data-dans-les-grandes-entreprises-25/'>Quelle organisation autour de la Business Intelligence et du Big data dans les grandes entreprises ? (2/5)</a></li><li><a class='rsswidget' href='http://blog.enioka.com/post/2015/04/17/quelle-organisation-autour-de-la-business-intelligence-et-du-big-data-dans-les-grandes-entreprises-15/'>Quelle organisation autour de la Business Intelligence et du Big data dans les grandes entreprises ? (1/5)</a></li></ul></aside>			</div><!-- .widget-area -->
+		</div><!-- .sidebar-inner -->
+	</div><!-- #tertiary -->
+
+		</div><!-- #main -->
+		<footer id="colophon" class="site-footer" role="contentinfo">
+				<div id="secondary" class="sidebar-container" role="complementary">
+		<div class="widget-area">
+			<aside id="search-2" class="widget widget_search"><form role="search" method="get" class="search-form" action="http://blog.enioka.com/">
+				<label>
+					<span class="screen-reader-text">Rechercher :</span>
+					<input type="search" class="search-field" placeholder="Recherche&hellip;" value="" name="s" />
+				</label>
+				<input type="submit" class="search-submit" value="Rechercher" />
+			</form></aside>		<aside id="recent-posts-2" class="widget widget_recent_entries">		<h3 class="widget-title">Derniers articles</h3>		<ul>
+											<li>
+					<a href="http://blog.enioka.com/post/2018/03/01/commentaires-sur-larticle-vmware-does-corespersockets-affect-performances/">Commentaires sur l&rsquo;article VMware « Does corespersockets Affect Performances ? »</a>
+									</li>
+											<li>
+					<a href="http://blog.enioka.com/post/2017/07/17/manifeste-pour-du-developpement-de-haute-couture/">Manifeste pour du développement de haute-couture</a>
+									</li>
+											<li>
+					<a href="http://blog.enioka.com/post/2017/07/06/topologie-cpu-vmware-vsphere/">Topologie CPU &amp; VMware vSphere</a>
+									</li>
+											<li>
+					<a href="http://blog.enioka.com/post/2017/02/27/benchmark-de-lopen-source-dans-les-grandes-societes/">Benchmark de l&rsquo;Open Source dans les grandes sociétés</a>
+									</li>
+											<li>
+					<a href="http://blog.enioka.com/post/2016/10/19/pour-un-urbanisme-concret/">Pour un urbanisme concret</a>
+									</li>
+					</ul>
+		</aside><aside id="archives-2" class="widget widget_archive"><h3 class="widget-title">Archives</h3>		<ul>
+			<li><a href='http://blog.enioka.com/post/2018/03/'>mars 2018</a></li>
+	<li><a href='http://blog.enioka.com/post/2017/07/'>juillet 2017</a></li>
+	<li><a href='http://blog.enioka.com/post/2017/02/'>février 2017</a></li>
+	<li><a href='http://blog.enioka.com/post/2016/10/'>octobre 2016</a></li>
+	<li><a href='http://blog.enioka.com/post/2015/09/'>septembre 2015</a></li>
+	<li><a href='http://blog.enioka.com/post/2015/07/'>juillet 2015</a></li>
+	<li><a href='http://blog.enioka.com/post/2015/05/'>mai 2015</a></li>
+	<li><a href='http://blog.enioka.com/post/2015/04/'>avril 2015</a></li>
+	<li><a href='http://blog.enioka.com/post/2015/03/'>mars 2015</a></li>
+	<li><a href='http://blog.enioka.com/post/2015/02/'>février 2015</a></li>
+	<li><a href='http://blog.enioka.com/post/2013/12/'>décembre 2013</a></li>
+	<li><a href='http://blog.enioka.com/post/2013/04/'>avril 2013</a></li>
+	<li><a href='http://blog.enioka.com/post/2012/11/'>novembre 2012</a></li>
+	<li><a href='http://blog.enioka.com/post/2012/10/'>octobre 2012</a></li>
+	<li><a href='http://blog.enioka.com/post/2012/09/'>septembre 2012</a></li>
+	<li><a href='http://blog.enioka.com/post/2012/08/'>août 2012</a></li>
+	<li><a href='http://blog.enioka.com/post/2012/07/'>juillet 2012</a></li>
+	<li><a href='http://blog.enioka.com/post/2011/12/'>décembre 2011</a></li>
+	<li><a href='http://blog.enioka.com/post/2011/01/'>janvier 2011</a></li>
+		</ul>
+		</aside><aside id="categories-2" class="widget widget_categories"><h3 class="widget-title">Catégories</h3>		<ul>
+	<li class="cat-item cat-item-2"><a href="http://blog.enioka.com/post/category/architecture-et-modelisation-des-si/" >Architecture et modélisation des SI</a>
+</li>
+	<li class="cat-item cat-item-36"><a href="http://blog.enioka.com/post/category/developpement/" >Développement</a>
+</li>
+	<li class="cat-item cat-item-1"><a href="http://blog.enioka.com/post/category/enioka/" >enioka</a>
+</li>
+	<li class="cat-item cat-item-38"><a href="http://blog.enioka.com/post/category/infrastructure/" >Infrastructure</a>
+</li>
+	<li class="cat-item cat-item-24"><a href="http://blog.enioka.com/post/category/organisation-du-si/" >Organisation du SI</a>
+</li>
+	<li class="cat-item cat-item-5"><a href="http://blog.enioka.com/post/category/rd-enioka/" >R&amp;D enioka</a>
+</li>
+		</ul>
+</aside>		</div><!-- .widget-area -->
+	</div><!-- #secondary -->
+
+			<div class="site-info">
+												<a href="https://wordpress.org/" class="imprint">
+					Fièrement propulsé par WordPress				</a>
+			</div><!-- .site-info -->
+		</footer><!-- #colophon -->
+	</div><!-- #page -->
+
+		<div style="display:none">
+	</div>
+
+	<script type="text/javascript">
+		window.WPCOM_sharing_counts = {"http:\/\/blog.enioka.com\/post\/2017\/07\/06\/topologie-cpu-vmware-vsphere\/":244};
+	</script>
+				<script type='text/javascript' src='http://blog.enioka.com/wp-content/plugins/jetpack/_inc/build/photon/photon.min.js?ver=20130122'></script>
+<script type='text/javascript' src='https://s0.wp.com/wp-content/js/devicepx-jetpack.js?ver=201852'></script>
+<script type='text/javascript' src='https://secure.gravatar.com/js/gprofiles.js?ver=2018Decaa'></script>
+<script type='text/javascript'>
+/* <![CDATA[ */
+var WPGroHo = {"my_hash":""};
+/* ]]> */
+</script>
+<script type='text/javascript' src='http://blog.enioka.com/wp-content/plugins/jetpack/modules/wpgroho.js?ver=5.0.2'></script>
+<script type='text/javascript' src='http://blog.enioka.com/wp-includes/js/comment-reply.min.js?ver=5.0.2'></script>
+<script type='text/javascript' src='http://blog.enioka.com/wp-includes/js/imagesloaded.min.js?ver=3.2.0'></script>
+<script type='text/javascript' src='http://blog.enioka.com/wp-includes/js/masonry.min.js?ver=3.3.2'></script>
+<script type='text/javascript' src='http://blog.enioka.com/wp-includes/js/jquery/jquery.masonry.min.js?ver=3.1.2b'></script>
+<script type='text/javascript' src='http://blog.enioka.com/wp-content/themes/twentythirteen/js/functions.js?ver=20160717'></script>
+<script type='text/javascript' src='http://blog.enioka.com/wp-includes/js/wp-embed.min.js?ver=5.0.2'></script>
+<script async="async" type='text/javascript' src='http://blog.enioka.com/wp-content/plugins/akismet/_inc/form.js?ver=4.1'></script>
+<script type='text/javascript'>
+/* <![CDATA[ */
+var sharing_js_options = {"lang":"en","counts":"1","is_stats_active":"1"};
+/* ]]> */
+</script>
+<script type='text/javascript' src='http://blog.enioka.com/wp-content/plugins/jetpack/_inc/build/sharedaddy/sharing.min.js?ver=6.8.1'></script>
+<script type='text/javascript'>
+var windowOpen;
+			jQuery( document.body ).on( 'click', 'a.share-linkedin', function() {
+				// If there's another sharing window open, close it.
+				if ( 'undefined' !== typeof windowOpen ) {
+					windowOpen.close();
+				}
+				windowOpen = window.open( jQuery( this ).attr( 'href' ), 'wpcomlinkedin', 'menubar=1,resizable=1,width=580,height=450' );
+				return false;
+			});
+var windowOpen;
+			jQuery( document.body ).on( 'click', 'a.share-twitter', function() {
+				// If there's another sharing window open, close it.
+				if ( 'undefined' !== typeof windowOpen ) {
+					windowOpen.close();
+				}
+				windowOpen = window.open( jQuery( this ).attr( 'href' ), 'wpcomtwitter', 'menubar=1,resizable=1,width=600,height=350' );
+				return false;
+			});
+var windowOpen;
+			jQuery( document.body ).on( 'click', 'a.share-google-plus-1', function() {
+				// If there's another sharing window open, close it.
+				if ( 'undefined' !== typeof windowOpen ) {
+					windowOpen.close();
+				}
+				windowOpen = window.open( jQuery( this ).attr( 'href' ), 'wpcomgoogle-plus-1', 'menubar=1,resizable=1,width=480,height=550' );
+				return false;
+			});
+</script>
+<script type='text/javascript' src='https://stats.wp.com/e-201852.js' async='async' defer='defer'></script>
+<script type='text/javascript'>
+	_stq = window._stq || [];
+	_stq.push([ 'view', {v:'ext',j:'1:6.8.1',blog:'80253378',post:'244',tz:'1',srv:'blog.enioka.com'} ]);
+	_stq.push([ 'clickTrackerInit', '80253378', '244' ]);
+</script>
+</body>
+</html>
