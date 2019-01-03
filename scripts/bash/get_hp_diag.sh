@@ -45,6 +45,14 @@ help () {
 
 # vars : 
 node=$1
+while getopts 'hH?' opt 
+  do  
+    case $opt in 
+      h|H)  help ; exit 2  ;;
+      help|HELP)  help ; exit 2 ;;
+      *)  help ; exit 2 ;;
+    esac 
+  done
 if  [ $# -ne "1" ] ; then 
     help
     exit 2 
@@ -53,13 +61,6 @@ elif
     echo "ensure that the servername is present in hosts file"
     exit 3
 fi 
-
-while getopts 'hH?' opt ; do  
-  case $opt in 
-    h|\?) help ; exit 2  ;;
-    H) help ; exit 2 ;;
-  esac 
-done
 
 get_number
 gen_diag
