@@ -1,0 +1,441 @@
+
+
+
+# yum install gcc rpm-build rpm-devel rpmlint make python bash coreutils diffutils rpmdevtools.noarch tree
+# rpmdev-setuptree
+# [root@da6a531e46bf /]# tree ~/rpmbuild/
+/root/rpmbuild/
+|-- BUILD   <<<< Various %buildroot directories will be created here when packages are built. This is useful for inspecting a postmortem of a build that goes bad if the logs output don’t provide enough information.
+|-- RPMS   <<<<< Binary RPMs will land here in subdirectories of Architecture. For example: noarch and x86_64
+|-- SOURCES <<< Compressed source archives and any patches should go here, this is where the rpmbuild command will look for them
+|-- SPECS <<<< SPEC files live here.
+`-- SRPMS  <<<< When the correct arguments are passed to rpmbuild to build a Source RPM instead of a Binary RPM, the Source RPMs (SRPMS) 
+
+ex :
+
+dans le repertoire source on download des sources que l'on va builder en rpm : 
+
+ SOURCES]# wget https://github.com/redhat-developer/rpm-packaging-guide/raw/master/example-code/cello-output-first-patch.patch
+
+[root@da6a531e46bf rpmbuild]# tree
+.
+|-- BUILD
+|-- RPMS
+|-- SOURCES
+|   |-- bello-0.1.tar.gz
+|   |-- cello-1.0.tar.gz
+|   |-- cello-output-first-patch.patch
+|   `-- pello-0.1.1.tar.gz
+|-- SPECS
+`-- SRPMS
+
+1/ on cree nos fichiers specs : 
+
+[root@da6a531e46bf SPECS]# rpmdev-newspec bello
+Skeleton specfile (minimal) has been created to "bello.spec".
+[root@da6a531e46bf SPECS]# rpmdev-newspec cello
+Skeleton specfile (minimal) has been created to "cello.spec".
+[root@da6a531e46bf SPECS]# rpmdev-newspec pello
+Skeleton specfile (minimal) has been created to "pello.spec".
+
+root@da6a531e46bf SPECS]# tree
+.
+|-- bello.spec
+|-- cello.spec
+`-- pello.spec
+
+0 directories, 3 files
+
+
+on voit ce que l'on a dans nos specs :
+
+[root@da6a531e46bf SPECS]# cat bello.spec 
+Name:           bello
+Version:        0.1   <<< on va ici mettre le nom de la version de notre soft
+Release:        1%{?dist} ( de base on est a 1 : on incremente a chaque creation ) . si on passe en version 0.2 on repasse en release 1 
+Summary:        Hello World example implemented in bash script  <<< on ajoute un petit commentaire 
+
+Group:          
+License:         GPLv3+  <<< license de notre appli 
+URL:             https://example.com/%{name}   <<< on met l'url ou on peut trouver notre binaire
+Source0:         https://example.com/%{name}/release/%{name}-%{version}.tar.gz  <<< on met l'url ou l'on peut trouver les sources 
+
+Patch0:         <<<< dans cette section on peut rajouter un patch si defini et recupéré en local pour notre build (dans le mêm repertoire que nos sources ) cello-output-first-patch.patch
+
+
+BuildRequires:   <<< ici on va renseigner ce dont notre paquet a besoin pour son build ( dans notre exemple on a pas besoin de renseigner ) : on peut ne pas renseigner cette section si ce n'est pas utile.
+Requires:       bash  <<<< ici on renseigne les dependances requises
+BuildArch:      noarch   <<< on va rajouter cette ligne puisque notre bash est independant de l'archi 
+
+
+Les sections suivantes vont pouvoir être considérées comme des  sections d'entête qui peuvent être ecrites en multilignes.
+
+
+%description    <<< ici une version plus detaillee que ce que l'on a rensigner dans la section Summary.
+
+
+%prep          <<<< ici on prepare notre environment au build ( decompression des sources , application de patch, exam des info necessaire au build presente dans les sections plus basses du .spec ...)
+%setup -q      <<<  on positionne juste la macro predefinie.
+
+
+%build         <<<< ici on defini la methode que l'on va utiliser pour builder notre package ( ici on laisse vide ..c'est pour du bash )
+%configure
+make %{?_smp_mflags}
+
+
+%install      <<<< ici on va indiquer a rpmbuild comment installer notre soft dans le BUILDROOT ( qui est un chroot ) 
+on va definir ici lesdifferents paths qui seront nécéssaires pour notre appli. On va pouvoir utiliser des macros qui vont nous aider a definir des paths. Ici on va juste definir pour notre appli (en shell ) un path pour notre script dans lequel le script sera deposé : on va donc definir :
+
+mkdir -p %{buildroot}/%{_bindir}
+install -m 0755 %{name} %{buildroot}/%{_bindir}/%{name}
+
+rm -rf $RPM_BUILD_ROOT
+make install DESTDIR=$RPM_BUILD_ROOT
+
+
+%clean
+rm -rf $RPM_BUILD_ROOT
+
+
+%files   <<< ici on va definir la liste des fichiers generé par notre rpm et l'endroit dans lequels ils seront sur la machinne cible. /!\ Attention cette fois ce n'est pas le chemin relatif au buildroot MAIS le path reel sur le systeme final 
+ici on ne met rien car notre script sera l'unique fichier et sera situé au même endroit que défini précédemment -> %{buildroot}/%{_bindir}/%{name}  . Cee qui correspond à "/usr/bin/bello" si on utilise pas les macros rpm .
+Dans cette section on a souvent besoin des macros . Les build-in rpm utilisent la notion de %license qui dit a rpmbuild que c'est un fichier de  license  present dans le package metadata manifest
+on va donc mettre dans la section files : 
+
+%license LICENSE
+%{_bindir}/%{name}
+
+
+
+%defattr(-,root,root,-)
+%doc
+
+
+
+%changelog    <<<< ici on va lister en datant chaque entrée liée au packaging et à la version precise du paquet.On commence toujours par un "-" 
+* Mon Jan  07 2019 Fred Sobon <f.sobon@meetic-corp.com> - 0.1.1
+- First Bello package
+- Example second item in bello changelog for release 0.1.1 
+
+
+
+pour les exemples :
+
+Software Name Explanation of example : 
+
+bello -> Software written in a raw interpreted programming language does doesn’t require a build but only needs files installed. If a pre-compiled binary needs to be packaged, this method could also be used since the binary would also just be a file.
+pello -> Software written in a byte-compiled interpreted programming language used to demonstrate the installation of a byte compile process and the installation of the resulting pre-optimized files.
+cello -> Software written in a natively compiled programming language to demonstrate an common build and installation process using tooling for compiling native code.
+
+
+
+
+== build des rpms : ==
+
+on va builder nos rpm avec l'outil rpmbuild 
+
+- Build des sources : 
+
+-> pour builder notre srpm -> source rpm : on va utiliser les options "-bs" : binary source.
+
+on lance notre build et  on a une erreur : 
+[root@da6a531e46bf SPECS]# rpmbuild -bs bello.spec
+error: line 6: Empty tag: Group:
+
+on a une section group non renseignée dans notre .spec : on la supprime ..et on supprime toutes les entrées qui ne sont pas renseignées avec un param pour notre build 
+
+
+[root@da6a531e46bf SPECS]# rpmbuild -bs bello.spec
+Wrote: /root/rpmbuild/SRPMS/bello-0.1-1.el6.src.rpm
+
+
+- Build des rpms binaires 
+
+on peut créee un binaire avec "--rebuild"   
+on va executer la commande en passant en arg le path de l'endroit ou est construit notre srpm :
+
+tree rpmbuild/
+rpmbuild/
+|-- BUILD
+|   `-- bello-0.1
+|       |-- LICENSE
+|       `-- bello
+|-- BUILDROOT
+|-- RPMS
+|-- SOURCES
+|   |-- bello-0.1.tar.gz
+|   |-- cello-1.0.tar.gz
+|   |-- cello-output-first-patch.patch
+|   `-- pello-0.1.1.tar.gz
+|-- SPECS
+|   |-- bello.spec
+|   |-- cello.spec
+|   `-- pello.spec
+`-- SRPMS
+    `-- bello-0.1-1.el6.src.rpm
+
+    7 directories, 10 files
+
+
+il va  falloir s'assurer que notre  build de bianaire ne casse pas .. il faudra modifier notre spec tant qu'on la build echoue 
+
+
+
+[root@da6a531e46bf ~]# rpmbuild --rebuild rpmbuild/SRPMS/bello-0.1-1.el6.src.rpm
+Installing rpmbuild/SRPMS/bello-0.1-1.el6.src.rpm
+Executing(%prep): /bin/sh -e /var/tmp/rpm-tmp.YVYkLY
++ umask 022
++ cd /root/rpmbuild/BUILD
++ LANG=C
++ export LANG
++ unset DISPLAY
++ cd /root/rpmbuild/BUILD
++ rm -rf bello-0.1
++ /usr/bin/gzip -dc /root/rpmbuild/SOURCES/bello-0.1.tar.gz
++ /bin/tar -xf -
++ STATUS=0
++ '[' 0 -ne 0 ']'
++ cd bello-0.1
++ /bin/chmod -Rf a+rX,u+w,g-w,o-w .
++ exit 0
+Executing(%build): /bin/sh -e /var/tmp/rpm-tmp.O0HayF
++ umask 022
++ cd /root/rpmbuild/BUILD
++ cd bello-0.1
++ LANG=C
++ export LANG
++ unset DISPLAY
++ exit 0
+Executing(%install): /bin/sh -e /var/tmp/rpm-tmp.8r74lm
++ umask 022
++ cd /root/rpmbuild/BUILD
++ '[' /root/rpmbuild/BUILDROOT/bello-0.1-1.el6.x86_64 '!=' / ']'
++ rm -rf /root/rpmbuild/BUILDROOT/bello-0.1-1.el6.x86_64
+++ dirname /root/rpmbuild/BUILDROOT/bello-0.1-1.el6.x86_64
++ mkdir -p /root/rpmbuild/BUILDROOT
++ mkdir /root/rpmbuild/BUILDROOT/bello-0.1-1.el6.x86_64
++ cd bello-0.1
++ LANG=C
++ export LANG
++ unset DISPLAY
++ mkdir -p /root/rpmbuild/BUILDROOT/bello-0.1-1.el6.x86_64//usr/bin
++ install -m 0755 bello /root/rpmbuild/BUILDROOT/bello-0.1-1.el6.x86_64//usr/bin/bello
++ /usr/lib/rpm/find-debuginfo.sh --strict-build-id /root/rpmbuild/BUILD/bello-0.1
++ /usr/lib/rpm/check-rpaths /usr/lib/rpm/check-buildroot
++ /usr/lib/rpm/redhat/brp-compress
++ /usr/lib/rpm/redhat/brp-strip-static-archive /usr/bin/strip
++ /usr/lib/rpm/redhat/brp-strip-comment-note /usr/bin/strip /usr/bin/objdump
++ /usr/lib/rpm/brp-python-bytecompile /usr/bin/python
++ /usr/lib/rpm/redhat/brp-python-hardlink
++ /usr/lib/rpm/redhat/brp-java-repack-jars
+Processing files: bello-0.1-1.el6.noarch
+Requires(rpmlib): rpmlib(CompressedFileNames) <= 3.0.4-1 rpmlib(FileDigests) <= 4.6.0-1 rpmlib(PayloadFilesHavePrefix) <= 4.0-1
+Requires: /bin/bash
+Checking for unpackaged file(s): /usr/lib/rpm/check-files /root/rpmbuild/BUILDROOT/bello-0.1-1.el6.x86_64
+Wrote: /root/rpmbuild/RPMS/noarch/bello-0.1-1.el6.noarch.rpm
+Executing(%clean): /bin/sh -e /var/tmp/rpm-tmp.e6WcoK
++ umask 022
++ cd /root/rpmbuild/BUILD
++ cd bello-0.1
++ rm -rf /root/rpmbuild/BUILDROOT/bello-0.1-1.el6.x86_64
++ exit 0
+Executing(--clean): /bin/sh -e /var/tmp/rpm-tmp.oTcLqr
++ umask 022
++ cd /root/rpmbuild/BUILD
++ rm -rf bello-0.1
++ exit 0
+
+
+on voit que le spec bello.spec a disparu de l'arbo  car --rebuild clean apres le passage :
+
+
+
+[root@da6a531e46bf ~]# tree rpmbuild/
+rpmbuild/
+|-- BUILD
+|-- BUILDROOT
+|-- RPMS
+|   `-- noarch
+|       `-- bello-0.1-1.el6.noarch.rpm
+|-- SOURCES
+|   |-- cello-1.0.tar.gz
+|   |-- cello-output-first-patch.patch
+|   `-- pello-0.1.1.tar.gz
+|-- SPECS
+|   |-- cello.spec
+|   `-- pello.spec
+`-- SRPMS
+    `-- bello-0.1-1.el6.src.rpm
+
+7 directories, 7 files
+
+On va pouvoir récupérer notre spec en executant la commande : 
+
+[root@da6a531e46bf ~]# rpm -Uvh rpmbuild/SRPMS/bello-0.1-1.el6.src.rpm 
+   1:bello                  ########################################### [100%]
+
+on voit bien les infos suivantes ensuite : 
+
+[root@da6a531e46bf ~]# tree rpmbuild/
+rpmbuild/
+|-- BUILD
+|-- BUILDROOT
+|-- RPMS
+|   `-- noarch
+|       `-- bello-0.1-1.el6.noarch.rpm
+|-- SOURCES
+|   |-- bello-0.1.tar.gz
+|   |-- cello-1.0.tar.gz
+|   |-- cello-output-first-patch.patch
+|   `-- pello-0.1.1.tar.gz
+|-- SPECS
+|   |-- bello.spec
+|   |-- cello.spec
+|   `-- pello.spec
+`-- SRPMS
+    `-- bello-0.1-1.el6.src.rpm
+
+[root@da6a531e46bf ~]# cat rpmbuild/SPECS/bello.spec 
+Name:           bello
+Version:        0.1       
+Release:        1%{?dist}
+Summary:        Hello World example implemented in bash script
+
+License:        GPLv3+ 
+URL:            https://example.com/%{name}
+Source0:        https://example.com/%{name}/release/%{name}-%{version}.tar.gz
+
+Requires:       bash
+BuildArch:      noarch
+
+%description    
+Hello World example implemented in bash script as exo for rpm build
+
+%prep
+%setup -q
+
+%build
+%install
+
+mkdir -p %{buildroot}/%{_bindir}
+install -m 0755 %{name} %{buildroot}/%{_bindir}/%{name}
+
+%clean
+rm -rf $RPM_BUILD_ROOT
+
+%files
+%{_bindir}/%{name}
+
+%defattr(-,root,root,-)
+
+%changelog
+* Mon Jan  07 2019 bob lapin <lapin@lapin.com> - 0.1.1
+- First Bello package
+
+- build des binaires :
+on va pouvoir directement build nos binaires : avec rpmbuild --bb : 
+
+[root@da6a531e46bf ~]# rpmbuild -bb rpmbuild/SPECS/bello.spec
+Executing(%prep): /bin/sh -e /var/tmp/rpm-tmp.Tsz7Df
++ umask 022
++ cd /root/rpmbuild/BUILD
++ LANG=C
++ export LANG
++ unset DISPLAY
++ cd /root/rpmbuild/BUILD
++ rm -rf bello-0.1
++ /usr/bin/gzip -dc /root/rpmbuild/SOURCES/bello-0.1.tar.gz
++ /bin/tar -xf -
++ STATUS=0
++ '[' 0 -ne 0 ']'
++ cd bello-0.1
++ /bin/chmod -Rf a+rX,u+w,g-w,o-w .
++ exit 0
+Executing(%build): /bin/sh -e /var/tmp/rpm-tmp.ySsaak
++ umask 022
++ cd /root/rpmbuild/BUILD
++ cd bello-0.1
++ LANG=C
++ export LANG
++ unset DISPLAY
++ exit 0
+Executing(%install): /bin/sh -e /var/tmp/rpm-tmp.VuxfHo
++ umask 022
++ cd /root/rpmbuild/BUILD
++ '[' /root/rpmbuild/BUILDROOT/bello-0.1-1.el6.x86_64 '!=' / ']'
++ rm -rf /root/rpmbuild/BUILDROOT/bello-0.1-1.el6.x86_64
+++ dirname /root/rpmbuild/BUILDROOT/bello-0.1-1.el6.x86_64
++ mkdir -p /root/rpmbuild/BUILDROOT
++ mkdir /root/rpmbuild/BUILDROOT/bello-0.1-1.el6.x86_64
++ cd bello-0.1
++ LANG=C
++ export LANG
++ unset DISPLAY
++ mkdir -p /root/rpmbuild/BUILDROOT/bello-0.1-1.el6.x86_64//usr/bin
++ install -m 0755 bello /root/rpmbuild/BUILDROOT/bello-0.1-1.el6.x86_64//usr/bin/bello
++ /usr/lib/rpm/find-debuginfo.sh --strict-build-id /root/rpmbuild/BUILD/bello-0.1
++ /usr/lib/rpm/check-rpaths /usr/lib/rpm/check-buildroot
++ /usr/lib/rpm/redhat/brp-compress
++ /usr/lib/rpm/redhat/brp-strip-static-archive /usr/bin/strip
++ /usr/lib/rpm/redhat/brp-strip-comment-note /usr/bin/strip /usr/bin/objdump
++ /usr/lib/rpm/brp-python-bytecompile /usr/bin/python
++ /usr/lib/rpm/redhat/brp-python-hardlink
++ /usr/lib/rpm/redhat/brp-java-repack-jars
+Processing files: bello-0.1-1.el6.noarch
+Requires(rpmlib): rpmlib(CompressedFileNames) <= 3.0.4-1 rpmlib(FileDigests) <= 4.6.0-1 rpmlib(PayloadFilesHavePrefix) <= 4.0-1
+Requires: /bin/bash
+Checking for unpackaged file(s): /usr/lib/rpm/check-files /root/rpmbuild/BUILDROOT/bello-0.1-1.el6.x86_64
+Wrote: /root/rpmbuild/RPMS/noarch/bello-0.1-1.el6.noarch.rpm
+Executing(%clean): /bin/sh -e /var/tmp/rpm-tmp.ts7lby
++ umask 022
++ cd /root/rpmbuild/BUILD
++ cd bello-0.1
++ rm -rf /root/rpmbuild/BUILDROOT/bello-0.1-1.el6.x86_64
++ exit 0
+[root@da6a531e46bf ~]# tree
+.
+|-- anaconda-ks.cfg
+|-- install.log
+|-- install.log.syslog
+`-- rpmbuild
+    |-- BUILD
+    |   `-- bello-0.1
+    |       |-- LICENSE
+    |       |-- bello
+    |       |-- debugfiles.list
+    |       |-- debuglinks.list
+    |       `-- debugsources.list
+    |-- BUILDROOT
+    |-- RPMS
+    |   `-- noarch
+    |       `-- bello-0.1-1.el6.noarch.rpm
+    |-- SOURCES
+    |   |-- bello-0.1.tar.gz
+    |   |-- cello-1.0.tar.gz
+    |   |-- cello-output-first-patch.patch
+    |   `-- pello-0.1.1.tar.gz
+    |-- SPECS
+    |   |-- bello.spec
+    |   |-- cello.spec
+    |   `-- pello.spec
+    `-- SRPMS
+        `-- bello-0.1-1.el6.src.rpm
+
+9 directories, 17 files
+
+
+
+- Verification du spec :
+
+on va pouvoir utiliser un linter pour nous assurer que les infos renseignées dans le spec sont ok : 
+
+
+
+[root@da6a531e46bf ~]# rpmlint  rpmbuild/SPECS/bello.spec 
+rpmbuild/SPECS/bello.spec:29: E: files-attr-not-set
+rpmbuild/SPECS/bello.spec: W: no-cleaning-of-buildroot %install
+rpmbuild/SPECS/bello.spec: W: no-buildroot-tag
+rpmbuild/SPECS/bello.spec: W: invalid-url Source0: https://example.com/bello/release/bello-0.1.tar.gz HTTP Error 404: Not Found
+0 packages and 1 specfiles checked; 1 errors, 3 warnings.
+
+On voit ici qu'on a une erreur liée à l'url fournie qui n'est pas bonne /joignable ... c'est pour l'exemple ..
