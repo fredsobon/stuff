@@ -1,0 +1,63 @@
+=== notes set up jdk ==
+
+
+OpenJDK 11 : Install2018/10/17
+ 	
+Install OpenJDK 11 to configure Java development environment.
+[1]	Install OpenJDK 11.
+Make sure the latest version and source URL of JDK on download site. 
+⇒ http://jdk.java.net/11/
+[root@dlp ~]# curl -O https://download.java.net/java/GA/jdk11/13/GPL/openjdk-11.0.1_linux-x64_bin.tar.gz
+[root@dlp ~]# tar zxvf openjdk-11.0.1_linux-x64_bin.tar.gz 
+[root@dlp ~]# mv jdk-11.0.1 /usr/local/ 
+[root@dlp ~]# vi /etc/profile.d/jdk11.sh
+# create new
+export JAVA_HOME=/usr/local/jdk-11.0.1
+export PATH=$PATH:$JAVA_HOME/bin
+[root@dlp ~]# source /etc/profile.d/jdk11.sh 
+[root@dlp ~]# java -version 
+openjdk version "11.0.1" 2018-10-16
+OpenJDK Runtime Environment 18.9 (build 11.0.1+13)
+OpenJDK 64-Bit Server VM 18.9 (build 11.0.1+13, mixed mode)
+[2]	If another version of JDK had been installed, change the default like follows.
+[root@dlp ~]# alternatives --config java 
+There is 1 program that provides 'java'.
+
+  Selection    Command
+-----------------------------------------------
+*+ 1           java-1.8.0-openjdk.x86_64 (/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.181-3.b13.el7_5.x86_64/jre/bin/java)
+
+[root@dlp ~]# alternatives --install /usr/bin/java java $JAVA_HOME/bin/java 2 
+[root@dlp ~]# alternatives --config java 
+
+There are 2 programs which provide 'java'.
+
+  Selection    Command
+-----------------------------------------------
+*+ 1           java-1.8.0-openjdk.x86_64 (/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.181-3.b13.el7_5.x86_64/jre/bin/java)
+   2           /usr/local/jdk-11.0.1/bin/java
+
+Enter to keep the current selection[+], or type selection number: 2
+[3]	Create a test program and make sure if it works normally.
+[root@dlp ~]# vi day.java
+ import java.util.Calendar;
+
+class day {
+    public static void main(String[] args) {
+        Calendar cal = Calendar.getInstance();
+        int year = cal.get(Calendar.YEAR);
+        int month = cal.get(Calendar.MONTH) + 1;
+        int day = cal.get(Calendar.DATE);
+        int hour = cal.get(Calendar.HOUR_OF_DAY);
+        int minute = cal.get(Calendar.MINUTE);
+        System.out.println(year + "/" + month + "/" + day + " " + hour + ":" + minute);
+    }
+}
+
+# possible to run java file
+[root@dlp ~]# java day.java 
+2018/10/16 19:48
+# also possible to run after compile
+[root@dlp ~]# javac day.java 
+[root@dlp ~]# java day 
+2018/10/16 19:50
