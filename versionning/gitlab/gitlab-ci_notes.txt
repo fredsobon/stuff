@@ -1,0 +1,54 @@
+==== notes gitlab-ci : ===
+
+
+
+
+== exemples integration continue avec gitlab : ==
+
+But : construire un rpm en injectant les données nécéssaires au build ( fichier spec, fichiers sources à injecter ); depuis un docker sur lequel on va installer au prealable les paquets nécéssaires à la compilation.
+Puis test de l'installation de notre paquet et envoie vers le répertoire d'artifactory qui va héberger notre rpm .
+
+
+; depuis un docker sur lequel on va installer au prealable les paquets nécéssaires à la compilation.
+Puis test de l'installation de notre paquet et envoie vers le répertoire d'artifactory qui va héberger notre rpm .
+
+cat .gitlab-ci.yml 
+---
+variables:
+  ARCH: "x86_64"
+  VERSION: "9.0.14"     <<<< ici on défini la version de notre paquet :
+  RPM_REGISTRY: "https://artifact.lapin.net/artifactory/rpms/tomcat9/${VERSION}"   <<<< répertoire cible qui sera crée sur le repo
+stages:   <<<< différents stages : build / test et push 
+  - build
+  - test
+  - push
+build_rpms:    <<< nom de notre étape qui correspond au stage build 
+  stage: build
+  tags:        <<<< tag que l'on va donner pour matcher notre job 
+    - 'infraci'
+  image: 'artifact-docker-lapin.net/docker/centos7.5:latest'   <<<< nom de l'image docker qui sera utilisée pour le build. 
+  script:
+    - yum -y install rpm-build make which java-1.8.0-openjdk   <<<<< on install les paquets nécéssaires au build et à notre paquet 
+    - cd SPECS  <<<< on se déplace dans le repertoire SPECS qui contient le fichier des infos de builds
+    - rpmbuild --undefine=_disable_source_fetch --define "_sourcedir ${CI_PROJECT_DIR}/SOURCES" --define "_rpmdir ${CI_PROJECT_DIR}/RPMS" -ba tomcat9.spec     <<<<<<< ici on build le rpm est chargeant les fichiers nécéssaires du repertoire SOURCES 
+  artifacts:                <<<<< on va definir notre build créee comme un artifact ( en local sur gitlab) 
+    expire_in: 1 day        <<<<<  il expire dans un jour
+    paths:                  <<<<   ici on defini le path de notre artifact relatif a notre repos     
+      - RPMS/${ARCH}/*.rpm
+test_rpms:                    <<<<< second stage 
+  stage: test
+  tags:
+    - 'infraci'
+  image: 'artifact-docker-infra.meetic.ilius.net/ilius/centos7.5:2.0.1' 
+  dependencies:                <<<<< on defini pour nos tests la dependance avec la creation du rpm precedente
+    - build_rpms
+  script:                      <<<< ici on va tester basiquement avec le keyword scripts et on passe ensuite les commandes pour tester que notre rpm s'installe bien .
+    - rpm -ivh RPMS/${ARCH}/*.rpm   
+    - rpm -ql tomcat9 |awk '/etc\/sysconfig\/tomcat9/ && /usr\/lib\/systemd\/system\/tomcat9.service/'
+push_rpms:
+  stage: push                 <<<<< push de notre rpm builder sur le server d'artifact distant    
+  tags:
+    - 'infraci-shell'
+  script:
+    - for rpm in RPMS/${ARCH}/*.rpm; do curl --fail -H "X-JFrog-Art-Api:${ARTIKEY}" -T "${rpm}" -X PUT "${RPM_REGISTRY}/"; done                    <<<< la commande va pousser le rpm de notre build sur le repo via l'api artifactory et les variables settées en dur dan le plan de gitlab.
+
