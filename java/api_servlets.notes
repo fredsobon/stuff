@@ -1,0 +1,884 @@
+=== Api servlets notes : ===
+
+http://blog.paumard.org/cours/servlet/chap03-servlet.html
+
+
+
+1. Introduction
+Une servlet est un composant logiciel, utilisé dans un serveur web, tel que Tomcat, qui peut être invoqué par les navigateurs clients via une URL. Le protocole de communication est dans ce cas HTTP. Même si le web dynamique est l'utilisation majeure de l'API Servlet, elle permet théoriquement de couvrir d'autres domaines d'application.
+
+Le principe de fonctionnement est très simple : ce composant logiciel reçoit une requête, et il envoie une réponse. Cette réponse est transmise au client, qui l’interprète enfin.
+
+Techniquement, l’API Servlet est un ensemble d’interfaces et de classes Java, rangées dans les packages javax.servlet et javax.servlet.http. Le protocole HTTP a bien sûr un statut particulier parmi les protocoles utilisés par les servlets.
+
+Dans la mesure où les servlets sont des composants programmés entièrement en Java, elles sont portables sur toutes les architectures munies d’une machine Java. Il est donc parfaitement possible de développer ces servlets dans un environnement Windows pour les déployer ensuite, c’est à dire les mettre en production, dans un environnement Unix.
+
+L’API Servlet a subi de nombreuses évolutions et améliorations depuis qu’elle est apparue. La première de ces évolutions est maintenant placée dans l’API JSP (Java Server Pages). Une deuxième API est née à partir des évolutions de JSP : JSTL (Java Server Tag Libraries). L’API Servlet en est à la version 3.0, intégrée à JEE 6, et nous traitons ici la version 2.5, intégrée à JEE 5.
+
+2. Une première servlet
+Sacrifions à la tradition, et écrivons de suite une première servlet. Il s’agira d’une servlet de type HTTP. Elle pourra être appelée d’un navigateur web, et renverra une page sur laquelle sera juste écrit « Bonjour le monde ».
+
+L’installation de cette première servlet peut paraître complexe, tout simplement parce que nous sommes obligé de créer une application web pour la faire fonctionner, et que ce processus est assez lourd.
+
+2.1. Le code
+Une servlet est une classe Java qui doit étendre la classe HttpServlet. Elle comporte trois méthodes fondamentales :
+
+une méthode init(), qui est appelée une fois que Tomcat a instancié cette servlet, l’a chargée en mémoire. Cette méthode est appelée avant tout traitement d’une requête par la servlet. Il existe une méthode équivalente, destroy(), appelée avant la destruction de cette servlet. Surcharger cette méthode est facultatif.
+
+une méthode doGet() et une méthode doPost(). Ces deux méthodes sont celles qui « font le travail ». La première est appelée lors d’une requête de type GET, et la seconde lors d’une requête de type POST. Elles reçoivent en paramètres deux objets qui correspondent au flux de sortie et au flux d’entrée vers le navigateur client. Les informations envoyées par le navigateur sont sur le flux d’entrée, tout ce qui est écrit sur le flux de sortie sera reçu par lui. Les types de ces flux sont HttpServletRequest et HttpServletResponse. Ces méthodes sont en fait appelées par la méthode service() de la classe Servlet, que l’on a pas à surcharger. Notons que sur notre exemple, la méthode doPost() appelle la méthode doGet(), ce qui est parfaitement légal.
+
+Exemple 17. Une première servlet
+
+ package org.galilee.servlet ;
+	
+ import java.io.* ;
+ import java.text.* ;
+ import java.util.* ;
+ import javax.servlet.* ;
+ import javax.servlet.http.* ;
+
+ public Bonjour  extends HttpServlet {
+
+	 public  void doGet(HttpServletRequest request, HttpServletResponse response)
+	 throws ServletException, IOException  {
+	
+		response.setContentType("text/html") ;
+		
+		PrintWriter out = response.getWriter() ;
+		out.println("<html>") ;
+		out.println("<head>") ;
+		out.println("<title>Bonjour le monde !</title>") ;
+		out.println("</head>") ;
+		out.println("<body>") ;
+		out.println("<h1>Bonjour le monde !</h1>") ;
+		out.println("</body>") ;
+		out.println("</html>") ;   
+	}
+
+	 public  void doPost(HttpServletRequest request, HttpServletResponse response)
+	 throws ServletException, IOException  {
+	
+		doGet(request, response) ;
+	}
+}	
+
+2.2. Création de l'application web
+Pour que cette servlet fonctionne dans Tomcat, il nous faut créer un fichier WAR (web archive). Le format d'un tel fichier est défini dans les spécifications de l'API Servlet. Un fichier WAR est un fichier JAR standard, dans lequel doit se trouver un répertoire WEB-INF. Ce répertoire WEB-INF doit contenir un fichier de configuration web.xml dont nous allons voir un exemple. Il peut enfin contenir :
+
+des fichiers JSP, HTML, ou tout autre fichier statique qui sera servi via les bonnes URL ;
+
+un répertoire lib, qui contient des fichiers JAR. Les classes de ces fichiers sont chargées par le class loader propre à cette application web ;
+
+un répertoire classes contenant une hiérarchie de classes Java. Ces classes sont chargées par le class loader de cette application web. En cas de collision avec des classes contenues dans un JAR, c'est la classe déclarée 
+
+
+
+3. Concepts, cycle de vie
+3.1. Requête
+Une requête HTTP provient d'un client, le plus souvent un navigateur web, et porte avec elle des paramètres. Ces paramètres peuvent être techniques (les paramètres standard HTTP), ou applicatifs, comme le contenu d'un formulaire.
+
+3.2. Réponse
+La réponse provient du serveur, et est destinée le plus souvent à être affichée dans un navigateur. Ce peut être une page HTML, dynamique ou non, une image, ou bien un code d'erreur HTTP, accompagné d'un message.
+
+3.3. Session
+De nombreuses applications web ont besoin de reconnaître un utilisateur donné de requête en requête. Malheureusement, le protocole HTTP ne permet pas cela : rien n'est prévu pour garder la mémoire de ce client. La façon la plus répandue de pallier ce problème, est d'utiliser des cookies. Le principe est le suivant : le serveur envoie au navigateur un cookie , qui, techniquement, est un petit fichier texte. Ce fichier contient des informations telles que le nom du serveur qui en est à l'origine, quel serveur a le droit de le lire, une date de péremption, et bien sûr, une donnée d'identification. Une fois le cookie accepté (il peut être refusé), le navigateur le renvoie systématiquement avec chaque requête. Charge donc au serveur de se souvenir de la personne à qui il a envoyé ce cookie, de façon à la reconnaître. L'API Servlet définit un cookie : JSESSIONID, ce qui lui permet de définir la notion de session.
+
+Une session est simplement un ensemble de cycles requêtes / réponses avec un utilisateur donné. Une session est reconnue grâce à un cookie nommé JSESSIONID.
+
+3.4. Application web
+Nous avons déjà beaucoup utilisé ce terme, sans en donner de définition précise. Une application web est un ensemble d'éléments statiques (pages HTML, images, etc...) et de servlets, qui forment une application complète pouvant être gérée par un serveur web. Une application web est associée à un point de montage dans une URL, qui est le préfixe de toutes les URL qu'elle gère. Une application web est un élément portable, qui peut être déployé sur tout serveur d'applications supportant le standard Servlet.
+
+3.5. Contexte d'exécution
+Le standard Servlet définit trois contextes d'exécution pour une servlet. Ces trois contextes sont :
+
+La requête : l'exécution d'une servlet se déroule dans le contexte d'une requête unique.
+
+La session : de la même façon, une servlet est exécutée dans le contexte d'une unique session. Une session est définie par un ensemble de requêtes successives en provenance d'un même client. Elle peut durer les quelques minutes du temps d'une visite sur un site de commerce électronique, ou beaucoup plus longtemps, et conserver les données d'identification d'un internaute d'une journée à l'autre.
+
+L'application : enfin une servlet appartient à une application web unique.
+
+Ces trois contextes exposent les mêmes méthodes setAttribute(String, Object), getAttribute(String) et getAttributeNames(). Ces méthodes permettent d'attacher des objets Java quelconques à ces contextes, et de les récupérer. En fonction de la durée de vie de ces objets (une requête, une session ou toute l'application), on choisira le bon contexte pour sauvegarder les informations dont on a besoin.
+
+On notera cependant que l'entretien du contexte session peut être coûteux, notamment en mémoire. Certaines applications choisissent d'ailleurs de ne pas l'utiliser, pour des raisons de perfomance. D'une façon générale, on évitera de stocker trop d'information dans ce contexte.
+
+3.6. Cycle de vie
+La notion de cycle de vie est une notion qui existe pour tous les types de composant qu'un serveur d'application peut gérer. Entre le moment où un serveur d'application démarre, et le moment où les composants qu'il gère sont prêts à être utilisés, chaque composant passe par différents états, définis dans les standards. Ces états, les transitions qui permettent de passer de l'un à l'autre, et les conditions qui permettent d'activer ces transitions forment un ensemble que l'on appelle le cycle de vie d'un composant.
+
+À chaque changement d'état d'un composant, l'application qui possède ce composant est notifiée par le serveur d'application. Techniquement, cette notification consiste en l'appel d'une méthode d'un objet particulier, défini dans le standard. Cet objet est fourni par l'application, s'il n'est pas déclaré, alors la notification n'a pas lieu. On appelle ces objets particuliers des listeners .
+
+En tant que composant standard, les servlets ont un cycle de vie, sur lequel il est possible de poser des listeners . Lors de ce cycle de vie, certaines méthodes particulières des servlets sont invoquées, nous verrons ce point dans la suite.
+
+3.7. Filtre
+Les filtres sont des composants qui font partie du standard Servlet. Le but d'un filtre est de pouvoir appliquer une transformation aux éléments de la requête (que ce soit les éléments techniques comme les en-tête HTTP, ou les paramètres envoyés par le client), ou aux éléments de la réponse.
+
+
+4. Présentation générale de l'API
+4.1. Introduction
+L'API Servlet se répartit en deux packages : javax.servlet et javax.http.servlet. Le premier package contient l’API proprement dite, alors que le second contient ce qui est propre aux servlets destinées à fonctionner sur le web. Ce sont celles-là qui nous intéresseront en premier lieu.
+
+4.2. Interfaces disponibles
+Présentons tout d'abord l'ensemble des interfaces et classes disponibles.
+
+Servlet, GenericServlet et HttpServlet : modèlisent une servlet proprement dite.
+
+ServletRequest et HttpServletRequest : modèlisent la requête.
+
+ServletResponse et HttpServletResponse : modèlisent la réponse.
+
+ServletContext : modèlise l'application web.
+
+HttpSession : modèlise une session HTTP.
+
+ServletConfig : modèlise l'ensemble de la configuration d'une servlet, entre autres ses paramètres d'initialisation.
+
+Filter, FilterChain, FilterConfig : modèlise un filtre.
+
+RequestDispatcher : permet de rediriger une requête vers une ressource, en général statique.
+
+Enfin un certains nombres de listeners sont définis, que nous verrons au fur et à mesure.
+
+Comme on le voit, cette API ne comporte pas un très grand nombre d'interfaces, et son organisation reste assez simple.
+
+5. Notion de servlet
+5.1. Interfaces servlet
+Comme il a déjà été dit, l'interface Servlet est l'interface centrale de cette API. Toutes les instances de servlets implémentent cette interface, en général indirectement. Cette interface ne définit que cinq méthodes :
+
+L'interface Servlet modélise un objet servlet encore très abstrait, et complètement détaché de ce que fait une servlet HTTP. En toute rigueur, une instance de Servlet est juste un objet qui vit dans un serveur, soumis à un cycle de vie très simple (création / service / destruction), qui a accès à des information de configuration et des méta-données sur lui-même.
+
+init(SevletConfig) et destroy() appelée sur création et destruction de cette servlet.
+
+service(ServletRequest req, ServletResponse res) : appelée lorsqu'une requête doit être traitée par une servlet. Cette méthode est générique, et est appelée par les méthodes doGet() et doPost() (entre autres).
+
+getServletConfig() et getServletInfo() permettent de récupérer des informations sur la servlet.
+
+La classe GenericServlet précise les choses : outre les implémentations des méthodes de l'interface Servlet, elle propose les méthodes suivantes.
+
+init() et init(ServletConfig config) : ces méthodes permettent de gérer une partie du déroulement du cycle de vie. Nous verrons ce cycle de vie dans la suite.
+
+getInitParameterNames() et getInitParameter(String name) : ces méthodes permettent de récupérer les paramètres d'initialisation de cette servlet, déclarés dans le web.xml.
+
+log(String msg) et log(String message, Throwable t) : enfin ces méthodes permettent d'enregistrer des messages dans les fichiers journal du container. Ces méthodes n'ont que peu d'intérêt, on préfèrera en général utiliser des utilitaires comme Log4J ou slf4J.
+
+Enfin la classe HttpServlet nous fait réellement entrer dans les servlets pour le web. Elle propose un jeu de méthodes pour chaque requête HTTP qui existe : doDelete(), doGet(), doHead(), doOption(), doPost(), doPut(), doGet() doTrace() et doLastModified(). Les implémentations de ces méthodes sont vides : elles ne remplissent aucune fonction. Simplement, elles sont appelées par le container de servlets sur requête d'un client, avec les bons paramètres, de type HttpServletRequest et HttpServletResponse. Pour programmer une servlet, il faut donc étendre cette classe, et fournir une implémentation qui convient à toute ou partie de ces méthodes. En général, ce sont les méthodes doGet() et doPost() qui sont étendues.
+
+5.2. Cycle de vie d'une servlet
+Le cycle de vie d'une servlet est entièrement contrôlé par le serveur d'application dans lequel vit cette servlet. Lorsqu'une requête arrive, qui doit être traitée par une servlet donnée, le serveur examine s'il possède déjà une instance de cette servlet.
+
+Si ce n'est pas le cas, il en crée une, après avoir chargé la classe de cette servlet s'il ne l'a pas déjà fait. Une fois cette instance créée, il appelle la méthode init() de cette servlet, pour lui signaler qu'elle doit se préparer à traiter des requêtes. Une fois cette méthode exécutée, la servlet peut traiter des requêtes.
+
+Cette méthode init() est appelée par le serveur d'application avec un objet de type ServletConfig en paramètre. C'est par cet objet qu'une servlet peut accéder à ses paramètres d'initialisation.
+
+Les paramètres d'initialisation sont déclarés dans l'élément servlet du fichier web.xml, et sont lus dans la méthodes init(), via l'objet ServletConfig.
+
+Exemple 19. Déclaration d'un paramètre d'initialisation d'une servlet
+
+ <servlet>
+     <servlet-name>TestServlet</servlet-name>
+     <servlet-class>org.paumard.cours.servlet.TestServlet</servlet-class>
+     <init-param>
+         <description>paramètre d'initialisation</description>
+         <param-name>max-retry</param-name>
+         <param-value>10</param-value>
+     </init-param>
+ </servlet>
+
+Exemple 20. Lecture d'un paramètre d'initialisation dans une servlet
+
+ public  class TestServlet  extends HttpServlet {
+
+     private  int maxRetry =  0 ;
+
+     public  void init(ServletConfig servletConfig) {
+
+        String maxRetryString = servletConfig.getInitParameter("max-retry") ;
+         this.maxRetry = Integer.parseInt(maxRetryString) ;
+    }
+    
+     // suite du code de la servlet
+}
+
+Si une servlet ne peut pas traiter de requête, alors elle doit jeter l'exception UnavailableException lors de l'exécution de sa méthode init().
+
+5.3. Paramètres d'initialisation d'une servlet
+On peut y accéder via la méthode getInitParameter(String), qui prend en paramètre le nom du paramètre considéré, max-retry dans notre exemple. Cette méthode retourne une String, qu'il va nous falloir convertir en int dans notre exemple.
+
+On peut également accéder à la liste de tous les paramètres d'initialisation par appel à la méthode getInitParameterNames(), qui retourne un Enumeration.
+
+
+6. Notion de requête
+Ces deux interfaces modélisent une requête HTTP. Elles exposent donc des méthodes qui permettent d'accéder à l'ensemble des paramètres, en-têtes, et plus généralement au contenu d'une telle requête.
+
+6.1. Accès aux paramètres d'une requête
+Une requête HTTP peut porter un certain nombre de paramètres. Dans le cas d'une requête de type GET ces paramètres sont codés sur l'URL de requête. Dans le cas d'une requête de type POST, il se trouvent dans le flux HTTP.
+
+Dans tous les cas, l'API servlet décode ces paramètres, et les expose au travers de quatre méthodes :
+
+getParameterNames() : retourne l'ensemble des noms de paramètres disponibles sur la requêtes, sous forme d'une Enumeration.
+
+getParameter(String) : retourne la valeur du paramètre dont on a donné le nom, s'il existe.
+
+getParameteValues(String) : retourne l'ensemble des valeurs associées au paramètre dont on a donné le nom, sous forme d'un tableau de String.
+
+getParameterMap() : retourne une Map dont les clés sont les noms des paramètres, et les valeurs celles des paramètres associés.
+
+Notons que les valeurs des paramètres sont toujours de type String, tout simplement parce que c'est le type utilisé dans l'en-tête HTTP. Il appartient donc à l'application de convertir ces chaînes de caractères dans les bons types.
+
+6.2. Accès aux éléments de l'en-tête HTTP
+Plusieurs méthodes permettent d'accéder aux éléments de l'en-tête.
+
+getHeaderNames(): retourne les noms des paramètres d'en-tête déclarés dans cette requête, sous forme d'une Enumeration.
+
+getHeader(String), getIntHeader(String) et getDateHeader(String) : retournent la valeur du paramètre de l'en-tête dont on donne le nom, sous forme d'une String, d'un int ou d'une Date respectivement.
+
+getHeaders() : retourne l'ensemble des noms des éléments de l'en-tête HTTP disponibles dans cette requête, sous forme d'une Enumeration.
+
+getMethod() : retourne le nom de la méthode HTTP utilisée pour cette requête ( GET, POST, etc...).
+
+getCharacterEncoding() : retourne l'encodage utilisé pour cette requête. Par défaut l'encodage utilisé par HTTP est ISO-8859-1, mais les autres encodages, notamment l'UTF-8 peut aussi être utilisé. Notons qu'il existe une méthode setCharacterEncoding() qui permet de forcer l'encodage. Elle doit obligatoirement être appelée avant tout accès au contenu de la requête HTTP.
+
+getLocale() et getLocales() retournent le contenu de l'élément d'en-tête Accept-Language, qui indique la locale par défaut supportée par le navigateur. C'est à partir de ce paramètre qu'une application peut décider d'envoyer des pages en français ou en anglais par exemple.
+
+getContentType() et getContentLength() permettent d'accèder au type MIME du contenu de la requête, et au nombre d'octets qui la composent.
+
+getInputStream() retourne un flux binaire de type ServletInputStream sur la requête directement, qu'il est donc possible de traiter sans passer par toutes ces méthodes.
+
+6.3. Accès aux éléments de l'URL
+Les éléments de l'URL d'accès à la ressource que nous sommes en train de traiter sont exposés au travers de trois variables : contextPath, servletPath et pathInfo. Ces trois variables sont accessibles via leurs getters standards.
+
+De plus, deux variables sont disponibles : requestURI et requestURL.
+
+getRequestURI() : URI de la requête, c'est-à-dire ce qui se trouve entre le groupe {nom du protocole, nom du serveur, port} et les paramètres de la requête.
+
+getRequestURL() : retourne l'URL complète de la requête. Notons que le type de retour est StringBuffer, ce qui permet de modifier cette URL facilement et efficacement.
+
+getContextPath() : retourne le chemin sous lequel se trouve l'application web dans laquelle se trouve cette servlet. Il correspond à l'attribut path de l'élément Context du fichier context.xml de cette application web, dans le cas de Tomcat. Si la valeur de path vaut /, alors le contextPath est vide.
+
+getServletPath() : retourne le chemin sous lequel se trouve cette ressource, sous le chemin de l'application web. Cette valeur correspond à l'élément servlet-mapping du fichier web.xml de cette application web. Si servlet-mapping vaut / alors servletPath est vide.
+
+getPathInfo() : retourne ce qui reste à retourner. Dans le cas d'une servlet, pathInfo est vide. Dans le cas d'une ressource statique (une image, ou une page HTML), pathInfo correspond au nom de cette ressource.
+
+Chacune de ces trois variables, si elle n'est pas vide, commence toujours par le caractère /.
+
+Notons qu'une page JSP est une servlet, que son servletPath porte le nom de cette page et que son pathInfo est vide.
+
+Notons enfin que l'on a toujours :
+
+    requestURI = contextPath + servletPath + pathInfo
+6.4. Accès aux paramètres du client
+Trois méthodes nous permettent d'accéder aux paramètres du client qui fait la requête :
+
+getRemoteHost() : nous fournit le nom complet du client. Plus précisément, il s'agit du nom du dernier proxy utilisé si ce client fait sa requête au travers d'un proxy.
+
+getRemoteAddr() : même méthode que la précédente, sauf qu'elle retourne l'adresse IP du client.
+
+getRemotePort() : même méthode que la précédente, nous retourne le port du client.
+
+6.5. Accès aux informations de sécurité
+Tous les serveurs de servlets exposent un mécanisme d'authentification standard, qui permet de fixer l'identité d'un utilisateur. La configuration de la sécurité associe les utilisateurs à des rôles, et c'est à ces rôles que le serveur donne des droits et impose des restrictions. La requête expose deux méthodes permettant d'accéder à des informations sur les rôles que possède un utilisateur authentifié :
+
+getUserPrincipal() : retourne un objet Principal qui encapsule le nom de l'utilisateur authentifié.
+
+isUserInRole(String) : retourne true si l'utilisateur authentifié qui est à l'origine de cette requête est déclaré dans le rôle passé en paramètre.
+
+6.6. Accès à la session, au contexte et aux informations d'initialisation
+Une méthode permet d'accéder à la session HTTP dans laquelle cette requête se place.
+
+getSession() : retourne un objet de type HttpSession, détaillé dans la suite de ce chapitre. Notons que l'appel à cette méthode crée une session s'il n'en existe pas déjà une, ce qui est en général indésirable. La même méthode existe dans une seconde version, qui prend un booléen en paramètre. Si ce booléen est false, alors aucune session n'est créée. Dans ce cas la méthode retourne null.
+
+getServletContext() : retourne un objet de type ServletContext, qui modèlise l'application web.
+
+getServletConfig() : retourne un objet de type ServletConfig, qui encapsule les paramètres d'initialisation de la servlet. Cet objet expose deux méthodes : getInitParameterNames() et getInitParameter(String), qui permettent d'accèder aux noms des paramètres d'initialisation d'une part, et aux valeurs associées d'autre part
+
+7. Notion de réponse
+La réponse d'une servlet à un client est un flux HTTP modélisé par deux classes : ServletResponse et HttpServletResponse. Ces deux classes exposent des méthodes qui permettent de fixer cette réponse et de la paramétrer, notamment de fixer le type MIME de cette réponse, ou l'encodage des caractères dans le cas d'une réponse textuelle.
+
+Le contenu de la réponse d'une servlet n'est pas envoyé au client directement ; il est tout d'abord enregistré dans un buffer. La classe Response expose quelques méthodes qui permettent de contrôler ce buffer.
+
+Une réponse peut être contrôlée en mode caractère, via un PrintWriter, ou en mode binaire, via un ServletOutputStream.
+
+Enfin, la classe HttpServletResponse expose quelques méthodes qui permettent de contrôler les en-têtes HTTP associés à cette réponse. Voyons tout ceci en détails.
+
+7.1. Contrôle du buffer de sortie
+Le buffer de sortie est contrôlé par la classe ServletResponse. Cette classe expose les méthodes suivantes :
+
+reset() et resetBuffer() : ces méthodes vident le buffer de son contenu. La méthode reset() efface également les paramètres de l'en-tête HTTP qui auraient été fixés.
+
+setBufferSize(int) et getBufferSize() : contrôlent la taille du buffer.
+
+setContentType(String) et getContentType() : contrôlent le type MIME du contenu porté par ce buffer. Ce type doit être fixé avant que le buffer ne soit envoyé au client, même partiellement.
+
+setCharacterEncoding(String) et getCharacterEncoding() : contrôlent le codage des caractères de ce buffer. Même chose : cet encodage doit être fixé avant que le buffer ne soit retourné au client, même partiellement.
+
+setContentLength() : fixe la taille du contenu envoyé au client. Cette méthode est portée par la classe ServletResponse, et fixe l'attribut HTTP Content-length dans le cas d'une réponse HTTP. Il n'y a pas de méthode getContentLength().
+
+setLocale(Locale) et getLocale() : contrôlent la langue dans laquelle la réponse est envoyée. Comme pour les autres méthodes, cette locale doit être fixée avant l'envoi du buffer.
+
+flushBuffer() : envoi le contenu du buffer au client. La méthode isCommited permet de tester si cet envoi à eut lieu.
+
+Enfin les deux méthodes getWriter() et getOuputStream() permettent d'accéder au contenu de la réponse au travers d'un objet de type PrintWriter (extension de Writer), ou d'un objet ServletOutputStream (extension de OutputStream).
+
+7.2. Contrôle de la réponse HTTP
+La classe HttpServletResponse offre trois contrôles sur la réponse HTTP :
+
+la possibilité de fixer les paramètres de l'en-tête. Les méthodes qui prennent en charge cette fonctionnalité sont addHeader(String, String), addIntHeader(String, int), etc... On peut également fixer le statut de cette réponse par appel à la méthode setStatus(int).
+
+le retour d'un code HTTP, afin de signaler une erreur ou un problème dans le traitement de la requête. Ce point est géré par la méthode sendError(int, String).
+
+enfin la redirection de la requête vers une autre URL : sendRedirect(String).
+
+
+8. Notion de session HTTP
+L’interface HttpSession permet de définir la notion de session, qui n’existe pas en HTTP. Une session permet de suivre un utilisateur lors de sa navigation sur un site, de page en page. Elle peut être maintenue pendant un temps assez long, même de plusieurs jours, afin d’identifier un « utilisateur » qui reviendrait sur un site.
+
+La notion de session crée donc une notion de persistance, durant une certaine période fixée à l'avance. Au-delà d'une certaine durée d'activité, une session HTTP expire, et toutes les informations qui y sont attachées expirent.
+
+La gestion d'une session dans le standard Servlet peut se faire de deux manières. La manière la plus simple est de créer un cookie de session, envoyé au client, qu'il retournera dans l'en-tête HTTP à chaque requête. La valeur de ce cookie est un code de hachage, qui identifie un internaute de façon unique. Charge ensuite au serveur de conserver trace de ces cookies, et de les associer aux bons utilisateurs.
+
+Si le navigateur client refuse les cookies, alors ce code de hachage est ajouté à l'URL de requête dans le cas de requête par la méthode GET, et aux paramètres internes pour les requêtes de type POST.
+
+Deux types d'informations sont attachés à la session :
+
+les informations standard : l'ID de session, la date de création, la date de dernière utilisation ;
+
+les informations propres à l'application. Il s'agit d'objets Java (en principe sérializables), attachés à la session à l'aide de clés. Ces clés sont des chaînes de caractères.
+
+Enfin, l'API servlet définit la possibilité de déclencher des callbacks lorsqu'une session va expirer.
+
+Examinons les principales méthodes exposées par l'interface HttpSession.
+
+getId(), getCreationTime(), getLastAccessedTime() : retournent respectivement l'ID de session, sa date de création et la date de dernière visite du client concerné. Ces deux dernières dates sont exprimées sous forme de long, nombre de millisecondes depuis le 1 er janvier 1070, donc compatible avec java.util.Date.
+
+setMaxActiveInterval(int) : indique le temps (en secondes) au bout duquel une session expire. Ce paramètre est fixé globalement à une application web dans le descripteur web.xml. Il peut aussi être changé par appel à la méthode getMaxActiveInterval(int).
+
+isNew() : retourne true si la session est nouvelle. Cela peut arriver dans deux cas. Si le navigateur du client ne permet pas de fixer une session, dans ce cas le retour de cette méthode sera toujours true. Le deuxième cas, nominal, est celui de la première requête d'un nouveau client.
+
+invalidate() : l'appel à cette méthode permet de forcer la fermeture d'une session.
+
+getAttribute(String), setAttribute(String, Object): ces deux méthodes permettent d'attacher un objet Java quelconque à une session. Ces objets seront donc disponibles d'une requête à l'autre, de façon transparente pour le développeur d'application web. On prendra garde cependant à les utiliser avec parcimonie, dans la mesure où le coût de stockage de ces objets peut être important, et même devenir problématique.
+
+Exemple 21. Fixer la taille maximale d'une session dans le fichier web.xml
+
+ <session-config>
+    <session-timeout>300</session-timeout>
+ </session-config>
+
+
+9. Redirection ou inclusion d'une ressource
+Un objet de type RequestDispatcher est obtenu en invoquant la méthode getRequestDispatcher(String) de la requête. Le chemin qui lui est passé en paramètre est un chemin relatif ou absolu, qui doit correspondre à une ressource se trouvant dans la même application web. Si ce chemin commence par un caractère /, alors il est considéré comme absolu, mais il ne peut pas référencer de ressource externe. La ressource désignée par ce chemin peut être statique (une image, ou un fichier), ou dynamique (une servlet).
+
+Cet objet expose deux méthodes : forward() et include(). La première méthode redirige la requête vers la ressource désignée, la seconde inclut cette ressource dans la réponse courante. Ces deux méthodes prennent en paramètre la requête et la réponse courantes.
+
+Exemple 22. Utilisation d'un request dispatcher pour rediriger une requête
+
+ public  void doPost(HttpServletRequest request, HttpServletResponse response)
+     throws ServletException, IOException {
+    
+     // construction d'un request dispatcher sur le chemin /process, qui doit exister
+     // dans la web application courante
+    RequestDispatcher requestDispatcher = request.getRequestDispatcher("/process") ;
+    
+     // redirection de la requête vers cette ressource
+    requestDispatcher.forward(request, response) ;
+    
+     // cette servlet perd la main pour le traitement de la requête courante
+}	
+
+Exemple 23. Utilisation d'un request dispatcher pour inclure une ressource dynamique
+
+ public  void doPost(HttpServletRequest request, HttpServletResponse response)
+     throws ServletException, IOException {
+    
+     // construction d'un request dispatcher sur la page JSP, qui doit exister
+     // dans la web application courante
+    RequestDispatcher requestDispatcher = request.getRequestDispatcher("copyright.jsp") ;
+    
+     // inclusion de cette ressource
+    requestDispatcher.include(request, response) ;
+    
+     // la traitement de la requête courante continue
+}	
+
+
+
+9. Redirection ou inclusion d'une ressource
+Un objet de type RequestDispatcher est obtenu en invoquant la méthode getRequestDispatcher(String) de la requête. Le chemin qui lui est passé en paramètre est un chemin relatif ou absolu, qui doit correspondre à une ressource se trouvant dans la même application web. Si ce chemin commence par un caractère /, alors il est considéré comme absolu, mais il ne peut pas référencer de ressource externe. La ressource désignée par ce chemin peut être statique (une image, ou un fichier), ou dynamique (une servlet).
+
+Cet objet expose deux méthodes : forward() et include(). La première méthode redirige la requête vers la ressource désignée, la seconde inclut cette ressource dans la réponse courante. Ces deux méthodes prennent en paramètre la requête et la réponse courantes.
+
+Exemple 22. Utilisation d'un request dispatcher pour rediriger une requête
+
+ public  void doPost(HttpServletRequest request, HttpServletResponse response)
+     throws ServletException, IOException {
+    
+     // construction d'un request dispatcher sur le chemin /process, qui doit exister
+     // dans la web application courante
+    RequestDispatcher requestDispatcher = request.getRequestDispatcher("/process") ;
+    
+     // redirection de la requête vers cette ressource
+    requestDispatcher.forward(request, response) ;
+    
+     // cette servlet perd la main pour le traitement de la requête courante
+}	
+
+Exemple 23. Utilisation d'un request dispatcher pour inclure une ressource dynamique
+
+ public  void doPost(HttpServletRequest request, HttpServletResponse response)
+     throws ServletException, IOException {
+    
+     // construction d'un request dispatcher sur la page JSP, qui doit exister
+     // dans la web application courante
+    RequestDispatcher requestDispatcher = request.getRequestDispatcher("copyright.jsp") ;
+    
+     // inclusion de cette ressource
+    requestDispatcher.include(request, response) ;
+    
+     // la traitement de la requête courante continue
+}	
+
+
+10. Listeners
+10.1. Introduction
+Comme son nom le laisse supposer, un objet listener est un objet qui écoute certains événements dans une application. Lorsque l'événement qu'il écoute se déclenche, alors ce listener s'active : en général, une de ses méthodes particulière est invoquée, avec en paramètre un objet portant les informations sur cet événement.
+
+Le principe de fonctionnement est donc celui du callback : en tant que développeur d'application web, on enregistre des listeners auprès du serveur d'application. Ces objets doivent implémenter des interfaces standard, fournies par l'API Servlet, et être déclarés dans le descripteur d'une application web : le fichier web.xml.
+
+10.2. Événements de l'API Servlet
+Les événements définis par l'API Servlet sont au nombre de sept :
+
+Trois événements concernent l'ajout ou le retrait d'un attribut sur le contexte, la session ou une requête : ServletContextEvent, HttpSessionEvent et ServletRequestEvent.
+
+Deux événements sont associés à la création ou à la destruction du contexte, ou d'une requête : ServletContextEvent et ServletRequestEvent.
+
+Un événement est associé au cycle de vie d'une session : HttpSessionEvent. Cet événement est utilisé par deux listeners : HttpSessionListener et HttpSessionActivationListener. Ces deux listeners sont associés au cycle de vie particulier des sessions, que nous allons voir dans la suite.
+
+Un dernier événement permet de signaler à un objet qu'il a été ajouté à une session, ou qu'il va en être retiré : HttpSessionBindingEvent.
+
+10.3. Ajout ou retrait d'un attribut
+10.3.1. Interfaces listener
+Les trois interfaces que l'on peut implémenter sont ServletContextAttributeListener, ServletRequestAttributeListener et HttpSessionAttributeListener.
+
+Ces trois interfaces exposent les trois mêmes méthodes :
+
+attributeAdded() : appelée lorsqu'un attribut est ajouté au contexte considéré ;
+
+attributeRemoved() : appelé lorsqu'un attribut est retiré du contexte considéré ;
+
+attributeReplaced() : appelé lorsqu'un attribut a été remplacé par un autre.
+
+Ces trois méthodes callback sont appelées une fois que l'événement d'ajout, de retrait, ou de remplacement a été effectué.
+
+10.3.2. Objets événement associés
+Ces trois méthodes prennent des paramètres différents en fonction du contexte, qui sont les événements que nous avons vus. Ces objets exposent tous les trois les même méthodes :
+
+getName() : le nom de l'attribut concerné ;
+
+getValue() : la valeur de l'attribut concerné.
+
+L'objet HttpSessionBindingEvent, utilisé pour signaler à un objet qu'il a été ajouté ou retiré d'une session expose en plus une méthode getSession().
+
+10.4. Création et destruction d'un contexte
+Chaque contexte possède son interface listener .
+
+10.4.1. Contexte de l'application
+Le listener de création et destruction de l'application web doit implémenter l'interface ServletContextListener. Cette interface expose deux méthodes : contextInitialized() et contextDestroyed().
+
+Ces deux méthodes sont invoquées avant toute invoquation de filtre ou de servlet, et après l'appel à toutes les méthodes destroy() des filtres et servlets de cette application, respectivement.
+
+Elles prennent en paramètre le même objet, de type ServletContextEvent. Cet objet expose une unique méthode : getServletContext(), qui retourne l'objet ServletContext. Cet objet modèlise l'application web proprement dite.
+
+10.4.2. Contexte de la requête
+Le listener de ce contexte implémente l'interface ServletRequestListener. Elle expose deux méthodes : requestInitialized() et requestDestroyed().
+
+Ces deux méthodes prennent en paramètre le même objet, instance de ServletRequestEvent. Cet objet permet d'accèder au contexte de l'application web par la méthode getServletContext(), et à l'objet requête par la méthode getServletRequest().
+
+10.4.3. Contexte de la session
+La session a un cycle de vie un peu particulier, du fait de sa nature. Rappelons tout d'abord qu'une application web n'a pas nécessairement besoin de la notion de session. Une session devient nécessaire lorsque l'on a besoin de reconnaître un client donné d'une requête à l'autre.
+
+Dans ce cas, une session est créée lors de la première requête de ce client. Cette session a une durée de vie, au-delà de laquelle elle est détruite. Cette durée de vie peut être plus ou moins longue : de quelques heures à plusieurs mois.
+
+Si les requêtes d'une même session se succèdent rapidement, alors cette session sera probablement conservée en mémoire. Si le client reste plusieurs heures sans revenir sur le site, et que le site choisit de conserver tout de même sa session, celle-ci sera probablement déchargée de la mémoire, et conservée sur un support persistant, probablement une base de données.
+
+On voit que quatre types d'événements peuvent alors exister pour une session :
+
+La création : elle intervient lors de la première requête.
+
+La destruction : elle peut ne jamais arriver, ou au bout d'un temps très long.
+
+La passivation : c'est ce qui se passe lorsqu'une session est déplacée de la mémoire vers un espace de stockage persistant. La session n'est pas détruite, elle passe dans un état de type "inactif".
+
+L'activation : ce qui se passe lorsqu'un client revient après une longue période d'absence. Sa session est rechargée de l'espace de stockage persistant vers la mémoire.
+
+Notons que la passivation d'une session peu intervenir en environnement clusterisé, lorsqu'une session doit passer d'un nœud du cluster à un autre.
+
+Ces quatre événements sont gérés par deux interfaces.
+
+HttpSessionListener : expose les méthodes sessionCreated() et sessionDestroyed(), qui prennent en paramètre un objet HttpSessionEvent.
+
+HttpSessionActivationListener : expose les méthodes sessionDidActivate() et sessionWillPassivate(). Ces deux méthodes prennent en paramètre le même objet HttpSessionEvent.
+
+L'objet HttpSessionEvent n'expose qu'une unique méthode : getSession(), qui retourne la session concernée.
+
+10.5. Notification d'un objet attaché à un contexte
+Enfin, un objet peut être notifié du fait qu'il a été ajouté à une session. Il doit pour cela implémenter l'interface HttpSessionBindingListener. Cette interface expose deux méthodes :
+
+valueBound(HttpSessionBindingEvent) : appelée lorsque l'objet est attaché à une session ;
+
+valueUnbound(HttpSessionBindingEvent) : appelée lorsque l'objet est détachée de la session.
+
+Ces deux méthodes reçoivent en paramètre un objet de type HttpSessionBindingEvent. Cet événement expose les deux méthodes classiques getName() et getValue(). Il expose également getSession(), qui retourne la session à laquelle cet objet est attaché, ou de laquelle il est détaché.
+
+10.6. Déclaration d'un listener dans une application web
+Tous les listeners que nous avons vu doivent être déclarés dans le fichier web.xml.
+
+Exemple 24. Déclaration de deux listeners dans web.xml
+
+ <listener>
+    <listener-class>
+      org.paumard.cours.servlet.listener.ExampleSessionListener
+    </listener-class>
+  </listener>
+  <listener>
+     <listener-class>
+       org.paumard.cours.servlet.listener.ExampleContextListener
+     </listener-class>
+ </listener>
+
+11. Connexion à une base
+11.1. Introduction
+L'objet de ce dernier paragraphe consacré à la présentation de l'API Servlet est de balayer les différentes techniques, récentes et moins récentes, qui permettent d'obtenir une connexion à une base de données lorsque l'on est dans une application Web.
+
+Toutes ces techniques sont construites sur JDBC, et commencent par établir une connexion ou une source de données ( datasource ). On retrouve donc les mêmes éléments que pour l'établissement classique d'une connexion à une base de données :
+
+une dépendance vers le driver JDBC, qui dépend de la base à laquelle on veut se conncter ;
+
+la fourniture d'une URL d'accès, comportant notamment le nom de la machine qui héberge ce serveur ;
+
+l'utilisation d'un identifiant de connexion et d'un mot de passe.
+
+Comme nous allons le voir, le code technique d'établissement de la connexion peut être écrit explicitement dans une servlet, de différentes manières, ou être exécuté par le serveur Tomcat (ou autre), qui va ensuite l'exposer à notre application. Il faut bien sûr que le JAR qui contient notre driver JDBC soit disponble, soit dans le répertoire WEB-INF/lib de notre application, soit dans le répertoire lib de Tomcat.
+
+11.2. Connexion manuelle
+Se connecter manuellement consiste à écrire le code classique de connexion JDBC à une base de données dans une servlet. On peut imagine de le faire de deux manières.
+
+Directement dans une méthode doGet(), ce qui va consister à établir une connexion à chaque requête. Cette façon de faire peut être utilisée à titre de test, mais en aucun cas ne doit être utilisée dans une application en production ! L'établissement d'une connexion est un processus coûteux, totalement incompatible avec les exigences de performance d'une application web. Cette façon de faire est absolument à proscrire.
+
+En utilisant la méthode init() d'une servlet. Cette approche utilise le même code, et est un peu meilleure : au moins la connexion est établie une fois pour toutes, et peut être réutilisée à chaque requête.
+
+Cette deuxième approche est meilleure, et à même constitué un pattern durant un certain temps. Voyons un code possible pour cette méthode init().
+
+Exemple 25. Établissement d'une connexion : méthode init()
+
+public  void init(ServletConfig config) {
+	
+   String url = config.getInitParameter("db-url") ;
+   String login = config.getInitParameter("db-login") ;
+   String passwd = config.getInitParameter("db-passwd") ;
+	
+   Connection con = DriverManager.getConnection(url, login, passwd) ;
+	
+   config.getServletContext().setAttribute("db-connection", con) ;
+}
+
+Les paramètres db-url, db-login et db-passwd sont écrits dans le fichier web.xml, ce qui permet de pouvoir les modifier sans avoir à recompiler notre application.
+
+Exemple 26. Établissement d'une connexion : paramétrage dans web.xml
+
+<context-param>
+    <param-name>db-url</param-name>
+    <param-value>jdbc:mysql://localhost:3306/db_test</param-value>
+ </context-param>
+
+ <context-param>
+    <param-name>db-login</param-name>
+    <param-value>scott</param-value>
+ </context-param>
+
+ <context-param>
+    <param-name>db-passwd</param-name>
+    <param-value>tiger</param-value>
+ </context-param>
+
+La connexion est ensuite attachée au contexte application . Elle devient donc disponible auprès de toutes les servlets de notre application. Une fausse bonne idée consisterait à enregistrer cette connexion dans un champ statique.
+
+Comme un serveur est censé charger les servlets dans l'ordre dans lequel elles sont déclarées dans le fichier web.xml, il suffit de mettre la servlet qui sait se connecter en premier pour garantir que toutes les servlets pourront lire cette connexion. On peut même, ultime raffinement, ne pas associer cette servlet à une URL. Cette servlet est donc "borgne", on ne peut pas faire de requête dessus, son seul rôle consiste à établir cette connexion.
+
+En fait, cette méthode n'est guère meilleure que la première, même si elle peut paraître plus séduisante.
+
+Effectivement, écrite de cette façon, elle ne crée qu'une unique connexion, que vont devoir utiliser toutes nos requêtes. Dans certains contextes, il serait plus sûr de créer une réserve de connexions, de façon à mieux gérer les montées en charge.
+
+Mettre un pool de connexions plutôt qu'une connexion unique serait donc meilleur, d'autant qu'un pool permettrait de gérer aussi le cycle de vie de ces connexions : notamment retirer les connexions mortes, et les remplacer par d'autres.
+
+Mais il reste tout de même un problème, dans le cas d'un serveur en cluster. Dans ce cas les contextes doivent être transmis de nœud en nœud, et les objets attachés à ces contextes doivent être sérialisés. Les objets de connexion ne sont pas sérializables, cette solution ne supportera donc pas le clustering.
+
+D'une façon générale, cette méthode convient aux anciennes installations, ou code legacy , mais ne doit plus être utilisée.
+
+11.3. Connexion par utilisation de source de données
+Cette dernière méthode est celle qui doit être utilisée dans le cadre de l'utilisation d'un serveur de servlets, type Tomcat ou Jetty. Des variantes plus efficaces sont disponibles dans les serveurs JEE complets.
+
+Elle consiste à déclarer une datasource au niveau de l'application web, et de la lire par requête JNDI dans les servlets qui ont besoin de se connecter à la base.
+
+Dans le cas de Tomcat, la déclaration de cette source de données peut se faire dans le fichier META-INF/Context.xml de l'application web, comme suit.
+
+Exemple 27. Déclaration d'une source de données dans le fichier Context.xml
+
+<Context>
+    <Resource  name="jdbc/tp-servlet"  auth="Container"  type="javax.sql.DataSource"
+              maxActive="20"  maxIdle="10"  maxWait="100000"
+              username="scott"  password="tiger"  driverClassName="com.mysql.jdbc.Driver"
+              url="jdbc:mysql://localhost/db_test"
+              validationQuery="select 1"   testOnBorrow="true"/>
+ </Context>
+
+On reconnaît les différents éléments constitutifs d'une connexion JDBC : le nom du driver , l'URL de connexion, l'identifiant de connexion et le mot de passe.
+
+Cette ressource possède un nom : jdbc/tp-servlet. C'est par ce nom logique que l'on va pouvoir lire cette ressource de l'intérieur du code d'une servlet.
+
+Enfin, on remarque quelques paramètres techniques, propres au gestionnaire de réserve de connexions utilisé par Tomcat : DBCP.
+
+maxActive, maxIdle et maxWait : ces paramètres règlent le fonctionnement du pool proprement dit : le nombre maximal de connexions actives à un moment donné, le nombre maximal de connexions inactives (le surplus sera fermé), et un timeout .
+
+Les paramètres validationQuery et testOnBorrow permettent de tester si une connexion est active avant qu'elle soit fournie au code appelant. Effectivement, certains serveurs de bases de données, MySQL entre autres, ont la fâcheuse tendance à fermer autoritairement une connexion qui n'a pas été utilisée pendant un certain temps. Le driver JDBC n'est pas informé de cette fermeture, ce n'est que lorsque l'on tente une requête SQL que l'on se rend compte que cette connexion est en fait fermée.
+
+Il ne nous reste plus qu'à demander une connexion à ce pool une fois dans notre servlet.
+
+Exemple 28. Obtention d'une connexion du pool
+
+try {
+    // lecture du contexte JDNI de notre servlet
+   Context initContext =  new InitialContext() ;
+    // initialisation de ce contexte
+   Context envContext  = (Context)initContext.lookup("java:/comp/env") ;
+    // lecture de la datasource définie par requête JNDI
+   DataSource ds = (DataSource)envContext.lookup("jdbc/tp-servlet") ;
+    // demande d'une connexion à cette datasource
+   Connection conn = ds.getConnection();
+   pw.print(" " + conn) ;
+
+}  catch (NamingException e) {
+    // gestion de l'exception
+}  catch (SQLException e) {
+    // gestion de l'exception
+}
+
+Le code qui précède peut être appelé d'une méthode doGet(). La connexion qu'il obtient est beaucoup plus sûre que dans les exemples des paragraphes précédents :
+
+c'est une connexion qui a été établie dans le pool , le coût de son établissement a déjà été payé ;
+
+elle vient d'être testée par DBCP, on est donc sûr qu'elle n'a pas été fermée par le serveur de base de données.
+
+Cette méthode supporte parfaitement la clusterization : en cas de distribution de notre application sur plusieurs nœuds, Tomcat créera un pool de connexion par nœud, il n'y aura donc aucun problème de mauvaise transmission d'une connexion d'un nœud à l'autre.
+
+Enfin, cette approche est supportée par JSTL et JSF. Une requête SQL écrite en JSTL peut parfaitement s'adresser à une telle ressource.
+
+Exemple 29. Utilisation d'une connexion dans une page JSP
+
+<%@  taglib  uri="http://java.sun.com/jsp/jstl/sql"  prefix="sql"%>
+ <%@  taglib  uri="http://java.sun.com/jsp/jstl/core"  prefix="c"%>
+
+
+ <sql:query  var="rs"  dataSource="jdbc/tp-servlet">
+   select id, nom, prenom from Marin
+ </sql:query>
+
+
+= Filtrage :
+
+1. Filtrage de servlets
+Un filtre est un composant d'une application web qui agit comme un intercepteur sur une servlet. Il est déclaré dans le descripteur de l'application web.xml, et posé sur une ou plusieurs servlets. Lorsqu'une requête doit être traitée par une servlet sur laquelle un filtre est déclaré, alors le serveur, plutôt que d'invoquer directement la méthode doGet() ou doPost() de la servlet, va invoquer la méthode doFilter() de ce filtre.
+
+Cette méthode reçoit trois paramètres :
+
+les deux premiers sont les objets requête et réponse qui auraient été envoyés à la servlet ;
+
+le troisième est un objet de type FilterChain, qui modèlise la servlet interceptée. En fait, comme plusieurs filtres peuvent être déclarés en cascade, il se peut que cet objet modèlise le filtre à invoquer après celui-ci.
+
+Le filtre peut donc agir sur la requête, qui est complète. S'il choisit d'autoriser le traitement de cette requête par la servlet, alors il doit invoquer la méthode doFilter() de l'objet FilterChain, en lui passant la requête et la réponse qu'il a reçues en paramètre.
+
+Il peut aussi choisir de ne pas traiter cette requête de façon nominale, et de la rediriger vers une autre ressource de l'application web. Cette décision peut être prise si la ressource est temporairement indisponible, ou si le filtre détecte un problème de sécurité.
+
+Lorsque la méthode doFilter() rend la main, il peut enfin décider de modifier la réponse construite par la servlet interceptée, s'il a pris la précaution de ne pas lui passer directement l'objet réponse qui lui a été donné.
+
+Un filtre peut donc agir sur tous les aspects du cycle requête / réponse, en modifiant l'un ou l'autre, à sa guise.
+
+2. Mise en place d'un filtre
+2.1. Écriture d'un filtre
+Techniquement un filtre est une classe qui doit implémenter l'interface Filter. Cette inferface définit trois méthodes :
+
+init(FilterCongif) : méthode callback, appelée lors de la construction de cet objet par le serveur d'applications.
+
+destroy() : méthode callback, appelée lors de la destruction de cet objet par le serveur d'applications.
+
+doFilter(ServletRequest, ServletResponse, FilterChain) : cette méthode est appelée sur requête HTTP, au lieu de l'appel d'une servlet sur lequel ce filtre est déclaré. La propagation de la requête au filtre suivant, ou à la servlet est faite en invoquant filterChain.doFilter(request, response).
+
+Exemple 30. Construction d'un filtre
+
+ public  class TransparentFilter  implements Filter {
+
+    public  void init(FilterConfig filterConfig) {
+       // l'objet filterConfig encapsule les paramètres 
+       // d'initialisation de ce filtre
+       
+   }
+   
+    public  void destroy() {
+       // callback de destruction de ce filtre
+   }
+   
+   
+    public  void doFilter(ServletRequest request, ServletResponse response,
+                         FilterChain filterChain)
+    throws IOException, ServletException {
+   
+       // propagation de la requête le long de la chaîne
+      filterChain.doFilter(request, response) ;
+   }
+}
+
+2.2. Déclaration du filtrage
+Un filtre doit ensuite être déclaré dans le fichier web.xml de l'application. De même qu'une servlet, un filtre est déclaré en deux temps : d'une part par sa classe d'implémentation, d'autre part par l'URL qu'il filtre. Voyons ceci sur un exemple.
+
+Exemple 31. Déclaration d'un filtre
+
+ <web-app>
+    <!-- déclaration de la classe d'implémentation du filtre -->
+ 
+
+3. Filtrage d'une requête
+Comme nous l'avons vu, un filtre peut être utilisé pour valider ou modifier une requête, ou une réponse. Commençons par examiner la façon dont on peut agir sur la requête.
+
+Écrivons par exemple un filtre simple, qui enregistre les paramètres de la requête pour toutes les servlets de notre application.
+
+Exemple 32. Filtrage d'une requête pour de la journalisation
+
+ public  class LoggerFilter  implements Filter {
+
+    private  static Logger logger = Logger.getLogger(LoggerFilter.class) ;
+
+    // méthodes init() et destroy()   
+   
+    private  void beforeProcessing(ServletRequest request, ServletResponse response) 
+    throws IOException, ServletException {
+   
+       HttpServletRequest httpRequest = (HttpServletRequest)request ;
+       String host = httpRequest.getRemoteHost() ;
+       String url = httpRequest.getRequestURL().toString() ;
+
+       logger.debug("L'hôte [" + host +  "] fait une requête sur [" + url +  "]") ;
+      
+   }
+   
+    public  void doFilter(ServletRequest request, ServletResponse response,
+                         FilterChain filterChain)
+    throws IOException, ServletException {
+   
+      beforeProcessing(request, response) ;
+      filterChain.doFilter(request, response) ;
+   }
+}
+
+La mise en place ici est très simple : il s'agit juste d'enregistrer les informations du client qui a soumis cette requête.
+
+On peut aussi interdire l'accès à une ressource, comme dans l'exemple suivant.
+
+Exemple 33. Filtrage d'une requête avec validation de sécurité
+
+ public  class LoggerFilter  implements Filter {
+
+    // méthodes init() et destroy()   
+   
+    public  void doFilter(ServletRequest request, ServletResponse response,
+                         FilterChain filterChain)
+    throws IOException, ServletException {
+   
+       if (request.isUserInRole("admin")) {
+      
+          // l'utilisateur a été identifié comme étant un administrateur
+          // il est autorisé à accéder à la servlet filtrée
+         filterChain.doFilter(request, response) ;
+         
+      }  else {
+      
+          // l'utilisateur n'est pas authentifié correctement
+          // on le redirige vers une page d'erreur
+         RequestDispatcher requestDispatcher = 
+            request.getRequestDispatcher("/userNotAdmin.jsp") ;
+         requestDispatcher.forward(request, response) ;
+      }
+   }
+}
+
+4. Filtrage d'une réponse
+4.1. Fonctionnement de ce filtrage
+Il est également possible de filtrer une réponse à l'aide d'un filtre. Le déroulement des opérations est un peu plus délicat, car on doit dans ce cas fournir une réponse qui n'est pas la vraie réponse à la méthode doFilter().
+
+Effectivement, fournir à cette méthode la vraie réponse pourrait donner la possibilité aux filtres suivants ou à la servlet finale, d'écrire directement dans le buffer de réponse, et de faire appel à sa méthode flush(), ce qui enverrait directement la réponse au navigateur client. On ne pourrait donc plus agir sur le contenu de la réponse.
+
+L'idée consiste donc à fournir à la chaîne un buffer que l'on construit nous-mêmes, et dont on peut contrôler l'écriture dans le vrai buffer de réponse. Comme l'objet réponse que l'on doit passer en paramètre de doFilter() est de type ServletResponse, il nous faut construire une implémentation de cette classe.
+
+Il ne s'agit bien sûr pas de réécrire l'intégralité de cette classe, juste d'intercepter ce que la servlet pourrait écrire dans le buffer de réponse. Pour cela, on peut surcharger la méthode getWriter() de façon à retourner un PrintWriter sur notre buffer, plutôt que sur le buffer de réponse.
+
+Écrivons tout d'abord notre implémentation de ServletResponse.
+
+Exemple 34. Filtrage avec modification de la réponse - 1
+
+ public  class CustomServletResponse  extends HttpServletResponseWrapper {
+
+    // création d'un writer sur un buffer en mémoire
+    private Writer writer =  new CharArrayWriter() ;
+
+    public CustomServletResponse(HttpServletResponseWrapper response) {
+       super(response) ;
+   }
+
+    @Override
+    public PrintWriter getWriter() {
+       // retourne un PrintWriter sur notre buffer plutôt que sur
+       // la vraie réponse
+       return  new PrintWriter(writer) ;
+   }
+
+    public String toString() {
+       return writer.toString() ;
+   }
+}
+
+Utilisons ensuite cette implémentation en filtrage.
+
+Exemple 35. Filtrage avec modification de la réponse - 2
+
+ public  class PostFilter  implements Filter {
+
+    // méthodes init() et destroy()   
+   
+    public  void doFilter(ServletRequest request, ServletResponse response,
+                        FilterChain filterChain)
+    throws IOException, ServletException {
+
+       // construction de notre fausse réponse
+      ServletResponse fakeResponse =  new CustomServletResponse(response) ;
+
+       // appel de la servlet   
+      filterChain.doFilter(request, response) ;
+      
+       // récupération de la réponse qu'elle a généré
+      String providedResponse = fakeResponse.toString() ;
+      
+       // on peut modifier cette réponse ici
+      String modifiedResponse = ... ;
+      
+       // puis l'envoyer vers le client
+       // on remet les en-têtes HTTP en fonction de ce qui a été fait
+      response.setContentLength(modifiedResponse.length()) ;
+	  
+       // envoi de la réponse modifiée sur le flux de sortie
+      PrintWriter printWriter = response.getWriter() ;
+      printWriter.write(modifiedResponse) ;
+      printWriter.close() ;
+   }
+}
+
+Cet exemple reste assez basique. Si les méthodes qui interrogent la réponse vont fonctionner correctement, notre implémentation risque fort d'échouer si la servlet filtrée fait un appel à la méthode getOutputStream(), ou aux méthodes setContentType(), setCharacterEncoding(), ou encore sendError(). Il convient donc de le compléter avant de le mettre en production, ou de ne l'utiliser que dans des cas simples et parfaitement maîtrisés.
+
+
+
+

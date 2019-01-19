@@ -1,1595 +1,653 @@
- # Tomcat is targeted at:
+====== notes principe fonctionnement tomcat ====
+
+http://blog.paumard.org/cours/servlet/chap02-presentation-tomcat.html
+
+== Organisation des répertoires de Tomcat ==
+
+L'installation de Tomcat est la même que l'on soit sous Windows ou Linux. Il suffit de télécharger le fichier archive (au format zip ou tar.gz) et de l'ouvrir dans un répertoire.
+
+￼Organisation des répertoires de Tomcat : 
+
+ot@31435920c3ee apache-tomcat-9.0.14]# ll
+total 144
+-rw-r----- 1 root root 19203 Dec  6 21:17 BUILDING.txt
+-rw-r----- 1 root root  6095 Dec  6 21:17 CONTRIBUTING.md
+-rw-r----- 1 root root 57092 Dec  6 21:17 LICENSE
+-rw-r----- 1 root root  2333 Dec  6 21:17 NOTICE
+-rw-r----- 1 root root  3255 Dec  6 21:17 README.md
+-rw-r----- 1 root root  6854 Dec  6 21:17 RELEASE-NOTES
+-rw-r----- 1 root root 16262 Dec  6 21:17 RUNNING.txt
+drwxr-x--- 2 root root  4096 Jan 19 07:02 bin
+drwx------ 2 root root  4096 Dec  6 21:17 conf
+drwxr-x--- 2 root root  4096 Jan 19 07:02 lib
+drwxr-x--- 2 root root  4096 Dec  6 21:14 logs
+drwxr-x--- 2 root root  4096 Jan 19 07:02 temp
+drwxr-x--- 7 root root  4096 Dec  6 21:15 webapps
+drwxr-x--- 2 root root  4096 Dec  6 21:14 work
+
+
+detail des répertoires de l'arbo tomcat décompressé :  
+
+- Répertoire bin
+Le répertoire bin contient tous les fichiers qui permettent de lancer Tomcat, que ce soit sous Linux (fichiers .sh) ou Windows (fichiers .bat).
+
+[root@31435920c3ee apache-tomcat-9.0.14]# tree bin/
+bin/
+|-- bootstrap.jar
+|-- catalina-tasks.xml
+|-- catalina.bat
+|-- catalina.sh
+|-- ciphers.bat
+|-- ciphers.sh
+|-- commons-daemon-native.tar.gz
+|-- commons-daemon.jar
+|-- configtest.bat
+|-- configtest.sh
+|-- daemon.sh
+|-- digest.bat
+|-- digest.sh
+|-- makebase.bat
+|-- makebase.sh
+|-- setclasspath.bat
+|-- setclasspath.sh
+|-- shutdown.bat
+|-- shutdown.sh
+|-- startup.bat
+|-- startup.sh
+|-- tomcat-juli.jar
+|-- tomcat-native.tar.gz
+|-- tool-wrapper.bat
+|-- tool-wrapper.sh
+|-- version.bat
+`-- version.sh
+
+
+Notons l'utilitaire version, qui permet de tester la valeur des variables d'environnement "vues" par Tomcat, sa version, ainsi que différents détails sur l'environnement d'exécution.
+
+-  Répertoire conf
+Ce répertoire contient les fichiers de configuration de Tomcat. Nous reverrons la signification des fichiers qui se trouvent ici en détails. Les fichiers de ces répertoires permettent de configurer tous les aspects du fonctionnement de Tomcat, de sa sécurité, et aussi du chargement des applications web.
+
+
+[root@31435920c3ee apache-tomcat-9.0.14]# tree conf/
+conf/
+|-- catalina.policy
+|-- catalina.properties
+|-- context.xml
+|-- jaspic-providers.xml
+|-- jaspic-providers.xsd
+|-- logging.properties
+|-- server.xml
+|-- tomcat-users.xml
+|-- tomcat-users.xsd
+`-- web.xml
+
+
+-  Répertoire lib
+Ce répertoire contient les librairies Java dont Tomcat a besoin pour fonctionner.
+
+
+[root@31435920c3ee apache-tomcat-9.0.14]# tree lib/
+lib/
+|-- annotations-api.jar
+|-- catalina-ant.jar
+|-- catalina-ha.jar
+|-- catalina-storeconfig.jar
+|-- catalina-tribes.jar
+|-- catalina.jar
+|-- ecj-4.9.jar
+|-- el-api.jar
+|-- jasper-el.jar
+|-- jasper.jar
+|-- jaspic-api.jar
+|-- jsp-api.jar
+|-- servlet-api.jar
+|-- tomcat-api.jar
+|-- tomcat-coyote.jar
+|-- tomcat-dbcp.jar
+|-- tomcat-i18n-de.jar
+|-- tomcat-i18n-es.jar
+|-- tomcat-i18n-fr.jar
+|-- tomcat-i18n-ja.jar
+|-- tomcat-i18n-ko.jar
+|-- tomcat-i18n-pt-BR.jar
+|-- tomcat-i18n-ru.jar
+|-- tomcat-i18n-zh-CN.jar
+|-- tomcat-jdbc.jar
+|-- tomcat-jni.jar
+|-- tomcat-util-scan.jar
+|-- tomcat-util.jar
+|-- tomcat-websocket.jar
+`-- websocket-api.jar
+
+0 directories, 30 files
+
 
-   -- Java programmers who need a really good web server to publish their web apps
+- Répertoire log
+Ce répertoire est vide. C'est ici que Tomcat écrit ses fichiers de journalisation dans sa configuration par défaut.
 
-   -- sys admins who need to support the publishing of Java web apps
+- Répertoire temp
+Répertoire temporaire contenant des fichiers temporaires, comme son nom le laisse supposer...
 
- # Tomcat is a
+- Répertoire webapp
+Le répertoire webapp contient les applications web gérées par Tomcat. Cet endroit peut bien sûr être redéfini. Par défaut, il contient cinq applications, très utiles lorsque l'on débute :
 
-       -- free
-       -- production-grade
-       -- lightweight    
+docs : contient les pages de documentation de Tomcat, également accessibles en ligne ;
 
-       -- open-source
-       -- cross-platform  
-       -- no-fuss
+examples : contient des exemples simples de servlets et de pages JSP ;
 
-   web server.
+host-manager et manager : contiennent l'application de gestion des applications web de Tomcat. Cette application permet de charger des applications web à chaud, et de les visualiser dans une interface web.
 
-   ## It's Java-centric: written in Java, designed to host Java web apps.
+ROOT : racine des applications web chargées par défaut.
 
-   ## It's easy to install on any system.
+[root@31435920c3ee apache-tomcat-9.0.14]# tree -d -L 2 webapps/
+webapps/
+|-- ROOT
+|   `-- WEB-INF
+|-- docs
+|   |-- WEB-INF
+|   |-- api
+|   |-- appdev
+|   |-- architecture
+|   |-- config
+|   |-- elapi
+|   |-- funcspecs
+|   |-- images
+|   |-- jspapi
+|   |-- servletapi
+|   |-- tribes
+|   `-- websocketapi
+|-- examples
+|   |-- WEB-INF
+|   |-- jsp
+|   |-- servlets
+|   `-- websocket
+|-- host-manager
+|   |-- META-INF
+|   |-- WEB-INF
+|   `-- images
+`-- manager
+    |-- META-INF
+    |-- WEB-INF
+    `-- images
 
-   ## Out of the box, with no configuration, it's good to go. Customization is usually in small pieces.
 
-   ## Versioning is incremental: sensible improvements, no radical changes
- # Strong recommendation: do the 'verfied' install. If you'd like to practice
-   with the unverfied install, download Tomcat in ZIP format -- and then delete the ZIP.
-   ## Follow up with a verified install, covered in the next two lessons.
+-  Répertoire work
+Répertoire de travail de Tomcat, dans lequel, entre autres, les classes Java correspondant aux pages JSP sont créées et compilées.
 
- # Dependencies: 
+a la base ce  repertoire est vide  
 
-   Define an environment variable named JAVA_HOME that points to the install
-   directory of your Java JDK. 
+==  Lancement de Tomcat  ==
 
-   If you have only the JRE (JVM but no compiler, etc.), then define the environment
-   variable JRE_HOME to point to the JRE install directory.
+- Lancement par défaut
+La distribution par défaut de Tomcat permet de le lancer avec une adaptation minimale de la configuration.
 
-   ## The install directory can be tricky, particularly on a Mac.
+Pour que le lancement se déroule bien, il faut vérifier que la variable JAVA_HOME soit bien positionnée sur une installation du JDK ou du JRE qui correspondent à la version de Java dont Tomcat a besoin (1.6 pour Tomcat 6.0.*). Ensuite, il suffit de se placer dans le répertoire bin, et de taper la commande :
 
-   ## Where Java is installed doesn't matter: JAVA_HOME just points to it.
+> startup
+Une fenêtre s'ouvre alors, qui détaille le déroulement des opérations de lancement, et très rapidement finit par nous afficher le message suivant :
 
-      ### On Linux systems, 
+INFO: Server startup in 351 ms
+Il suffit alors d'ouvrir un navigateur, et de le faire pointer vers l'URL http://localhost:8080/, on obtient la page d'accueil .
 
-             /usr/local/<Java install> 
+Cette page d'accueil permet d'accéder à l'intégralité de la documentation de Tomcat, en local (cartouche Documentation ), aux ressources en ligne sur le site de l'ASF, et à des exemples de servlet ou de JSP.
 
-          is a typical install directory.
+Le cartouche Administration n'est pas encore accessible : il faut pour cela modifier certains droits d'accès, ce que nous allons faire.
 
+3.2. Accéder à l'administration de Tomcat
+Administrer un serveur Tomcat signifie entre autres pouvoir allumer ou éteindre certaines applications web. Autoriser n'importe quel utilisateur de faire ce genre de choses serait assez dangereux !
 
+C'est la raison pour laquelle cette application d'administration est inaccessible dans la distribution de Tomcat. C'est d'ailleurs ce que nous dit la page d'accueil : l'accès à cette application est réservé aux utilisateurs possédant le rôle manager .
 
- . Download the archive from the recommended mirror server, having picked the format you prefer
-    (for instance, ZIP format -- less than 10MB).
+Dans la configuration par défaut, les rôles et les utilisateurs sont définis dans le fichier conf/tomcat-users.xml. Tomcat supporte bien sûr d'autres moyens de définir ce point, il sait entre autres accéder à des bases de données pour aller chercher ce genre d'informations.
 
- . Unpack the archive wherever you like on the local system. For a learning (versus production)
-    environment, I recommend installing Tomcat in your 'home' directory -- that way there's no
-    OS issues regarding permissions.
+Le fichier tomcat-users.xml est vide, et contient des exemples de déclaration de rôles et d'utilisateurs mis en commentaires. Il nous faut créer un rôle manager , et un utilisateur qui possède ce rôle.
 
- . Let TOMCAT_HOME be your install directory. There's a 'bin' subdirectory:
+Exemple 1. Création d'un rôle manager dans tomcat-users.xml
 
-                         TOMCAT_HOME
-                              |
-                             bin
+ <?xml version='1.0' encoding='utf-8'?>
 
- . Execute the 'startup' script in TOMCAT_HOME/bin
+ <tomcat-users>
+	 <!-- création du rôle manager -->
+	 <role  rolename="manager"/>
+	
+	 <!-- création d'un utlisateur possédant ce rôle -->
+	 <user  username="tomcat"  password="tomcat"  roles="manager"/>
+ </tomcat-users>
 
-    -- On Unix-like systems, 'startup.sh'
-    -- On Windows, 'startup.bat'
+Il faut redémarrer Tomcat pour que ce fichier soit pris en compte. L'arrêt de Tomcat se fait en tapant la commande :
 
- . Open a browser to: http://localhost:8080
+> shutdown
+Un fois redémarré Tomcat, on peut cliquer sur le lien Status du cartouche d'administration. 
 
-== tomcat & java : 
+On peut également obtenir la liste des applications web actives.
 
+http://localhost:8080/manager/list
 
- -- Tomcat and Java: A quick look behind and look ahead
+-  Plusieurs instances de Tomcat
+Pour un certain nombre de raisons (bonnes ou mauvaises...), on peut avoir besoin de lancer plusieurs instances de Tomcat en parallèle. Cela est parfaitement possible, à condition de positionner les bonnes variables d'environnement.
 
- # Recall that, in installing Tomcat, we define JAVA_HOME (or JRE_HOME) as an envir
-onment variable
-   that points to the Java JDK (or JRE) install directory.
+La variable CATALINA_HOME doit pointer vers le répertoire d'installation de Tomcat. La valeur de cette variable doit être la même pour tous les contextes de lancement de chaque instance de Tomcat.
 
-   ## Tomcat's implemented in Java, and designed precisely to handle Java web apps.
+Une deuxième variable est utilisée, CATALINA_BASE, qui peut prendre une valeur propre à chaque lancement.
 
-   ## Output from invoking the 'startup' script (startup.sh or startup.bat) at the 
-command-line:
+Tomcat utilise plusieurs classloader pour fonctionner. Chaque classloader charge des classes et des JAR tel que défini dans le fichier conf/catalina.properties.
 
-      % ./startup.sh
-        Using CATALINA_BASE:   /home/kalin/tomcat8
-        Using CATALINA_HOME:   /home/kalin/tomcat8
-        Using CATALINA_TMPDIR: /home/kalin/tomcat8/temp
-        Using JRE_HOME:        /usr/local/java8
-        Using CLASSPATH:       /home/kalin/tomcat8/bin/bootstrap.jar:/home/kalin/to
-mcat8/bin/tomcat-juli.jar
-        Tomcat started.
+common.loader : les classes chargées par ce classloader sont disponibles dans Tomcat et pour toutes les applications web que cette instance prend en charge.
 
-       ### To confirm that Tomcat's indeed running, we could open a browser to http
-://localhost:8080, or
-           use the 'curl' utility (https://curl.haxx.se/) from the command-line:
+server.loader : ces classes sont accessibles au niveau du serveur. Par exemple, si une connexion JDBC est définie dans le Server, c'est ce classloader qui doit charger le pilote JDBC.
 
-             % curl localhost:8080
-     
-       ### For now, CATALINA is Tomcat's main component -- its 'web container'.
-     
-       ### It's common to conflate 'Tomcat' (the web server) and 'Catalina' (the ma
-in component).
+shared.loader : ces classes sont disponibles dans toutes les applications web.
 
- # Tomcat runs as a Java 'application', which means as a single process at the syst
-em level.
+Par défaut, les classloader server et shared sont vides, et Tomcat n'utilise que le classloader common.
 
-   ## Tomcat implements the 'one-thread-per-request' model of handling client reque
-sts:
-             TCP or HTTP request        request handed off to a thread from a threa
-d pool
-                       \   +--------+              /
-      client request ----->| Tomcat |----->client-handling thread
-                           +--------+
+Ensuite, Tomcat crée un classloader par application web, ce qui permet de garantir l'étanchéité complète d'une application web à l'autre. Ce classloader charge le contenu de WEB-INF/classes et WEB-INF/lib, tel que défini dans l'API Servlet.
 
-      ### Tomcat is thus multi-threaded, and multi-threading is the standard Java w
-ay to
-          manage 'client concurrency'.
+On voit donc qu'il est possible, en jouant sur la variable CATALINA_BASE de définir un jeu de classes commun aux applications web, instance par instance.
 
-          #### Modern Tomcat uses a mix of multi-threading and non-blocking ('async
-hronous') I/O
-               to manage concurrent client requests.
+Chaque instance de Tomcat peut ensuite gérer son propre environnement : les répertoires conf, work, temp, webapps et logs sont, par défaut, relatifs à CATALINA_BASE, et peuvent être redéfinis par des options dans le fichier de configuration conf/server.xml.
 
- # Tomcat can be managed (even remotely) through JMX (Java Management Extensions), 
-in particular 
-   by exposing the web container (Catalina) as an MBean.
+= Configuration de Tomcat
 
+-  Introduction
+La configuration de Tomcat passe par l'édition du fichier server.xml qui se trouve dans le répertoire conf de l'installation. Ce fichier XML se découpe en différents éléments, qui correspondent à des notions propres à Tomcat, que nous allons voir une par une.
 
-==  Tomcat's directory structure
+Ces éléments XML se divisent en deux groupes. Le premier est constiué des éléments conteneur : Engine : Host et Context. Ces éléments s'imbriquent les uns dans les autres suivant des règles très précises, et sont obligatoires. Le second groupe est constitué d'éléments facultatifs et flottants, au sens où ils peuvent être placés dans les différents conteneurs : GlobalNamingResources, Resources, Realm et Valve.
 
- # Tomcat can be installed (e.g., by unzipping a downloaded ZIP file) anywhere on the local system.
+- Élément Server
+L'unique élément racine Server modèlise un serveur Catalina dans sa totalité. Catalina est le nom du serveur proprement dit, alors que Tomcat est le nom du projet complet. Tout ce qui est défini dans cet élément est global au serveur, et sera donc appliqué, entre autres, à toutes les applications web qu'il supporte. Techniquement, un server est un élément XML, et une interface Java : org.apache.catalina.Server.
 
-   ## For reference, TOMCAT_HOME is the top-level install directory.
-   
-      ### You could define an environment variable with this name, but it's not required.
+Cet élément supporte trois attributs :
 
- # Here's the directory structure for TOMCAT_HOME:
+className : la classe d'implémentation de l'interface org.apache.catalina.Server. En principe on n'en change pas, et l'on peut omettre cet attribut, qui prendra alors sa valeur par défaut.
 
-                              TOMCAT_HOME     ## contains LICENSE, NOTICE, RELEASE-NOTES, RUNNING.txt
-                                    |
-   +----------+----------+----------+----------+----------+---------+
-   |          |          |          |          |          |         |
-  bin        conf       lib        logs       temp       webapps   work
-  
-   *## bin:     scripts to start/stop Tomcat, etc.
-    ## conf:    configuration files (XML files)
-    ## lib:     Tomcat and 3rd-party libraries (JAR files)
-    ## logs:    log files (many over time...)
-    ## temp:    temporary files created using the Java File API
-   *## webapps: deployed web apps (web sites, web services, web sockets,...)
-    ## work:    Tomcat-compiled JSP scripts and other assets
+port : le port d'arrêt ( shutdown ) de Tomcat. Ce port ne correspond pas au port HTTP écouté par Tomcat, mais à un port sur lequel Tomcat reçoit la commande de s'arrêter. Lorsque l'on tape la commande shutdown sur l'invite de commande, cet ordre est émis, et Tomcat s'éteint alors.
 
-   A star * marks the two subdirectories we care about most at the start.
+shutdown : la commande envoyée sur ce port.
 
-  # More about TOMCAT_HOME/webapps
+Seul l'attribut port est réellement susceptible d'être modifié. Cette modification est même nécessaire si l'on installe plusieurs Tomcat en même temps sur une même machine.
 
-    ## It's the 'virtual base directory' for a deployed web app, e.g., 'preds.war'.
+L'élément server accepte trois type d'enfants : des Listener, un GlobalNamingResources et des Service
 
-       ### The 'virtual' underscores that TOMCAT_HOME/webapps is _not_ part of the URI:
+ Exemple d'élément Server
 
-              http://localhost:8080/preds    ## no sign of TOMCAT_HOME/webapps
+ <Server  port="9005"  shutdown="SHUTDOWN">
 
-       ### TOMCAT_HOME/webapps can have arbitrarily many subdirectories to any level.
+	 <!-- contenu de l'élément -->
+	
+ </Server>
 
-           Example: If 'preds.war' were deployed to TOMCAT_HOME/webapps/examples, then
-	            the URL would be:
-          
-              http://localhost:8080/examples/preds
+-  Élément Service
+Un service est un container dans lequel on peut trouver autant de sous-éléments Connector que l'on veut, et un unique sous-élément Engine. On peut définir autant de services que l'on veut au sein d'un serveur donné, à condition qu'ils diffèrent tous par leurs noms.
 
-           -- To keep the URI part as simple as possible, I prefer to put all of my web apps
-	      in TOMCAT_HOME/webapps rather than in a subdirectory thereof.
+Cet élément possède deux attributs :
 
+className : nom de la classe Java qui implémente l'interface org.apache.catalina.Service. Peut être omis, dans ce cas l'implémentation par défaut est choisie.
 
+name : nom logique de ce service, doit être unique au sein de tous les services définis dans un serveur.
 
-== WAR files :
+Exemple d'élément Service
 
- WAR files and URLs in Tomcat deployment: request mapping ('dispatching')
- 
- # How does Tomcat map client requests to the appropriate 'resource' within a web app?
-        
-                 +--------------------+
-    request----->| request dispatcher |----->requested resource
-                 +--------------------+
+ <Service  name="Catalina">
 
-   ## Bascally a two-step operation:
+	 <!-- contenu de cet élément -->
 
-      -- First, find the appropriate WAR file.
+ </Service>
 
-      -- Second, find the resource (e.g., HTML page, Jave code) within the WAR file.
+- Élément Connector
+Un connecteur est un objet Java capable d'écouter un port précis et comprenant un protocole précis. À chaque protocole supporté par Tomcat est associé une classe Java de connecteur. Chaque connecteur dirige ensuite les requêtes qu'il reçoit au moteur de servlets défini dans ce service. Donc un moteur de servlet donné peut répondre à des requêtes en provenance de plusieurs ports, et suivant des protocoles différents.
 
-      -- If the requested WAR file doesn't exist, or the resource within it, we get the
-         familiar "404 Not Found" response from the web server.
+Quel que soit le connecteur choisi, un certain nombre d'attributs sont toujours disponibles :
 
---------------------------------------------------------------------------------------------------------
+port : le port que ce connecteur écoute.
 
- # The standard way to deploy a web app in Tomcat is to copy a WAR file (JAR file with a .war extension)
-   to the TOMCAT_HOME/webapps tree (i.e., this directory or some subdirectory)
+enableLookups : autorise ou non les requêtes DNS lorsqu'une servlet invoque la méthode request.getRemoteHost(). Une requête DNS est un processus éventuellement coûteux. Si enableLookups est à false, alors request.getRemoteHost() retourne l'adresse IP plutôt que le nom de domaine associé.
 
-   ## The WAR file name is arbitrary.
+maxPostSize : la taille maximale des requêtes POST supportée par ce serveur. La valeur par défaut est fixée à 2Mo. Une valeur de -1 signifie qu'il n'y a pas de limite.
 
-   ## In this example, the deployed WAR file is named 'preds.war'.
+1/ Connecteur HTTP
+Le connecteur HTTP supporte le standard HTTP/1.1, et permet à Tomcat de fonctionner comme un serveur web à part entière.
 
-   ## Contents of the deployed 'preds.war' file:
+maxThreads : indique le nombre maximal de requêtes que ce connecteur peut traiter à la fois (une requête est traitée dans son propre thread par le connecteur HTTP). Au-delà de cette limite, les requêtes sont placées dans une file d'attente.
 
-       ajax.xhtml                                 ## the identifier is 'ajax.jsf', a proxy for 'ajax.xhtml'
-       WEB-INF/web.xml                            ## standard 'deployment descriptor' (optional)
-       WEB-INF/faces-config.xml                   ## JSF deployment descriptor
-       WEB-INF/classes/beans/Controller.class     ## backend JavaBean
-       WEB-INF/classes/beans/Organization.class   ## ditto
-       WEB-INF/classes/beans/Prediction.class     ## ditto
-       WEB-INF/lib/javax.faces.jar                ## JSF implementation library
+acceptCount : taille maximale de la file d'attente des requêtes. Si des requêtes supplémentaires arrivent, alors elles sont rejetées.
 
- # The client's URL includes the WAR file's name as the _first_ name in the URI-part of the URL.
+protocol : cet attribut peut prendre deux types de valeur, un nom de protocole, tel que HTTP/1.1, ou un nom de classe. Les trois classes supportées par défaut sont :
 
-   Example with 'preds.war' as the name of the deployed WAR file:
+org.apache.coyote.http11.Http11Protocol : correspond au protocole HTTP/1.1 standard.
 
+org.apache.coyote.http11.Http11NioProtocol : correspond au protocole HTTP construit sur l'API NIO.
 
-   'scheme'    port number  WAR file name  JSF script in the WAR file
-        \               \      /           /
-       http://localhost:8080/preds/ajax.jsf   ## URI starts with the / after the port number
-              \_______/     \_____________/   ## URI = Uniform Resource Identifier: a name
-                  /                \
-       server's address       resource URI (Uniform Resource Identifier), aka 'path'
+org.apache.coyote.http11.Http11AprProtocol : correspond au protocole construit sur l'APR (Apache Portable Runtime, qui est la librairie runtime utilisée par Apache 2.2).
 
-    ## In this example, /preds/ajax.jsf is the URI ('path to resource') -- what's being requested.
-   
-    ## The URI begins with '/preds' == a slash and then the WAR file's name _without_ the '.war' extension
+2/ Connecteur AJP
+Le connecteur AJP communique avec un autre serveur web, en utilisant le protocole AJP. Il existe deux connecteurs de ce type :
 
+JK 1.2.* : permet de communiquer avec tous les serveurs web qui supportent le protocole JK ;
 
-== HTTP basics : 
+mod_proxy : permet de communiquer avec Apache 2.2.*.
 
- HTTP (HyperText Transport Protocol) -- the basics for web sites and services
+Exemple d'éléments Connector
 
- # For web sockets, we'll be looking at TCP (Transmission Control Protocol) proctocol. First, though, it's HTTP.
- 
-   ## Other protocols, e.g., SMTP (Simple Mail Transport Protocol) for email, may come into play at the API level,
-      but Tomcat is not an email server.
+ <!-- Port standard d'écoute de requêtes HTTP sur le port 8080 -->
+ <Connector  port="8080"  protocol="HTTP/1.1" 
+            connectionTimeout="20000" 
+            maxThread="100"  maxCount="100"
+            redirectPort="8443" />
 
- # HTTP is a messaging protocol, built atop TCP (Transmission Control Protocol)
+ <!-- Port standard d'écoute de requête Apache AJP/1.3 sur le port 8009 -->
+ <Connector  port="8009" 
+            protocol="AJP/1.3" 
+            redirectPort="8443" />
 
-   ## Two basic types of message: request and response
+- Élément Engine
+L'élément Engine modélise le moteur de servlet proprement dit. À chaque serveur Catalina est associé un unique moteur de servlet, auquel on accède via des connecteurs. Un moteur peut comporter plusieurs sous-éléments Host, chacune représentant un hôte virtuel.
 
-   Depiction:
+Toutes les implémentations par défaut de cet élément supportent les attributs suivants :
 
-      Various request 'methods', including: POST (Create), GET (Read), PUT (Update, Delete (Delete): CRUD ops
-                  /
-             request message
-      client----------------->server
+name : le nom de ce moteur, notamment utilisé dans les fichiers journal ;
 
-      ## URLs typed into the browser's input box, or clicked hyperlinks, typically generate GET requests.
+defaultHost : l'hôte virtuel par défaut vers lequel diriger cette requête.
 
-      ## Forms submitted from a browser typically generate POST requests.
+Exemple d'élément Engine
 
-      ## Modern browsers do GET and POST only.
+ <Engine  name="Catalina"  defaultHost="localhost">
 
-      ## Modern web services, which are typically hit by programs other than browsers, are 'RESTful'
-         in that they support all four CRUD operations.
-	 
-      
-             response message
-      client<-----------------server
-      
------------------------------------------------      
+	 <!-- contenu de l'élément Engine -->
 
-   Richer depiction with URL 'http://localhost:8080/greet/hello.html' ## URI is '/greet/hello.html', method is GET
+ </Engine>
 
-                                                              'Create' 'Read' 'Update' 'Delete' ## CRUD operations
-                                                                   \      |    /        /
-        requires a URI ('noun') and an HTTP method ('verb' such as POST, GET, PUT, or DELETE)
-                      \
-               request message    +-----------------------+
-       client-------------------->| HTTP-compliant server |   ## verb is GET, noun is /greet/hello.html
-          /                       +-----------------------+   ## Operation: Read the 'hello' page
-   perhaps a browser as the 'user agent'
+- Élément Host
+Cet élément modélise un hôte virtuel. Un hôte virtuel doit être associé à l'adresse IP de ce serveur, via un DNS ou un fichier hosts. Si l'attribut defaultHost du moteur dans lequel se trouve cet hôte est défini, alors au moins un des hôtes doit obligatoirement posséder ce nom.
 
+Toutes les implémentations de Host doivent supporter les attributs suivants :
 
-               response message   +-----------------------+
-       client<--------------------| HTTP-compliant server |   ## a server responds to a request
-                                  +-----------------------+   ## Response is the embedded 'hello' page 
+name : le nom de cet hôte virtuel ;
 
-   ## HTTP is often described as 'stateless', but does contain mechanisms (e.g., cookies and other
-      'header elements') to manage state.
+appBase : l' application base pour cet hôte. Il s'agit du répertoire contenant les applications web pour cet hôte. Il peut s'agir d'un chemin absolu, ou d'un chemin relation au répertoire $CATALINA_BASE. La valeur par défaut de cet attribut est true.
 
-   ## In general, it's the web app that maintains 'state' among requests and responses in order to
-      support a multi-message conversation.
+autoDeploy : indique à Tomcat s'il doit charger automatiquement les applications web qui sont copiées dans le répertoire appBase. Le cas échéant, Tomcat scrute le contenu de ce répertoire à intervalles de temps réguliers, afin de détecter de nouveaux répertoires, ou de nouveaux fichiers .war.
 
-      ### Tomcat (through the Catalina component) provides mechanisms such as the 'session map' to help
-          the programmer maintain state.
-  
- # Format of requests/responses
+deployOnStartup : indique à Tomcat s'il doit charger les applications web se trouvant dans appBase lors de son démarrage. La valeur par défaut de cet attribut est true.
 
-    HTTP request:
+L'implémentation par défaut supporte en plus les attributs suivants.
 
-       start line   ## HTTP_method URI [HTTP version]        E.g.: POST /skiServ/dataVerifier HTTP/1.1
-       headers      ## Key/value pairs, with : as separator  E.g.: Content-Type: application/x-www-form-urlencoded
-       newline
-       newline
-       [body]       ## GET and DELETE have no body; POST and PUT have a body
+workDir : répertoire de travail propre à cet hôte. Par défaut, Catalina utilise un sous-répertoire de $CATALINA_BASE/work pour chaque hôte, mais il est possible d'en choisir un autre. On peut accéder à ce répertoire d'une servlet, via l'attribut d'application javax.servlet.context.tempdir.
 
-    HTTP response:      
+unpackWARs : indique à Catalina qu'il doit exécuter les applications web de cet hôte dans un répertoire de travail avant de les exécuter. La valeur par défaut de cet attribut est true.
 
-       start line   ## [HTTP version] Status code (numeric and English)  E.g.: 200 OK
-       headers      ## Key/value pairs, with : as separator              E.g.: Server: Apache-Coyote/1.1
-       newline
-       newline
-       body         ## For instance, an HTML page
+deployXML : indique à Catalina s'il peut ou non prendre en compte les fichiers /META-INF/context.xml des applications web. La valeur par défaut de cet attribut est true.
 
+Exemple d'élément Host
 
-=  More HTTP basics
+ <Host  name="localhost"   appBase="webapps"
+       unpackWARs="true"  autoDeploy="true">
 
- # Format of requests/responses
+	 <!-- contenu de l'élément Host -->
 
-    HTTP request:
+ </Host>
 
-       start line   ## HTTP_method URI [HTTP version]        E.g.: POST /skiServ/dataVerifier HTTP/1.1
-       headers      ## Key/value pairs, with : as separator  E.g.: Content-Type: application/x-www-form-urlencoded
-       newline
-       newline
-       [body]       ## GET and DELETE have no body; POST and PUT have a body
+- Élément Context
+Enfin, l'élément Context modélise une application web. Cet élément est un peu particulier, car il peut se trouver en plusieurs endroits.
 
-    HTTP response:      
+Historiquement (Tomcat v4), cet élément se trouvait nécessairement dans le fichier server.xml de Tomcat. Cette façon de faire posait deux problèmes :
 
-       start line   ## [HTTP version] Status code (numeric and English) E.g.: 200 OK
-       headers      ## Key/value pairs, with : as separator             E.gl: Server: Apache-Coyote/1.1
-       newline
-       newline
-       body         ## For instance, an HTML page
-------------------------------------------------------------------------------------------------------------------
+toute modification d'un contexte pour une unique application web imposait de redémarrer l'ensemble du serveur Tomcat, puisque ce fichier est pris en compte au démarrage de Tomcat ;
 
- # Simple demo using the handy 'curl' utility (https://curl.haxx.se/ -- works on all systems)
+ce fichier étant la propriété de l'administrateur de Tomcat, il y avait un problème de partage de droits, puisque ce sont les administrateurs des applications web qui connaissent le contenu de ces éléments.
 
-     ## Issue a GET request against the web server on condor.depaul.edu
-     % curl --request GET --verbose http://condor.depaul.edu/mkalin/
+Ce problème a été levé, et il est maintenant possible de placer cet élément dans un fichier context.xml rangé dans le répertoire META-INF de l'application.
 
-      * About to connect() to condor.depaul.edu port 80 (#0)
-      *   Trying 216.220.180.148... connected
+La prise en compte ou non de ce fichier à cet endroit peut être réglé par l'administrateur de Tomcat (attribut deployXML de l'élément Host). S'il choisit de ne pas prendre en compte ces fichiers, alors Tomcat ira chercher ce fichier ailleurs, dans un endroit contrôlé par l'administrateur.
 
-      > GET /mkalin/index.html HTTP/1.1
-      > User-Agent: curl libcurl OpenSSL zlib libidn librtmp
-      > Host: condor.depaul.edu
-      > Accept: */*
-      > 
+On peut définir autant d'éléments Context que l'on veut dans un hôte virtuel, avec une restriction :
 
-      < HTTP/1.1 200 OK
-      < Server: Apache/2.2.3 (Red Hat)
-      < ETag: "1c241-bd2-52c9ec63e9b80"
-      < Accept-Ranges: bytes
-      < Content-Length: 3026
-      < Content-Type: text/html
-      < Connection: close
-      < 
-      <html>
-      <title>Home page</title>
-      <head>
-        ...
-      </head>
-      <body>
-        ...
-      </body>
-      </html>
+chaque élément Context doit être associé à un unique attribut path, qui représente le chemin vers cette application web.
 
-      * Closing connection #0
-----------------------------------------------------------------------------------------------------------
+au moins un Context doit être associé à un chemin vide. C'est cette application qui servira toutes les requêtes non servies par les autres applications.
 
-      Context: 
-               -- Post a form that contains information about a new equipment item, in this case skis.
+- Element GlobalNamingResources
 
-               -- The 'dataVerifier' servlet checks the submitted form.
+Cet élément permet de configurer des ressources et des variables d'environnement, qui seront ensuite disponibles pour toutes les applications web gérées par cette instance de Tomcat. La distribution par défaut nous donne l'exemple de la base d'utilisateurs reconnue par cet instance de Tomcat.
 
-               -- If OK, the 'dataVerifier' redirects to the 'goodResult' servlet (a translated JSP script);
-                  otherwise, the 'dataVerifier' redirects to the 'badResult' servlet' (another JSP script).
+Voyons tout d'abord un exemple de définition d'une variable d'environnement.
 
-      % curl --request POST --verbose --data "product=Acme Super Skis&category=Ski equipment&price=1234.56" \
-             -L  http://localhost:8080/skiServ/dataVerifier
+Exemple de variable d'environnement
 
-      > POST /skiServ/dataVerifier HTTP/1.1
-      > User-Agent: curl libcurl OpenSSL zlib libidn librtmp
-      > Host: localhost:8080
-      > Accept: */*
-      > Content-Length: 61
-      > Content-Type: application/x-www-form-urlencoded
+ <Environment  name="maxRetry"  type="java.lang.Integer"  value="10"
+              override="false"/>
 
-      * upload completely sent off: 61 out of 61 bytes
+Notons que l'attribut name, qui représente le nom de la variable créée, est relatif au context java:comp/env. Dans notre exemple, le nom JNDI complet de la variable sera donc java:comp/env/maxRetry.
 
-      < HTTP/1.1 302 Found
-      < Server: Apache-Coyote/1.1
-      < Set-Cookie: JSESSIONID=E9533CE7667BED64A2E4E0D5AD05CC2A; Path=/skiServ/; HttpOnly
-      < Location: http://localhost:8080/skiServ/goodResult.jsp
-      < Content-Length: 0
-      < 
+Examinons maintenant la ressource définie dans le server.xml par défaut.
 
-      * Connection #0 to host localhost left intact
-      * Issue another request to this URL: 'http://localhost:8080/skiServ/goodResult.jsp'
-      * Violate RFC 2616/10.3.3 and switch from POST to GET
-      * Re-using existing connection! (#0) with host localhost
-      * Connected to localhost (127.0.0.1) port 8080 (#0)
+Exemple de Resources : UserDatabase
 
-      > POST /skiServ/goodResult.jsp HTTP/1.1
-      > User-Agent: curl libcurl OpenSSL zlib libidn librtmp
-      > Host: localhost:8080
-      > Accept: */*
-      >
- 
-      < HTTP/1.1 200 OK
-      < Server: Apache-Coyote/1.1
-      < Set-Cookie: JSESSIONID=DE51C48DD5895E805B0747E2D8AFB2F9; Path=/skiServ/; HttpOnly
-      < Content-Type: text/html;charset=ISO-8859-1
-      < Content-Length: 303
+ <Resource  name="UserDatabase"  auth="Container"
+           type="org.apache.catalina.UserDatabase"
+           description="User database that can be updated and saved"
+           factory="org.apache.catalina.users.MemoryUserDatabaseFactory"
+           pathname="conf/tomcat-users.xml" />
 
-=== HTTP tomcat/ webapp  :
+Toute ressource doit posséder un nom (attribut name) et un type, sous forme d'une classe Java. Cette ressource UserDatabase sera donc représentée par un objet de type UserDatabase, que Tomcat peut construire grâce à la classe factory MemoryUserDatabaseFactory.
 
+Cet objet a besoin du paramètre suivant pour s'initialiser : pathname, qui lui indique dans quel fichier les utilisateurs sont définis.
 
- -- Interactions among HTTP, the web container, and app-specific code
+On peut définir des ressources très diverses, les plus fréquentes sont les connexions aux bases de données, disponibles sous forme de DataSource, ou aux serveurs de mail.
 
- # Given an incoming HTTP request to Tomcat/Catalina
+Exemple de Resources : serveur de mail
 
+ <Resource  name="mail/Session"  auth="Container"
+           type="javax.mail.Session"
+           mail.smtp.host="localhost"/>
 
-             Catalina in the case of Tomcat
-                          /                 +-----> static content (e.g., 'productList.html')?
-      HTTP request  +---------------+       |
-     -------------->| web container |-------+-----> app-specific servlet (e.g., 'myProdListServlet')?
-                    +---------------+       |
-                                            +-----> framework servlet (e.g., the JSF servlet)? 
+Nous verrons dans la suite comment il est possible d'accéder à ces ressources d'une application web.
 
-    ## For app-specific servlets, recall that JSP scripts are translated into servlet instances (in Tomcat,
-       Jasper is the 'JSP engine' that does the translating).
+- Élément Realm
+Un Realm est une notion qui appartient à l'environnement de sécurité de Java, défini par JAAS ( Java Authentification and Authroization Service ) pour la partie JSE et JCCA pour la partie JEE. Par définition, un Realm est un ensemble d'utilisateurs qui partagent la même méthode d'authentification. Techniquement pour Tomcat, un Realm est défini par cette méthode d'authentification.
 
- # Here's how each of these cases is handled:
+Comme il a été dit, un élément Realm est un élément qui peut être inclus dans plusieurs éléments conteneur du fichier conf/server.xml de Tomcat : Engine, Host ou Context. Un élément Realm inclus dans un élément parent est automatiquement hérité dans les éléments enfants. Ainsi, un Realm défini dans un Host (donc au niveau d'un hôte virtuel) sera automatiquement pris en compte par tous les Context (donc les applications web) de ce Host.
 
-   -- Requests for static content
+Un élément Realm permet d'associer des droits d'utilisation aux application web. Un tel élément modélise une base d'utilisateurs et rôles, qu'il est ensuite possible d'utiliser pour restreindre l'utilisation de certaines applications.
 
-        http://...:8080/acmeProducts/productList.html   ## a static HTML page
+Tomcat propose plusieurs implémentations de Realm. Nous en avons déjà vu une : org.apache.catalina.realm.MemoryRealm, qui utilise le fichier tomcat-users.xml. Les autres implémentations permettent notamment de lire la liste des utilisateurs et des rôles dans des bases de données, qui elles-mêmes peuvent être administrées par ailleurs.
 
-      are dispatched to the DefaultServer, which comes with the web container Catalina.
+Le choix d'une implémentation particulière se fait en fixant une valeur à l'attribut className de l'élément Realm.
 
-              productList.html  +--------------------+
-      request------------------>| request dispatcher |----->DefaultServlet ## loaded when Tomcat starts up
-                                +--------------------+
+Examinons une de ces implémentations : org.apache.catalina.realm.JDBCRealm. Dans cette implémentation, les utilisateurs sont enregistrés dans une table. Tomcat a besoin de plusieurs informations pour y accéder :
 
-             body of the HTTP response
-                     /
-                 productList.html
-      requester<------------------DefaultServlet
+la chaîne de connexion à la base de données, un nom d'utilisateur et un mot de passe ;
 
- # For dynamic content--the request-handling code in a web app--Catalina 
+le nom de la table, et des différentes colonnes où se trouvent les informations dont il a besoin.
 
-   -- parses the request
+Voici un exemple d'un tel élément.
 
-   -- generates a map (key/value pairs) of the request contents
+Exemple Configuration d'un Realm JDBC
 
-   -- passes the map to the request-handling code
+ <Realm  className="org.apache.catalina.realm.JDBCRealm"
+        driverName="com.mysql.jdbc.Driver"
+        connectionURL="jdbc:mysql://localhost/db_user" 
+        connectionName="admin_db" 
+        connectionPassword="passwd"
+        userTable="t_user"  userNameCol="user_name"  userCredCol="passwd"
+        userRoleTable="t_role"  roleNameCol="role_name"
+/>
 
-   -- passes a channel reference to the request-handling code so that this
-      code can generate a response    
+On reconnaît sans problème les paramètres de connexion à la base parmi les attributs de cet élément. Viennent ensuite les paramètres de la table contenant les utilisateurs. Tomcat utilise deux colonnes : userNameCol porte les noms des utilisateurs, et userCredCol leurs mots de passe. Notons que par défaut les mots de passe sont stockés en clair, mais qu'il est possible de configurer ce Realm pour qu'ils soient cryptés. Enfin, viennent les paramètres de la table des rôles : userRoleTable porte le nom de cette table et userRoleTable le nom de la colonne qui contient les noms des rôles. Cette table doit aussi comporter une colonne userNameCol, qui réalise la jointure entre la table des utilisateurs et celle des rôles.
 
-                                                 HttpServletRequest instance
-                                                            /
-              productList.jsp   +--------------------+  request map
-      request------------------>| request dispatcher |-------------->productListServlet ## compiled JSP script
-                                +--------------------+
+Il existe également une implémentation de Realm capable de s'adresser à une DataSource directement : org.apache.catalina.realm.DataSourceRealm. La DataSource est obtenue par une requête JNDI dont le nom est donné en paramètre. Voyons un exemple.
 
+Exemple Configuration d'un Realm sur une DataSource
 
-            body of the HTTP response
-                     /
-                 productList.html
-      requester<------------------productListServlet
-                     \
-               HttpServletResponse instance
+ <Realm  className="org.apache.catalina.realm.DataSourceRealm"
+        dataSourceName="jdbc/UserDataSource"
+        userTable="t_user"  userNameCol="user_name"  userCredCol="passwd"
+        userRoleTable="t_role"  roleNameCol="role_name"
+/>
 
- # For various web frameworks (e.g., JSF = JavaServerFaces), the approach is quite similar:
+Les attributs permettant de lire les tables d'utilisateurs et de rôles sont les mêmes que pour le Realm JDBC.
 
-   ## There's an 'interceptor' servlet that represents the framework.
+- Élément Valve
+De même que l'élément Realm, l'élément Valve peut se placer dans les conteneurs Engine, Host et Context. De même que pour le Realm, une valve définie au niveau d'un conteneur s'applique à ses sous-conteneurs. Une valve est un élément utilitaire, qui peut avoir différentes fonctions, qui s'insère dans le processus de traitement d'une requête, et realise un certain traitement. À chaque type de valve est associé un traitement particulier.
 
-   ## The interceptor then manages the application-specific code.
+Un élément Valve comporte toujours un attribut className, qui indique quelle implémentation de Valve est utilisée pour cet élément. Suivent ensuite une liste d'attributs propres à chaque implémentation.
 
-   Depicition:
+Voyons les principales implémentations de Valve :
 
-                                                 HttpServletRequest instance
-                                                            /
-              productList.jsf   +--------------------+  request map              
-      request------------------>| request dispatcher |-------------->JSF servlet------>app-specific code
-                                +--------------------+                  \
-                                                                 'interceptor' servlet
+1/ Valve de journalisation
+La valve de journalisation permet d'enregistrer des informations sur chaque requête, au même format que les serveurs web classiques (Apache notamment).
 
--------------------------------------------------------------------------------------------------
+Exemple Valve de journalisation
 
- # An HTTP(S) request has the start-line/headers/[body] structure examined earlier:
+ <Valve  className="org.apache.catalina.valves.AccessLogValve"
+        directory="logs"  prefix="fichier_log"  resolveHosts="false" 
+        rotatable="true"  fileDateFormat="yyyy-MM-dd.HH"/>
 
-   -- always a start-line and at least one header element
+On crée ici une valve de journalisation, qui enregistre ses informations dans des fichiers dont le préfixe est fichier_log, dans le répertoire $CATALINA_BASE/logs. Ce fichier subira une rotation toutes les heures, ce qui est fixé par la valeur de l'attribut yyyy-MM-dd.HH. L'attribut resolveHost décide si une requête DNS est faite afin d'enregistrer le nom d'hôte du client, ou juste son adresse IP.
 
-   -- body is optional (e.g., PUT and POST have a body, GET and DELETE do not)
+2/ Valve de filtrage par adresse IP ou par hôte
+Ces valves permettent de refuser l'accès aux appplications web en fonction de l'adresse IP du client, ou en fonction de son nom d'hôte.
 
- # The javax.servlet.http.HttpServlet class encapsulates 'do' methods that are Java
-   counterparts of the underlying HTTP methods ('verbs'): doGet, doPost, doPut, doDelete, etc.
+Exemple Valve de filtrage par adresse IP
 
-   ### In general, the servlet API enables and simplifies program interaction with the
-       underlying HTTP request and HTTP response.
+ <Valve  className="org.apache.catalina.valves.RemoteAddrValve"
+        allow="192.168.1.*"  deny="192.168.0.*"/>
 
-   ## The web container (Catalina in Tomcat) parses the request, and creates a Java map
-      from the key/value pairs that make up the HTTP headers and (optional) body. Info
-      from the HTTP start-line (e.g., the HTTP verb such as GET or POST) also goes into
-      this map. 
-      
-      ### Various 'get' methods are available to extract information from the HTTP
-          start-line, the headers, and the body.
+ <Valve  className="org.apache.catalina.valves.RemoteHostValve"
+        allow="*.fr"  deny="*.com"/>
 
-      ### The API is flexible: an HTTP request can have arbitrarily many header and body
-          elements so the API has, for example, a getParameter(paramName) method.
+Dans les deux cas, la stratégie d'accès est la même. Si l'attribut allow est présent, alors la requête doit correspondre à sa valeur. S'il n'est pas présent, alors la requête est acceptée, sauf si elle correspond à la valeur de l'attribut deny. Dans tous les cas, une requête qui correspond à la valeur de l'attribut deny est rejetée.
 
+Notons enfin que l'attribut deny de RemoteHostValve est décodé en utilisant la expressions régulières Java (package java.util.regex).
 
-== build :
+3/ Autres valves
+Tomcat propose d'autres valves que celles présentées ici :
 
-<?xml version = "1.0" encoding = "UTF-8"?>  
+Une valve de débugage : la RequestDumperValve permet d'enregistrer dans un fichier l'intégralité des paramètres d'une requête HTTP. Elle ne doit être utilisée qu'en phase de mise au point d'une application, sous peine de saturer rapidement le disque dur.
 
-<!-- This file (build.xml) is housed in the current working directory, hereafter cwd.
-     There should be a src subdirectory:
+Des valves de sécurité et d'authentification :
 
-     cwd  ## Ant script build.xml is here.
-      |
-     src  ## Everything else is here or below.
+SingleSignOn : permet de s'authentifier sur plusieurs applications web d'un même hôte virtuel ;
 
-     All files except for Java source files should be placed directly in src. Examples include
-     XML files (e.g., web.xml), JSP scripts (e.g., hi.jsp), HTML files (e.g., hi.html),
-     and JAR files (e.g., jstl.jar). Java source files should be packaged, for example:
+BasicAuthenticator et DigestAuthenticator : permettent de forcer l'authentification HTTP basic ou digest pour l'accès à une application web.
 
-     package foo.bar;
-     public class Whatever { /*...*/ }
+FormAuthenticator et SSLAuthenticator : activent l'authentification par formulaire, en mode normal ou SSL.
 
-     These source files should be housed in the appropriate subdirectory of src, in this case:
+Définition et chargement des applications web
+5.1. Introduction
+La prise en compte et le chargement des applications web par Tomcat suivent un processus très précis et un peu délicat à comprendre, nous allons l'examiner à présent.
 
-     cwd
-      |
-     src
-      |
-     foo
-      |
-     bar  ## Whatever.java occurs here     
+La façon la plus simple de déployer une application dans Tomcat, est de passer par l'outil de gestion des applications. Il suffit alors de charger le fichier .war qui contient l'application, Tomcat s'occupe de la déployer et de la mettre à disposition. Si l'on n'utilise pas cette méthode (qui n'est pas toujours accessible), alors il faut déployer ses applications manuellement, ce qui est plus délicat.
 
-     This build.xml file must be edited but only one line needs to be changed:
+5.2. Prise en compte des éléments Context
+La première chose que Tomcat recherche, ce sont les descripteurs de contexte, ( context descriptors ), c'est-à-dire des fichiers qui contiennent un élément Context. Rappelons que la définition de cet élément appartient à l'API Servlet, et n'est pas propre à Tomcat.
 
-        <property name="tomcat.home" value="/home/kalin/tomcat8">
+Où Tomcat va-t-il chercher ces éléments ?
 
-     The value of the tomcat.home property must be set to the install directory for Tomcat, in this 
-     example the directory /home/kalin/tomcat8.
+Tomcat commence par rechercher le fichier $CATALINA_BASE/conf/context.xml. Les informations que cet élément contient seront partagées par toutes les applications web.
 
+Il recherche ensuite les fichiers $CATALINA_BASE/conf/[enginename]/[hostname]/context.xml.default. Les informations qu'il contient seront partagées par toutes les applications web de cet hôte virtuel.
 
-== Deployments : 
+Il charge ensuite tous les fichiers $CATALINA_BASE/conf/[enginename]/[hostname]/[nom_fichier].xml. Chacun de ces fichiers peut avoir n'importe quel nom, dès l'instant qu'il porte l'extension .xml. Chacun de ces fichiers est alors associé à une application web, disponible sous le path nom_fichier. On peut créer des sous-chemins en utilisant le caractère # dans le nom du fichier, à la place du caractère /. L'application web par défaut, associée au chemin racine, est associée par convention au fichier ROOT.xml.
 
+Si aucun fichier de contexte n'a été trouvé dans $CATALINA_BASE/conf/[enginename]/[hostname]/[nom_fichier].xml pour l'application web donnée, alors Tomcat va chercher le fichier /META-INF/context.xml. Là encore deux cas peuvent se présenter. Si l'application est archivée dans un WAR, alors Tomcat en extrait le fichier context.xml, et le copie dans $CATALINA_BASE/conf/[enginename]/[hostname]/[nom_fichier].xml, où [nom_fichier] correspond au nom de l'application web. Ce cas est un peu dangereux, car le changement de fichier WAR, avec éventuellement la mise à jour du fichier context.xml n'est pas vue par Tomcat, qui ne remplace pas ce fichier [nom_fichier].xml. Pour ce faire, il faut supprimer l'application web et la déployer à nouveau en tant que nouvelle application, plutôt que de faire un redéploiement simple.
 
- -- Deployment basics with Tomcat defaults
+Enfin et en dernier recours, Catalina recherche des éléments Context dans son fichier $CATALINA_BASE/conf/server.xml.
 
- # Tomcat supports two modes of deployment: 
+Dans tous les cas, Tomcat crée une application web associée à chaque contexte trouvé, et y associe le contenu du répertoire (ou fichier archive) $CATALINA_BASE/webapp/[nom_webapp]. Le nom de l'application web est défini suivant les règles qui viennent d'être décrites. Rappelons que le répertoire dans lequel se trouvent les applications web est fixé par l'attribut appBase de l'élément Host, et qu'il peut donc être redéfini.
 
-   -- packed: the entire web app is packaged in a WAR file
+5.3. Chargement et mise à jour à chaud
+Tomcat est capable de charger des applications web alors qu'il est en fonctionnement, et de mettre à jour celles qu'il gère déjà. On appelle cela le chargement à chaud .
 
-   -- unpacked: individual pieces in a directory structure that matches
-                what you'd get if you were to 'unwar' the corresponding WAR file
+Ce mode est actif pour les hôtes dont l'attribut autoDeploy a été positionné à true. Dans ce cas, si un nouveau répertoire est créé dans $CATALINA_BASE/webapp, ou si un fichier .war y est copié, Tomcat va tenter de déployer l'application web correspondante.
 
-      ## If the WAR is 'preds.war', then the 'unpacked' version is available with
-         the standard 'jar' utility that ships with the JDK:
+== Utilisation de Tomcat avec Apache
+Jusqu'à sa version 5, Tomcat était un bon serveur de servlets / JSP, mais manquait de fonctionnalités et peut-être de performances pour rivaliser avec Apache quant au service du contenu statique. La bonne façon de l'utiliser était donc de le cantonner au service des applications web (servlets, JSP, etc...). Apache était en frontal, gérait la sécurité et le contenu statique (pages, images, etc...), et déléguait les requêtes dynamiques à Tomcat.
 
-         % jar xvf preds.war   ## unpack the contents, leave the WAR file as is
+La configuration pour ce faire reste la même, construite sur le protocole AJP/1.3.
 
-   ## Only 'packed' deployment is required under the Java servlet spec, but Tomcat supports
-      either approach to deployment.
+L'arrivée de l'APR (Apache Portable Runtime) au cœur de Tomcat 5.5 lui permet d'utiliser le même code qu'Apache pour gérer le contenu statique, et donc de rattraper ce déficit de performance. Cela dit, le couple Apache / Tomcat fonctionne toujours très bien, et reste encore utilisé.
 
- # Packed deployment is cleaner, safer, easier -- no compelling reason not to use it.
+Permettre à Apache et Tomcat de dialoguer nécessite quelques ajustements techniques à la configuration de Tomcat et d'Apache.
 
-   ## Standard packed deployment, in general, should work as is for other web containers such as Jetty.
+Côté Apache, on doit veiller à trois choses :
 
-   ## Packed deployment makes undeployment and redeployment easy:
+au chargement du module mod_jk ;
 
-      -- To undeploy, remove the WAR file from TOMCAT_HOME/webapps: Tomcat then removes the 'unpacked' directory.
+à correctement configurer le fonctionnement de mod_jk dans un fichier de configuration appelé workers.properties
 
-      -- To redeploy, overwrite the current copy of the WAR file with a new one: Tomcat again 'unpacks'.
+à correctement rediriger les requêtes dynamiques vers Tomcat.
 
-   ## Since a WAR file has its own hierarchical file structure, the rules for 'packed' and 'unpacked' are the same
-      with respect to what goes where in the WAR file.
+Voici un exemple de configuration côté Apache. Le fichier par défaut de configuration d'Apache s'appelle httpd.conf.
 
- # How to deploy?
+Exemple 14. Éléments de configuration côté Apache
 
-   ## Ant, Maven, and even other scripts are in wide use.
+ # Chargement et déclaration du module mod_jk
+ # .dll sous Windows
+ # .so sous Unix / Linux
+LoadModule jk_module modules/mod_jk.dll
+AddModule  mod_jk.c
+ # déclaration du fichier de configuration de mod_jk
+JkWorkersFile D:\Tomcat\conf\workers.properties
 
-      ### The Apache Tomcat download site provides one such script: more on this later.
+NameVirtualHost *
 
-      ### IDEs such as Eclipse, NetBeans, and IntelliJ provides scripts under the hood to do
-          the work.
+<VirtualHost *>
+	 # déclaration et paramétrage d'un hôte virtuel 
+	ServerName    www.galilee.org
+	DocumentRoot  "D:\www\www.galilee.org\htdocs"
+	ErrorLog      "D:\www\www.galilee.org \logs\error.log"
+	CustomLog     "D:\www\www.galilee.org \logs\access.log" combined
+	
+	 # configuration du répertoire contenant les éléments statiques
+	DirectoryIndex index.html
+	<Directory  "D:\www\www.galilee.org\htdocs">
+		Order deny,allow
+		Allow from all
+	</Directory>
+	
+	 # configuration de mod_jk
+	<IfModule mod_jk.c>
+		JkLogFile          D:\www\www.galilee.org\logs\mod_jk.log
+		JkLogLevel         info
+		JkLogStampFormat    "[%a %b %d %H:%M:%S %Y] "
+		JkOptions          +ForwardKeySize +ForwardURICompat -ForwardDirectories 
+		JkRequestLogFormat  "%w %V %T"
+		
+		 # redirection de toutes les requêtes commençant par 
+		 # /webapp vers le connecteur ajp13
+		 # ce connecteur doit être déclaré dans workers.properties
+		JkMount /webapps/* ajp13
+	</IfModule>
+</VirtualHost>
 
-      ### A close look at such a script is coming...
+Le fichier workers.properties permet de paramétrer l'accès à Tomcant. Voyons un exemple.
 
- -- Deployment rules -- how the packed (or unpacked) deployment should look
+Exemple 15. Exemple de fichier workers.properties
 
- # What goes where?
+ # doit indiquer dans quel répertoire Tomcat est installé
+workers.tomcat_home=C:\tomcat\apache-tomcat-6.0.29\
 
-   -- configuration files ('deployment descriptors') occur under WEB-INF
-     
-      ## The standard config file, 'web.xml', occurs in the WEB-INF subdirectory
+ #doit indiquer dans quel répertoire le JDK est installé
+workers.java_home=D:\java\jdk-6.0.18
 
-      ## Other config files (e.g., 'sun-jws.xml') occur in WEB-INF or in a subdirectory rooted in WEB-INF
+ # la valeur de cette variable est / sur Unix et \ sur Windows
+ps=\
 
-      ## The config files are in XML format.
+ # liste des workers existants, on peut en mettre plusieurs
+worker.list=ajp13
 
-   -- TLD (Type Library Description) files, which describe customized JSP tags, likewise occur in the
-      WEB-INF tree.
+ # paramétrage de chaque worker déclaré
+ # Tomcat devra écouter le bon port sur le bon hôte, avec le bon protocole
+worker.ajp13.port=8009
+worker.ajp13.host=localhost
+worker.ajp13.type=ajp13
 
-      ## These files, like config files, are in XML format.
+Dans notre cas, Tomcat devra donc déclarer un connecteur de type AJP 13 écoutant le port 8009.
 
-   -- Programmer-compiled .class files occur in the WEB-INF/classes tree. 
+Exemple 16. Exemple de connecteur Tomcat AJP13
 
-      Example: Given the source code
-
-         package foo.com;
-         public class SampleJavaBean {
-           //...
-         }
-
-      the compiled class SampleJavaBean.class would be put in the WEB-INF/classes/foo/com directory:
-
-                WEB-INF   ## must be spelled exactly like this
-                   |
-                classes   ## ditto: all .class files here or below
-                   |
-                  foo     ## start of my package name
-                   |
-                  com     ## end of my package name: SampleJavaBean.class is here
-
-   -- JAR files, which are expected to hold libraries and other implementation code (e.g., an
-      implementation of a customized tag) occur in the WEB-INF/lib subdirectory.
-
- # Here's a summation:
-
-            top-level of WAR file    ## Could hold .html, .css, .jsp, .jsf, .js, and other file types
-                    |                ## not under deployment restrictions.
-                    |                ## However, we might put images in an 'images' subdirectory, JavaScript
-                    |                ## code in a 'scripts' subdirectory, HTML and CSS files in an 'assets' 
-                    |                ## subdirectory, and so on.
-                    |
-                 WEB-INF             ## WEB-INF for 'deployment descriptor' files (with .xml extensions)
-                    |
-          +---------+---------+
-          |                   |
-         lib               classes   ## WEB-INF/lib for archived code (JARs with .jar extensions)  
-                                     ## WEB-INF/classes for byte-code files (.class extensions)   
-
-
-
-== tomcat web console :
-
- -- The Tomcat Web Console: http://localhost:8080/
-
- # Two general parts: the public site, and the private site
-
-   ## The public site is information-centric: 
-
-       -- documentation
-       -- configuration
-       -- examples
-       -- wiki 
-       -- mailing lists
-
-   ## The private sites:
-
-       -- server status: applications
-                         memory usage 
-                         AJP (Apache JServ Protocol: e.g., to connect Tomcat to Apache) connector
-                         HTTP connector
-
-       -- manager app: monitor and manage web apps
-
-       -- host manager: virtual hosting
-
-       ### Access to the private sites requires user authentication. Here's the setup:
-
-       1. Backup TOMCAT_HOME/conf/tomcat-users.xml.
-
-       2. Edit this file. Here's an example:
-
-####
-<?xml version='1.0' encoding='utf-8'?>
-<!--
-  Licensed to the Apache Software Foundation (ASF) under one or more
-  contributor license agreements.  See the NOTICE file distributed with
-  ...
-  limitations under the License.
--->
-<tomcat-users xmlns="http://tomcat.apache.org/xml"
-              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-              xsi:schemaLocation="http://tomcat.apache.org/xml tomcat-users.xsd"
-              version="1.0">
-<!--
-  NOTE:  By default, no user is included in the "manager-gui" role required
-  to operate the "/manager/html" web application.  If you wish to use this app,
-  you must define such a user - the username and password are arbitrary. It is
-  strongly recommended that you do NOT use one of the users in the commented out
-  section below since they are intended for use with the examples web
-  application.
--->
-<!--
-  NOTE:  The sample user and role entries below are intended for use with the
-  examples web application. They are wrapped in a comment and thus are ignored
-  when reading this file. If you wish to configure these users for use with the
-  examples web application, do not forget to remove the <!.. ..> that surrounds
-  them. You will also need to set the passwords to something appropriate.
--->
-<!--
-  <role rolename="tomcat"/>
-  <role rolename="role1"/>
-  <user username="tomcat" password="<must-be-changed>" roles="tomcat"/>
-  <user username="both" password="<must-be-changed>" roles="tomcat,role1"/>
-  <user username="role1" password="<must-be-changed>" roles="role1"/>
--->
-  <role rolename="manager-gui"/>
-  <role rolename="admin-gui"/>
-  <role rolename="manager-script"/>
-  <user username="tcat"
-        password="tcat"
-	roles="admin-gui,manager-gui,manager-script"/>
-</tomcat-users>
-####
-
-       3. Restart Tomcat.
-
-
-
- === Deployement examples
-
- # For each example, the output is edited from the output of a 'jar' commmand. The names of
-   the WAR files are shown in each example. Here are the three 'jar' commands used, with
-   % as the command-line prompt:
-
-     % jar tvf temp2.war   ## 1st example
-     % jar tvf preds.war   ## 2nd example
-     % jar tvf jpaTest.war ## 3rd example
-
-   ## The output is edited for readability.
-
-   ## The WAR files are included in the ZIP working file 'deployExamples.zip'. The first two can be deployed 
-      as is, but the third (jpaTest.war) expects a PostgreSQL database to be running--so you'd need to install the DB 
-      and then create and popullate the table to run. I've included the examples mainly to highlight the structure 
-      of a correctly deployed WAR file.
-
-   -- Example 1: a minimalist web app for temperature conversion (temp2.war)
-
-        WEB-INF/web.xml          ## web.xml is technically optional, but almost always present
-        convert.jsp              ## JSP script
-        error.jsp                ## error page -- control goes here if something goes wrong
-        input.html               ## input page for a temperature to convert
-
-   -- Example 2: A JSF/Managed Bean example (preds.war):
-
-        WEB-INF/web.xml                                ## standard config
-        WEB-INF/faces-config.xml                       ## JSF-implementation config
-        WEB-INF/classes/beans/Controller.class         ## backend POJO class
-        WEB-INF/classes/beans/Organization.class       ## ditto
-        WEB-INF/classes/beans/Prediction.class         ## ditto
-        WEB-INF/lib/javax.faces.jar                    ## JSF implementation 
-        ajax.xhtml                                     ## JSF page
-        styles.css                                     ## style sheet
-
-  -- Example 3: A JPA (Java Persistence API) example with PostgreSQL as backend DB (jpaTest.war):
-
-        WEB-INF/web.xml                                      ## standard config
-        WEB-INF/classes/META-INF/persistence.xml             ## JPA config
-        WEB-INF/classes/test/PersistenceManager.class        ## class to handle DB interaction
-        WEB-INF/classes/test/Product.class                   ## 'model' class
-        WEB-INF/classes/test/Product_.class                  ## low-level 'model' class 
-        WEB-INF/classes/test/ProductsController.class        ## POJO 'controller'
-        WEB-INF/lib/eclipselink.jar                          ## EclipseLink (JPA implementation)
-        WEB-INF/lib/javax.persistence.jar                    ## standard JPA implementation
-        WEB-INF/lib/org.eclipse.persistence.jpa.modelgen.jar ## more EclipseLink
-        WEB-INF/lib/postgresql-jdbc.jar                      ## PostgreSQL 'driver', etc.
-        confirm.jsp                                          ## client UI
-        style.css                                            ## style sheet
-
-== Deployment tools :
-
- -- WAR file deployment: too tedious to do by hand
-
- # IDEs (e.g., Eclipse, IntelliJ, NetBeans) use scripts under the hood to automate deployment.
-
- # Various scripting languages (e.g., Ant, Maven, 'shell', 'bat') are available for automating WAR deployment.
-
- # Tomcat uses an Ant script to deploy from the Tomcat management console (the web GUI), and makes the full
-   script available for downloads under 'Deployer' on the download page (http://aparche.tomcat.org).
-   There's documentation at:
-   
-      https://tomcat.apache.org/tomcat-8.0-doc/deployer-howto.html#Deploying_using_the_Client_Deployer_Package
-
-   ## Tomcat also has a Maven plugin on the download page:
-
-      http://tomcat.apache.org/maven-plugin.html for documentation.
-
- # For demo purposes, I'm going to use my own Ant script: very simple, saves the .java source files for
-   convenience in the constructed WAR; doesn't require a valid 'unpacked' web app to begin
-
-   ## Dependencies: Apache Ant (http://ant.apache.org/) should be installed, version 1.6x or greater.
-
-      ### To check on the installation from the command line: % ant -version
-
-   ## My Ant script is a single file, 'build.xml', and starts out with a page or so of documentation.
-
- # An Ant script consists of 'tasks', which can be ordered for dependencies. Here's a high-level view,
-   with low-level details to follow:
-
-   -- Default task is 'deploy'.                        ## any name would do
- 
-   -- The 'deploy' task requires the 'compile' task.   ## dependency
-
-   -- The 'compile' task requires the 'build' task.    ## and another
-
-   -- The 'build' task requires the 'clean' task.      ## ditto
-   ...
-   
-              requires          requires        requires        requires
-       deploy---------->compile---------->build---------->clean---------->...
-
-   ## The tasks are laid out in an XML file whose default name is 'build.xml'. 
-
-      ### This file may link in other files, typically with a '.properties' extension (e.g., 'deployer.properties')
-
-      ### At the command-line, 
-
-          % ant                  ## execute the default task in the default task file 'build.xml'
-
-          % ant -f myBuild.xml   ## execute the default task in the specified task file 'myBuild.xml'
-
-   ## Tasks can be specified at the command-line:
-
-      Examples:
-
-      % ant compile    ## perform the 'compile' task, and any other task that it requires; and so on.
-
-      % ant build      ## perform the 'build' task,...
-
-      % ant            ## perform the default task
-
-      % ant deploy     ## ditto
-
-      % ant start      ## e.g., start Tomcat 
-
-
-
-
-== navigation :
-
-
- -- Navigation basics for deployed web apps
-
- # In 'packed' and 'unpacked' deployment, the web app has the familiar hierarchical file-system structure:
-
-                  top-level
-                     |
-           +...+-----+-----+...+   ## next level
-           |   |     |     |   |
-          ... ...   ...   ... ...  ## and so on
-
-    ## Navigation in the web app thus follows the patterns familiar from navigating the local file system.
-
- # HTML documents and deployed JSP/JSF/etc. scripts are treated alike with respect to navigation.
-
- # The potentially tricky part would be servlets and POJOs, as these are instances of classes whose
-   packages can have arbitrarily long names:
-
-          com.org.MyServlet                       ## com.org is the package
-          acme.personnel.management.MedicalPlan   ## acme.personnel.management is the package
-          ...
-
-   ## Recall that the package names are included in the hierarchy rooted at WEB-INF/classes:
-
-                  WEB-INF
-                     |
-                  classes
-                     |
-                    acme
-                     |
-                 personnel
-                     |
-                 management
-
-   ## There's a key difference between servlets and POJOs, however:
-
-      ### Servlets are typically HTTP endpoints: http://...:8080/myApp/myServlet  ## myServlet as an HTTP endpoint
-
-      ### POJOs are instances of utility classes, doing the grunt work for servlets--but are not themselves HTTP endpoints.
-
-   ## Tomcat has a nice workaround to take the complexity out of navigation that involves servlets:
-
-      -- Give the servlet an alias in the 'web.xml' deployment descriptor.
-
-         ## Deployed JSP scripts are treated, with respect to navigation, just like HTML documents.
-
-      -- Use the alias to identify the servlet during navigation.
-
-
-
- -- Navigation wrapup: the 404 issue
-
- # Here's yet another depiction of the example we've been using, with 'hi3.war' as the deployed WAR file:
-
-                     hiTop.html    ## welcome file
-                         |
-               +---------+---------+
-               |                   |
-            web-assets          WEB-INF
-              -- hiNested.hmtl     | -- web.xml        ## sets 'welcome file' and aliases servelt
-                                classes
-                                   |
-                                   p1
-                                    -- HiServlet.class ## aliased as 'helloFromSerlvet'
-
- # In 'hiTop.html', the link to 'hiNested.html' is:
-
-        <a href = 'web-assets/hiNested.html'>Nested hi</a>         ## relative path
-
-   -- Problem: the link is changed to
-
-        <a href = 'hiNested.html'>Nested hi</a>
-
-      The link now requires that 'hiNested.html' be at the top-level with 'hiTop.html',
-      but 'hiNested.html' is in the subdirectory 'web-assets'.
-
-      ## Result: 404 'Not Found' error when the link is followed (e.g., with a click)
-
- # In 'hiNested.html', the to 'hiTop.html' is:
-
-        <a href = '../hiTop.html'>Top-level hi</a>                      ## relative path
-
-   -- Problem: the link's href is changed to
-
-        <a href = 'hiTop.html'>Top-level hi</a>   
-
-      The link now requires that 'hiTop.html' be in the 'web-assets' subdirectory with 'hiNested.html'.
-
-      ## Result: 404 'Not Found' error when the link is followed (e.g., with a click)
-
--------------------------------------------------------------------------------------------------------------------------
-
- -- Friendly recommendations:
-
-  # To avoid subtle navigational problems, my approach is to:
-
-      -- Put _all_ text files (e.g., HTML pages, stylesheets, /JSP/JSF/etc. scripts) in the
-         deployed WAR's top-level.
-
-      -- Alias every servlet in 'web.xml' with the URL pattern:
-
-           /<servletName>   ## alias-based path
-
-         For quick review, here's the web.xml entry in hi3.war:
-
-             <servlet-mapping>
-               <servlet-name>hiServlet</servlet-name>
-               <url-pattern>/helloFromServlet</url-pattern>
-             </servlet-mapping>
-
-
-== precompile jsp :
-
- -- Precompiling JSP scripts
-
- # Tomcat has a nice, short Ant script available for the job:
-
-      https://tomcat.apache.org/tomcat-8.0-doc/jasper-howto.html 
-
-   -- This is the build.xml file.
-
- # The script assumes the following directory structure, with the 'working directory' as the
-   one that contains 'build.xml' and from which the 'ant' commands are entered at the command-line prompt:
-
-                 working directory      ## contains 'build.xml', 'ant' commands issued from here
-                       |
-                    WEB-INF             ## Jasper creates a 'generated_web.xml' file here
-                       |
-          +------------+------------+
-          |            |            |
-         src          lib        classes
-          /            \            /
-     .jsp files    .jar files   generated .class files
-
- # Two sample runs with 'bad.jsp' as the example JSP script:
-
-   -- In the first run, the JSP script contains a syntax error.
-
-   -- Before the second run, the error is fixed.
-
-   Here's the JSP script:
-
-     <!doctype>
-     <html>
-       <body>
-         <!-- Below is a 'scriplet': Java code embedded in an HTML template.
-              The code contains errors, which will prevent deployment.
-         -->
-         <%
-             out.println("The time is: " + new java.util.Date().toString()); // so far, so good
-             for (int i = 0; i < 4; i++) out.println("Hello, world!");     // still ok
-             out.println("Bye, bye...")  //### Error: missing semicolon in statement
-         %>
-       </body>
-     </html>
-
-  # 1st run: with error in the JSP script
-
-      % ant -Dtomcat.home=$HOME/tomcat8 -Dwebapp.path=.
-
-	Buildfile: /home/kalin/precompile/build.xml
-	Trying to override old definition of datatype resources
-
-	jspc:
-	   [jasper] org.apache.jasper.servlet.TldScanner scanJars
-	   [jasper] INFO: At least one JAR was scanned for TLDs yet contained no TLDs. Enable debug logging for this 
-		    logger for a complete list of JARs that were scanned but no TLDs were found in them. 
-		    Skipping unneeded JARs during scanning can improve startup time and JSP compilation time.
-
-	compile:
-	   [javac] /home/kalin/tcat/mats/precompile/build.xml:23: warning: 'includeantruntime' was not set, 
-		   defaulting to build.sysclasspath=last; set to false for repeatable builds
-	   [javac] Compiling 1 source file to /home/kalin/precompile/WEB-INF/classes
-	   [javac] /home/kalin/precompile/WEB-INF/src/org/apache/jsp/WEB_002dINF/src/bad_jsp.java:113:
-	            error: ';' expected
-       ### [javac]         out.println("Bye, bye...")  //### Error: missing semicolon in statement
-	   [javac]                                   ^
-	   [javac] 1 error
-	   [javac] Compile failed; see the compiler error output for details.
-
-  # 2nd run: error fixed
-
-      % ant -Dtomcat.home=$HOME/tomcat8 -Dwebapp.path=.
-
-	Buildfile: /home/kalin/precompile/build.xml
-	Trying to override old definition of datatype resources
-
-	jspc:
-	   [jasper] org.apache.jasper.servlet.TldScanner scanJars
-	   [jasper] INFO: At least one JAR was scanned for TLDs yet contained no TLDs. Enable debug logging
-	            for this logger for a complete list of JARs that were scanned but no TLDs were found in them.
-		    Skipping unneeded JARs during scanning can improve startup time and JSP compilation time.
-
-	compile:
-	   [javac] /home/kalin/precompile/build.xml:23: warning: 'includeantruntime' was not set, 
-		   defaulting to build.sysclasspath=last; set to false for repeatable builds
-	   [javac] Compiling 1 source file to /home/kalin/precompile/WEB-INF/classes
-
-  # The generated 'web.xml' fragment:
-
-     <!--
-       Automatically created by Apache Tomcat JspC.
-       Place this fragment in the web.xml before all icon, display-name,
-       description, distributable, and context-param elements.
-     -->
-     <servlet>
-        <servlet-name>org.apache.jsp.WEB_002dINF.src.bad_jsp</servlet-name>
-        <servlet-class>org.apache.jsp.WEB_002dINF.src.bad_jsp</servlet-class>
-     </servlet>
-
-     <servlet-mapping>
-        <servlet-name>org.apache.jsp.WEB_002dINF.src.bad_jsp</servlet-name>
-        <url-pattern>/WEB-INF/src/bad.jsp</url-pattern>
-     </servlet-mapping>
-     <!--
-       All session-config, mime-mapping, welcome-file-list, error-page, taglib,
-       resource-ref, security-constraint, login-config, security-role,
-       env-entry, and ejb-ref elements should follow this fragment.
-     -->
-
-=== Webapp types :
-
- -- Web app types that Tomcat can handle
-
- # At the start, the point was made that Tomcat is "Java centric" -- now it's time for clarification.
-
-                    java
-                     |
-            +--------+--------+
-            |                 |
-         language       virtual machine
-            /                \
-          javac             java
-
-   ## Tomcat's written in Java (language), but can handle any web app with JVM-compatiable byte codes (run-time).
-
-      -- JRuby (on Rails), Clojure, Scala, Java,...
-
-   ## There are Tomcat extensions (e.g., TomEE at http://tomee.apache.org/apache-tomee.html) that come with
-      an EJB container and other high-level EE components, all of which can be deployed as WAR files.
----------------------------------------------------------------------------------------------------------------------
-
- # Three broad categories of web app, but the distinctions among them aren't sharp:
-
-   -- wite sites: HTML-centric, nowadays with lots of web assessts: documents, stylesheets, scripts, images,...
-
-   -- web services: ideally, groupings of 'pure functions' that deliver data and functionality to clients
- 
-      ## REST-style and SOAP-based: Tomcat can handle both.
-
-   -- web sockets: implemented through TCP-based rather than HTTP-based connections
-
-      ## lower overhead, relief from the request/response pattern that dominates in HTTP
-
-   ## One and the same deployed web app might contain a mix of all three:
-
-      -- A 'chat room' web app might be a mix of HTML documents and web sockets.
-
-      -- A web site might have HTML documents with embedded JavaScript, which issues
-         client requests against a web service packaged in the very same WAR as the web site.
------------------------------------------------------------------------------------------------------------------
-
- # What follows are three example web apps so that we've concrete examples of deployed WARs as 
-   web sites and web services, with web sockets thrown into the mix with a web site.
-
- -- Where should the JAR files go?
-
- # Web apps of all stripes need software libraries, packaged as JAR files.
-
-   ## JAR files in this context are not executable Java applications, but rather software libraries
-      used in various web apps.
-
- # The options:
-
-   -- TOMCAT_HOME/lib:  JARs in this directory are loaded at startup and available to all web apps
-                        running in the web container.
-
-      ## The current list for Tomcat8, 24 in all:
-
-          annotations-api.jar             ## for persistence, security, etc.
-          catalina-ant.jar                ## Ant support
-          catalina-ha.jar                 ## cluster management ("ha" = "high availability")
-          catalina.jar                    ## web (servlet) container
-          catalina-storeconfig.jar        ## XML configuration storage
-          catalina-tribes.jar             ## channels and related transport libraries: "group communication"
-          ecj-4.5.jar                     ## Eclipse JDT (Java Development Tools) compiler
-          el-api.jar                      ## Expression language (JSP 3.x)
-          jasper-el.jar                   ## Jasper EL support
-          jasper.jar                      ## JSP translator/runtime
-          jsp-api.jar                     ## JSP API
-          servlet-api.jar                 ## Servlet 3.1 API
-          tomcat-api.jar                  ## Interfaces shared with Catalina and Coyote
-          tomcat-coyote.jar               ## Connectors (e.g., for HTTP 1.1) and utilities
-          tomcat-dbcp.jar                 ## Apache Commons Connection Pooling for RDBMSes
-          tomcat-i18n-es.jar              ## i18n for Spanish
-          tomcat-i18n-fr.jar              ## i18n for French
-          tomcat-i18n-ja.jar              ## i18n for Japanese
-          tomcat-jdbc.jar                 ## Tomcat's native connection pooling
-          tomcat-jni.jar                  ## Interface to native components such as APR (Apache Portable Runtime)
-          tomcat-util.jar                 ## Miscellaneous utilities
-          tomcat-util-scan.jar            ## ditto
-          tomcat-websocket.jar            ## web socket implementation (1.1)
-          websocket-api.jar               ## web socket API (1.1)
- 
-      ## From the Apache-Tomcat page, four others are available as good candidates for TOMCAT_HOME/lib:
-
-          catalina-jmx-remote.jar         ## Support JMX (Java Management Extension) remote admin from behind firewall
-          catalina-ws.jar                 ## With jaxrpc.jar and wsdl4j.jar, support SOAP-based web services
-          tomcat-juli-adapters.jar        ## Tomcat's impl. of the java.util.logging API to support per-app logging
-          tomcat-juli.jar                 ## More of the same
-
-   -- In the WAR file's WEB-INF/lib subdirectory
-
-      ## Downside: Adds size to the WAR file (but, as the saying goes, 'memory is cheap').
-
-      ## Upside: 'Freezes' deployable WAR by taking versioning and other issues out of play. (Avoids 'DLL hell'.)
-
-
-
-=== tomcat https :
-
- -- Setting up Tomcat for HTTPS connections
-
-    # The setup requires two major pieces:
-
-      1. We need a DC. For development, a 'self-signed' DC is good enough,
-         although it's inadequate for production.
-
-      2. We need to configure Tomcat so that it can locate our self-signed DC.
-
-    # Step 1: create a self-signed DC
-
-      ## Core Java ships with a 'keytool' utility that can be used to generate a DC.
-         At the command line, enter this command (with % as the command-line prompt):
-
-                           'use the RSA algorithm'
-                                /
-           % keytool -genkey -keyalg RSA -keystore devel.keystore
-                       /                             \
-             'generate a key pair'             'put DC in this keystore, creating it if necessary'
-
-    # Step 2: configure Tomcat so that it can find the DC from Step 1
-
-      ## Backup and then edit Tomcat's main configuration file: TOMCAT_HOME/conf/server.xml
-
-         ### Here is the relevant section:
-
-           <!-- Define a SSL/TLS HTTP/1.1 Connector on port 8443
-               This connector uses the NIO implementation that requires the JSSE
-               style configuration. When using the APR/native implementation, the
-               OpenSSL style configuration is required as described in the APR/native
-               documentation -->
-           <!--
-           <Connector port="8443" protocol="org.apache.coyote.http11.Http11NioProtocol"
-                      maxThreads="150" SSLEnabled="true" scheme="https" secure="true"
-                      clientAuth="false" sslProtocol="TLS" />
-           -->
-
-         ### Note that the 'Connector' element is commented out. Uncomment the section and,
-             for convenience, add a few elements. I've done so below, with comments after each
-             line:
-
-             <Connector port="8443"                                              
-                        protocol="org.apache.coyote.http11.Http11NioProtocol"    
-                        maxThreads="150"                                        
-                        SSLEnabled="true"                                       
-                        scheme="https"                                         
-                        secure="true"                                         
-                        clientAuth="false"                                  
-                        sslProtocol="TLS"                                   
-                        keystoreFile="${user.home}/devel.keystore"         
-                        keystorePass="qubits" />                         
-
-    # With these changes in place, do the following:
- 
-      ## If Tomcat is running, restart it.
-
-      ## Open a browser to: https://localhost:8443
-
-         ### Depending on configuration, your browser likely will complain about the 'self-signed' DC stored in
-             the 'devel.keystore' keystore--you'll get warnings about how 'unsafe' it is to proceed.
-       
-
-    # Here's an uncommented entry from server.xml:
-
-       <Connector executor="tomcatThreadPool"
-                  port="8080" protocol="HTTP/1.1"
-                  connectionTimeout="20000"
-                  redirectPort="8443" />
-
-==  tomcat realms roles : 
-
- -- Tomcat realms in container-managed users/roles security
-
-    # 'Realms' are the Tomcat-side of users/roles security.
-    
-      ## The 'web.xml' config is the web-app side.
-
-    # A 'realm' is a datastore with user identities (e.g., login  names), credentials (e.g., passwords),
-      and security roles.
-   
-      ## A given realm also includes whatever code infrastructure is required for realm use.
-
-      ## A realm is created and configured in the main Tomcat config file, TOMCAT_HOME/conf/server.xml
-      
-         ### Once configured, the realm is active when Tomcat is started/restarted.
-
-    # Background technologies:
-
-      ## JNDI: Java Naming and Directory Interface, an API for:
-
-         ## Associating names with resources within a prescribed syntax (the 'Naming' part).
-
-            -- Sample name: url = "jdbc:postgresql://localhost:5432/usersRoles"
-
-         ## Associating names with resources and specifying attributes on such 'bindings' (the
-            'Directory' part)
-
-         ## Typically described as the Java EE 'naming and directory service'.
-
-            ### JNDI is the 'interface', and a 'provider' furnishes the implementation.
-
-    # The built-in security realms are:
-
-      -- JDBCRealm: auth/auth info is stored in a relational database, and accessed through a JDBC driver.
-
-      -- DataSourceRealm: auth/auth info is stored in a relational database, accessed through a named
-         JNDI JDBC 'DataSource'.
-
-      -- JNDIRealm: auth/auth info is stored in an LDAP based directory server, accessed through a JNDI provider.
-
-      -- UserDatabaseRealm: auth/auth info stored in an UserDatabase JNDI resource, which is typically
-         persisted as an XML document on the local file system, with TOMCAT_HOME/conf/tomcat-users.xml
-	 as the default. This realm is well suited to development.
-
-         -- UserLockOutRealm: subtype to prevent brute-force attacks that guess passwords ('dictionary attacks')
-                            
-      -- MemoryRealm: in effect, an earlier version of UserDatabaseRealm (but without JNDI-based lookups)
-
-      -- JAASRealm: auth/auth info access through the JAAS (Java Authentication and Authorization Service)
-         framework, with complete flexibility in how the info is persisted. Used in Java Application Servers.
-
-      ## Users can create and configure additional realms.
-
-         -- Examples from TOMCAT_HOME/conf/server.xml and Tomcat documentation:
-
-         <Realm className="org.apache.catalina.realm.LockOutRealm">
-           <!-- This Realm uses the UserDatabase configured in the global JNDI
-                resources under the key "UserDatabase".  Any edits
-                that are performed against this UserDatabase are immediately
-                available for use by the Realm.  -->
-           <Realm className="org.apache.catalina.realm.UserDatabaseRealm"
-                  resourceName="UserDatabase"/>
-         </Realm>
-
-         <Realm className="org.apache.catalina.realm.JDBCRealm"
-                driverName="org.gjt.mm.mysql.Driver"
-                connectionURL="jdbc:mysql://localhost/authority?user=dbuser&amp;password=dbpass"
-                userTable="users" userNameCol="user_name" userCredCol="user_pass"
-                userRoleTable="user_roles" roleNameCol="role_name"/>
-
-
-=== tomcat virtual hosting :
-
-  -- Tomcat and virtual hosting
-
-  # A scenario to motivate 'virtual hosting':
-
-     -- We've a small company with two product lines: outdoor clothing, and yard equipment.
-        There's some connection between the product lines, but we'd like separate 'domain names' for each.
-
-        ## In 'www.google.com' and 'www.yahoo.com', the domain names are 'google.com' and 'yahoo.com', respectively.
-
-        ## We're willing to register two different domain names with a 'domain name registrar', a company
-           with the power to reserve a domain name (e.g., GoDaddy is a well know 'domain name registrar').
-
-        ## Our domain names will be: acme.outdoorduds.com and acme.gardening.com.
-
-     -- For now, we've one server (need a backup!) or many one small cluster of servers. For now, assume
-        just one server for simplicity.
-
-        ## The key point is that we want requests to two distinct domains to wind up at the same server(s):
-
-           Requests such as
-
-             http://outdoorduds.com:8080/     ## domain name is registered so DNS lookup works
-          
-           and
-
-             http://yardstuff.com:8080/       ## domain name is registered so DNS lookup works
-
-           should wind up at our single web server (or cluster).
-
-  # Out of the box, Tomcat already has one 'host' configured: localhost.
-    ## But 'virtual hosting' becomes interesting only with more than one configured host.
-
-  # How does virtual hosting work in Tomcat?
-
-    ## The notion of an 'Engine' is central in the Tomcat architecture for virtual hosting.
-
-       ### An Engine serves as an entry point into the Catalina web container, which in turn
-           can have multiple 'virtual hosts'. Here's a depiction:
-
-                                         web container
-           dispatch request to a host       /
-                         \             +---------+
-    HTTP request------>Engine--------->|  host1  |  ## the Engine is an 'entry point' to the web container
-                         /             |  host2  |  
-    Tomcat names this 'Catalina'       |   ...   |  ## by default, Tomcat has one Engine -- and names it 'Catalina'
-                                       |  hostN  |
-                                       +---------+
-
-       ### An Engine's job is to analyze an HTTP request, dispatching the request to the appropriate (virtual) host.
-
-    ## The steps:
-
-       ### We can create a virtual host 'on the fly' with the Tomcat web console, but the permanent fix is to edit
-           the main config file TOMCAT_HOME/conf/server.xml.
-
-       1. Backup TOMCAT_HOME/conf/server.xml (just in case).
-
-       2. Edit the Engine section. Here's what I did for illustration:
-
-  #####
-  <!-- An Engine represents the entry point (within Catalina) that processes
-         every request.  The Engine implementation for Tomcat stand alone
-         analyzes the HTTP headers included with the request, and passes them
-         on to the appropriate Host (virtual host).
-         Documentation at /docs/config/engine.html -->
-    <!-- You should set jvmRoute to support load-balancing via AJP ie :
-    <Engine name="Catalina" defaultHost="localhost" jvmRoute="jvm1">
-    -->
-    <Engine name="Catalina" defaultHost="localhost">
-
-      <!--For clustering, please take a look at documentation at:
-          /docs/cluster-howto.html  (simple how to)
-          /docs/config/cluster.html (reference documentation) -->
-      <!--
-      <Cluster className="org.apache.catalina.ha.tcp.SimpleTcpCluster"/>
-      -->
-
-      <!-- Use the LockOutRealm to prevent attempts to guess user passwords
-           via a brute-force attack -->
-      <Realm className="org.apache.catalina.realm.LockOutRealm">
-        <!-- This Realm uses the UserDatabase configured in the global JNDI
-             resources under the key "UserDatabase".  Any edits
-             that are performed against this UserDatabase are immediately
-             available for use by the Realm.  -->
-        <Realm className="org.apache.catalina.realm.UserDatabaseRealm"
-               resourceName="UserDatabase"/>
-      </Realm>
-
-      <Host name="localhost"  appBase="webapps"
-            unpackWARs="true" autoDeploy="true">
-
-        <!-- SingleSignOn valve, share authentication between web applications
-             Documentation at: /docs/config/valve.html -->
-        <!--
-        <Valve className="org.apache.catalina.authenticator.SingleSignOn" />
-        -->
-        <!-- Access log processes all example.
-             Documentation at: /docs/config/valve.html
-             Note: The pattern used is equivalent to using pattern="common" -->
-        <Valve className="org.apache.catalina.valves.AccessLogValve" directory="logs"
-               prefix="localhost_access_log" suffix=".txt"
-               pattern="%h %l %u %t &quot;%r&quot; %s %b" />
-      </Host>
-      <!-- Newly added virtual host -->
-      <Host name="outdoorduds.com"               ## domain name
-	    appBase="outdoorapps"                ## TOMCAT_HOME/outdoorapps holds the WAR files
-	    unpackWARs="true"                    ## unpack, as happens in TOMCAT_HOME/webapps
-	    autoDeploy="true">                   ## 'hot' deploy
-	<Alias>www.outdoorduds.com</Alias>       ## other features are configurable as well
-      </Host>
-      
-      <!-- Add the other virtual host here -->
-      <Host></Host>
-    </Engine>
-    #####
-
-       3. Restart Tomcat if it's running.
- 
-       4. Deploy ROOT.war to the new appBsase, TOMCAT_HOME/outdoorapps -- now we have a
-          'root context' for the new domain name.
-
-          *** Customized context information, in the form of a separate 'context.xml'
-              configuration document, could be added.
-
-== logging :
-
-
- -- Tomcat logging
-
-  # TOMCAT_HOME/logs is the relevant directory, with various log files:
-    ## On Unix-like systems, 'catalina.out' is the main log file.
-
-    ## On Windows, it's 'catalina.<date>.out' only (e.g., 'catalina.2016-06-18.log').
-
-  # Out of the box, Tomcat uses Apache Commons Logging (http://commons.apache.org/proper/commons-logging), under
-    the Tomcat-specific name JULI.
-    ## JULI is Tomcat's implementation of the standard java.util.logging API (so the 'I' is for 'Implementation').
-
-    ## JULI can be configured through property files or programmatically. For Tomcat, this is done in start-up scripts.
-
-    ## Tomcat logging doesn't interfere with customized web-app logging.
-       ### Web apps can piggy-back on Tomcat logging by writing to System.out and System.err. These
-           writes then are recorded 'catalina.out' (or equivalent).
-
-  # JULI limitations: a java.util.logging implementation is per-JVM, not per web-app. 
-    ## If an installation needs per-web-app logging, then a 'plan B' is required -- and that's log4j
-
-    ## What's needed to switch:
-
-       -- log4j at http://logging.apache.org/log4j (.jar and .properties files)
-
-       -- tomcat-juli.jar and tomcat-juli-adapters.jar from the 'extras' section of the Tomcat
-          download page at https://tomcat.apache.org/download-80.cgi
-
-       -- installation: for the setup, see https://tomcat.apache.org/tomcat-8.0-doc/logging.html
-
-  # The log4j option is more powerful and flexible. Is it needed on your installation?
---------------------------------------------------------------------------------------------------------------
-
- # Samples:
-
-   -- from 'catalina.out':
-   
-...
-07-Jun-2016 11:48:24.608 INFO [localhost-startStop-1] org.apache.catalina.startup.HostConfig.deployDirectory
-   Deployment of web application directory /Users/martinkalin/tomcat8/webapps/docs has finished in 8 ms
-07-Jun-2016 11:48:24.608 INFO [localhost-startStop-1] org.apache.catalina.startup.HostConfig.deployDirectory
-   Deploying web application directory /Users/martinkalin/tomcat8/webapps/examples
-07-Jun-2016 11:48:24.721 INFO [localhost-startStop-1] org.apache.catalina.startup.HostConfig.deployDirectory
-   Deployment of web application directory /Users/martinkalin/tomcat8/webapps/examples has finished in 113 ms
-07-Jun-2016 11:48:24.721 INFO [localhost-startStop-1] org.apache.catalina.startup.HostConfig.deployDirectory
-   Deploying web application directory /Users/martinkalin/tomcat8/webapps/host-manager
-07-Jun-2016 11:48:24.732 INFO [localhost-startStop-1] org.apache.catalina.startup.HostConfig.deployDirectory
-   Deployment of web application directory /Users/martinkalin/tomcat8/webapps/host-manager has finished in 11 ms
-...
-07-Jun-2016 11:48:24.752 INFO [localhost-startStop-1] org.apache.catalina.startup.HostConfig.deployDirectory
-   Deployment of web application directory /Users/martinkalin/tomcat8/webapps/ROOT has finished in 7 ms
-07-Jun-2016 11:48:24.754 INFO [main] org.apache.coyote.AbstractProtocol.start Starting ProtocolHandler ["http-nio-8080"]
-07-Jun-2016 11:48:24.759 INFO [main] org.apache.coyote.AbstractProtocol.start Starting ProtocolHandler ["http-nio-8443"]
-07-Jun-2016 11:48:24.759 INFO [main] org.apache.coyote.AbstractProtocol.start Starting ProtocolHandler ["ajp-nio-8009"]
-07-Jun-2016 11:48:24.760 INFO [main] org.apache.catalina.startup.Catalina.start Server startup in 1565 ms
-...
-
-   -- from localhost_access_log.2016-06-01.txt
-
-...
-0:0:0:0:0:0:0:1 - - [01/Jun/2016:20:01:24 -0500] "GET /chitchat/ HTTP/1.1" 200 858
-0:0:0:0:0:0:0:1 - - [01/Jun/2016:20:01:24 -0500] "GET /chitchat/styles.css HTTP/1.1" 200 643
-0:0:0:0:0:0:0:1 - - [01/Jun/2016:20:01:24 -0500] "GET /chitchat/chat.js HTTP/1.1" 200 1070
-0:0:0:0:0:0:0:1 - - [01/Jun/2016:20:01:24 -0500] "GET /chitchat/chat HTTP/1.1" 101 -
-0:0:0:0:0:0:0:1 - - [01/Jun/2016:20:01:24 -0500] "GET /favicon.ico HTTP/1.1" 200 21630
-0:0:0:0:0:0:0:1 - - [01/Jun/2016:20:01:46 -0500] "GET /chitchat/ HTTP/1.1" 304 -
-0:0:0:0:0:0:0:1 - - [01/Jun/2016:20:01:46 -0500] "GET /chitchat/styles.css HTTP/1.1" 304 -
-0:0:0:0:0:0:0:1 - - [01/Jun/2016:20:01:46 -0500] "GET /chitchat/chat.js HTTP/1.1" 304 -
-0:0:0:0:0:0:0:1 - - [01/Jun/2016:20:01:46 -0500] "GET /chitchat/chat HTTP/1.1" 101 -
-0:0:0:0:0:0:0:1 - - [01/Jun/2016:20:01:46 -0500] "GET /favicon.ico HTTP/1.1" 200 21630
-0:0:0:0:0:0:0:1 - - [01/Jun/2016:20:04:46 -0500] "GET /chitchat/ HTTP/1.1" 304 -
-0:0:0:0:0:0:0:1 - - [01/Jun/2016:20:04:46 -0500] "GET /chitchat/styles.css HTTP/1.1" 304 -
-0:0:0:0:0:0:0:1 - - [01/Jun/2016:20:04:46 -0500] "GET /chitchat/chat.js HTTP/1.1" 304 -
-0:0:0:0:0:0:0:1 - - [01/Jun/2016:20:04:46 -0500] "GET /chitchat/chat HTTP/1.1" 101 -
-0:0:0:0:0:0:0:1 - - [01/Jun/2016:20:04:46 -0500] "GET /favicon.ico HTTP/1.1" 200 21630
-...
-
- # Analysis
-
-   -- AWStats at http://www.awstats.org
-
-   -- JavaMelody at https://github.com/javamelody/javamelody/wiki
-
-   -- Octopussy at http://www.octopussy.pm/
-
-   -- Psi-Problem at https://github.com/psi-probe/psi-probe
-
- # Log file backup
-
-    -- logrotate at https://support.rackspace.com/how-to/understanding-logrotate-utility
-
-       ## Can be used on Windows if cygwin (https://www.cygwin.com/) is installed.
-
-       ## LogRotateWin at https://sourceforge.net/projects/logrotatewin is a port that doesn't require cygwin.
- 
- 
-= remote managment :
-
-
- -- Remote monitoring and management
-
- # Quick detour on terminology:
-
-   -- I've been using TOMCAT_HOME to designate the install directory for the Tomcat binaries.
-      ## The goal was to avoid confusion between CATALINA_HOME and CATALINA_BASE, clarified next.
-
-   -- CATALINA_HOME = my TOMCAT_HOME: install directory for Tomcat binaries on the local machine
-
-   -- CATALINA_BASE = working directory for my personal Tomcat instance, as we could have several
-      running on the local system.
-      ## Having several Tomcat instances running isn't so popular now as it once was; might be
-         used, for example, in a teaching environment -- each student gets a Tomcat instance.
-
-   -- If there's just one instance of Tomcat running (my strong preference), then
-      CATALINA_HOME = CATALINA_BASE.
-      ## These environment variables need not be set explicitly: Tomcat figures it out.
-
- # Java-centric monitoring/management tools:
-
-   -- JConsole comes with the JDK (since 1.5). At the command-line:
-
-        % jconsole
- 
-      ## JConsole complies with JMX (Java Management Extensions), and Tomcat exposes components as MBeans.   
-
-   -- VisualVM (https://visualvm.java.net/) also is worth a look.
-
- # Making JConsole easier to use for Tomcat monitoring:
-
-   0. Best to shutdown Tomcat first.
-
-   1. In TOMCAT_HOME/bin, create the file 'setenv.sh' ('setenv.bat' in Windows).
-
-   2. Add the following to this file:
-
-        export CATALINA_OPTS="$CATALINA_OPTS -Dcom.sun.management.jmxremote"
-        export CATALINA_OPTS="$CATALINA_OPTS -Dcom.sun.management.jmxremote.port=9876"
-        export CATALINA_OPTS="$CATALINA_OPTS -Dcom.sun.management.jmxremote.authenticate=false"
-        export CATALINA_OPTS="$CATALINA_OPTS -Dcom.sun.management.jmxremote.ssl=false"
-
-      ## For Windows, replace 'export' with 'set', and replace '$CATALINA_OPTS' with '%CATALINA_OPTS%'.
-
-      ## The port number 9876 (2nd line) can be set to any available port on the local system, but
-         it's easiest to pick a number > 1023.
-
-   3. Start Tomcat.
-
- # Other options (and a recommendation)
-
-   ## For remote (or even local) _monitoring_, JConsole and VisualVM are great.
-
-   ## For remote _management_, I recommesh the 'ssh' (Secure SHell) utility.
-
-      ### 'ssh' is available on Windows from PuTTY (http://www.putty.org/).
-
-   ## For system-level monitoring, a tool such as Monit https://mmonit.com/monit/ is worth a look.
-
-
-
+ <Connector  port="8009" 
+            protocol="AJP/1.3" 
+            redirectPort="8443" />
 
 

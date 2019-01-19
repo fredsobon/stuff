@@ -1,0 +1,671 @@
+=== jsp notes : ===
+
+http://blog.paumard.org/cours/servlet/chap05-jsp.html
+
+
+1. Introduction
+Si les servlets sont très utiles pour développer des comportements dynamiques dans les serveurs web, le concept d'écrire du code HTML dans des appels de type out.write() reste assez peu utilisable. Rapidement, les servlets se sont enrichies d'une deuxième API : les JSP, Java Server Pages.
+
+Qu’est-ce qu’une page JSP ? En un mot : une page HTML dont l’extension a été remplacée par .jsp. À condition de ranger ce fichier au bon endroit d'une application web, Tomcat sera capable de servir ce fichier comme s'il s'agissait d'une page HTML. Ensuite, nous verrons qu'il est possible d'enrichir une page JSP de plusieurs façons, de manière à y inclure des éléments dynamiques ou des appels à des servlets.
+
+
+2. Un premier exemple
+2.1. Une première JSP statique
+Écrivons une première page JSP simple.
+
+Exemple 36. Une première page JSP simple
+
+ <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+   "http://www.w3.org/TR/html4/loose.dtd">
+
+ <html>
+     <head>
+         <meta  http-equiv="Content-Type"  content="text/html; charset=UTF-8">
+         <title>Une première JSP</title>
+     </head>
+     <body>
+         <h1>Bonjour le monde !</h1>
+     </body>
+ </html>
+
+Cette page peut être sauvegardée dans un fichier bonjour.jsp, et rangée à la racine de notre application web. On y accède par l'URL de cette application web, à laquelle il suffit d'ajouter le nom du fichier : bonjour.jsp.
+
+Nous avons donc partiellement résolu notre problème : nous n'avons plus à écrire du code HTML dans du code Java pour produire nos pages web. Cela dit, les JSP proposent de nombreuses fonctionnalités supplémentaires.
+
+2.2. Une première JSP dynamique
+Incluons le code suivant à notre page.
+
+Exemple 37. Une première JSP dynamique
+
+<p>Bonjour, il est <%=new java.util.Date()%></p>
+
+On observe cette fois-ci un affichage qui ressemble à ça :
+
+Il est Thu Oct 28 14:00:58 CEST 2010
+Il est possible d'inclure des variables Java dans une page JSP, en les plaçant entre les marqueurs <%= et %>. Ce code Java est alors invoqué, et le résultat placé dans la réponse.
+
+Voyons un dernier exemple, qui nous permet d'écrire trois fois "Bonjour le monde" sans effort.
+
+Exemple 38. Une deuxième JSP dynamique
+
+<p>Trois fois <br>
+<%  for (int i =  0 ; i <  3 ; i++) { %>
+	Bonjour le monde ! <br>
+<% } %>
+sans effort !</p>
+
+Le tag ouvrant utilisé ici est légèrement différent : <%. Il indique que la suite est du code Java, qui doit être exécuté en l'état. D'où l'affichage :
+
+Trois fois
+Bonjour le monde !
+Bonjour le monde !
+Bonjour le monde !
+sans effort !
+2.3. Fonctionnement interne des JSP
+Comment tout ceci fonctionne-t-il ? Si l'on explore l'arborescence de Tomcat (ou d'un projet Eclipse ou Netbeans, si l'on travaille avec l'un de ces deux IDE), on se rend compte de la présence de deux fichiers : index_jsp.java et index_jsp.class. Dans une installation standard de Tomcat, ces deux fichiers sont dans la sous-arborescence du répertoire work.
+
+Le premier fichier index_jsp.java contient le code d'une servlet classique, dans laquelle on trouve le code suivant :
+
+Exemple 39. Génération d'une servlet à partir d'une JSP
+
+out.write("<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\"\n");
+out.write("   \"http://www.w3.org/TR/html4/loose.dtd\">\n");
+out.write("\n");
+out.write("<html>\n");
+out.write("  <head>\n");
+out.write("    <meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\">\n");
+out.write("    <title>JSP Page</title>\n");
+out.write("  </head>\n");
+out.write("  <body>\n");
+out.write("    <h1>Bonjour le monde !</h1>\n");
+out.write("  </body>\n");
+out.write("</html>\n");
+
+Pour chaque page JSP, Tomcat génère automatiquement une servlet, dans laquelle se trouve le code que l'on aurait eu à écrire pour générer le contenu HTML de notre page. Cette servlet est ensuite compilée, et publiée sous le nom de notre page JSP. C'est bien cette servlet qui nous répond quand on invoque l'URL "index.jsp".
+
+Chaque modification de notre page JSP est détectée par Tomcat, qui reprend la génération de ce code Java et sa compilation. Ce traitement est donc un surcoût sur la première requête.
+
+Observons le nouveau code généré lorsque nous avons ajouté <%= new java.util.Date()%> dans notre JSP. On ne reproduit ici que le contenu de la balise <h1>
+
+Exemple 40. Modification du code généré - 1
+
+out.write("<h1>Bonjour le monde !");
+out.print(new java.util.Date() );
+out.write("</h1>\n");
+
+On constate bien que le contenu de la balise <%= ... %> a été ajouté en paramètre des appels à out.write().
+
+Observons enfin la modification du code généré lorsque nous avons ajouté notre boucle.
+
+Exemple 41. Modification du code généré - 2
+
+out.write("<p>Trois fois <br>\n");
+ for (int i =  0 ; i <  3 ; i++) { 
+   out.write("\tBonjour le monde ! <br>\n");
+} 
+out.write("sans effort</p>\n");
+
+Cette fois, le contenu du code Java placé dans les balises <% ... %> a été recopié sans modification dans le code de la servlet. C'est ainsi que ces deux balises fonctionnent.
+
+3. JSP scriplet
+Ces éléments de Java que l'on place entre ces tags particuliers forment ce que l'on appelle des scriplets . La première version des JSP exposaient cette fonctionnalité, qui a permis de construire nombre de sites web. Voyons les différents types de scriplets disponibles.
+
+3.1. Les expressions
+Nous avons déjà utilisé une expression dans notre premier exemple. Une expression est écrite entre les tags <%= et %>. Elle est passée en argument de la méthode out.print() dans la méthode _jspService() de la servlet générée par Tomcat. Typiquement, Tomcat affiche le retour de la méthode toString() de cet objet sur la page HTML.
+
+3.2. Les déclarations
+Une déclaration est écrite entre les tags <%! et %>. Tout ce qui se trouve entre ces tags est placé à l’extérieur de toute méthode, dans la classe générée. On peut donc entre autre déclarer des variables ou des méthodes par ce biais. Voyons ceci sur deux exemples.
+
+Exemple 42. Scriplet de déclaration
+
+<%!  // déclaration d'une variable 
+     private String blm =  "Bonjour le monde" ;%>
+...
+<%!  // déclaration d'une méthode 
+     private  void setBlm (String s) {
+       blm = s ;
+	  } %>
+...
+<%= blm %>
+
+3.3. Variables prédéfinies
+Quelques variables sont prédéfinies dans une page JSP, et peuvent donc être utilisées sans déclaration.
+
+request : contient une référence sur l’objet de type HttpServletRequest qui contient la requête à cette page. Les en-têtes HTTP sont disponibles au travers de cet objet.
+
+response : référence sur le flux sortant de la servlet. Une JSP ne touche en général pas explicitement au flux sortant. Il est possible de modifier les en-tête HTTP via cet objet, y compris dans le corps de la page. On veillera toutefois à ne faire de telles modifications que si le buffer de sortie n’a pas déjà été vidé vers le client, même partiellement. Si tel était le cas, les modifications de l’en-tête ne seraient pas prises en compte.
+
+out : cette variable est de type Writer. C’est celle qui sert à envoyer les données vers le client. C’est une instance de la classe JspWriter, un Writer qui permet de modifier de façon dynamique la taille du buffer associé.
+
+config : il s’agit de la variable de type ServletConfig utilisée pour initialiser la page.
+
+pageContext : objet de type PageContext. Cette classe abstraite se trouve dans le package javax.servlet.jsp. Elle contient des méthodes qui permettent d’accéder à toutes les variables déclarées par défaut. Si l’on a besoin de passer toutes ces variables à une méthode, il est donc efficace de lui passer pageContext à la place.
+
+session : variable de type Httpession. On peut donc lui attacher des objets, puisqu’une JSP est une servlet. Cette variable représente la session dans laquelle se trouve la requête.
+
+application : variable de type ServletContext, à laquelle on peut aussi attacher des objets. Cette variable modélise l'application web dans laquelle on se trouve.
+
+page : variable qui modèlise la page dans laquelle on se trouve. Elle contient une référence sur this.
+
+3.4. Scriplet de directives
+Une directive est une déclaration qui donne une valeur à un attribut prédéfini. Cet attribut est ensuite utilisé pour créer la servlet associée à cette page. La syntaxe d’une directive est la suivante.
+
+Exemple 43. Scriplet de directive
+
+<@% directive attribut1="valeur1"
+              attribut2="valeur2" %>
+
+Dans ce tag, directive peut prendre trois valeurs : page, include et taglib. Suivant la valeur prise, certains attributs peuvent être ajoutés ou non.
+
+La directive page peut prendre douze attributs différents.
+
+import : cet attribut précise les packages ou les classes à importer pour la servlet qui sera générée.
+
+language : cet attribut précise dans quel langage de programmation la page est écrite. En fait, seule la valeur java est supportée
+
+contentType : indique quel est le type MIME de la page générée. La valeur peut être n’importe quel type MIME valide.
+
+isThreadSafe : cet attribut permet de générer une méthode _jspService() qui ne pourra être appelée que par un seul thread à la fois. Les valeurs prises sont true et false. La valeur par défaut est false.
+
+session : contrôle le fait qu’un objet de type HttpSession va être associé à cette page ou non. Les valeurs possibles sont true et false, qui est la valeur par défaut. Une bonne habitude est de le mettre à false si l’on n’a pas besoin d’accéder à la session courante dans cette page.
+
+buffer : spécifie la taille du buffer de sortie associé à la variable out. Les valeurs prises sont none ou xxkb, où xx est un nombre.
+
+autoflush : contrôle si le buffer doit être envoyé automatiquement au client ou pas. S’il devient plein, une exception sera jetée. Les valeurs acceptées sont true ou false, qui est la valeur par défaut. La valeur false est interdite si l’attribut buffer a été mis à none.
+
+extends : utilisé par les équipes qui développent des serveurs comme Tomcat. Le développeur de servlet n’a pas à l’utiliser.
+
+info : fixe la valeur de la chaîne de caractères renvoyée par la méthode getServletInfo().
+
+errorPage : contient un lien vers une page JSP qui sera appelée pour traiter toute exception jetée mais non captée. Cette page d’erreur doit obligatoirement posséder l’attribut isErrorPage, positionné à true.
+
+isErrorPage : indique si la page courante est une page d’erreur ou pas. Si tel est le cas, une variable supplémentaire est disponible dans la méthode _jspService() : exception. Cette variable contient une référence sur l’exception qui a généré l’appel à cette page.
+
+pageEncoding : définit le codage de caractères qui doit être utilisé sur la page. La valeur par défaut est ISO-8859-1.
+
+Voyons un exemple d'utilisation d'une telle directive.
+
+Exemple 44. Utilisation d'une directive page
+
+<%@page contentType="text/html" 
+        pageEncoding="UTF-8" 
+         import="java.util.List"%>
+
+La directive include permet d'insérer du contenu statique (HTML pur) ou dynamique (scriplets ou éléments JSP) au moment de la compilation de la servlet. Elle ne peut prendre qu'un seul attribut, file, qui pointe vers la ressource à inclure. Voyons un exemple.
+
+Exemple 45. Utilisation d'une directive include
+
+<%@include file="copyright.html" %>
+
+Nous verrons la dernière directive, taglib dans la suite de ce document
+
+4. Utilisation de beans
+4.1. Introduction
+Afin de simplifier l'utilisation des scriptlets, l'API JSP introduit la notion de bean attaché à une page. Un bean attaché à une page se comporte comme une variable que l'on peut utiliser en tout endroit de cette page. Ce bean est attaché à un contexte, qui peut être la page, la requête, la session ou l'application. Enfin ce bean peut être un bean existant, ou créé dans le cadre même de la page.
+
+Rappelons qu'un bean est un objet Java simple, qui doit posséder les propriétés suivantes :
+
+il doit implémenter Serializable ;
+
+il doit posséder un constructeur vide, soit celui qui existe par défaut, soit déclaré explicitement ;
+
+il doit exposer des propriétés, sous forme de paires getters / setters .
+
+4.2. Déclaration d'un bean existant
+Un bean est déclaré en utilisant le tag <jsp:userBean>. Cette déclaration permet d'associer un nom à un bean. Ce nom peut être ensuite utilisé dans la page, comme s'il s'agissait d'un champ normal.
+
+Exemple 46. Déclaration d'un bean dans une page
+
+<%@page contentType="text/html" pageEncoding="UTF-8"%>
+<!DOCTYPE HTML PUBLIC  "-//W3C//DTD HTML 4.01 Transitional//EN"
+    "http://www.w3.org/TR/html4/loose.dtd">
+
+<jsp:useBean id="marin" beanName="marin" scope="request" 
+             type="org.paumard.cours.model.Marin"/>
+
+<html>
+   <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        <title>JSP Page</title>
+    </head>
+    <body>
+        <p>Using <%=marin%> ; </p>
+    </body>
+</html>
+
+La déclaration précédente comporte plusieurs éléments, sous forme d'attributs XML :
+
+id : désigne le nom du champ qui porte la référence à ce bean. Ici marin.
+
+beanName : la présence de cet attribut indique que l'on utilise un bean qui a été créé par ailleurs. Ce bean doit se trouver sur l'un des contextes définis dans l'API servlet : la page, la requête, la session ou l'application. La valeur de cet attribut donne la clé à laquelle ce bean a été associé, par invocation d'une méthode setAttribute(beanName, ...).
+
+scope : attribut qui indique le contexte dans lequel le bean existe. Cet attribut peut prendre les valeurs page, request, session ou application. Dans le cas d'un bean existant, ce contexte doit obligatoirement être précisé. Le moteur de JSP ira chercher ce bean dans le contexte indiqué, par invocation d'une méthode getAttribute().
+
+type : cet attribut indique la classe du bean déclaré. Cette classe doit bien sûr être connue de l'application Web. Dans notre exemple, on affiche simplement ce bean dans la page. Sa méthode toString() sera automatiquement appelée.
+
+Une fois ce bean déclaré, il peut être utilisé le corps de la page JSP, comme indiqué sur l'exemple.
+
+4.3. Création d'un nouveau bean
+La création d'un nouveau bean suit un processus légèrement différent. Tout d'abord, on ne déclare pas l'attribut beanName, qui indique que le bean doit exister dans un contexte donné par l'attribut scope. Ensuite, plutôt que d'indiquer la classe de ce bean dans l'attribut type, on le déclare dans l'attribut class.
+
+Dans ce cas, le moteur de JSP crée ce bean, et le range en tant qu'attribut du contexte indiqué dans l'attribut scope.
+
+On peut enfin préciser les valeurs des propriétés de ce bean de ceux façons :
+
+explicitement, en utilisant une valeur dans l'attribut value de l'élément setProperty ;
+
+en l'associant à une valeur présente dans les paramètres de la requête, en utilisant l'attribut param de l'élément setProperty.
+
+Voyons tout ceci sur un exemple.
+
+Exemple 47. Création d'un bean dans une page
+
+<jsp:useBean id="marin" scope="page"  class="org.paumard.cours.model.Marin">
+    <jsp:setProperty name="marin" property="nom"    value="Surcouf"/>
+    <jsp:setProperty name="marin" property="prenom" param="prenom"/>
+    <jsp:setProperty name="marin" property="age"    param="age"/>
+</jsp:useBean>
+
+Dans ce deuxième exemple, on crée un bean de type Marin, et on l'associe au nom de champ marin. Le contexte de ce bean est la page, il ne sera donc pas disponible ailleurs que dans cette page. En particulier, si cette page fait appel à d'autres pages, ou à d'autres servlets, ces autres éléments n'auront pas accès à ce bean.
+
+Les trois propriétés nom, prenom et age de ce bean sont fixées par les sous-éléments setProperty. Ces sous-élements prennent en attribut :
+
+name : le nom du bean, tel que déclaré dans l'attribut id de l'élément useBean.
+
+property : le nom de la propriété que l'on fixe. Il doit exister un setter associé.
+
+value : si cet attribut est précisé, alors la propriété prendra la valeur indiquée.
+
+param : si cet attribut est utilisé, alors la propriété prendra la valeur du paramètre de la requête donc le nom est indiqué. Cela permet de créer directement un pont entre les paramètres présents sur la requête et les propriétés d'un bean.
+
+4.4. Utilisation des propriétés d'un bean
+Jusqu'à présent nous avons utilisé des éléments de scripts entre les tags JSP particuliers <%= et >. On peut utiliser une syntaxe plus légère, comme dans l'exemple suivant.
+
+Exemple 48. Lecture d'une propriété
+
+<%@page contentType="text/html" pageEncoding="UTF-8"%>
+<!DOCTYPE HTML PUBLIC  "-//W3C//DTD HTML 4.01 Transitional//EN"
+    "http://www.w3.org/TR/html4/loose.dtd">
+
+<jsp:useBean id="marin" beanName="marin" scope="session" 
+             type="org.paumard.cours.model.Marin"/>
+
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        <title>JSP Page</title>
+    </head>
+    <body>
+        <p>Nom = ${marin.nom}</p>
+    </body>
+</html>
+
+Cette syntaxe consiste à référencer un bean par son nom dans la page (valeur de l'attribut id de l'élément useBean qui a servi à le déclarer), et à indiquer la propriété que l'on veut exploiter en utilisant le séparateur .. Le tout doit être mis entre accolades, et précédé par le caractère $.
+
+Dans ce cas, la propriété sera affichée dans la page. Si elle est non nulle, alors le moteur de JSP utilisera sa méthode toString().
+
+
+5. Inclure un contenu externe dans une JSP
+5.1. Introduction
+Le contenu externe que nous souhaitons inclure peut être de deux natures :
+
+un élément statique, tel qu'un élément de texte, une image, une bannière, etc...
+
+un élément dynamique, tel qu'une autre page JSP, ou la sortie d'une servlet.
+
+Dans ce deuxième cas, l'API JSP nous permet de définir cette inclusion au chargement de l'application, ou au moment de la requête, nous allons voir comment.
+
+5.2. Inclusion au lancement de l'application
+On utilise pour cela la directive suivante.
+
+Exemple 49. Inclusion de contenu statique ou dynamique résolu au chargement de l'application
+
+<%@page contentType="text/html" pageEncoding="UTF-8"%>
+<!DOCTYPE HTML PUBLIC  "-//W3C//DTD HTML 4.01 Transitional//EN"
+    "http://www.w3.org/TR/html4/loose.dtd">
+
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        <title>JSP Page</title>
+    </head>
+    <body>
+        
+        <%@include file="image.jpg" %>
+        <%@include file="copyright.jsp" %>
+        
+    </body>
+</html>
+
+Dans les deux cas de notre exemple, le contenu inclus est résolu au chargement de l'application. Lorsque le moteur de JSP crée la servlet associée à cette JSP, et qu'il la compile, une référence vers l'image est créée, et le contenu du la page JSP copyright.jsp est inclus dans cette servlet.
+
+5.3. Inclusion au traitement de la requête
+Cet autre exemple indique comment incluer une page JSP dans une autre, au moment où la requête est traitée.
+
+Exemple 50. Inclusion de contenu dynamique résolu au traitement de la requête
+
+<%@page contentType="text/html" pageEncoding="UTF-8"%>
+<!DOCTYPE HTML PUBLIC  "-//W3C//DTD HTML 4.01 Transitional//EN"
+    "http://www.w3.org/TR/html4/loose.dtd">
+
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        <title>JSP Page</title>
+    </head>
+    <body>
+        
+        <jsp:include page="copyright.jsp">
+            <jsp:param name="year" value="2010"/>
+        </jsp:include>
+        
+    </body>
+</html>
+
+Dans ce deuxième exemple, on inclut le contenu de la page copyright.jsp dans la page courant. De plus, avant d'invoquer cette page, on positionne un paramètre sur la requête, dont le nom est year, et la valeur 2010. La page copyright.jsp peut prendre en compte ces paramètres exactement comme s'ils avaient été positionnés par un formulaire (par exemple). Cette déclaration est bien sûr factultative.
+
+6. Utilisation de bibliothèques de tags
+6.1. Introduction
+L'API JSP définit un moyen de définir ses propres tags, et de leur associés des traitement écrits dans des classes Java. S'en est suivi le développement de bibliothèques de tags appelées taglibs , dont certaines sont standardisées dans l'API. Des frameworks entiers, tels que Struts, sont construits en partie sur ces taglibs , qui permettent des traitement très puissants.
+
+Techniquement, une bibliothèque de tags est composée deux deux éléments :
+
+un descripteur au format XML, appelé "fichier TLD", et qui porte l'extension .tld ;
+
+une ou plusieurs archives Java, au format JAR. Ces fichiers doivent être rangés dans le répertoire WEB-INF/lib de l'application web.
+
+Il est bien sûr possible de créer ses propres bibliothèques de tags, et ce processus, bien qu'un peu technique n'est pas beaucoup plus complexe que de créer une servlet. Cela dit nous ne le décrirons pas ici, nous nous bornerons à décrire quelques éléments de la JSTL, Java Standard Tags Library.
+
+La JSTL se compose de quatre librairies :
+
+Une librairie core, qui expose tous les tags de base de la JSTL. Les autres librairies s'appuient sur cette librairie.
+
+Une librairie fmt, qui expose toutes les fonctionnalités d'affichage de données non triviales : les dates formatées, les nombres formatés, les messages internationalisés.
+
+Une librairie x, qui permet de manipuler le XML. Cette librairie permet par exemple de lire des flux XML via HTTP, de les analyser, de les transformer par XSLT, puis de les afficher sous différentes formes.
+
+Enfin une librairie sql, qui permet d'interagir directement avec les bases de données.
+
+6.2. Bibliothèque core
+JSTL apporte une nouveauté aux JSP : l'utilisation de l' expression language , qui permet de s'affranchir de la syntaxe lourde des scriplets originels. Ce langage n'est pas un langage complet : il permet essentiellement de lire des variables, d'accéder à leurs propriétés, et de contruire des expressions.
+
+En combinant l'utilisation de l' EL et celle des taglibs, on peut construire des pages complexes, avec de l'internationalisation, du contrôle de flux, de l'accès aux bases de données et des éléments XML.
+
+L'exemple qui suit nous montre comment tester si une variable est non nulle en utilisant EL, puis afficher une valeur ou une autre en fonction du résultat de ce test.
+
+Exemple 51. Afficher une variable non nulle en JSTL
+
+<%@page contentType="text/html" pageEncoding="UTF-8" %>
+<!DOCTYPE HTML PUBLIC  "-//W3C//DTD HTML 4.01 Transitional//EN"
+    "http://www.w3.org/TR/html4/loose.dtd">
+
+<%@taglib prefix="c"   uri="http://java.sun.com/jsp/jstl/core" %>
+
+<html>
+   <head>
+      <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+      <title>JSP Page</title>
+   </head>
+   <body>
+
+      <c:choose>
+
+         <c:when test="${marin != null}">
+            <p>Bonjour <c:out value="${marin.nom}"/></p>
+         </c:when>
+         <c:otherwise>
+            <p>Bonjour le monde !</p>
+         </c:otherwise>
+
+      </c:choose>
+   </body>
+</html>
+
+Analysons ce premier exemple en détails.
+
+Tout d'abord, on indique que l'on va utiliser une librairie de tags par la déclaration <%@taglib prefix="..." uri="..."%>. Cet élément comporte deux attributs :
+
+prefix : précise le préfixe au sens XML utilisé pour les éléments de cette page. Le choix de ce préfixe est libre, on utilise conventionnellement c pour la librairie core.
+
+uri : le nom de cette librairie. Ce nom est fixé, et déclaré dans le descripteur de librairie (fichier TLD). Pour la librairie core, l'uri est http://java.sun.com/jsp/jstl/core.
+
+Cette déclaration ressemble à celle d'un espace de noms pour un fichier XML. Si l'on développe sa propre librairie de tags, on veillera à la nommer de façon unique.
+
+Une librairie de tags déclare un certain nombre d'éléments XML utilisables dans un page JSP. Ces éléments sont définis dans le standard JSTL, et c'est là qu'ils sont documentés.
+
+On peut paramétrer un tag de deux façon : en lui ajoutant des attributs, ou en lui ajoutant du contenu. Notons que les uns et les autres sont facultatifs
+
+Dans notre exemple, l'élément choose ne prend pas d'attributs, et il possède un contenu fixé. Ce contenu est composé d'autant de sous-éléments when que l'on veut, et d'un unique élément otherwise. Il ne peut pas y avoir de contenu textuel.
+
+De même, l'élément when ne comporte qu'un unique attribut test, obligatoire, et d'un contenu qui peut mélanger du texte et des éléments JSP (donc d'autres tags).
+
+Enfin, l'élément otherwise ne comporte pas d'attribut, et du contenu JSP, tout comme l'élément when.
+
+Chacun de ces éléments est associé à une sémantique très précise. L'élément choose englode une série d'élément when. Chacun de ces éléments est pris un par un par le moteur de JSP. Le premier de ces éléments pour lequel l'argument de son attribut test est true voit son contenu s'afficher. Si aucun élément when ne répond à ce critère, alors c'est le contenu de l'élément otherwise qui est affiché, s'il est présent.
+
+Le choose agit donc un peu comme un switch, en n'affichant qu'un seul élément de contenu parmi une liste.
+
+On notera également l'utilisation de l'élément out, qui affiche la valeur de son attribut value.
+
+Cet exemple nous permet de présenter le fonctionnement général des bibliothèques de tags. La librairie core expose d'autres éléments.
+
+6.2.1. Tag if
+L'élément if fonctionne comme le if classique de tout langage. Si la condition qui lui est associée est vraie, alors le contenu du if est exécuté. Dans le cas contraire, elle ne l'est pas.
+
+JSTL nous offre une subtilité supplémentaire : la possibilité de sauvegarder le résultat du test dans une variable, en précisant son nom et le contexte dans lequel elle vit. De cette façon, il est possible d'utiliser a nouveau le résultat de ce test plus loin dans la page, sans avoir à le recalculer.
+
+Exemple 52. Utilisation de if
+
+<c:if test="${marin.isWinner} var="result" scope="page">
+   <c:out value="${marin.nom}"/> a gagné !
+</c:if>
+
+6.2.2. Tag forEach
+Ce tag permet d'itérer sur une collection d'objets. Cette collection peut être une plage d'entiers, dont on précise la borne inférieure et la borne supérieure. Elle peut être aussi une vraie collection, déclarée plus haut dans la page JSP.
+
+Exemple 53. Utilisation de forEach sur une plage d'entiers
+
+<table>
+   <tr>
+      <th>Entier</th>
+      <th>Deux foix cet entier</th>
+   </tr>
+
+   <c:forEach var="i" begin="0" end="10" step="2">
+      <tr>
+         <td><c:out value="${i}"/></td>
+         <td><c:out value="${2*x}"/></td>
+      </tr>
+   </c:forEach>
+
+</table>
+
+Sur ce premier exemple, l'attribut var donne le nom de la variable d'itération, begin et end les bornes de l'intervalle d'itération. L'attribut optionnel step précisé l'incrément d'une itération à l'autre.
+
+Exemple 54. Utilisation de forEach sur une collection
+
+<table>
+   <tr>
+      <th>Nom</th>
+      <th>Prénom</th>
+   </tr>
+	   
+   <c:forEach var="marin" items="${marinList}">
+      <tr>
+         <td><c:out value="${marin.nom}"/></td>
+         <td><c:out value="${marin.prenom}"/></td>
+      </tr>
+   </c:forEach>
+   
+</table>
+
+Sur ce deuxième exemple, l'itération a lieu sur les éléments d'une collection définie par ailleurs marinList. La variable d'itération est définie par l'attribut var. On accède ensuite aux champs de l'objet marin comme pour un bean normal.
+
+6.2.3. Tag url
+L'élément URL permet de générer des URL de façon déclarative, sans passer par une quelconque concaténation de chaînes de caractères, ce qui reste un processus fragile, et à éviter. L'élément URL permet différentes chose.
+
+D'ajouter automatiquement le préfixe associé à la web application dans laquelle la page se trouve. Ce préfixe, propre au déploiement, peut varier, et n'est a priori pas connu au moment du développement de l'application.
+
+Il supporte l'ajout du cookie JSESSIONID à l'URL si cela est nécessaire.
+
+Il supporte l'encodage des paramètres dans l'URL, dans le cas d'une requête de type GET.
+
+Exemple 55. Utilisation du tag url
+
+<c:url value="/articles/search.jsp">
+   <c:param name="keyword" value="${word}"/>
+   <c:param name="date" value="10/10/2010"/>
+</c:url>
+
+La déclaration de cette URL peut se traduire par deux URL différentes. Si le système détecte que le navigateur accepte les cookies, l'URL généré aura la forme suivante :
+
+/blogspot/articles/search.jsp?keyword=cours+paumard&month=10%2F10%2F2003
+Si le navigateur client n'accepte pas les cookies, alors le JSESSIONID doit être ajouté à l'URL, qui aura donc la forme suivante.
+
+/blogspot/articles/search.jsp;jsessionid=123123456765AEF345ED7689F42983EE? \
+keyword=cours+paumard&month=10%2F10%2F2003
+6.2.4. Tag redirect
+Un ordre redirect est une commande HTTP qui indique au navigateur client de générer une nouvelle requête sur l'URL passée en paramètre de l'ordre redirect. Il existe plusieurs formes de redirect, correspondant aux codes HTTP 3xx.
+
+La classe HttpServletResponse expose une méthode sendRedirect(String) qui envoie ce code avec comme URL la chaîne passée en paramètre. Le tag redirect correspond à cette méthode.
+
+Le premier attribut, obligatoire, que prend cet élément est url. Cette URL peut être absolue ou relative. Une URL absolue est transmise sans modification au client. Une URL relative peut être de deux formes. Une URL qui commence par un / doit correspondre à une ressource disponible au sein de cette web application, et le moteur JSP ajoute l'URL de base de cette application web en préfixe. Si elle ne commence pas par ce caractère, alors le moteur de JSP l'interprète comme une URL relative, et la complète avant de l'envoyer au navigateur.
+
+Un deuxième attribut, optionnel, peut être ajouté : context. S'il est présent, alors une URL commençant par un / sera interpètée comme étant définie dans ce context plutôt que dans le contexte courant.
+
+Exemple 56. Syntaxe de l'élément redirect
+
+<c:redirect url="url" context="context">
+   <c:param name="name" value="value"/>
+   ...
+</c:redirect>
+
+Notons que tous les attributs utilisés peuvent être exprimés par des variables.
+
+
+7. Internationalisation
+7.1. Notion de bundle
+Nous avons déjà vu qu'un navigateur web pouvait être configuré avec une langue par défaut, et que cette langue est transmise au serveur dans les flux HTTP de requête. Nous avons également vu que cette langue était exposée dans les méthodes de la requête. On peut donc facilement imaginer un mécanisme, dans lequel une application web prendrait cette langue en compte pour afficher ses pages dans la bonne langue, celle du navigateur, automatiquement.
+
+Une application internationalisée est une application qui a la capacité de d'afficher ses pages dans différentes langues, et de choisir celle du navigateur, quand elle existe, automatiquement. Ce mécanisme repose entre autres, sur les ResourceBundle définis dans le JDK.
+
+Un ResourceBundle est un jeu de fichiers texte, qui suit une convention de nommage précise, et qui est rangé dans un même package. Le premier de ces fichiers texte porte le nom du bundle, par exemple : org.paumard.bundles.ApplicationBundle. Ce fichier doit alors porter le nom ApplicationBundle.properties, et être rangé dans le package org.paumard.bundles.
+
+Ce fichier est un fichier texte, qui contient des paires clés / valeurs, ligne par ligne.
+
+Exemple 57. Fichier bundle racine
+
+bonjour.le.monde=Bonjour le monde !
+fermeture.application=L'application va se fermer
+
+On peut compléter ce bundle avec d'autres fichiers, dans des langues différentes. Ces autres fichiers doivent suivre la convention de nommage suivante : on ajoute au nom le suffixe _fr, _en, etc... où les caractères qui suivent _ désignent le code de la langue de ce fichier. Dans notre exemple, le fichier ApplicationBundle_fr.properties aura même contenu que le fichier racine, et le contenu du fichier ApplicationBundle_en.properties sera en anglais.
+
+Exemple 58. Fichier bundle en anglais
+
+bonjour.le.monde=Hello world !
+fermeture.application=The application will be shut down. 
+
+On peut ainsi créer des fichiers en espagnol ( _es), en allemand ( _de), en italien ( _it), etc... À chaque fois, le fichier doit contenir les mêmes clés, et des valeurs dans la langue désignée.
+
+En Java, un bundle s'utilise de la façon suivante.
+
+Exemple 59. Chargement d'un bundle
+
+ResourceBundle bundle1 = 
+   ResourceBundle.getBundle("org.paumard.bundles.ApplicationBundle") ;
+
+ResourceBundle bundle2 = 
+   ResourceBundle.getBundle("org.paumard.bundles.ApplicationBundle", 
+                            Locale.ENGLISH) ;
+
+System.out.println(bundle1.getString("bonjour.le.monde")) ;
+System.out.println(bundle2.getString("bonjour.le.monde")) ;
+
+On peut charger un bundle en passant à la méthode getBundle() la langue ( locale) dans laquelle on veut charger ce bundle. Si cette langue n'est pas définie, alors le bundle racine sera chargé. Notons que l'on peut lire la langue dans laquelle la JVM s'exécute en invoquant la méthode Locale.getDefault().
+
+On imagine donc assez bien, à partir de cet exemple simple, comment l'internationalisation d'une application web va pouvoir fonctionner.
+
+7.2. Internationalisation de pages JSP
+L'internationalisation est gérée par les éléments de la librairie de tags standard fmt. Cette librairie est chargée de la façon suivante.
+
+Exemple 60. Utilisation de la lirairie de tags fmt
+
+<%@page contentType="text/html" pageEncoding="UTF-8" %>
+<!DOCTYPE HTML PUBLIC  "-//W3C//DTD HTML 4.01 Transitional//EN"
+    "http://www.w3.org/TR/html4/loose.dtd">
+
+<%@taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
+
+<!-- suite de la page -->
+
+7.2.1. Positionnement de la langue dans une page
+Le premier tag de cette librairie est le tag setLocale, qui permet de fixer la langue dans laquelle une page doit s'afficher. Ce tag ne doit être utilisé que si l'en-tête HTTP ne contient aucune indication de langue, ce qui ne devrait plus arriver sur les navigateurs récents. Il reste que ce tag peut être très utile en phase de mise au point.
+
+Exemple 61. Tag setLocale
+
+<fmt:setLocale value="fr_FR" scope="session"/>
+
+Dans notre exemple, on positionne la langue à la valeur fr_FR (donc le français que l'on utilise en France), pour toute la session. L'attribut scope est l'attribut classique que l'on a déjà rencontré, et qui peut prendre les valeurs page, request, session et context.
+
+7.2.2. Formater un message localisé
+Examinons l'exemple suivant.
+
+Exemple 62. Formatage des messages localisés
+
+<%@page contentType="text/html" pageEncoding="UTF-8" %>
+<!DOCTYPE HTML PUBLIC  "-//W3C//DTD HTML 4.01 Transitional//EN"
+    "http://www.w3.org/TR/html4/loose.dtd">
+
+
+<%@taglib prefix="c"   uri="http://java.sun.com/jsp/jstl/core" %>
+<%@taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
+
+<fmt:setLocale value="en"/>
+
+<jsp:useBean id="marin" beanName="marin" scope="session" 
+             type="org.paumard.cours.model.Marin"/>
+
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        <title>JSP Page</title>
+    </head>
+    <body>
+
+        <p>Locale = <%= request.getHeader("Accept-language") %></p>
+        
+        <fmt:bundle basename="org.paumard.cours.i18n.Messages">
+
+            <p><fmt:message key="last-name"/> = <c:out value="${marin.nom}"/></p>
+            <p><fmt:message key="first-name"/> = <c:out value="${marin.prenom}"/></p>
+
+            <fmt:message key="greetings-name-first-name">
+                <fmt:param value="${marin.nom}"/>
+                <fmt:param value="${marin.prenom}"/>
+            </fmt:message>
+            <p></p>
+
+        </fmt:bundle>
+
+
+    </body>
+</html>
+
+Voici le contenu du bundle associé.
+
+Exemple 63. Bundle associé
+
+last-name=nom
+first-name=prénom
+greetings-name-first-name=Bonjour {0} {1}
+
+Tout d'abord, remarquons que la déclaration d'un bundle suit la même syntaxe que dans une application Java classique : un bundle est désigné par son nom en tant que ressource.
+
+Remarquons ensuite que les éléments qui dépendent d'un bundle donné doivent être déclarés comme sous-éléments de l'élément bundle.
+
+La librairie de tags fmt nous donne un tag, message, qui permet de désigner une clé de ce bundle, et de l'afficher. Bien sûr, le message affiché est celui de la langue choisie par le système, ou explicitement.
+
+Les deux premiers messages de notre bundle sont des messages simples : first-name et last-name. En revanche, notre dernier message est en fait un format, qui déclare deux paramètres {0} et {1}. Fixer les paramètres de ce message, se fait ajoutant des sous-élément param à l'élément message.
+
+
+
