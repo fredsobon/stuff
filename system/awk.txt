@@ -592,3 +592,31 @@ conversion de caractere  lower => 'awk -F"," '{print tolower($9)}'
 
  less slow-queries.log | grep lapin | sort -n | awk {'print $6'} | awk '{count[$1]++}END{for(j in count) print j,"("count[j]")"}' | sort
 
+
+
+== modification de champ - reassignation de variables : ==
+
+il est possible de modifier la valeur des champs parsés par awk avant le traitement : 
+
+exemple on va pouvoir modifier completement la sortie standart d'un fichier authorized key et le presenter sous format yaml. Les differents champs vont être retraités :
+
+ssh-rsa sdfdzdfzsftfrgfgfgdfkdfjgldkfdlfgkdhldfkdflvkdlvkdjvlkjvlkvjlkjkfjdhdhhdhdhdhdhdhhdhdhhhdhdhhdhhdhdhhdhhdhdhfkdfjdjdjdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd777== blabla@bla.net
+
+
+ awk '{$2="key: \""$2"\"";  $1="type:" $1 ;print $3, $2, $1}' test |awk '{$1=$1 "\n";$2=$2 $3 "\n"; $4="    "$4; print $1, $2,  $4}'
+blabla@bla.net
+ key:"sdfdzdfzsftfrgfgfgdfkdfjgldkfdlfgkdhldfkdflvkdlvkdjvlkjvlkvjlkjkfjdhdhhdhdhdhdhdhhdhdhhhdhdhhdhhdhdhhdhhdhdhfkdfjdjdjdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd777=="
+     type:ssh-rsa
+
+
+ici on agit en deux etapes : 
+1/ on modifie le deuxieme champ en rajoutant le pattern key: et en entrourant la clé de ", on modifie le premier champ et on le prefixe de type: . On affiche ensuite le champ 3 , puis les champs 2 et 1 nouvellement définis : 
+awk '{$2="key: \""$2"\"";  $1="type:" $1 ;print $3, $2, $1}' test
+blabla@bla.net key: "sdfdzdfzsftfrgfgfgdfkdfjgldkfdlfgkdhldfkdflvkdlvkdjvlkjvlkvjlkjkfjdhdhhdhdhdhdhdhhdhdhhhdhdhhdhhdhdhhdhhdhdhfkdfjdjdjdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd777==" type:ssh-rsa
+
+2/ dans un second temps , on va retravailler nos nouvelles entrées : le champ 1 va contenir le champ1 puis un retour chariot , le champ 2 va regrouper le champ 2 et le champ 3 puis un retour chariot. Le champ 4 sera defini par 4 espaces suivis du champ 4 ce qui permettra d'avoir l'affichage de type yaml . 
+blabla@bla.net
+ key:"sdfdzdfzsftfrgfgfgdfkdfjgldkfdlfgkdhldfkdflvkdlvkdjvlkjvlkvjlkjkfjdhdhhdhdhdhdhdhhdhdhhhdhdhhdhhdhdhhdhhdhdhfkdfjdjdjdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd777=="
+     type:ssh-rsa
+
+
