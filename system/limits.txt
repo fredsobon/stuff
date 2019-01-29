@@ -1,3 +1,116 @@
 === notes limits : ==
 
 /etc/security/limits.d/consumer_nproc.conf
+
+
+
+PAM stands for pluggable authentication module. The PAM module pam_limits.so provides functionality to set a cap on resource utilization. The command “ulimit” can be used to view current limits as well as set new limits for a session. The default values used by pam_limits.so can be set in /etc/security/limits.conf.
+
+Limits configured in /etc/security/limits.conf or in files under /etc/security/limits.d are applied to user-sessions only by PAM (via the pam_limits module). When a daemon is started by a service script at boot, it is normally not done via a user-session, so the system defaults apply; PAM plays no role.
+
+Follow the steps outlined to set limits for services run by systemd.
+
+￼
+ 
+1. Find the desired limit directive in the systemd.exec(5) man page. The following is the relevant excerpt:
+
+# man systemd.exec
+...
+LimitCPU=, LimitFSIZE=, LimitDATA=, LimitSTACK=, LimitCORE=, LimitRSS=, LimitNOFILE=, LimitAS=, LimitNPROC=,
+LimitMEMLOCK=, LimitLOCKS=, LimitSIGPENDING=, LimitMSGQUEUE=, LimitNICE=, LimitRTPRIO=, LimitRTTIME=
+   These settings set both soft and hard limits of various resources for executed processes.
+   See setrlimit(2) for details. Use the string infinity to configure no limit on a specific resource.
+
+   Table 1. Limit directives and their equivalent with ulimit
+   ┌────────────────┬───────────────────┐
+   │Directive       │ ulimit equivalent │
+   ├────────────────┼───────────────────┤
+   │LimitCPU        │ ulimit -t         │
+   ├────────────────┼───────────────────┤
+   │LimitFSIZE      │ ulimit -f         │
+   ├────────────────┼───────────────────┤
+   │LimitDATA       │ ulimit -d         │
+   ├────────────────┼───────────────────┤
+   │LimitSTACK      │ ulimit -s         │
+   ├────────────────┼───────────────────┤
+   │LimitCORE       │ ulimit -c         │
+   ├────────────────┼───────────────────┤
+   │LimitRSS        │ ulimit -m         │
+   ├────────────────┼───────────────────┤
+   │LimitNOFILE     │ ulimit -n         │
+   ├────────────────┼───────────────────┤
+   │LimitAS         │ ulimit -v         │
+   ├────────────────┼───────────────────┤
+   │LimitNPROC      │ ulimit -u         │
+   ├────────────────┼───────────────────┤
+   │LimitMEMLOCK    │ ulimit -l         │
+   ├────────────────┼───────────────────┤
+   │LimitLOCKS      │ ulimit -x         │
+   ├────────────────┼───────────────────┤
+   │LimitSIGPENDING │ ulimit -i         │
+   ├────────────────┼───────────────────┤
+   │LimitMSGQUEUE   │ ulimit -q         │
+   ├────────────────┼───────────────────┤
+   │LimitNICE       │ ulimit -e         │
+   ├────────────────┼───────────────────┤
+   │LimitRTPRIO     │ ulimit -r         │
+   ├────────────────┼───────────────────┤
+   │LimitRTTIME     │ No equivalent     │
+   └────────────────┴───────────────────┘
+
+
+2. Create a new /etc/systemd/system/[unit].d/ directory. For example:
+
+# mkdir /etc/systemd/system/httpd.service.d
+3. Create a new /etc/systemd/system/[unit].d/[name].conf drop-in config file with the desired setting in the appropriate context type. For example:
+
+# cat /etc/systemd/system/httpd.service.d/ulimit.conf
+[Service]
+LimitNOFILE=8000
+LimitNPROC=32000
+4. Execute systemctl daemon-reload command.
+
+# systemctl daemon-reload
+5. Execute systemctl restart [unit] command.
+
+# systemctl restart [unit]
+6. Confirm that new limits were applied by checking the /proc/[PID]/limits file or output of “systemctl show [unit] | grep -i limit” command.
+
+cat /proc/[PID]/limits
+# systemctl show [unit] | grep -i limit
+Example
+Let us see an example to configure Apache 2.4 to have maximum control open file using the above steps.
+
+1. First, find the MainPID and LimitNPROC for the httpd sercice
+
+# systemctl show httpd -p MainPID
+MainPID=21191
+# systemctl show httpd -p LimitNPROC
+LimitNPROC=15084
+2. Find the existing limits (Max processes and Max open files) for the MainPID 21191 using the below command:
+
+# egrep 'process|open files' /proc/21191/limits
+Max processes             15084                15084                processes
+Max open files            1024                 4096                 files
+3. Create a new directory /etc/systemd/system/httpd.service.d.
+
+# mkdir /etc/systemd/system/httpd.service.d
+4. Create a new file /etc/systemd/system/httpd.service.d/ulimit.conf with the below configuration.
+
+# cat /etc/systemd/system/httpd.service.d/ulimit.conf
+[Service]
+LimitNOFILE=8000
+LimitNPROC=32000
+5. Reload the daemons and restart the httpd service:
+
+# systemctl daemon-reload
+# systemctl restart httpd
+6. Verify the new limits with the below commands.
+
+# systemctl show httpd | grep -ie nproc -e nofile
+LimitNOFILE=8000
+LimitNPROC=32000
+# eval $(systemctl show httpd -p MainPID)
+# egrep 'process|open files' /proc/$MainPID/limits
+Max processes             32000                32000                processes
+Max open files            8000                 8000                 files
