@@ -1,0 +1,112 @@
+=== notes tomcat udemy ===
+
+
+=== general : ===
+
+apres l'install de l'appli ( package distrib ou via source ) : des grands concepts sont a comprendre :
+
+en utilisant le binaire directement de tomcat on voit différents composants :
+
+root@ubuntu-xenial:/usr/share/tomcat8/bin# ./startup.sh 
+Using CATALINA_BASE:   /usr/share/tomcat8
+Using CATALINA_HOME:   /usr/share/tomcat8
+Using CATALINA_TMPDIR: /usr/share/tomcat8/temp
+Using JRE_HOME:        /usr
+Using CLASSPATH:       /usr/share/tomcat8/bin/bootstrap.jar:/usr/share/tomcat8/bin/tomcat-juli.jar
+
+
+tomcat est un assemblage de composants / modules. 
+
+CATALINA : un des plus important module : c'est le web container ou servlet container de notre application.
+
+JRE_HOME : tomcat a besoin d'une jvm java pour travailler : à l'install brut via package le path n'est pas rempli : on pourra le définir
+pour cela il est conseillé de creer un fichier nommé setenv.sh qui va contenir le path de notre java : 
+cat setenv.sh 
+export JAVA_HOME='/usr/lib/jvm/java-8-openjdk-amd64'
+
+[ NOTES :  ce nom est apppelé dans le script catalina.sh lui meme appellé par startup.sh 
+if [ -r "$CATALINA_BASE/bin/setenv.sh" ]; then
+  . "$CATALINA_BASE/bin/setenv.sh"
+elif [ -r "$CATALINA_HOME/bin/setenv.sh" ]; then
+  . "$CATALINA_HOME/bin/setenv.sh"
+fi
+Cela ne permet d'exposer java que pour l'appli tomcat.
+Biensur on peut définir java dans le fichier /etc/environment 
+
+sudo vi /etc/environment
+
+JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
+PATH=$PATH:$JAVA_HOME/bin
+
+source /etc/environment
+ ]
+
+si on redemmare tomcat le path est bien chargé :
+
+root@ubuntu-xenial:/usr/share/tomcat8/bin# ./startup.sh 
+Using CATALINA_BASE:   /usr/share/tomcat8
+Using CATALINA_HOME:   /usr/share/tomcat8
+Using CATALINA_TMPDIR: /usr/share/tomcat8/temp
+Using JRE_HOME:        /usr/lib/jvm/java-8-openjdk-amd64
+
+
+
+
+tomcat quand il va recevoir une requete va la transmettre a un thread qui sera issu d'un pool de thread dédié en attente.
+tomcat traite une requette par un thread.
+
+
+
+on va pouvoir installer des pacquets utiles pour comprendre tomcat :
+apt install tomcat8-docs tomcat8-examples tomcat8-admin
+
+si on pointe sur notre browser en localhost 8080 : on verra l'install de tomcat et les liens vers les exemples , docs et admin ( des credentials sont demandés dans ce cas.) 
+ 
+
+== Request mapping : ==
+
+pour fournir le contenu correspondant a la requete d'un client , tomcat va utiliser un mapping de ressources :
+
+-> tomcat cher le war (web archive ) matchant avec la ressource
+-> ensuite tomcat va fournir la ressource contenue dans le war file ..
+ex : page html ..
+
+Si la ressource n'existe pas une 404 est retournée ...
+
+ # Here's the directory structure for TOMCAT_HOME:
+
+                              TOMCAT_HOME     ## contains LICENSE, NOTICE, RELEASE-NOTES, RUNNING.txt
+                                    |
+   +----------+----------+----------+----------+----------+---------+
+   |          |          |          |          |          |         |
+  bin        conf       lib        logs       temp       webapps   work
+
+   *## bin:     scripts to start/stop Tomcat, etc.
+    ## conf:    configuration files (XML files)
+    ## lib:     Tomcat and 3rd-party libraries (JAR files)
+    ## logs:    log files (many over time...)
+    ## temp:    temporary files created using the Java File API
+   *## webapps: deployed web apps (web sites, web services, web sockets,...)
+    ## work:    Tomcat-compiled JSP scripts and other assets
+
+   A star * marks the two subdirectories we care about most at the start.
+
+  # More about TOMCAT_HOME/webapps
+
+    ## It's the 'virtual base directory' for a deployed web app, e.g., 'preds.war'.
+
+=== deploiement d'appli : =
+
+la methode classique est de copier le WAR file dans l'arbo $TOMCAT_HOME/webapps 
+
+l'url du client comporte le nom du war comme premier champ de l'uri :
+ex: 
+   'scheme'    port number  WAR file name  JSF script in the WAR file
+        \               \      /           /
+       http://localhost:8080/preds/ajax.jsf   ## URI starts with the / after the port number
+
+
+souvent une page par default est affiché lors de l'appel d'une ressource : le client appelle juste l'url avec le nom du war :et une page par défault apparait :
+ex : lapin.net/bla -> va renvoyer lapin.net/bla/bla.html : le war est bla et bla.html fait partie du war et est configurée comme page par défaut.
+
+
