@@ -67,11 +67,36 @@ si on pointe sur notre browser en localhost 8080 : on verra l'install de tomcat 
 
 pour fournir le contenu correspondant a la requete d'un client , tomcat va utiliser un mapping de ressources :
 
--> tomcat cher le war (web archive ) matchant avec la ressource
+-> tomcat cherche le war (web archive ) matchant avec la ressource
 -> ensuite tomcat va fournir la ressource contenue dans le war file ..
 ex : page html ..
 
 Si la ressource n'existe pas une 404 est retournée ...
+
+
+=== deploiement d'appli : =
+
+la methode classique est de copier le WAR file dans l'arbo $TOMCAT_HOME/webapps 
+
+l'url du client comporte le nom du war comme premier champ de l'uri :
+ex: 
+   'scheme'    port number  WAR file name  JSF script in the WAR file
+        \               \      /           /
+       http://localhost:8080/preds/ajax.jsf   ## URI starts with the / after the port number
+
+
+souvent une page par default est affiché lors de l'appel d'une ressource : le client appelle juste l'url avec le nom du war :et une page par défault apparait :
+ex : lapin.net/bla -> va renvoyer lapin.net/bla/bla.html : le war est bla et bla.html fait partie du war et est configurée comme page par défaut.
+
+
+=== tomcat directory structure ===
+
+
+ # Tomcat can be installed (e.g., by unzipping a downloaded ZIP file) anywhere on the local system.
+
+   ## For reference, TOMCAT_HOME is the top-level install directory.
+   
+      ### You could define an environment variable with this name, but it's not required.
 
  # Here's the directory structure for TOMCAT_HOME:
 
@@ -93,20 +118,96 @@ Si la ressource n'existe pas une 404 est retournée ...
 
   # More about TOMCAT_HOME/webapps
 
+Ce repertoire sera le doc root de base de nos webapps : on pourra y mettre les wars directement 
+
     ## It's the 'virtual base directory' for a deployed web app, e.g., 'preds.war'.
 
-=== deploiement d'appli : =
+       ### The 'virtual' underscores that TOMCAT_HOME/webapps is _not_ part of the URI:
 
-la methode classique est de copier le WAR file dans l'arbo $TOMCAT_HOME/webapps 
+on voit bien qu'il n'y a aucune présence du "path" tomcat_home/webapps : l'appel de notre url rendra la ressource directment a la racine du site :  
+              http://localhost:8080/preds    ## no sign of TOMCAT_HOME/webapps
 
-l'url du client comporte le nom du war comme premier champ de l'uri :
-ex: 
-   'scheme'    port number  WAR file name  JSF script in the WAR file
-        \               \      /           /
-       http://localhost:8080/preds/ajax.jsf   ## URI starts with the / after the port number
+       ### TOMCAT_HOME/webapps can have arbitrarily many subdirectories to any level.
+On peut biensur avoir des sous niveau ex : 
+           Example: If 'preds.war' were deployed to TOMCAT_HOME/webapps/examples, then
+	            the URL would be:
+          
+              http://localhost:8080/examples/preds
+
+           -- To keep the URI part as simple as possible, I prefer to put all of my web apps
+	      in TOMCAT_HOME/webapps rather than in a subdirectory thereof.
+
+=== http ===
+
+tomcat est un serveur web.
+
+ # HTTP is a messaging protocol, built atop TCP (Transmission Control Protocol)
+
+   ## Two basic types of message: request and response
+
+   Depiction:
+
+      Various request 'methods', including: POST (Create), GET (Read), PUT (Update, Delete (Delete): CRUD ops
+                  /
+             request message
+      client----------------->server
+
+      ## URLs typed into the browser's input box, or clicked hyperlinks, typically generate GET requests.
+
+      ## Forms submitted from a browser typically generate POST requests.
+      ## Modern browsers do GET and POST only.
+
+      ## Modern web services, which are typically hit by programs other than browsers, are 'RESTful'
+         in that they support all four CRUD operations.
+         
+      
+             response message
+      client<-----------------server
+      
+-----------------------------------------------      
+
+   Richer depiction with URL 'http://localhost:8080/greet/hello.html' ## URI is '/greet/hello.html', method is GET
+
+                                                              'Create' 'Read' 'Update' 'Delete' ## CRUD operations
+                                                              'Create' 'Read' 'Update' 'Delete' ## CRUD operations
+                                                                   \      |    /        /
+        requires a URI ('noun') and an HTTP method ('verb' such as POST, GET, PUT, or DELETE)
+                      \
+               request message    +-----------------------+
+       client-------------------->| HTTP-compliant server |   ## verb is GET, noun is /greet/hello.html
+          /                       +-----------------------+   ## Operation: Read the 'hello' page
+   perhaps a browser as the 'user agent'
 
 
-souvent une page par default est affiché lors de l'appel d'une ressource : le client appelle juste l'url avec le nom du war :et une page par défault apparait :
-ex : lapin.net/bla -> va renvoyer lapin.net/bla/bla.html : le war est bla et bla.html fait partie du war et est configurée comme page par défaut.
+               response message   +-----------------------+
+       client<--------------------| HTTP-compliant server |   ## a server responds to a request
+                                  +-----------------------+   ## Response is the embedded 'hello' page 
+   ## HTTP is often described as 'stateless', but does contain mechanisms (e.g., cookies and other
+      'header elements') to manage state.
+
+   ## In general, it's the web app that maintains 'state' among requests and responses in order to
+      support a multi-message conversation.
+
+      ### Tomcat (through the Catalina component) provides mechanisms such as the 'session map' to help
+          the programmer maintain state.
+  
+ # Format of requests/responses
+
+    HTTP request:
+
+       start line   ## HTTP_method URI [HTTP version]        E.g.: POST /skiServ/dataVerifier HTTP/1.1
+       headers      ## Key/value pairs, with : as separator  E.g.: Content-Type: application/x-www-form-urlencoded
+       newline
+       newline
+       [body]       ## GET and DELETE have no body; POST and PUT have a body
+
+    HTTP response:      
+
+       start line   ## [HTTP version] Status code (numeric and English)  E.g.: 200 OK
+       headers      ## Key/value pairs, with : as separator              E.g.: Server: Apache-Coyote/1.1
+       newline
+       newline
+       body         ## For instance, an HTML page
+:
 
 
