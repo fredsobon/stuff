@@ -8,17 +8,33 @@
 "kube-proxy enables the Kubernetes service abstraction by maintaining network rules on the host and performing connection forwarding."
 
 
+kube-proxy va faire la coorespondance / natter les flux des clusters-ip liées aux services définis et les ip des pods 
+
+ex :
+pour joindre un service 10.254.1.1 sur le port 80 kube proxy va envoyer les flux sur les pods 10.163.0.2 et 10.165.0.1 port 8080 qui portent le service final 
+cluster ips :
+service 1 : 10.254.1.1:80  -> 10.163.0.2:8080
+                           -> 10.165.0.1:8080
+
 = ingress =
 
 -> un Ingress est une règle qui permet de relier une URL à un Service et un Ingress Controller est un composant qui permet de piloter un reverse-proxy pour implémenter cette règle. C’est LA méthode propre pour traduire une URL provenant d’un client en requête interne dans le cluster K8s pour atteindre le bon service.
 
+On peut voir ingress comme un load balancer qui va permettre de relier les clients externes au cluster aux bon services portés par les pods 
+
+
 = flannel = 
 
--> On comprend donc que cela permet de mettre en place un maillage de routeurs, censés permettre automatiquement à l’infrastructure de s’étendre (aka - une fabrique l3) pour donner la possibilité à des conteneurs répartis sur plusieurs machines de communiquer. 
+p ermet de mettre en place un maillage de routeurs, censés permettre automatiquement à l’infrastructure de s’étendre (aka - une fabrique l3) pour donner la possibilité à des conteneurs répartis sur plusieurs machines (nodes )  de communiquer.
+Flannel est le CNI ( container network inferface ) : le fournisseur de reseaux pour les pods. 
+Il fourni le plan d'adressage et permet à tous les pods de communiquer ensemble même s'ils sont sur des nodes différents.
+C'est le réseau de bas des pods 
+
 Flannel fournit également l’automatisation nécessaire pour mettre en place la configuration réseau sous-jacente, à savoir, soit par une couche d’encapsulation permettant la connectivité entre les machines hôtes au-dessus d’un réseau existant, soit par le pilotage directement de la solution réseau d’un cloud provider. 
 Flannel fournit également une couche d’abstraction vis à vis de la technologie employée pour mettre en place ces réseaux. Ce projet peut être affilié aux solutions de SDN, puisqu’il propose :
-
 d’automatiser les configurations réseau nécessaires à de nombreux pods (dans Kubernetes) et conteneurs, pour communiquer
 de mutualiser des données nécessaires aux différents éléments du réseau, ici les hôtes des pods et conteneurs
 
+= etcd =
 
+est une unité de stockage distribuée persistante et légère de données clé-valeur développée par CoreOS, qui permet de stocker de manière fiable les données de configuration du cluster, représentant l'état du cluster à n'importe quel instant. D'autres composants scrutent les changements dans ce stockage pour aller eux-mêmes vers l'état désiré
