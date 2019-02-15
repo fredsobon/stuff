@@ -1,0 +1,277 @@
+==== presentation docker ====
+
+
+features du kernel linux utilisées par docker
+
+les containers sont de bases isolés
+
+kernel du host utilisé par docker 
+
+de base :
+on a le client qui permet de controller le daemon docker
+docker a voir comme une application qui demarre sur une machine
+
+
+container est une image qui tourne
+image est l'application executable
+
+== docker commandes : ===
+
+
+docker run < image > 
+
+-it : console : demarre avec le user actif du container + bash 
+
+--rm : va remove le docker a la fin de l'utilisation 
+-d : passer en mode detach : on peut ainsi recupérer la main sur le docker
+
+docker ps 
+
+-a : permet de voir tous les containers presents
+container id : identifiant du container
+image : provenance du container
+
+
+docker ps -a
+CONTAINER ID        IMAGE                                                    COMMAND                  CREATED             STATUS                      PORTS                   NAMES
+db6477d32882        hello-world                                              "/hello"                 12 minutes ago      Exited (0) 12 minutes ago                           quirky_chatterjee
+d6595927e7b6        jacksoncage/phpmemcachedadmin                            "/bin/bash /start.sh"    24 hours ago        Exited (255) 5 hours ago    0.0.0.0:32768->80/tcp   hopeful_bartik
+082da0b36ad3        jacksoncage/phpmemcachedadmin                            "/bin/bash /start.sh"    3 days ago          Exited (137) 2 days ago                             nervous_chatterjee
+
+docker exec : 
+
+docker exec -ti container_id bash 
+
+on va pouvoir se connecter sur le docker en bash 
+
+docker logs  
+
+on va pouvoir recupérer sur la sortie standart les logs de l'appli du container
+
+docker stop 
+
+docker start container_id 
+
+docker container ls container_id
+
+docker rm container_id 
+
+docker images 
+
+pour delete une image : il fauyt qu'il n'y ait plus de container dessus 
+docker rmi image_id 
+
+recupere une image 
+docker pull image 
+
+on peut recup une version dediée 
+docker pull image_name:tag 
+
+on peut recupe une image 
+
+docker pull artifact-lapin.net/bla/puppet
+
+
+on peut copier renommer une image 
+docker tag image_name:tag new_name:newtag
+
+docker build 
+
+docker build . : le point va nous indiquer l'endroit ou on build et donc 
+
+
+docker login image_name 
+
+
+docker login artifact-lapin.net
+Username: lapin
+Password:
+Login Succeeded
+
+
+
+
+docker run -P -d workshop
+
+-P > docker choisi un port dispo sur le host 
+-p : permet de choisir un port dédié.
+
+
+
+
+= build docker images : ===
+
+
+
+dockerfile 
+
+quand on va creer un dockerfile pour builder notrer image : il faut mettre tous les fichiers nécéssaires au build dans notre contexte de build ET surtout rien d'autre : car le build seraenvoyé au demon docker
+
+
+il ya un check de syntaxe 
+chaque instruction est faite sequentiellement et a chaque instruction une image intermediaire est crée : on va donc bien ordonnancer les instructions ( installs de packqte ; puis modif de fichiers ) : un cache est utilisé à chaque fois.
+on aura pas besoin de récupérer les paquages a chaque fois, une fois que les images sont a builder
+
+il y a plusieurs syntaxes
+
+
+Dockerfile 
+
+FROM image 
+
+
+scratch est une image vide qui permet de partir de rien du tout .
+
+
+
+RUN cmd : on lance les commande
+le cache n'est pas invalidé quand on rerun un build
+
+CMD : un seul CMD est possible dans le dockerfile 
+cette commande est lancée au run 
+
+
+ADD : va nous permettre de copier des infos de notre contexte de build ou du net  vers notre env de build 
+cela va nous permettre de unpack vers la destiantion
+n'a pas utiliser sauf si on veux de l'autoextraction 
+
+COPY : on va  utiliser cette methode plutot pour copier les fichiers 
+
+
+LABEL key=value 
+
+ajoute des metadata a notre image 
+
+
+EXPOSE port 
+
+specifie que le container va ecouter sur un port dedié .
+On sera cependant obligé de forcer l'exposition quans on lance le docker avec -p 
+
+ENV key value 
+
+on peut setter des variables d'"env.
+
+
+=== workshop docker cmds : === 
+
+
+= semaine1 : =
+
+
+-> workshop1 : 
+
+1. Install Docker:
+Install on Linux: https://docs.docker.com/install/linux/docker-ce/ubuntu/
+$ docker run hello-world
+
+2. Play with docker command line
+Pull this repository and then start to follow those steps:
+This small project display a simple html page using a nginx server.
+
+Build the docker image
+$ docker build -t workshop .
+
+Start a container from your build image
+$ docker run -P -d workshop
+
+Go to your browser and try display the html page
+$ docker ps
+
+See the port used on your computer and go to: 127.0.0.1:
+
+
+Try to exec a tty in the container and edit the html file (it's located at /usr/share/nginx/html/index.html)
+$ docker ps
+$ docker exec -ti <CONTAINER_ID> bash
+$ vim /usr/share/nginx/html/index.html
+
+Go to your browser and try display the html page
+
+You can see the modification you made on the html page
+
+
+Stop your container
+$ docker ps
+$ docker stop <CONTAINER_ID>
+
+You can now see that the page does not respond anymore
+
+
+Start a container from your build image
+$ docker run -P -d workshop
+
+Go to your browser and try display the html page
+
+You can see that the page is not modified anymore
+
+
+Stop your container
+$ docker ps
+$ docker stop <CONTAINER_ID>
+
+Start your old container (the one you modified)
+$ docker container ls
+$ docker start <CONTAINER_ID>
+
+Go to your browser and try display the html page
+
+You can see the modification you made on the html page
+
+
+Stop your container
+$ docker ps
+$ docker stop <CONTAINER_ID>
+
+Remove both containers from your host
+$ docker container ls -a
+$ docker rm<CONTAINER_ID>
+
+Remove the image you build at the begining of this workshop
+$ docker rmi workshop
+
+
+-> workshop2 : 
+
+Create a Dockerfile:
+Part 1
+Create a Dockerfile using the official nginx run it and display the default page
+
+FROM nginx
+
+Build and run it :
+$ docker build -t workshop2 . && docker run --rm workshop2
+
+With *docker inspect* you can find it's ip adress or you can just publish the 80 port on localhost
+
+Remplace the default nginx configuration (in /etc/nginx/conf.d) with workshop.conf and add the index.html (in /var/www)
+COPY workshop2/index.html /var/www/
+COPY workshop2/workshop.conf /etc/nginx/conf.d/
+RUN rm /etc/nginx/conf.d/default.conf
+
+For now you can't edit the file in the container. Add vim in the container to be able to edit the index.html file
+RUN apt-get update && apt-get install -y vim
+
+add a second html file and serve it on the 9000 port
+COPY workshop2/index9000.html /var/www/
+COPY workshop2/workshop9000.conf /etc/nginx/conf.d/
+EXPOSE 9000
+
+$ docker build -t workshop2 . && docker run --rm -p 80:80 -p 9000:9000 workshop2
+
+add a metadata saying you created this wonderful image and display it in the terminal
+LABEL maintainer="lapin@lapin.net"
+
+Part 2
+
+Instead of copying file for your project now try to use a volume
+Take care the file arborescence changed Build and run it: $ docker build -t workshop2 . && docker run --rm -p 80:80 -p 9000:9000 -v /home/docker-workshop/workshop2/app:/var/www workshop2
+
+VOLUME /var/www
+Set up a workspace so when you log in you are directly where the file are located
+WORKDIR /var/www
+
+
+
+
+
