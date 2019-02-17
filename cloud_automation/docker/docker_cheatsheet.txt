@@ -1,116 +1,28 @@
-
-=== notes sur docker ===
-
-== tester en live une distrib ==
-
-on lance un docker en centos:7 , et on lance un bash et on se connecte dans la foulée , puis on delete le container dans la foulée : 
-
-run on lance 
---rm on delete 
--it : lance une console 
-docker run --rm -it centos:7 /bin/bash
+=== quick notes for docker ===
 
 
+= docker cmds = :
 
-== Useful one-liners Docker cleanup commands Docker compose syntax ==
-Interacting with a container
+- docker version
 
-= Download an image
-docker pull image_name
+boogie@satellite:/tmp$ docker version
+Client:
+ Version:           18.06.1-ce
+ API version:       1.38
+ Go version:        go1.10.4
+ Git commit:        e68fc7a
+ Built:             Fri Jan 25 14:34:22 2019
+ OS/Arch:           linux/amd64
+ Experimental:      false
 
-= Start and stop the container
-docker [start|stop] container_name
+Server:
+ Engine:
+  Version:          18.06.1-ce
+  API version:      1.38 (minimum version 1.12)
+  Go version:       go1.10.4
+  Git commit:       e68fc7a
+  Built:            Thu Jan 24 10:47:43 2019
+  OS/Arch:          linux/amd64
+  Experimental:     false
 
-= Create and start container, run command
-docker run -ti --name container_name image_name command
-
-= Create and start container, run command, destroy container
-docker run --rm -ti image_name command
-
-= Example filesystem and port mappings
-docker run -it --rm -p 8080:8080 -v /path/to/agent.jar:/agent.jar -e JAVA_OPTS=”-javaagent:/agent.jar” tomcat:8.0.29-jre8
-
-docker-compose.yml file example
-version: “2”
-services:
-web:
- container_name: “web”
- image: java:8 # image name
- # command to run
- command: java -jar /app/app.jar
- ports: # map ports to the host
- - “4567:4567”
- volumes: # map filesystem to the host
- - ./myapp.jar:/app/app.jar
-mongo: # container name
- image: mongo # image name
-
-= Create and start containers
-docker-compose up
-
-= Docker machine commands
-Use docker-machine to run the containers
-
-= Start a machine
-docker-machine start machine_name
-Configure docker to use a specific machine
-eval “$(docker-machine env machine_name)”
-
-= Kill all running containers
-docker kill $(docker ps -q)
-
-= Delete dangling images
-docker rmi $(docker images -q -f dangling=true)
-
-= Remove all stopped containers
-docker rm $(docker ps -a -q)
-
-= Run a command in the container
-docker exec -ti container_name command.sh
-
-exemple :  ici on rentre dans le container en lancant un bash :
-docker exec -it container1  /bin/bash
-
-= Follow the container logs
-docker logs -ft container_name
-
-= Save a running container as an image
-docker commit -m “commit message” -a “author” container_name username/image_name:tag
-
-
-== managment de container : ==
-
-
-on peut installer un packet depuis notre docker host 
-
-ex : on install tree sur un container d'image ubuntu : 
-root@ansible:~# docker run ubuntu apt-get install -y tree
-on recupere l'id du container sur lequel on a fait ,otre modif puis on commit le changement : 
-root@ansible:~# docker ps
-CONTAINER ID        IMAGE                    COMMAND                  CREATED             STATUS              PORTS               NAMES
-0113c8123b5c        kinogmt/centos-ssh       "/bin/sh -c 'servi..."   15 minutes ago      Up 15 minutes       22/tcp              hopeful_bohr
-943b0349a0f2        kinogmt/centos-ssh       "/bin/sh -c 'servi..."   15 minutes ago      Up 15 minutes       22/tcp              jolly_babbage
-e909c4afb217        rastasheep/ubuntu-sshd   "/usr/sbin/sshd -D"      15 minutes ago      Up 15 minutes       22/tcp              nervous_shockley
-
-root@ansible:~# docker commit e909c4afb217 rastasheep/ubuntu-sshd 
-sha256:097e45d8ab22c21071e9c2cbd7567adcd808247361314c82bfc22e93a329c265
-
-
-stop de docker et tous les containers ... 
-
-docker stop $(docker ps -a -q)
-
-au reboot nos modifs sont conservées. 
-
-
-== demarrage 
-docker run -it -d notre_image
-docker inspect notre_id de container
-docker exec -u 0 -it notre_container bash
-
-
-== Démonter l'interface docker0 sur notre machine host : =
-
-service docker stop ne suffit pas pour démonter l'interface : on est obliger de faire : 
-
-sudo ip link del docker0
+- 
