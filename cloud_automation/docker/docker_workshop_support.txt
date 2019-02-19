@@ -1,0 +1,268 @@
+
+
+---- Workshop Docker #1   ----
+
+Install and Learn basic commandsWorshops
+4 sessions :
+For each sessions you need the previous one to understand the next
+one.
+Each sessions split in 4 parts :
+• 2 small more academic parts
+• 2 workshop based on what was presented.Introduction
+Objectives of the workshop:
+• Introduction to docker principles
+• Get docker running on your computer
+• Learn to use basic docker commandsWhat is Docker ?What is docker ?
+IT'S NOT A VMWhat is docker ?
+Docker is a container engine that use linux kernel feature like namespace and
+control groups to create container on top of the operating system.
+Docker are processes who are running on top of the operating system kernel.Who is docker ?
+Each container have his own user space. They can't see or interact each
+other.
+As docker uses the kernel of the hosting machine it can't run a windows
+container on linux because linux doesn’t support windows.Where is Docker ?
+How about docker on Windows and iOS ?
+LOL
+THEY CAN'TDocker on Windows and iOS
+To run Docker onto those OS you need to run a linux kernel
+somewhere.
+Basic principle is to run a Linux in a VM and do some docker in it.
+Either by using the hypervisor of your computer or by using a software
+hypervisor.
+For eighter of those OS it's now well implemented.Docker ecosystem
+•
+•
+•
+•
+Client + daemon : on your computer
+Images : executable application package
+Docker registries : store the images
+Containers : runtime imageInstall dockerWorkshop
+
+Goal: run the following commandline
+$ docker run hello-world
+
+Go to and follow instructions :
+https://gitlab.meetic.ilius.net/s.lavallee/docker-workshopDocker commandsRunning docker containers
+$ docker run <image_name>
+
+Used to execute run an image.
+Interesting options:
+• -it : used to execute the container and log in as bash
+• -rm : remove the container after it shuts down
+• -d : run the container in detached mode
+$ docker ps
+Let you see what container is running in back ground:
+• CONTAINER ID: is the unique id tagging the container
+• IMAGE : is the name of the image used to start the container
+• COMMAND : is the command that started the process keeping the container aliveRunning docker containers
+
+$ docker exec -ti <container_id> bash
+Allows you to log in a running container
+-ti allows you to start an interactive mode and display a pseudo tty
+
+$ docker log <container_id>
+Display the container logs you used to see when it is not running in the background
+You can use the option -f to follow the logs and --tail to see the last logs
+
+$ docker stop <container_id>
+Use to stop docker container running in backgroundRunning docker containers
+
+$ docker start <container_id>
+Start a stopped container on your host
+
+$ docker container ls <container_id>
+List the containers on your host
+With -a you can see all the container even those who are stopped
+
+$ docker rm <container_id>
+Remove the container from the hostManaging docker images
+
+$ docker images
+List the images stored on your host
+With -a you'll see all the images on your host
+
+$ docker rm <image_id>
+Remove container from your host
+
+$ docker rmi <image_id>
+Remove the image with the corresponding name from the host
+With -f you will force the deletion.Build Docker Images
+
+$ docker pull <image_name>:<tag>
+Retrieve the image from a repository to your host
+
+$ docker tag <image_name>:<tag> <new_image_name>:<new_tag>
+Allows you to rename a local image on your computer
+
+$ docker build .
+Build an image locally from a Dockefile (the next workshop will use this intensively)
+Using option -t <image_name>:<tag> you can choose the name of the imageDocker registry
+
+$ docker login <image_name>
+Logs you into a private repository
+Meetic one is:
+artifact-docker-rd.meetic.ilius.net
+
+$ docker push <image_name>
+Allows you to push an image to a repository.Workshop
+Goal: Doing the little story line describe in the README
+Go to repository checkout to workshop121 and follow instructions :
+https://gitlab.meetic.ilius.net/s.lavallee/docker-workshopTake away
+Docker is not a Virtual Machine. They are
+process executed on host.
+Docker cheat sheet, link in the README
+Docker allows you to use entire ecosystems
+without installing them on your host.
+
+
+
+-- workshop 2 : -- 
+
+Build Docker Images
+A docker image is described by a Dockerfile
+It contains the instructions to create the image
+Using docker client you can start the build of an imageCommand reminder
+
+$ docker build .
+Build an image locally from a Dockefile (the next workshop will use this intensively)
+Using option -t <image_name>:<tag> you can choose the name of the image
+
+Use option -f <file_path> to specify the location of the Dockerfile
+
+$ docker run <image_name>
+
+Used to execute run an image.
+Interesting options:
+• -it : used to execute the container and log in as bash
+• -rm : remove the container after it shuts down
+• -d : run the container in detached mode
+• -p <host_port>:<container_port>: expose a port
+• -v <host_path>:<container_path>: create a volumeBuild context
+
+The Dockerfile is located at the root of your context
+When you start a build the context is sent to the docker daemon
+The daemon check the syntax of your Dockerfile
+Daemon execute each instruction one by one and create an intermediate
+image on each step.
+At the end it provide you the Image with the specified tagDockerfile
+
+Format for instructions :
+# Comment
+INSTRUCTION arguments
+Instructions are not case sensitive, but the convention is to write them in Upercase
+In some cases you can use 2 ways of writing arguments:
+- plain string with multiple arguments: arguments
+- JSON array: ["argument"]Dockerfile
+
+FROM <image>
+A Dockerfile must start with this instruction
+It describe a base image for the next intructions
+You can add :<tag> if you want to choose a particular version of the image
+You can use multiple FROM in the same Dockerfile to create multiple images
+
+RUN <cmd>
+Execute the command provided (in the default shell /bin/sh -c)
+The cache is not invalidated when you rerun a build
+
+CMD ["<cmd>"]
+There can be only one CMD instruction in Dockerfile
+This command is the one executed when you start the containerDockerfile
+
+ADD <src> <dest>
+Copy file from directory or remote URL
+You can use the --chown=<user>:<group> option to set up ownership of file
+It also automaticaly upack a tar <src> to dest
+Do not use this unless you want to use add autoextraction
+
+COPY <src> <dest>
+Copy file from directory
+You can use the --chown=<user>:<group> option to set up ownership of fileDockerfile
+
+LABEL <key>=<value>
+Add metadata to your image
+Example: maintainer="s.lavallee@meetic-corp.com"
+To view an image label use docker inspect command.
+
+EXPOSE <port>
+Specify to docker that this container will listen on the specified port
+It does not publish the port you have to do that using the -p instruction in the docker run
+
+ENV <key> <value>
+Set up an environment variableWorkshop 1
+Goal: Create a docker file and display a basic HTML file in browser
+
+Go to repository checkout to workshop21 and follow instructions :
+https://gitlab.meetic.ilius.net/s.lavallee/docker-workshopDockerfile part 2Layering
+
+Dockerfile usring FROM always inherit from previous build image.
+When you use a FROM you add instruction on a previously build image
+On the base image the FROM is based on scratch
+Scratch is basicly empty, you need to add whatever you want to make it
+run.Layering
+From there you can build your image. You don't necessery need a full
+
+
+OS to run your apps
+If you write a CMD in your new file, it will overwrite the CMD form the
+previous Image.
+
+Same goes for any instructions you can write, for example on ENV varsDockerfile
+
+ENTRYPOINT ["command", "param"]
+Allows you to exec commands at the container runtime
+With the ENTRYPOINT you can start multiple process in a container (but catch the stop)
+
+No ENTRYPOINT ENTRYPOINT exec_entry p1_entry ENTRYPOINT [“exec_entry”, “p1_entry”]
+No CMD error, not allowed /bin/sh -c exec_entry p1_entry exec_entry p1_entry
+CMD [“exec_cmd”, “p1_cmd”] exec_cmd p1_cmd /bin/sh -c exec_entry p1_entry exec_entry p1_entry exec_cmd p1_cmd
+CMD [“p1_cmd”, “p2_cmd”] p1_cmd p2_cmd /bin/sh -c exec_entry p1_entry exec_entry p1_entry p1_cmd p2_cmd
+CMD exec_cmd p1_cmd /bin/sh -c exec_cmd p1_cmd /bin/sh -c exec_entry p1_entry exec_entry p1_entry /bin/sh -c exec_cmd
+p1_cmdDockerfile
+
+USER <user>
+Set the username to use when running the image for any commands RUN, CMD, ENTRYPOINT
+You can specify the group <user>:<group>
+You can also use the UID and the GID
+
+VOLUME ["/data"]
+Create a mountpoint in your container
+Initialize the volume with any existing data in the image
+You can't mount a host directory from the Dockerfile you specify it when you run the image with the -v
+instructionDockerfile
+
+WORKDIR /path/to/workdir
+Set the working directory for RUN, CMD, ENTRYPOINT, COPY and ADD instructions
+If you don't specify it there always be a default one.
+If you specify a relative path it will be based on the previous WORKDIR instruction
+
+ARG <name>
+Specify a build variable a user can pass at build-time
+You can set a default value with <name>=<value>
+You can use this instruction before the FROM instruction, but it will not be usable after it
+They are not persisted into the built image but they affect the cacheDockerfile
+
+ONBUILD <instruction>
+Add to the image a trigger instruction used when this image is used as base for another build
+
+STOPSIGNAL <signal>
+Set a system call signal that will be sent to the container to exit
+
+HEATHCHECK [options] CMD <command>
+Instruction to docker to check if the container is still working
+
+SHELL ["comand", "parameters"]
+Use the default shell to execute instructions (used for windows images)Workshop 2
+Goal: Transform your Dockerfile to use local files to display your page
+Go to repository checkout to workshop22 and follow instructions :
+https://gitlab.meetic.ilius.net/s.lavallee/docker-workshopTake away
+Dockerfile let you create the environement
+you need.
+You don't nessecerly need an OS to run your
+app.
+
+Volume are awsome to keep persistent data
+across various execution of your code.
+But be aware of ownership issues.
+
+
