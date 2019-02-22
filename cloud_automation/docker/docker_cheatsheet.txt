@@ -117,6 +117,13 @@ plusieurs section vont être nécéssaire pour remplir le dockerfile
 FROM image source 
 RUN  commande a executer sur notre container
 COPY source_locale dest_container
+LABEL
+VOLUME
+EXPOSE
+ENV
+CMD
+ENTRYPOINT
+...
 
 exemple : ici on va builder une image dont la source sera une image docker officielle nginx . On va ensuite installer vim sur l'image .On va ensuite copier depuis notre arbo locale vers le file system deux fichiers : une ressource html et une conf ) 
 
@@ -131,6 +138,59 @@ boogie@satellite:/tmp/docker$ tree
 └── testo
     ├── testo.conf
     └── testo.html
+
+Il est possible d'ajouter d'autre conf dans nos dockerfile :
+
+-LABEL : va nous permettre d'ajouter des metadata qui seront utiles : info du mainteneur, version de l'image ...La forme attendue des entrées est key=value :
+ex :
+LABEL version="1.1"
+LABEL description="image pour faire des gaufres ..."
+
+-VOLUME : il va être possible de préparer des points de montage dans notre conf d'image dans ce cas le montage sera "exposé" et lors du demarrage du container on precisera la source locale de notre directory qui sera montée dans notre container. On peut déclarer plusieurs VOLUME qu'il faudra instancier explicitement lors du démarrage de notre docker : 
+
+-EXPOSE : il va être possible de definir un ou plusieurs ports ouverts dans notre container. Comme pour les points de montage, il faudra les définir explicitement lors du démarrage de notre container :
+EXPOSE 9000
+On peut definir le port corrrespondant au container de notre host avec l'option -p <port_host>:<port_container> 
+
+docker run --rm -p 80:9000 testo
+ce qui nous donnera avec un docker ps :
+
+CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS                          NAMES
+f9292f069e6a        testo               "/bin/sleep 100"    7 seconds ago       Up 6 seconds        80/tcp, 0.0.0.0:80->9000/tcp   elastic_meninsky
+
+on peut sinon laisser docker choisir lui même le port avec un -p <port_container> 
+
+docker ps -a
+CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS                             NAMES
+27706d4ec7e2        testo               "/bin/sleep 100"    4 seconds ago       Up 3 seconds        80/tcp, 0.0.0.0:32769->9000/tcp   trusting_vaughan
+
+
+- CMD : on peut permettre a notre container d'executer une commande apres son démarrage : un seul bloc CMD par dockerfile 
+CMD ["/bin/echo", "BoogieWonderlanD!" ]
+
+docker run --rm -p 9000 testo
+BoogieWonderlanD
+
+
+ex : 
+
+VOLUME /var/www/
+VOLUME /etc/nginx/conf.d/
+
+docker run --rm -v /home/boogie/Documents/work/repos_work/docker-workshop/workshop2/app/:/var/www/ -v /home/boogie/Documents/work/repos_work/docker-workshop/workshop2/config:/etc/nginx/conf.d/ testo
+
+
+FROM  nginx
+LABEL version="777"
+RUN   apt update -y && apt install -y vim
+#COPY  config/workshop.conf config/9000.conf /etc/nginx/conf.d/
+#COPY  app/index.html  app/idx.html /var/www/
+RUN   rm /etc/nginx/conf.d/default.conf
+VOLUME /var/www/
+VOLUME /etc/nginx/conf.d/
+EXPOSE 9000
+CMD ["/bin/sleep", "100" ]
+
 
 - docker version
 de base quand on utilise docker notre client interroge le serveur (installé en local) celui ci repond via l'api docker .
