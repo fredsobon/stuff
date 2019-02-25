@@ -34,12 +34,13 @@ options :
 -P : va laisser docker choisir un port de redirection pour nous
 -exec : va permettre de lancer l'execution d'une commande dans notre container 
 --rm : va detruire le container quand la console sera quittée ( ctrl + C ou exit si on est dans le container ) 
+--name : on va pouvoir donner un nom à notre container.
 
 ex : 
 lance un container avec tty qui se deletera apres l'utilisation dont le port host local 80 redirige vers le port 80 du container 
 docker run -it --rm -p 80:80 test_nginx 
 
-- ps :
+- ps  ou container ls ( qui est la nouvelle forme )
 
 on va pouvoir examiner le status de nos containers avec ps :
 
@@ -98,6 +99,148 @@ Deleted: sha256:ace5bb277eb13b902696f77a3d5414894fe22bcbc4188318f66b69df7721a509
 Deleted: sha256:fc314536b936845563d8a66db4cd0c619282d09fd5c2091a143ecd655211c02c
 Deleted: sha256:0a16cfeeba33e4facb63f6ef20959c68eb6b29cc41eb5e9a4fb7f4085198db53
 
+
+- stats : 
+
+on va pouvoir examiner les différentes ressources prises par notre container :
+exemple on lance un container :
+docker run  -it --rm --name testo   testo bash
+root@ea74df66b3ec:/#
+et on examine son status : 
+docker stats testo
+
+iCONTAINER ID        NAME                CPU %               MEM USAGE / LIMIT    MEM %               NET I/O             BLOCK I/O           PIDS
+ea74df66b3ec        testo               0.00%               1.27MiB / 15.35GiB   0.01%               3.29kB / 0B         0B / 0B             1
+
+- top : 
+
+on va pouvoir examiner les process de notre container avec un top : 
+
+docker top testo
+UID                 PID                 PPID                C                   STIME               TTY                 TIME                CMD
+root                3277                3262                0                   19:21               pts/0               00:00:00            bash
+
+
+
+- inspect : va nous permettre d'avoir tout une liste d'information relative à notre container :
+
+ docker inspect testo
+[
+    {
+        "Id": "ea74df66b3ec74d57b04adc70fc6d032789bc547d1f13b83d047e41c08110d0d",
+        "Created": "2019-02-25T18:21:33.142412379Z",
+        "Path": "bash",
+        "Args": [],
+        "State": {
+            "Status": "running",
+            "Running": true,
+            "Paused": false,
+            "Restarting": false,
+            "OOMKilled": false,
+            "Dead": false,
+            "Pid": 3277,
+        ...
+        },
+        "Image": "sha256:b38b9a4041a4158587d5fb26add06a7044aeed4f0f8064a376e59a8b6ae7117f",
+        "ResolvConfPath": "/var/lib/docker/containers/ea74df66b3ec74d57b04adc70fc6d032789bc547d1f13b83d047e41c08110d0d/resolv.conf",
+        "HostnamePath": "/var/lib/docker/containers/ea74df66b3ec74d57b04adc70fc6d032789bc547d1f13b83d047e41c08110d0d/hostname",
+        "HostsPath": "/var/lib/docker/containers/ea74df66b3ec74d57b04adc70fc6d032789bc547d1f13b83d047e41c08110d0d/hosts",
+        "LogPath": "/var/lib/docker/containers/ea74df66b3ec74d57b04adc70fc6d032789bc547d1f13b83d047e41c08110d0d/ea74df66b3ec74d57b04adc70fc6d032789bc547d1f13b83d047e41c08110d0d-json.log",
+        "Name": "/testo",
+        "RestartCount": 0,
+        "Driver": "overlay2",
+        "Platform": "linux",
+        "MountLabel": "",
+        "ProcessLabel": "",
+                ...
+                "/proc/sched_debug",
+                "/proc/scsi",
+                "/sys/firmware"
+            ],
+            "ReadonlyPaths": [
+                "/proc/bus",
+                "/proc/fs",
+                "/proc/irq",
+                "/proc/sys",
+                "/proc/sysrq-trigger"
+            ]
+        },
+                ...
+                "MergedDir": "/var/lib/docker/overlay2/20f318b167119c60e60fb4a29ed215bb70cfeceb8a85b27fa6d572f2bcc6f31c/merged",
+                "UpperDir": "/var/lib/docker/overlay2/20f318b167119c60e60fb4a29ed215bb70cfeceb8a85b27fa6d572f2bcc6f31c/diff",
+                "WorkDir": "/var/lib/docker/overlay2/20f318b167119c60e60fb4a29ed215bb70cfeceb8a85b27fa6d572f2bcc6f31c/work"
+            },
+            "Name": "overlay2"
+        },
+        "Mounts": [
+            {
+                "Type": "volume",
+                "Name": "fa0daedb6892ea52e6fe2304ed39295c7d7d90c70dd09332d7c0f08118251a3a",
+                "Source": "/var/lib/docker/volumes/fa0daedb6892ea52e6fe2304ed39295c7d7d90c70dd09332d7c0f08118251a3a/_data",
+                "Destination": "/etc/nginx/conf.d",
+                "Driver": "local",
+                "Mode": "",
+                "RW": true,
+                "Propagation": ""
+            },
+            {
+                "Type": "volume",
+                "Name": "c95cd0ce42d4089a13ff14ca7f94da24866d7fdb9226dc8a6a57f2629096b607",
+                "Source": "/var/lib/docker/volumes/c95cd0ce42d4089a13ff14ca7f94da24866d7fdb9226dc8a6a57f2629096b607/_data",
+                "Destination": "/var/www",
+                "Driver": "local",
+                "Mode": "",
+                "RW": true,
+                "Propagation": ""
+            }
+        ],
+        ...
+        },
+        "NetworkSettings": {
+            "Bridge": "",
+            "SandboxID": "dd19b06426615da763591ef411472a636c95f7b01ebc7d79c74fa41f73e7f34a",
+            "HairpinMode": false,
+            "LinkLocalIPv6Address": "",
+            "LinkLocalIPv6PrefixLen": 0,
+            "Ports": {
+                "80/tcp": null,
+                "9000/tcp": null
+            },
+            "EndpointID": "3b840d204ef9ce527e335273a2a16d57dd9e38536cae4537c976d57b977e4e38",
+            "Gateway": "172.17.0.1",
+            "GlobalIPv6Address": "",
+            "GlobalIPv6PrefixLen": 0,
+            "IPAddress": "172.17.0.2",
+            "IPPrefixLen": 16,
+            "IPv6Gateway": "",
+            "MacAddress": "02:42:ac:11:00:02",
+            "Networks": {
+                "bridge": {
+                    "IPAMConfig": null,
+                    "Links": null,
+                    "Aliases": null,
+                    "NetworkID": "97ba5230251f3f6fe11fe751e0dfb58adf6760e8b84b4092c5f3dd4290ceb039",
+                    "EndpointID": "3b840d204ef9ce527e335273a2a16d57dd9e38536cae4537c976d57b977e4e38",
+                    "Gateway": "172.17.0.1",
+                    "IPAddress": "172.17.0.2",
+                    "IPPrefixLen": 16,
+                    "IPv6Gateway": "",
+                    "GlobalIPv6Address": "",
+                    "GlobalIPv6PrefixLen": 0,
+                    "MacAddress": "02:42:ac:11:00:02",
+                    "DriverOpts": null
+....
+.......
+
+
+ Il est possible d'obtenir assez finement les informations de notre image .
+ ex : ici on va rechercher toutes les infos relatives au label ( metadata ) de notre image :
+
+ docker image inspect -f {{.Config.Labels}} testo
+map[maintainer:NGINX Docker Maintainers <docker-maint@nginx.com> version:777]
+
+
+
 - build :
 
 on va pouvoir construire une image et ensuite l'executer en tant que container :
@@ -140,6 +283,18 @@ boogie@satellite:/tmp/docker$ tree
     └── testo.html
 
 Il est possible d'ajouter d'autre conf dans nos dockerfile :
+
+
+-FROM : va nous permettre de définir l'image de base qui va servir à construire notre propre image 
+
+
+-RUN : va nous permettre d'agit sur le contenu de notre image : ajouter des packets, lancer des scripts , delete des rep .....
+ex: 
+
+RUN apk add --update nginx && \
+  rm -rf /var/cache/apk/* && \
+  mkdir -p /tmp/nginx/
+
 
 -LABEL : va nous permettre d'ajouter des metadata qui seront utiles : info du mainteneur, version de l'image ...La forme attendue des entrées est key=value :
 ex :
