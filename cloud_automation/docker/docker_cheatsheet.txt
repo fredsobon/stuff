@@ -240,6 +240,20 @@ root                3277                3262                0                   
 map[maintainer:NGINX Docker Maintainers <docker-maint@nginx.com> version:777]
 
 
+- history :
+
+on va pouvoir examiner les différentes couches / layers de notre image afin de voir la décomposition des strates :
+
+docker history testo
+IMAGE               CREATED             CREATED BY                                      SIZE                COMMENT
+b38b9a4041a4        3 days ago          /bin/sh -c #(nop)  CMD ["/bin/echo" "BoogieW…   0B
+405cb62bb2c1        3 days ago          /bin/sh -c #(nop)  EXPOSE 9000                  0B
+31c6c7055f62        3 days ago          /bin/sh -c #(nop)  VOLUME [/etc/nginx/conf.d…   0B
+fe16e70aa223        3 days ago          /bin/sh -c #(nop)  VOLUME [/var/www/]           0B
+7719d5c07884        3 days ago          /bin/sh -c rm /etc/nginx/conf.d/default.conf    0B
+e3c69195032a        3 days ago          /bin/sh -c apt update -y && apt install -y v…   47.4MB
+64aa32a5a151        3 days ago          /bin/sh -c #(nop)  LABEL version=777            0B
+f09fe80eb0e7        2 weeks ago         /bin/sh -c #(nop)  CMD ["nginx" "-g" "daemon…   0B
 
 - build :
 
@@ -250,6 +264,8 @@ On va pour la builder s'assurer d'être dans un repertoire dédié ne comportant
 Nous allons alimenter un Dockerfile qui sera le fichier d'instruction pour le build , puis lancer le build avec : 
 
 /!\ attention a bien ordonnancer nos ressources dans le dockerfile : l'installation de packets et tache gourmandes sont a faire en debut de fichier : car a chaque rebuild ( debug de notre appli ) le traitement ne sera pas a refaire : un cache local est utilisé.
+
+Il va être important d'essayer de cumuler les etapes consommatrices de volume : ex combiner les opérations d'intallation , suppression de packets : à chaque appel de commande dans le dockerfile une strate est créee 
 
 docker build -t test_nginx .
 
