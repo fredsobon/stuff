@@ -319,8 +319,14 @@ LABEL description="image pour faire des gaufres ..."
 
 -VOLUME : il va être possible de préparer des points de montage dans notre conf d'image dans ce cas le montage sera "exposé" et lors du demarrage du container on precisera la source locale de notre directory qui sera montée dans notre container. On peut déclarer plusieurs VOLUME qu'il faudra instancier explicitement lors du démarrage de notre docker : 
 
+VOLUME /var/www/
+VOLUME /etc/nginx/conf.d/
+
+docker run --rm -v /home/boogie/Documents/work/repos_work/docker-workshop/workshop2/app/:/var/www/ -v /home/boogie/Documents/work/repos_work/docker-workshop/workshop2/config:/etc/nginx/conf.d/ testo
+
 -EXPOSE : il va être possible de definir un ou plusieurs ports ouverts dans notre container. Comme pour les points de montage, il faudra les définir explicitement lors du démarrage de notre container :
 EXPOSE 9000
+
 On peut definir le port corrrespondant au container de notre host avec l'option -p <port_host>:<port_container> 
 
 docker run --rm -p 80:9000 testo
@@ -344,12 +350,6 @@ BoogieWonderlanD
 
 
 ex : 
-
-VOLUME /var/www/
-VOLUME /etc/nginx/conf.d/
-
-docker run --rm -v /home/boogie/Documents/work/repos_work/docker-workshop/workshop2/app/:/var/www/ -v /home/boogie/Documents/work/repos_work/docker-workshop/workshop2/config:/etc/nginx/conf.d/ testo
-
 
 FROM  nginx
 LABEL version="777"
@@ -439,4 +439,309 @@ Live Restore Enabled: false
 Product License: Community Engine
 
 WARNING: No swap limit support
+
+
+=  docker networks :
+
+
+on va pouvoir examiner les différents réseaux docker présents sur notre systeme :
+
+- docker network ls : 
+
+boogie@satellite:~/Documents/lab/docker$ docker network ls
+NETWORK ID          NAME                DRIVER              SCOPE
+1bc6ba2d04a2        bridge              bridge              local
+15d246afb536        host                host                local
+11f4a0bbd7dd        none                null                local
+
+le reseau bridge est le reseau de base de docker qui va relier en nat notre container à l'interface physique de notre machinne.
+
+
+
+
+- docker network inspect :
+
+on va pouvoir examiner les différents containers pluggués sur notre réseau ex : 
+boogie@satellite:~/Documents/lab/docker$ docker ps
+CONTAINER ID        IMAGE               COMMAND                  CREATED              STATUS              PORTS                NAMES
+605ef8a5dfc8        debian              "bash"                   About a minute ago   Up About a minute                        agitated_hopper
+654ad0184fcd        nginx               "nginx -g 'daemon of…"   14 minutes ago       Up 14 minutes       0.0.0.0:80->80/tcp   thirsty_saha
+
+
+boogie@satellite:~/Documents/lab/docker$ docker network inspect bridge 
+[
+    {
+        "Name": "bridge",
+        "Id": "1bc6ba2d04a280dd1c2175cb834552ca1f358c351349e13ee4475ca02bc99dd5",
+        "Created": "2019-03-03T17:25:00.133107897+01:00",
+        "Scope": "local",
+        "Driver": "bridge",
+        "EnableIPv6": false,
+        "IPAM": {
+            "Driver": "default",
+            "Options": null,
+            "Config": [
+                {
+                    "Subnet": "172.17.0.0/16",  <<< reseau par défaut et adressage de base de notre bridge docker 
+                    "Gateway": "172.17.0.1"
+                }
+            ]
+        },
+        "Internal": false,
+        "Attachable": false,
+        "Ingress": false,
+        "ConfigFrom": {
+            "Network": ""
+        },
+        "ConfigOnly": false,
+        "Containers": {
+            "605ef8a5dfc8e7b2cef03eadd61cf1536166eed5bee8d512df7823506ea2ff64": {
+                "Name": "agitated_hopper",   <<<<<<< container 1 
+                "EndpointID": "663a9590df7e16d5d45e9d56119719f2923651a7b85204ad2c96268ac8ec6f15",
+                "MacAddress": "02:42:ac:11:00:03",
+                "IPv4Address": "172.17.0.3/16",
+                "IPv6Address": ""
+            },
+            "654ad0184fcddd055b7c36d03ba532f8b6b596f9a3487c3eaf41f51167e40729": {
+                "Name": "thirsty_saha",    <<<<<< container 2 
+                "EndpointID": "84cb9a5cf2d6495ad06faa4ca75de23041623417395a4c9b1a0ae7235f121dd9",
+                "MacAddress": "02:42:ac:11:00:02",
+                "IPv4Address": "172.17.0.2/16",
+                "IPv6Address": ""
+            }
+        },
+        "Options": {
+            "com.docker.network.bridge.default_bridge": "true",
+            "com.docker.network.bridge.enable_icc": "true",
+            "com.docker.network.bridge.enable_ip_masquerade": "true",
+            "com.docker.network.bridge.host_binding_ipv4": "0.0.0.0",
+            "com.docker.network.bridge.name": "docker0",
+            "com.docker.network.driver.mtu": "1500"
+        },
+        "Labels": {}
+    }
+]
+
+On voit en parcourant la conf que le réseau de base du bridge est le 172.17.0.0/16 avec comme gateway 172.17.0.1 . Tous les containers de base seront donc dans ce réseau.
+
+
+
+- creation de network :
+on va pouvoir créer notre network 
+
+docker network  create my_net
+boogie@satellite:~/Documents/lab/docker$ docker network create my_net
+a23ecae30e5997cddbc9c36f8fd272bfe34aaac73713b6f78f43664cf60b344a
+boogie@satellite:~/Documents/lab/docker$ docker network ls
+NETWORK ID          NAME                DRIVER              SCOPE
+1bc6ba2d04a2        bridge              bridge              local
+15d246afb536        host                host                local
+a23ecae30e59        my_net              bridge              local
+11f4a0bbd7dd        none                null                local
+
+boogie@satellite:~/Documents/lab/docker$ docker network inspect my_net 
+[
+    {
+        "Name": "my_net",
+        "Id": "a23ecae30e5997cddbc9c36f8fd272bfe34aaac73713b6f78f43664cf60b344a",
+        "Created": "2019-03-03T17:45:51.400308341+01:00",
+        "Scope": "local",
+        "Driver": "bridge",
+        "EnableIPv6": false,
+        "IPAM": {
+            "Driver": "default",
+            "Options": {},
+            "Config": [
+                {
+                    "Subnet": "172.18.0.0/16",
+                    "Gateway": "172.18.0.1"
+                }
+            ]
+        },
+        "Internal": false,
+        "Attachable": false,
+        "Ingress": false,
+        "ConfigFrom": {
+            "Network": ""
+        },
+        "ConfigOnly": false,
+        "Containers": {},
+        "Options": {},
+        "Labels": {}
+    }
+]
+
+
+On voit qu'on une nouvelle plage d'adresse pour notre nouveau réseau : 172.18.0.0/16 GW 172.18.0.1
+
+De base sans rien préciser le network que l'on crée utilisera le driver bridge.
+
+On va pouvoir directement lancer un container qui utilisera le réseau que l'on vient de creer :
+
+docker run -d --rm --network my_net  --name new_nginx nginx 
+fbc2d7d33c5ae9fc8dd3ae85ee403f71a9da77e86cc99dd1fd930b514f01645a
+
+docker inspect new_nginx  |grep -i ipaddress
+            "SecondaryIPAddresses": null,
+            "IPAddress": "",
+                    "IPAddress": "172.18.0.2",
+
+On peut connecter un container existant à notre réseau : cela revient à plugger une interface réseau virtuelle dans notre container :
+
+docker network connect network container 
+
+docker network connect my_net thirsty_saha
+
+on voit que le container comporte désormais  deux interface réseau :
+
+ docker inspect thirsty_saha  |grep -iE "IPAddress"
+            "SecondaryIPAddresses": null,
+            "IPAddress": "172.17.0.2",
+                    "IPAddress": "172.17.0.2",
+                    "IPAddress": "172.18.0.3",
+
+on peut supprimer une interface réseau d'unb container :
+
+docker network disconnet net container :
+
+boogie@satellite:~/Documents/lab/docker$ docker network disconnect my_net thirsty_saha
+boogie@satellite:~/Documents/lab/docker$ docker inspect thirsty_saha  |grep -iE "IPAddress"
+            "SecondaryIPAddresses": null,
+            "IPAddress": "172.17.0.2",
+                    "IPAddress": "172.17.0.2",
+
+On voit maintenant que notre node n'a plus l'ip de notre réseau crééer précédemment .
+
+- network security :
+
+de base on va créer nos apps : frontend et backend sur le même réseau : leur communication ne quitterons pas le hosts. Tous les ports exposés exterrieurement sont fermés par defaut.
+On va exposer manuellement le port que l'on veut en utilisant le flag -p 
+
+- Network dns :
+
+les ip de nos containers etant aléatoires a la creation : cela impose donc l'utilisation de dns / resolutions de noms .. car il n'est pas possible de s'assurer que les ip ne changent pas.
+
+Le docker daemon utilise un process build in de resolution dns  : ainsi les containers utilisent leur nom et ce mecanisme pour communiquer entre eux.
+
+boogie@satellite:~/Documents/lab/docker$ docker exec -it bob ping alice
+PING alice (172.18.0.3) 56(84) bytes of data.
+64 bytes from alice.my_net (172.18.0.3): icmp_seq=1 ttl=64 time=0.118 ms
+64 bytes from alice.my_net (172.18.0.3): icmp_seq=2 ttl=64 time=0.101 ms
+^C
+--- alice ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 1017ms
+rtt min/avg/max/mdev = 0.101/0.109/0.118/0.013 ms
+boogie@satellite:~/Documents/lab/docker$ docker exec -it alice  ping bob   
+PING bob (172.18.0.2) 56(84) bytes of data.
+64 bytes from bob.my_net (172.18.0.2): icmp_seq=1 ttl=64 time=0.063 ms
+64 bytes from bob.my_net (172.18.0.2): icmp_seq=2 ttl=64 time=0.106 ms
+^C
+--- bob ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 1011ms
+rtt min/avg/max/mdev = 0.063/0.084/0.106/0.023 ms
+boogie@satellite:~/Documents/lab/docker$ 
+
+
+/!\ La resolution de nom docker fonctionne nativement que sur les réseaux crées manuellement : le reseau bridge de base ne resoud pas nativement les noms  : des containers uniquement sur ce reseau ne pourront pas se servir de la resolution de noms.
+
+
+On va pouvoir definir a la creation de nos nodes ET avec un reseau dedié un alias dns a nos nodes pour qu'ils répondent à un nom de "service" :
+
+ex: ici on lance deux containers elasticsearch sur un reseau crée au prealable qui porteront chacun l'alias dns search : 
+
+docker network create search_lan
+docker run -d --network search_lan --net-alias search elasticsearch:2
+docker run -d --network search_lan --net-alias search elasticsearch:2
+
+On peut tester depuis un docker alpine sur le même reseau que nos nodes que nos deux  containers ont bien l'alias de reconnu sur le réseau 
+
+docker run --network search_lan -it alpine sh
+
+/ # nslookup search
+
+Name:      search
+Address 1: 172.19.0.2 search.search_lan
+Address 2: 172.19.0.3 search.search_lan
+
+
+Depuis un container debian sur le même reseau que nos nodes : on peut lancer une recherche sur le port 9200 d'elasticsearch : on voit que deux nodes différents nous repondent : 
+l'alias dns a bien fonctionné : 
+
+root@ce35f29ddc1f:/# curl -s search:9200
+{
+  "name" : "Landslide",
+  "cluster_name" : "elasticsearch",
+  "cluster_uuid" : "YXOqmudmRVez-elaNCnUGA",
+  "version" : {
+    "number" : "2.4.6",
+    "build_hash" : "5376dca9f70f3abef96a77f4bb22720ace8240fd",
+    "build_timestamp" : "2017-07-18T12:17:44Z",
+    "build_snapshot" : false,
+    "lucene_version" : "5.5.4"
+  },
+  "tagline" : "You Know, for Search"
+}
+root@ce35f29ddc1f:/# curl -s search:9200
+{
+  "name" : "Erg",
+  "cluster_name" : "elasticsearch",
+  "cluster_uuid" : "MOlPYsUQQ0itXwfrVLMVxw",
+  "version" : {
+    "number" : "2.4.6",
+    "build_hash" : "5376dca9f70f3abef96a77f4bb22720ace8240fd",
+    "build_timestamp" : "2017-07-18T12:17:44Z",
+    "build_snapshot" : false,
+    "lucene_version" : "5.5.4"
+  },
+  "tagline" : "You Know, for Search"
+}
+
+
+= docker images : =
+
+hub.docker.com : repos par default . images public / private
+images officielles : maintenues par les distributeurs des apps / os : à privilégier.
+
+- alpine image : images à privilégier : small et contiennent le minimum. images tres light
+- scratch : est l'image root de toutes les images : scratch ne contient rien : on part don de rien pour builder nos images uniquement avec le strict nécéssaire pour nos images.
+
+Il est important d'examiner les docs des images.
+Les versions sont incrémentées : si on ne specifi rien on embarque la derniere image dispo : latest.
+Les images ont donc un identifiant le 'tag'
+
+
+- layers :
+
+le unionfs : uniion filesystem permet à docker de fonctionner en couche superposées.
+
+
+
+La toute premiere couche d'une image est vide et appellée scratch 
+
+
+docker history nginx:latest 
+IMAGE               CREATED             CREATED BY                                      SIZE                COMMENT
+f09fe80eb0e7        3 weeks ago         /bin/sh -c #(nop)  CMD ["nginx" "-g" "daemon…   0B                  
+<missing>           3 weeks ago         /bin/sh -c #(nop)  STOPSIGNAL SIGTERM           0B                  
+<missing>           3 weeks ago         /bin/sh -c #(nop)  EXPOSE 80                    0B                  
+<missing>           3 weeks ago         /bin/sh -c ln -sf /dev/stdout /var/log/nginx…   22B                 
+<missing>           3 weeks ago         /bin/sh -c set -x  && apt-get update  && apt…   53.9MB              
+<missing>           3 weeks ago         /bin/sh -c #(nop)  ENV NJS_VERSION=1.15.8.0.…   0B                  
+<missing>           3 weeks ago         /bin/sh -c #(nop)  ENV NGINX_VERSION=1.15.8-…   0B                  
+<missing>           3 weeks ago         /bin/sh -c #(nop)  LABEL maintainer=NGINX Do…   0B                  
+<missing>           3 weeks ago         /bin/sh -c #(nop)  CMD ["bash"]                 0B                  
+<missing>           3 weeks ago         /bin/sh -c #(nop) ADD file:5a6d066ba71fb0a47…   55.3MB 
+
+
+on voit que quand les modif de couche ne concernent que les metadata de l'image : aucune place supplémentaire n'est occupée ( ex history de l'image precedente : 0k ajouté pour le label maintener ajouté.
+Pas de souci concernant le flag missing en premiere colonne : cela indique juste que ces couches font parties de l'image dont le numéro est au top level : et qu'aucun nom n'est nécéssaire pour elles.
+
+L'enorme avantage de cee type de conf est de ne pas retelecharger ce qui est deja present sur le systeme et utilisé par plusieurs images .
+La gestion du cache permet un gain de temps et de place très important.
+
+Un container est donc juste une simple couche en lecture / ecriture au dessus d'une image.
+
+
+
+
 
