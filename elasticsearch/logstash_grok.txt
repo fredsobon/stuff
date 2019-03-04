@@ -1,0 +1,40 @@
+=== notes  sur logstash ===
+
+
+
+
+= grok = 
+
+on va pouvoir filtrer et decouper nos logs grace à grok : chaque champ de notre log sera découper en parties qui pourront ensuite consituer les champs de notre index :
+Il existe des patterns de decoupage déjà existant :
+ex :
+https://github.com/elastic/logstash/blob/v1.4.2/patterns/grok-patterns
+
+On peut construire nos propres pattern et les appeller dans logstash ensuite : 
+ex : 
+pour une date comme la suivante qui affiche en milliseconde et avec la timezone on va créer notre pattern : 
+2019-02-13 07:07:15.777+01 
+
+CUST_DATE [0-9\-\s\:]+[^\]]+\+[0-9]{2}
+
+
+On pourra ensuite appeller notre pattern et ainsi decouper le log comme on le veut .
+Ici on va definir que notre index ne va comporter que 3 champs :timestamp / severity et message 
+
+Ce sont ces champ que l'on va suffixer a chaque expression grok necécéssaire :pour les recupérer dans l'index. Les champs sans suffixes qui servent a decouper notre logs ne seront eux pas indexer.
+
+avec en grok complet :
+%{CUST_DATE:timestamp}\s+%{BASE16NUM}\s+%{BASE16NUM}\s+%{INT}\s+%{LOGLEVEL:severity}\s+%{DATA}\s+%{GREEDYDATA:message}
+
+sur un log de type :
+2019-02-13 07:07:13.777+01      AAAACCCDDD        DDDDDEEEE          1     info    log     Log from 'lapin@lapin.net': ok process done'
+
+on a un resultat pas trop mal :
+{
+  "severity": "info",
+    "message": "Log from 'lapin@lapin.net': ok process done",
+      "timestamp": "2019-02-13 07:07:13.777+01"
+
+}
+
+
