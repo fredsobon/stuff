@@ -511,6 +511,42 @@ exemple : ici on va définir logger l'activité de tomcat pour les fichiers "loc
 
 info par exemple : https://tomcat.apache.org/tomcat-9.0-doc/api/org/apache/catalina/valves/AccessLogValve.html
 
+exemple ajout du xforwarded-for  : on veut pouvoir retrouver l'ip d'un client passant par un proxy :
+
+on peut donc setter dans la conf de notre server.xml tomcat la definition suivante : 
+
+<Valve className="org.apache.catalina.valves.RemoteIpValve"
+       remoteIpHeader="x-forwarded-for" />
+
+<Valve className="org.apache.catalina.valves.AccessLogValve"
+    requestAttributesEnabled="true"
+     pattern="Remote Ip is: %{org.apache.tomcat.remoteAddr}r" />
+ce qui va nous donner dans les logs  : 
+
+cat ../logs/access_log.2018-03-10
+Remote Ip is: 192.168.0.7
+
+
+En faisant une conf réelle on aura donc par exemple : 
+
+<Valve className="org.apache.catalina.valves.RemoteIpValve"
+       remoteIpHeader="x-forwarded-for" />
+<Valve className="org.apache.catalina.valves.AccessLogValve" requestAttributesEnabled="true" directory="logs" prefix="localhost_access_log." suffix=".txt" pattern="%{org.apache.tomcat.remoteAddr}r %l %u %t %r %s %b %T"/>
+
+L'attribut requestAttributesEnabled est nécéssaire :  
+requestAttributesEnabled="true"
+
+voir : https://tomcat.apache.org/tomcat-8.0-doc/config/valve.html
+
+
+
+
+10.200.130.199 - - [12/Mar/2019:10:58:39 +0100] GET /nl/jsp/ping.jsp HTTP/1.1 403 512 0.186
+
+
+
+
+
 
 2/ Valve de filtrage par adresse IP ou par hôte
 Ces valves permettent de refuser l'accès aux appplications web en fonction de l'adresse IP du client, ou en fonction de son nom d'hôte.
