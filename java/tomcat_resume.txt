@@ -1,0 +1,244 @@
+1. The Tomcat Installed Directory.
+Once you installed tomcat, it will be placed in your local storage. For windows, it’s usually in “Program Files” folder, for Mac or Linux, it can be on the /user/var/opt or /User/<>/Application folder. Once you’re in the directory, you can see the different folders and files available:
+
+-bin: for Tomcat’s binaries and startup scripts.
+
+-conf: global configuration applicable to all the webapps. 
+The default installation provides:
+-catalina.policy for specifying security policy.
+-Two Properties Files: catalina.properties and logging.properties,
+-Four Configuration XML Files: server.xml (Tomcat main configuration file), web.xml (global web application deployment descriptors), context.xml (global Tomcat-specific configuration options) and tomcat-users.xml (a database of user, password and role for authentication and access control).
+
+The conf also contain a sub-directory for each engine, e.g., Catalina, which in turn contains a sub-sub-directory for each of its hosts, e.g., localhost. You can place the host-specific context information (similar tocontext.xml, but named as webapp.xml for each webapp under the host).
+
+-lib: Keeps the JAR-file that are available to all webapps. The default installation include servlet-api.jar (Servlet), jasper.jar (JSP) and jasper-el.jar (EL). External JARs can be put here such as MySQL JDBC driver (mysql-connector-java-5.1.{xx}-bin.jar) and JSTL (jstl.jar and standard.jar).
+
+-logs: contains the engine logfile Catalina.{yyyy-mm-dd}.log, host logfile localhost.{yyyy-mm-dd}.log, and other application logfiles such as manger and host-manager. The access log (created by theAccessLogValve) is also kept here.
+
+-webapps: the default appBase – web applications base directory of the host localhost.
+work: contains the translated servlet source files and classes of JSP/JSF. Organized in hierarchy of engine name (Catalina), host name (localhost), webapp name, followed by the Java classes package structure.
+temp: temporary files.
+
+2. Tomcat Architecture
+Tomcat is an HTTP server. Tomcat is also a servlet container that can execute Java Servlet, and converting JavaServer Pages (JSP) and JavaServerFaces (JSF) to Java Servlet. Tomcat employs a hierarchical and modular architecture as shown below:
+
+
+3. The Main Configuration File (server.xml)
+Tomcat’s main configuration file is the “server.xml“, kept under the <CATALINA_HOME>\conf directory. The default “server.xml” is reproduced as follows (after removing the comments and minor touch-ups):
+
+server.xml
+<?xml version='1.0' encoding='utf-8'?>
+<Server port="8005" shutdown="SHUTDOWN">
+  <Listener className="org.apache.catalina.core.JasperListener" />
+  <Listener className="org.apache.catalina.core.AprLifecycleListener" SSLEngine="on" />
+  <Listener className="org.apache.catalina.core.JreMemoryLeakPreventionListener" />
+  <Listener className="org.apache.catalina.mbeans.GlobalResourcesLifecycleListener" />
+  <Listener className="org.apache.catalina.core.ThreadLocalLeakPreventionListener" />
+  
+  <GlobalNamingResources>
+    <Resource name="UserDatabase" auth="Container"
+              type="org.apache.catalina.UserDatabase"
+              description="User database that can be updated and saved"
+              factory="org.apache.catalina.users.MemoryUserDatabaseFactory"
+              pathname="conf/tomcat-users.xml" />
+  </GlobalNamingResources>
+  
+  <Service name="Catalina">
+    <Connector port="8080" protocol="HTTP/1.1"
+               connectionTimeout="20000"
+               redirectPort="8443" />
+    <Connector port="8009" protocol="AJP/1.3" redirectPort="8443" />
+  
+    <Engine name="Catalina" defaultHost="localhost">
+  
+      <Realm className="org.apache.catalina.realm.LockOutRealm">
+        <Realm className="org.apache.catalina.realm.UserDatabaseRealm"
+               resourceName="UserDatabase"/>
+      </Realm>
+  
+      <Host name="localhost"  appBase="webapps"
+            unpackWARs="true" autoDeploy="true">
+        <Valve className="org.apache.catalina.valves.AccessLogValve" directory="logs"
+               prefix="localhost_access_log." suffix=".txt"
+               pattern="%h %l %u %t "%r" %s %b" />
+      </Host>
+    </Engine>
+  </Service>
+</Server>
+
+3.1 Server
+Server (Line 2) is top component, representing an instance of Tomcat. It can contains one or more Services, each with its own Engines and Connectors.
+
+<Server port="8005" shutdown="SHUTDOWN"> ...... </Server>
+
+3.1.1 Common Attributes
+className – Java class name of the implementation to use. This class must implement the org.apache.catalina.Server interface. If no class name is specified, the standard implementation will be used.
+address – The TCP/IP address on which this server waits for a shutdown command. If no address is specified, localhost is used.
+port – The TCP/IP port number on which this server waits for a shutdown command. Set to -1 to disable the shutdown port.
+shutdown – The command string that must be received via a TCP/IP connection to the specified port number, in order to shut down Tomcat.
+
+3.2 Listeners
+The Server contains several Listeners (Lines 3-7). A Listener listens and responses to specific events.
+The JasperListener enables the Jasper JSP engine, and is responsible for re-compiling the JSP pages that have been updated.
+
+<Listener className="org.apache.catalina.core.JasperListener" />
+The GlobalResourcesLifecycleListener enables the global resources, and makes possible the use of JNDI for accessing resources such as databases.
+
+<Listener className="org.apache.catalina.mbeans.GlobalResourcesLifecycleListener" />
+
+3.2.1 Common Attributes
+
+SSLEngine – Name of the SSLEngine to use. off: do not use SSL, on: use SSL but no specific ENGINE.
+The default value is on. This initializes the native SSL engine, which must be enabled in the APR/native connector by the use of the SSLEnabled attribute.
+
+SSLRandomSeed – Entropy source used to seed the SSLEngine’s PRNG. The default value is builtin. On development systems, you may want to set this to /dev/urandom to allow quicker start times.
+FIPSMode – Set to on to request that OpenSSL be in FIPS mode (if OpenSSL is already in FIPS mode, it will remain in FIPS mode). Set to enter to force OpenSSL to enter FIPS mode (an error will occur if OpenSSL is already in FIPS mode). Set to require to require that OpenSSL already be in FIPS mode (an error will occur if OpenSSL is not already in FIPS mode).
+
+3.3 Global Naming Resources
+The element (Line 9-15) defines the JNDI (Java Naming and Directory Interface) resources, that allows Java software clients to discover and look up data and objects via a name.
+The default configuration defines a JNDI name called UserDatabase via the element (Line 10-14), which is a memory-based database for user authentication loaded from “conf/tomcat-users.xml”.
+
+<GlobalNamingResources>
+  <Resource name="UserDatabase" auth="Container"
+            type="org.apache.catalina.UserDatabase"
+            description="User database that can be updated and saved"
+            factory="org.apache.catalina.users.MemoryUserDatabaseFactory"
+            pathname="conf/tomcat-users.xml" />
+</GlobalNamingResources>
+You can define other global resource JNDI such as MySQL database to implement connection pooling.
+
+3.4 Services
+A Service associates one or more Connectors to a Engine. The default configuration defines a Service called “Catalina”, and associates two Connectors: HTTP and AJP to the Engine.
+
+<Service name="Catalina"> ...... </Service>
+
+3.4.1 Common Attributes
+className – Java class name of the implementation to use. This class must implement the org.apache.catalina.Service interface. If no class name is specified, the standard implementation will be used.
+name – The display name of this Service, which will be included in log messages if you utilize standard Catalina components. The name of each Service that is associated with a particular Server must be unique.
+
+3.5 Connectors
+A Connector is associated with a TCP port to handle communications between the Service and the clients. The default configuration defines two Connectors:
+HTTP/1.1: Handle HTTP communication and enable Tomcat to be an HTTP server. Clients can issue HTTP requests to the server via this Connector, and receive the HTTP response messages.
+
+<Connector port="8080" protocol="HTTP/1.1" connectionTimeout="20000" redirectPort="8443" />
+The default chooses TCP port 8080 to run the Tomcat HTTP server, which is different from the default port number of 80 for HTTP production server. You can choose any number between 1024 to 65535, which is not used by any application, to run your Tomcat server. The connectionTimeout attribute define the number of milliseconds this connector will wait, after accepting a connection, for the request URI line (request message) to be presented. The default is 20 seconds. The redirect attribute re-directs the SSL requests to TCP port 8443. AJP/1.3: Apache JServ Protocol connector to handle communication between Tomcat server and Apache HTTP server.
+
+<Connector port="8009" protocol="AJP/1.3" redirectPort="8443" />
+You could run Tomcat and Apache HTTP servers together, and let the Apache HTTP server handles static requests and PHP; while Tomcat server handles the Java Servlet/JSP. Read “How To Configure Tomcat to work with Apache”.
+
+3.6 Containers
+Tomcat refers to Engine, Host, Context, and Cluster, as container. The highest-level is Engine; while the lowest-level is Context. Certain components, such as Realm and Valve, can be placed in a container.
+
+3.7 Engine
+A Engine is the highest-level of a container. It can contains one or more Hosts. You could configure a Tomcat server to run on several hostnames, known as virtual host.
+
+<Engine name="Catalina" defaultHost="localhost"/>
+The Catalina Engine receives HTTP requests from the HTTP connector, and direct them to the correct host based on the hostname/IP address in the request header.
+
+3.7.1 Common Attribute
+
+backgroundProcessorDelay – This value represents the delay in seconds between the invocation of the backgroundProcess method on this engine and its child containers, including all hosts and contexts. Child containers will not be invoked if their delay value is not negative (which would mean they are using their own processing thread). Setting this to a positive value will cause a thread to be spawn. After waiting the specified amount of time, the thread will invoke the backgroundProcess method on this engine and all its child containers. If not specified, the default value for this attribute is 10, which represent a 10 seconds delay.
+className – Java class name of the implementation to use. This class must implement the org.apache.catalina.Engine interface. If not specified, the standard value (defined below) will be used.
+defaultHost – The default host name, which identifies the Host that will process requests directed to host names on this server, but which are not configured in this configuration file. This name MUST match the name attributes of one of the Host elements nested immediately inside.
+jvmRoute – Identifier which must be used in load balancing scenarios to enable session affinity. The identifier, which must be unique across all Tomcat servers which participate in the cluster, will be appended to the generated session identifier, therefore allowing the front end proxy to always forward a particular session to the same Tomcat instance.
+name – Logical name of this Engine, used in log and error messages. When using multiple Service elements in the same Server, each Engine MUST be assigned a unique name.
+startStopThreads – The number of threads this Engine will use to start child Host elements in parallel. The special value of 0 will result in the value of Runtime.getRuntime().availableProcessors() being used. Negative values will result in Runtime.getRuntime().availableProcessors() + value being used unless this is less than 1 in which case 1 thread will be used. If not specified, the default value of 1 will be used.
+
+3.8 Realm
+A Realm is a database of user, password, and role for authentication (i.e., access control). You can define Realm for any container, such as Engine, Host, and Context, and Cluster.
+
+<Realm className="org.apache.catalina.realm.LockOutRealm">
+  <Realm className="org.apache.catalina.realm.UserDatabaseRealm" resourceName="UserDatabase"/>
+</Realm>
+The default configuration defines a Realm (UserDatabaseRealm) for the Catalina Engine, to perform user authentication for accessing this engine. It uses the JNDI name UserDatabase defined in the GlobalNamingResources.
+Besides the UserDatabaseRealm, there are: JDBCRealm (for authenticating users to connect to a relational database via the JDBC driver); DataSourceRealm (to connect to a DataSource via JNDI; JNDIRealm (to connect to an LDAP directory); and MemoryRealm (to load an XML file in memory).
+
+3.8.1 Common Attributes
+className – Java class name of the implementation to use. This class must implement the org.apache.catalina.Realm interface.
+
+3.9 Hosts
+A Host defines a virtual host under the Engine, which can in turn support many Contexts (webapps).
+
+<Host name="localhost" appBase="webapps" unpackWARs="true" autoDeploy="true"/>
+The default configuration define one host called localhost. The appBase attribute defines the base directory of all the webapps, in this case, \webapps. By default, each webapp’s URL is the same as its directory name. For example, the default Tomcat installation provides four webapps: docs, examples, host-manager and manager under the webapps directory. The only exception is ROOT, which is identified by an empty string. That is, its URL is http://localhost:8080/. The unpackWARs specifies whether WAR-file dropped into the webapps directory shall be unzipped. For unpackWARs=”false”, Tomcat will run the application from the WAR-file directly, without unpacking, which could mean slower execution. The autoDeploy attribute specifies whether to deploy application dropped into the webapps directory automatically.
+
+3.9.1 Common Attributes
+
+- appBase – The Application Base directory for this virtual host. This is the pathname of a directory that may contain web applications to be deployed on this virtual host. You may specify an absolute pathname, or a pathname that is relative to the $CATALINA_BASE directory. If not specified, the default of webapps will be used.
+
+- xmlBase – The XML Base directory for this virtual host. This is the pathname of a directory that may contain context XML descriptors to be deployed on this virtual host. You may specify an absolute pathname for this directory, or a pathname that is relative to the $CATALINA_BASE directory. If not specified the default of conf// will be used.
+
+- createDirs – If set to true, Tomcat will attempt to create the directories defined by the attributes appBase and xmlBase during the startup phase. The default value is true. If set to true, and directory creation fails, an error message will be printed out but will not halt the startup sequence.
+
+- autoDeploy – This flag value indicates if Tomcat should check periodically for new or updated web applications while Tomcat is running. If true, Tomcat periodically checks the appBase and xmlBase directories and deploys any new web applications or context XML descriptors found. Updated web applications or context XML descriptors will trigger a reload of the web application. The flag’s value defaults to true.
+
+- backgroundProcessorDelay – This value represents the delay in seconds between the invocation of the backgroundProcess method on this host and its child containers, including all contexts. Child containers will not be invoked if their delay value is not negative (which would mean they are using their own processing thread). Setting this to a positive value will cause a thread to be spawn. After waiting the specified amount of time, the thread will invoke the backgroundProcess method on this host and all its child containers. A host will use background processing to perform live web application deployment related tasks. If not specified, the default value for this attribute is -1, which means the host will rely on the background processing thread of its parent engine.
+
+- className – Java class name of the implementation to use. This class must implement the org.apache.catalina.Host interface.
+- deployIgnore – A regular expression defining paths to ignore when autoDeploy and deployOnStartup are set. This allows you to keep your configuration in a version control system, for example, and not deploy a .svn or CVS folder that happens to be in the appBase. This regular expression is relative to appBase. It is also anchored, meaning the match is performed against the entire file/directory name. So, foo matches only a file or directory named foo but not foo.war, foobar, or myfooapp. To match anything with “foo”, you could use .*foo.*.
+
+- deployOnStartup – This flag value indicates if web applications from this host should be automatically deployed when Tomcat starts. The flag’s value defaults to true.
+failCtxIfServletStartFails – Set to true to have each child contexts fail its startup if any of its servlet that has load-on-startup >=0 fails its own startup. Each child context may override this attribute.If not specified, the default value of false is used.
+
+- name – Usually the network name of this virtual host, as registered in your Domain Name Service server. Regardless of the case used to specify the host name, Tomcat will convert it to lower case internally. One of the Hosts nested within an Engine MUST have a name that matches the defaultHost setting for that Engine.
+startStopThreads – The number of threads this Host will use to start child Context elements in parallel. The same thread pool will be used to deploy new Contexts if automatic deployment is being used. The special value of 0 will result in the value of Runtime.getRuntime().availableProcessors() being used. Negative values will result in Runtime.getRuntime().availableProcessors() + value being used unless this is less than 1 in which case 1 thread will be used. If not specified, the default value of 1 will be used.
+undeployOldVersion – This flag determines if Tomcat, as part of the auto deployment process, will check for old, unused versions of web applications deployed using parallel deployment and, if any are found, remove them. This flag only applies if autoDeploy is true. If not specified the default value of false will be used.
+
+3.10 Cluster
+Tomcat supports server clustering. It can replicate sessions and context attributes across the clustered server. It can also deploy a WAR-file on all the cluster.
+
+3.10.1 Common Attributes
+
+- className – The main cluster class, currently only one is available, org.apache.catalina.ha.tcp.SimpleTcpCluster
+
+- channelSendOptions – The Tribes channel send options, default is 8.
+This option is used to set the flag that all messages sent through the SimpleTcpCluster uses. The flag decides how the messages are sent, and is a simple logical OR.
+
+- channelStartOptions – Sets the start and stop flags for the object used by the cluster. The default is Channel.DEFAULT which starts all the channel services, such as sender, receiver, multicast sender and multicast receiver.
+heartbeatBackgroundEnabled – Flag whether invoke channel heartbeat at container background thread. Default value is false. Enable this flag don’t forget to disable the channel heartbeat thread.
+notifyLifecycleListenerOnFailure – Flag whether notify LifecycleListeners if all ClusterListener couldn’t accept channel message. Default value is false.
+
+3.11 Valve
+
+A Valve can intercept HTTP requests before forwarding them to the applications, for pre-processing the requests. A Valve can be defined for any container, such as Engine, Host, and Context, and Cluster. In the default configuration, the AccessLogValve intercepts an HTTP request and creates a log entry in the log file, as follows:
+
+<Valve className="org.apache.catalina.valves.AccessLogValve" directory="logs"
+       prefix="localhost_access_log." suffix=".txt"
+       pattern="%h %l %u %t "%r" %s %b" />
+
+3.11.1 Common Attributes
+
+- className -Set value to org.apache.catalina.ha.tcp.ReplicationValve
+
+-filter – For known file extensions or urls, you can use this Valve to notify the cluster that the session has not been modified during this request and the cluster doesn’t have to probe the session managers for changes. If the request matches this filter pattern, the cluster assumes there has been no session change. An example filter would look like filter=”.*\.gif|.*\.js|.*\.jpeg|.*\.jpg|.*\.png|.*\.htm|.*\.html|.*\.css|.*\.txt” . The filter is a regular expression using java.util.regex.
+
+- primaryIndicator – Boolean value, so to true, and the replication valve will insert a request attribute with the name defined by the primaryIndicatorName attribute. The value inserted into the request attribute is either Boolean.TRUE or Boolean.FALSE
+
+-primaryIndicatorName – Default value is org.apache.catalina.ha.tcp.isPrimarySession The value defined here is the name of the request attribute that contains the boolean value if the session is primary on this server or not.
+
+-statistics – Boolean value. Set to true if you want the valve to collect request statistics. Default value is false
+
+Other valves include:
+
+- RemoteAddrValve: which blocks requests from certain IP addresses
+- RemoteHostValve: which blocks request based on hostnames
+- RequestDumperValve: which logs details of the requests
+- SingleSignOn Valve: when placed under a , allows single sign-on to access all the webapp under the host.
+
+For more information about the server.xml top/nested level elements and attributes, you can check them out here.
+
+4. Alternative configuration (server-<name>.xml)
+4.1 Including the server-.xml file
+Now what if we need to add modifications to the server.xml file for our application? We can’t just change the server.xml file for one application as it might affect the entire initialization of all applications deployed. How can we isolate a specific change for a given application?
+
+The Answer:Create a server-<name>.xml
+
+The server-.xml is a custom file that can be included to isolate the changes needed by a specific app. All files with this format will be called after the server.xml file.
+
+4.2 Replacing the server.xml with our own server-<name>.xml
+This is not recommended but for the curious mind, you can always edit the catalina.bat to use your own server.xml file instead of the server.xml
+
+
+catalina.bat start -config \conf\server-<name>.xml
+
+Overall, the server.xml or your own server-<name>.xml file is the core configuration of your container. It’s a way for application developers and release managers to put in resources that complements the strategy of deploying J2EE applications on the container. Other J2EE compliant containers (vendors), in one way or the other, has the same configuration file that allows custom injections and bindings, allowing them control over what services will be available when an application is deployed, redeployed or undeployed.
