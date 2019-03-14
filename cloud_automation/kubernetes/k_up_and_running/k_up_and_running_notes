@@ -1,0 +1,136 @@
+==  minikube notes ===
+
+
+
+== utilisation images locale ==
+
+eval $(minikube docker-env)
+
+# Start minikube
+minikube start
+
+# Set docker env
+eval $(minikube docker-env)
+
+cat Dockerfile 
+FROM fredsobon/kuard
+
+docker build -t boogie/kuard:0.0.1 .
+
+# Build image
+docker build -t foo:0.0.1 .   <<<<<<< /!\ attention tagger l'image est fondamentale sinon minikube ne retrouve pas  l'image 
+
+
+# Run in minikube   : on va indiquer a minikube de ne pas recupérer d'image distante : 
+kubectl run kuard1 --image=boogie/kuard:0.0.1 --image-pull-policy=Never
+deployment "kuard1" created
+
+# Check that it's running
+kubectl get pods
+
+NAME                             READY     STATUS    RESTARTS   AGE
+hello-minikube-6c47c66d8-rczth   1/1       Running   9          227d
+kuard1-68fb5b4df4-c426v          1/1       Running   0          6m
+nodejs-demo                      1/1       Running   2          226d
+
+
+# Tests :
+
+on peut obtenir la description de notre pod :
+
+kubectl describe pods kuard1-68fb5b4df4-c426v 
+
+toute une serie d'info apparaissent ..
+
+on va pouvoir rediriger un port de notre hostt vers le port natif de notre pod :
+
+kubectl port-forward kuard1-68fb5b4df4-c426v 8080:8080
+
+en ouvrant un navigateur sur http://localhost:8080 on accede bien à la webapp de notre pod  
+kubectl port-forward kuard1-68fb5b4df4-c426v 8080:8080
+
+= pods = 
+
+on va créer notre pod via un fichier de conf que l'on va ensuite appeller avec kubectl :
+
+cat kuard-pod.yaml
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: kuard
+spec:
+  containers:
+    - image: boogie/kuard:0.0.1
+      name: kuard
+      ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+
+kubectl apply -f kuard-pod.yaml
+pod "kuard" created
+
+kubectl get pods
+NAME                             READY     STATUS             RESTARTS   AGE
+hello-minikube-6c47c66d8-rczth   1/1       Running            11         228d
+kuard                            1/1       Running            0          4m
+kuard1-68fb5b4df4-c426v          1/1       Running            2          12h
+nodejs-demo                      0/1       ImagePullBackOff   2          226d
+
+on peut examiner sa conf : 
+
+kubectl describe pods kuard
+Name:		kuard
+Namespace:	default
+Node:		minikube/10.0.2.15
+Start Time:	Thu, 14 Mar 2019 19:56:10 +0100
+Labels:		<none>
+Status:		Running
+IP:		172.17.0.7
+Controllers:	<none>
+Containers:
+  kuard:
+    Container ID:	docker://27aa9108d8256f78cfd996d458cf15192d5113a3d6
+    Image:		boogie/kuard:0.0.1
+    Image ID:		docker-pullable://fredsobon/kuard@sha256:190341e15a81d5697ad7fc76fb0fa2a78a8303d949f8cb8f6ab85794f5660571
+    Port:		8080/TCP
+    State:		Running
+      Started:		Thu, 14 Mar 2019 19:56:11 +0100
+    Ready:		True
+..
+.........
+
+on peut delete notre pod aisemment :
+
+ kubectl delete pods kuard
+pod "kuard" deleted
+
+et on le voit disparaitre progressivment :
+
+
+ kubectl get pods
+NAME                             READY     STATUS             RESTARTS   AGE
+hello-minikube-6c47c66d8-rczth   1/1       Running            11         228d
+kuard                            0/1       Terminating        0          7m
+kuard1-68fb5b4df4-c426v          1/1       Running            2          12h
+nodejs-demo                      0/1       ImagePullBackOff   2          226d
+ boogie  …  kube  k_up_and_running  misc_files  kubectl get pods
+NAME                             READY     STATUS             RESTARTS   AGE
+hello-minikube-6c47c66d8-rczth   1/1       Running            11         228d
+kuard1-68fb5b4df4-c426v          1/1       Running            2          12h
+nodejs-demo                      0/1       ImagePullBackOff   2          226d
+
+on peut examiner les logs de notre pod 
+
+kubectl logs kuard
+
+
+l'activation du port forwarding de notre host local et le port exposé du pod :
+
+kubectl port-forward kuard 8080:8080
+
+permet la consultation de l'appli dans notre cas via http://localhost:8080
+
+
+
