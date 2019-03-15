@@ -1,0 +1,127 @@
+== notes pour utiliser en local artifactory comme registry docker ===
+
+
+1 / renseigner le fichier hosts : 
+
+# Machine locale
+127.0.0.1 localhost.localdomain localhost docker-local.artifactory docker-remote.artifactory docker-virtual.artifactory docker.artifactory artifactory
+
+2/ ajouter une connection registry insecure :
+
+fichier : /etc/default/docker 
+
+DOCKER_OPTS="$DOCKER_OPTS --insecure-registry docker-local.artifactory --insecure-registry docker-remote.artifactory --insecure-registry docker-virtual.artifactory --insecure-registry docker.artifactory"
+
+
+redemarrer docker 
+
+
+== reverse proxy en frontal ==
+
+pour servir les images docker de notre registry il faut passer par un reverse proxy 
+
+docker run nginx
+how to restart a docker container
+
+on ajoute la conf de vhost sur notre nginx 
+
+## server configuration
+server {
+    listen 80 ;
+     
+    server_name artifactory.jfrog.com;
+    if ($http_x_forwarded_proto = '') {
+        set $http_x_forwarded_proto  $scheme;
+    }
+    ## Application specific logs
+    ## access_log /var/log/nginx/artifactory.jfrog.com-access.log timing;
+    ## error_log /var/log/nginx/artifactory.jfrog.com-error.log;
+    rewrite ^/$ /artifactory/webapp/ redirect;
+    rewrite ^/artifactory/?(/webapp)?$ /artifactory/webapp/ redirect;
+    chunked_transfer_encoding on;
+    client_max_body_size 0;
+    location / {
+    proxy_read_timeout  900;
+    proxy_pass_header   Server;
+    proxy_cookie_path   ~*^/.* /;
+    if ( $request_uri ~ ^/artifactory/(.*)$ ) {
+        proxy_pass          http://192.168.0.15:8081/artifactory/$1;
+    }
+    proxy_pass         http://192.168.0.15:8081/artifactory/;
+    #proxy_set_header   X-Artifactory-Override-Base-Url $http_x_forwarded_proto://$host:$server_port/<public context>;
+    proxy_set_header    X-Forwarded-Port  $server_port;
+    proxy_set_header    X-Forwarded-Proto $http_x_forwarded_proto;
+    proxy_set_header    Host              $http_host;
+    proxy_set_header    X-Forwarded-For   $proxy_add_x_forwarded_for;
+    }
+}
+
+
+On reload la conf nginx : 
+docker container exec romantic_nobel nginx -s reload
+la conf se reload sans erreur 
+
+le serveur web reponb bien depuis le docker nginx 
+root@69afe4e05726:/# curl localhost
+
+
+on sauve notre conf et on build un docker 
+
+
+docker build -t rprox .
+docker run  -d -p 80:80 rprox
+
+sudo docker restart
+
+docker start sleepy_dirac
+docker exec  -it sleepy_dirac bash
+
+On requete en ayant renseigné dans le fichier hosts : l'ip de notre host et le short name artifactory 
+
+L http://artifactory
+HTTP/1.1 302 Moved Temporarily
+Server: nginx/1.15.9
+Date: Wed, 13 Mar 2019 18:07:37 GMT
+Content-Type: text/html
+Content-Length: 145
+Location: http://artifactory/artifactory/webapp/
+Connection: keep-alive
+
+HTTP/1.1 200 OK
+Date: Wed, 13 Mar 2019 18:07:37 GMT
+Content-Type: text/html
+Content-Length: 2239
+Connection: keep-alive
+Server: Artifactory/6.8.6
+X-Artifactory-Id: f2bd51de7aeb2e1d:16d74314:16978386362:-8000
+Cache-Control: no-store,max-age=0
+X-FRAME-OPTIONS: DENY
+Accept-Ranges: bytes
+ETag: W/"2239-1551888566000"
+Last-Modified: Wed, 06 Mar 2019 16:09:26 GMT
+
+
+c'a marche ! 
+
+On verifie les logs de notre proxy : 
+ docker logs -f   sleepy_dirac
+192.168.0.15 - - [13/Mar/2019:18:07:37 +0000] "HEAD / HTTP/1.1" 302 0 "-" "curl/7.52.1" "-"
+192.168.0.15 - - [13/Mar/2019:18:07:37 +0000] "HEAD /artifactory/webapp/ HTTP/1.1" 200 0 "-" "curl/7.52.1" "-"
+
+
+
+
+On va pouvoir modifier notre config de logging pour autoriser les insecure registry :
+
+boogie-/home/boogie/.docker>> cat config.json 
+{
+   "insecure-registry": [ "192.168.0.15:8081" ]
+
+   }
+on se logg ensuite : 
+
+docker login 192.168.0.15:8081
+Username: admin
+Password: 
+Error response from daemon: Get https://192.168.0.15:8081/v2/: http: server gave HTTP response to HTTPS client
+

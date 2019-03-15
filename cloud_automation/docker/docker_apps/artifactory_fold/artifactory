@@ -5,16 +5,71 @@
 docker pull docker.bintray.io/jfrog/artifactory-oss:latest
 ou  : 
 cat Dockerfile 
+# root image from "jfrog" 
 FROM docker.bintray.io/jfrog/artifactory-oss:latest
-avec dans notre cas la version 6.8.6 en latest : 
-docker build -t arti-6.8.6 .
+# Beware : using root ONLY for local tests purpose 
+USER root
+# usefull tools 
+RUN apt update && apt install -y apt-utils vim tree 
+# expose volume for artifacts hosting 
+VOLUME /var/opt/jfrog/artifactory
+# expose artifactory port
+EXPOSE 8081
 
-docker run --name artifactory -d -p 8081:8081 arti-6.8.6
-
+docker build -t artifactory-686 .
 accessible donc sur un browser :
 
 http://localhost:8081
 
-= mapping de volume local =
+= lancement du container et verification  =
+docker run -v ${PWD}:/var/opt/jfrog/artifactory  -d -p 8081:8081 artifactory-686
+
+un second container nous permet de vérifier que le contenu local de notre arbo est bien montée et présente dans le container : 
+
+docker exec -it hopeful_brown bash
+root@9bfbfaf38b9c:/# cd /var/opt/jfrog/artifactory/
+
+root@9bfbfaf38b9c:/var/opt/jfrog/artifactory# ls -l
+total 104536
+-rw-r--r-- 1 1000 1000       325 Mar 13 15:17 Dockerfile
+drwxr-xr-x 7 root root      4096 Mar 13 15:23 access
+drwxr-xr-x 2 root root      4096 Mar 13 15:23 backup
+drwxr-xr-x 5 root root      4096 Mar 13 15:24 data
+drwxr-xr-x 5 root root      4096 Mar 13 15:26 etc
+-rw-r--r-- 1 1000 1000 107004450 Mar 13 10:57 jfrog-artifactory-oss-6.8.6.zip
+drwxr-xr-x 3 root root      4096 Mar 13 15:24 logs
+drwxr-xr-x 3 1000 1000      4096 Mar 13 15:23 old_arch_to_trash_oneday
 
 
+
+
+
+== version pro ==
+
+la version pro nécessite une licence valable 30 jours ..
+
+
+== user =
+
+credentials par default :
+
+admin /password 
+
+
+
+exemple licence key : 
+
+Your License Key:
+cHJvZHVjdHM6CiAgYXJ0aWZhY3Rvcnk6CiAgICBwcm9kdWN0OiBaWGh3YVhKbGN6b2dNakF4T1Mw
+d05DMHhNbFF4TlRvek9Ub3dOaTQ1TlRGYUNtbGtPaUE0WldKa1lXUTBaUzA1TUdObUxUUXhNREF0
+WWpOak5pMWpNVFkwTnpaaE5HSTNZVElLYjNkdVpYSTZJR3BoZW5wNUNuQnliM0JsY25ScFpYTTZJ
+SHQ5Q25OcFoyNWhkSFZ5WlRvZ2JuVnNiQXAwY21saGJEb2dkSEoxWlFwMGVYQmxPaUJVVWtsQlRB
+cDJZV3hwWkVaeWIyMDZJREl3TVRrdE1ETXRNVE5VTVRVNk16azZNRFl1T1RVeFdnbz0KICAgIHNp
+Z25hdHVyZTogaTQwcS9Xam0ySTBtWFBxK0JoS2creUdkWmlJS2lCa3FnNXo1MjdSSGtrYVl3clJx
+bTJJMjViR3kzSk5KWjE2UkxFNG80VDEvK2xTYkJPcXA4dDhTT3hOeFBGbUdWZG5RdlNQczN2Mkt3
+VlhMUVRJZG12anVEeTh4RWxPd1FTMGpRRnNyZFNiS3kxUGJiRncrczRYK1JnY0p3emp6Vi9pWGpy
+M2M1QzkzNUFpcGdlSTkwVVhkakkzTjJNN3Zma244TjNsaEJuQTFGUHZXd053VHpURTk5TWFURDNS
+U2NnL0dXWEw5ZXhIbUlTell0cnNWRFB4ZzNvOG5oLzVQMjBkV1VPenRXMnpkTCtJcEdLeEhHUmky
+Zk05eEFBMUF3TnZvMmdncEhSanZPc2FhVmFlZ01aQlNHVTNTWUp6MnNDNkRiVjZnUGoyeWg5RjAx
+eHQxZHU2anZ3PT0KdmVyc2lvbjogMQo=
+Your JFrog Artifactory trial will expire on: Apr 12, 2019
