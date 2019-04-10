@@ -1,0 +1,83 @@
+==== notes sur test de conf tomcat operationnelle =
+
+L'idee est de cree une petite servlet de test qui va afficher la date et l'heure pour nous assurer que notre tomcat fonctionne bien : 
+
+
+
+Create a test servlet that shows current day and time and make sure if it works normally.
+[root@dlp ~]# mkdir /usr/libexec/tomcat9/webapps/ROOT/WEB-INF/classes 
+[root@dlp ~]# chown tomcat. /usr/libexec/tomcat9/webapps/ROOT/WEB-INF/classes 
+[root@dlp ~]# cd /usr/libexec/tomcat9/webapps/ROOT/WEB-INF/classes 
+[root@dlp classes]# vi daytime.java
+ import java.io.*;
+import javax.servlet.*;
+import javax.servlet.http.*;
+import java.util.Calendar;
+
+public class daytime extends HttpServlet {
+    public void doGet(HttpServletRequest request
+    ,HttpServletResponse response)
+
+    throws IOException, ServletException{
+        response.setContentType("text/html");
+        PrintWriter out = response.getWriter();
+        Calendar cal = Calendar.getInstance();
+        out.println("<html>\n<head>\n<title>DayTime</title>\n</head>\n<body>");
+        out.println("<div style=\"font-size: 40px; text-align: center; font-weight: bold\">");
+        out.println(cal.get(Calendar.YEAR) + "/" + (cal.get(Calendar.MONTH) + 1) + "/" + 
+        cal.get(Calendar.DATE) + " " + cal.get(Calendar.HOUR_OF_DAY) + ":" + cal.get(Calendar.MINUTE));
+        out.println("</div>\n</body>\n</html>");
+    }
+}
+
+
+on compile ensuite notre code : 
+
+javac -classpath /usr/share/tomcat9/lib/servlet-api.jar /usr/share/tomcat9/webapps/ROOT/WEB-INF/classes/daytime.java
+
+Il faut s'assurer que le compilateur est bien dans notre path  et si besoin installer le packet de devel jdk pour avoir le compilateur 
+yum install java-11-openjdk-devel-debug.x86_64
+
+
+# export JAVA_HOME=/usr/lib/jvm/jre-11-openjdk-11.0.2.7-0.el7_6.x86_64
+# export PATH=$JAVA_HOME/bin:$PATH
+# javac -classpath /usr/share/tomcat9/lib/servlet-api.jar /usr/share/tomcat9/webapps/ROOT/WEB-INF/classes/daytime.java 
+
+une fois compilé on a un fichier class présent dans notre arbo :
+
+[root ] /usr/share/tomcat9/webapps/ROOT/WEB-INF/classes] # ll
+total 8,0K
+-rw-r--r-- 1 root root 1,5K 10 avril 11:09 daytime.class
+-rw-r--r-- 1 root root  836 10 avril 10:53 daytime.java
+
+
+on va maintenant créer un fichier web.xml qui va definir l'appel a notre classe 
+
+[root] /usr/share/tomcat9/webapps/ROOT/WEB-INF] # cat web.xml 
+<web-app xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://java.sun.com/xml/ns/javaee" xsi:schemaLocation="http://java.sun.com/xml/ns/javaee http://java.sun.com/xml/ns/javaee/web-app_3_0.xsd" id="WebApp_ID" version="3.0">
+  <servlet>
+     <servlet-name>daytime</servlet-name>
+     <servlet-class>daytime</servlet-class>
+  </servlet>
+  <servlet-mapping>
+     <servlet-name>daytime</servlet-name>
+     <url-pattern>/daytime</url-pattern>
+  </servlet-mapping>
+</web-app>
+
+
+On peut tester maintenant notre appli dans un browser http://ip:8080/daytime ou en curl :
+
+curl http://192.168.0.7:8080/daytime
+<html>
+<head>
+<title>DayTime</title>
+</head>
+<body>
+<div style="font-size: 40px; text-align: center; font-weight: bold">
+2019/4/10 11:27
+</div>
+</body>
+
+
+notre tomcat est fonctionnel.
