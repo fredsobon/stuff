@@ -1,0 +1,124 @@
+====     notes cours kube admin certif : ===
+
+
+== Core concepts : ==
+
+=  architecture générale :
+kubernetes est un systeme qui va gérer le de containers qui vont embarquer des applications. Il va entre autre permettre le déploiment de containers.
+
+- les workers nodes : sont les serveurs qui vont héberger les containers contenant les applications.
+- le master  est le cerveau qui va charger les containers, les identifier, sur les workers, les monitorer etc ...: plan; schedule, monitor les nodes 
+
+- etcd : est le composant qui va enregister la configuration sous forme clé valeur de nos containers, config etc ...
+- kube-scheduler : est le composant du master qui va permettre de gérer le bon dispatch des containers en fonctions des ressourcers nécéssaires et différentes config inhérantes au cluster.
+- le controller manager du master est le compsant qui s'assure que tous les evenements sont corrects et que la situation actuelle est bien celle qui est défini dans les confs : que la flotte de container est cohérente  : il existe plusieurs sous composants du controller manager ( chaquun dédié à un périmetre précis. ex :
+ node controller : va s'assurer de la bonne santé des containers, s'assurer qu'ils répondent bien ...
+ replication controller : va s'assurer que le nombre de container défini et nécéssaire est bien correctement lancé 
+- kube-api : est le compsant central de kube qui va gérer l'orchestration de tous les composants : les composants internes au master, les communications des nodes vers le master et les communication de l'exterrieur du cluster vers les composants. C'est le point d'entrée global.
+- container runtime : toutes les applications vont être hébergées sous forme de container sur nos nodes. Il est possible d'avoir les composants du master sous forme de container aussi , ex dns etc ..donc pour faire tourner des containers il va falloir avoir le runtime dédié. 
+Dans le cas le plus courant à l'heure actuelle il s'agit de docker.
+-kubelet : ce composant est un agent qui est hébergé sur les nodes et qui va communiquer en permanence avec le kube-api server afin de recevoir les confs et tous les ordres a appliquer sur les containers.
+- kube-proxy est le composant qui va permettre aux differentes applications hébergées sur les nodes de communiquer entre elles ( ex un serveur web d'un container hébergé sur un node voulant communiquer avec une database hébergée sur un autre node... )
+
+= etcd : 
+
+- presentation : 
+etcd def : "etcd is a distributed  reliable key value store that is simple, secure and fast"
+un systeme clé valeur permet de stocker les infos sous forme de document (contrairement aux bdd transactionnelles qui stockent en tables)
+chaque document comprtant des couples clés valeurs peuvent être modifiées indépendamment (contrairement aux tables habituelles dans lesquelles un ajout de colonnes ou de valeurs affectent toutes les données des tables)
+Nous n'avons pas a updater les autres documents quand nous ajoutons une info dans un document précis.
+Le format est assez simple : yaml ou json 
+
+sudo apt install etcd 
+ou recupérer le binaire sur github
+
+Le serveur etcd écoute sur le port 2379 
+
+boogie@satellite:~/Documents/stuff/kube$ ps fauxw |grep etcd
+boogie    5102  0.0  0.0  17480   892 pts/1    S+   19:11   0:00              |           \_ grep --color=auto etcd
+etcd      4984  0.9  0.2 11548340 17532 ?      Ssl  19:10   0:00 /usr/bin/etcd
+boogie@satellite:~/Documents/stuff/kube$ ss -atln |grep 2379
+LISTEN   0         128               127.0.0.1:2379             0.0.0.0:*    
+
+- ecrire des données en base : 
+
+on peut utiliser le client etcdctl (fourni dans le paquet pour injecter /retrouver des data ) :
+boogie@satellite:~/Documents/stuff/kube$ etcdctl set key1 value1
+value1
+boogie@satellite:~/Documents/stuff/kube$ etcdctl set key2  boogie
+boogie
+boogie@satellite:~/Documents/stuff/kube$ etcdctl set bingo  bongo
+bongo
+
+- lire les données en base : 
+boogie@satellite:~/Documents/stuff/kube$ etcdctl get key1
+value1
+boogie@satellite:~/Documents/stuff/kube$ etcdctl get key2
+boogie
+boogie@satellite:~/Documents/stuff/kube$ etcdctl get bingo
+bongo
+
+le detail des options est valable avec etcdctl --help
+
+- Etcd -  role dans kubernetes : 
+
+le role d'etcd dans le cluster kube est de stocker les valeurs des nodes, pods, configs, secrets, accounts, roles, bindings ....
+chaque modification dans notre cluster est enregistrée dans le cluster etcd 
+
+Nous pouvons déployer notre cluster etcd de plusieurs méthodes : ex : from scratch , via kubeadm ...il est important de comprendre les différences.
+ 
+- from scratch :
+on va downlader le binaire ou installer via notre distro 
+definir un fichier de service (si ce n'est fait automatiquement via le package)
+boogie@satellite:~/Documents/stuff/kube$ cat /lib/systemd/system/etcd.service
+[Unit]
+Description=etcd - highly-available key value store
+Documentation=https://github.com/coreos/etcd
+Documentation=man:etcd
+After=network.target
+Wants=network-online.target
+
+[Service]
+Environment=DAEMON_ARGS=
+Environment=ETCD_NAME=%H
+Environment=ETCD_DATA_DIR=/var/lib/etcd/default
+EnvironmentFile=-/etc/default/%p
+Type=notify
+User=etcd
+PermissionsStartOnly=true
+#ExecStart=/bin/sh -c "GOMAXPROCS=$(nproc) /usr/bin/etcd $DAEMON_ARGS"
+ExecStart=/usr/bin/etcd $DAEMON_ARGS
+Restart=on-abnormal
+#RestartSec=10s
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
+Alias=etcd2.service
+
+toute une partie de configuration n'est pas présente de base et est fondamentale pour notre serveur kubernetes : la gestion de certif , les config cluster etc ...
+notamment la ligne : --advertise-clients-urls https://${INTERNAL_IP}::2379 
+
+- kubeadm :
+en deployant le cluster kube via kubeadm celui ci cree un cluster etcd sous forme de container que l'on peut voir avec :
+kubectl get pods -n kube-system 
+..
+kube-system etcd-master
+
+- pour examiner les clés enregistrées dans le cluster etcd on peut faire simplement :
+
+kubectl exec etcd-master -n kube-system etcdctl get / --prefix -keys-only 
+
+kubernetes stocke ses datas dans une arbo précise de sa registry : "/" 
+sous "/" on a les differentes constructions : repertoires : minions, pods,nodes, replicasets ...
+
+dans un cluster kube haute dispo on a plusieurs master kube ayant chacun des server etcd master : il faut s'assurer dans ce cas que chaque serveur etcd puisse communiquer avec les autres en adaptant la conf dédiée ( examen de la conf en pratique plus tard. )
+--initial-cluster controller-0=https://${CONTROLLER0_IP}:2380,controller-1=https://${CONTROLLER1_IP}:2380
+
+--> Chap2-video4 done
+
+= kube apiserver : 
+
+
+
+
