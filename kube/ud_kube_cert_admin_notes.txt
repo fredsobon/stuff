@@ -7,14 +7,15 @@
 kubernetes est un systeme qui va gérer le de containers qui vont embarquer des applications. Il va entre autre permettre le déploiment de containers.
 
 - les workers nodes : sont les serveurs qui vont héberger les containers contenant les applications.
-- le master  est le cerveau qui va charger les containers, les identifier, sur les workers, les monitorer etc ...: plan; schedule, monitor les nodes 
+- le master  est le cerveau qui va gerer les containers, les identifier, sur les workers, les monitorer etc ...: plan; schedule, monitor les nodes 
 
 - etcd : est le composant qui va enregister la configuration sous forme clé valeur de nos containers, config etc ...
 - kube-scheduler : est le composant du master qui va permettre de gérer le bon dispatch des containers en fonctions des ressourcers nécéssaires et différentes config inhérantes au cluster.
-- le controller manager du master est le compsant qui s'assure que tous les evenements sont corrects et que la situation actuelle est bien celle qui est défini dans les confs : que la flotte de container est cohérente  : il existe plusieurs sous composants du controller manager ( chaquun dédié à un périmetre précis. ex :
+- le controller manager du master est le composant qui s'assure que tous les evenements sont corrects et que la situation actuelle est bien celle qui est défini dans les confs : que la flotte de container est cohérente  : il existe plusieurs sous composants du controller manager ( chaqun dédié à un périmetre précis. ex :
  node controller : va s'assurer de la bonne santé des containers, s'assurer qu'ils répondent bien ...
  replication controller : va s'assurer que le nombre de container défini et nécéssaire est bien correctement lancé 
-- kube-api : est le compsant central de kube qui va gérer l'orchestration de tous les composants : les composants internes au master, les communications des nodes vers le master et les communication de l'exterrieur du cluster vers les composants. C'est le point d'entrée global.
+ .... il ya toute une liste de controller qui seront etudier précisement.
+- kube-api : est le composant central de kube qui va gérer l'orchestration de tous les composants : les composants internes au master, les communications des nodes vers le master et les communication de l'exterieur du cluster vers les composants. C'est le point d'entrée global.
 - container runtime : toutes les applications vont être hébergées sous forme de container sur nos nodes. Il est possible d'avoir les composants du master sous forme de container aussi , ex dns etc ..donc pour faire tourner des containers il va falloir avoir le runtime dédié. 
 Dans le cas le plus courant à l'heure actuelle il s'agit de docker.
 -kubelet : ce composant est un agent qui est hébergé sur les nodes et qui va communiquer en permanence avec le kube-api server afin de recevoir les confs et tous les ordres a appliquer sur les containers.
@@ -25,10 +26,11 @@ Dans le cas le plus courant à l'heure actuelle il s'agit de docker.
 - presentation : 
 etcd def : "etcd is a distributed  reliable key value store that is simple, secure and fast"
 un systeme clé valeur permet de stocker les infos sous forme de document (contrairement aux bdd transactionnelles qui stockent en tables)
-chaque document comprtant des couples clés valeurs peuvent être modifiées indépendamment (contrairement aux tables habituelles dans lesquelles un ajout de colonnes ou de valeurs affectent toutes les données des tables)
+chaque document (comportant donc des couples clés valeurs) peuventt être modifiés indépendamment (contrairement aux tables habituelles dans lesquelles un ajout de colonnes ou de valeurs affectent toutes les données des tables)
 Nous n'avons pas a updater les autres documents quand nous ajoutons une info dans un document précis.
 Le format est assez simple : yaml ou json 
 
+- install etcd : 
 sudo apt install etcd 
 ou recupérer le binaire sur github
 
@@ -118,6 +120,45 @@ dans un cluster kube haute dispo on a plusieurs master kube ayant chacun des ser
 --> Chap2-video4 done
 
 = kube apiserver : 
+
+c'est le composant principal de managment dans kubernetes.
+quand on utilise kubectl pour consulter par exemple les données stockées dans etcd , kubectl  va contacter le kube apiserver qui va authentifier la requette ( examiner les droits du user qui se connecte ) , puis interroger etcd qui retourne les valeurs a kube apiserver qui les renvoi au client ayant initié la demande.
+on peut aussi directement communiquer avec l'api sans utiliser kubectl .
+
+ex : grande etapes pour créer un pod : 
+curl -X POST /api/v1/namespaces/default/pods ...[other] 
+kube apiserver va :
+1- authentifier le user 
+2- valider la requette
+3- recupérer les data 
+4- mettre a jour etcd
+5 -informer le user que le pod est crée
+ensuite 
+6- le scheduler qui observe en permanence le kube api server va realiser qu'il y a un nouveau pod non assigné sur un node.
+7- le scheduleur identifie grace aux specificités du pods et des ressources des nodes un node qui va heberger le nouveau pod
+8 - il informe le kube apiserver qu'un node a un nouveau pod attribué
+9 - kube apiserver met a jour la base etcd avec les infos du node ébergeant le pod
+10 - kube apiserver va ensuite envoyer l'information à l'agent kubelet présent sur le node qui va héberger le nouveau pod. 
+11 - le kubelet va creer le pod et donner l'instruction au runtime de container de deployer l'image 
+12 - kubelet informe ensuite kube apiserver que les opérations sont en place
+13 - kubeapiserver update la base etcd
+
+Ce type d'opérations est appliqué a chaque fois que des modifications sont a appliquer sur le cluster. Le kube apiserver est au centre de toutes les communications.
+
+L'installation de kube apiserver peut se faire aisement via kubeadm mais il est important de connaitre les différents éléments de configuration présents pour une installation manuelle.
+Il est fondamental de prendre en compte que tous les composants du cluster doivent pouvoir communiquer et que des certificats ssl sont à mettre en place . Le kube apiserver est le seul élement a communiquer directement avec etcd server . Sa presence dans la confi de apiserver n'est donc pas surprenante. 
+Nous pouvons examiner la conf de kubeapiserver en downloadant le binaire sur le site de kube.
+En fonction du mode d'installation ( kubadm/ scratch )on peut voir la conf dans :
+
+/etc/kubernetes/manifeest/kube-apiserver.yaml
+ou en service 
+/etc/systemd/system/kube-apiserver.service
+
+ch2 v5 -> done
+
+
+
+
 
 
 
