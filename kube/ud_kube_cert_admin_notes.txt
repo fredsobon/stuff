@@ -156,6 +156,114 @@ ou en service
 
 ch2 v5 -> done
 
+= kube controller manager : 
+
+il manage différents controllers dans kube.
+Le role essentiel est de controller en permanence l'etat des ressources et remédier à un pb quand il y en a. puisque son role est s'assurer que l'etat de fonctionnement est totalement equivalent a la configuration et l'etat désiré du system.
+
+- node controller : va s'occuper de monitorer les nodes et s'assurer que les applications fonctionnent correctement sur les nodes .Toutes les actions transitent par le kube apiserver comme on l'a vu.
+le node controller recupere l'etat des nodes toutes les 5 secondes.
+Si le node controler recoit une alerte de heartbeat d'un node : il flaggue celui ci comme unreachable pendant 40 secondes.
+Si le node est toujours ko au bout de 5 minutes , le node controller va ejecter les pods et les héberger sur d'autre nodes si ces pods font partis d'un replicaset.
+
+- replication controller : il est responsable des replicasets et doit s'assurer que le nombre de pods on line définis dans les confs de replicasets est bien corrects
+si un pod crash alors le replication controller en recrée un.
+
+Il y a a beaucoup de controller au sein de kube et du controller manager :
+deployement controller, namespace controller , job controller , service account controller , endpoints controller ......
+
+Tous ces controllers sont embarqués dans l'installation du pacquet de kube controller manager
+si on download le paquet depuis le site de kube et qu'on lance le service : on peut examiner la conf quand on regarde le kube-controller-manager.service 
+On peut configurer les conf de heartbeat, check etc ..dans cette config , de meme on peut définir l'aaplication des services controller manager que l'on veut activer dans cette section.
+
+pour examiner le kube-controller-manager : si celui ci a été installer avec kubeadm , alors il est deployer en tant que pod au sein du namespace kube-system
+la conf est comme d'habitude dans ce cas dans :
+/etc/kubernetes/manifests/kube-controller-manager.yaml
+
+sinon on peut examiner la conf dans le service gérer par systemctl.
+
+on peut biensur examiner en details le process lancé avec un ps fauxww 
+
+ch2 v6 -> done.
+
+= kube-scheduler : 
+
+il est responsable de la planification des pods sur les nodes.Il va gérer le dispatch des pods sur les nodes. Quel pod va sur quel nodes en fonction des besoins du pods et des ressources des nodes.
+Le sheduler examine la conf des pods et va s'assurer que le node qui va acceuillir ce pod en fonction de cette conf est correctment sizer en terme de ressource et de config specifique par exemple.
+exemple : si notre pod a besoin de 10 cpu et qu'on est fasse a 4 nodes : deux nodes ont 4 cpu dispos , 1 a 12 cpu , le dernier a 16 cpu.
+Les deux premiers nodes sont filtrés par le sheduler : pas assez de ressources.
+Pour les deux autres nodes : le sheduler va faire un classement en donnant des scores de 0 a 10 aux nodes .
+le scheduller va calculer le nombre de ressource dispo apres le set up de notre pod
+ici : 2 et 6 . Le dernier node a donc une meilleur note.
+
+L'installation du process se fait comme d'habitude en downloadant le binaire et l'exxecutant .
+
+pour examiner le kube-scheduler : si celui ci a été installer avec kubeadm , alors il est deployer en tant que pod au sein du namespace kube-system
+la conf est comme d'habitude dans ce cas dans :
+/etc/kubernetes/manifests/kube-controller-manager.yaml
+
+sinon on peut examiner la conf dans le service gérer par systemctl.
+
+on peut biensur examiner en details le process lancé avec un ps fauxww 
+
+ch2 v7 -> done
+
+= kubelet : 
+
+Ce process est hébergé sur les nodes .c'est le process qui va être responsable de toutes les interractions avec le master.
+iL va s'occuper de charger / décharger les containers.
+Le kubelet va enregister le nodes, declencher la creation du pod via le runtime container et il va monitorer les pods 
+
+kubeadm ne deploit pas automatiquement le conf du kubelet.
+On doit toujours faire les installations manuelles des kubelet sur nos nodes.
+on peut biensur examiner en details le process lancé avec un ps fauxww 
+
+ch2 v8 -> done
+
+= kube-proxy : 
+
+dans un cluster kube chaque pod peut contacter tous les autres pods.Ceci est possible grace a un reseau dédié pour les pods. Il y a beaucoup de solution dispos pour gérer la conf reseau des pods.
+
+On peut avoir un pod qui heberge un server web ( 10.1.1.1 ) et un pod qui heberge une db ( 10.1.1.2)
+le web peut contacter la db via son adresse ip de pod ...mais on est jamais sur que le pod ne va pas changer d'ip ou que le pod ne va pas crasher.
+Il est plus sage de créer un service qui va expposer notre db dans le cluster : service db : 10.96.0.12 
+On va donc contacter ce service qui va forwarder le traffic vers le backend. ( notre db ) , le service doit etre accessible depuis tous les nodes.
+Le service est virtuel ..qui n'existe que dans la memoire de notre cluster kube.
+
+kube-proxy est un process qui tourne sur tous les nodes du cluster .Son role est de surveiller toutes les nouvelles creations de services et d'ecrire les regles qui vont forwarder le service vers le backend correspondant .
+Ceci est fait par des regles iptables.
+on va avoir une regle iptable sur tous les nodes qui va forwarder le traffic du service db ( 10.96.0.12 ) vers le pod de backend ( 10.1.1.2 )
+
+L'installation se fait comme d'habitude.
+
+pour examiner le kube-proxy : si celui ci a été installer avec kubeadm , alors il est deployer en tant que pod au sein du namespace kube-system
+Il est present sur tous les nodes en tant que daemonset :
+kubectl get daemonset -n kube-system 
+
+v2 ch9 -> done
+
+= pods : 
+
+on s'assure que le pod existe : un cluster existe, une image docker existe et kube peut la puller depuis une registry
+
+un pod est l'objet le plus petit qu'on peut créer dans kube.
+le plus petit est donc un container , d'une application contenu dans un pod.
+En cas de charge ..on ne va pas creer un nouveau container de notre appli dans le pod ..on va créer un nouveau pod 
+Si on est en cas de grosse charge on va créer des nouveaux pods sur un nouveau node.
+
+On peut biensur avoir plusieurs container dans notre pod mais ils doivent chacun héberger une appli différente.
+On est obliger de creer des pods dans kube ...meme si on a une tres simple appli ..mais c'est tres bien car on peut modifier nos archi sans pb
+
+
+lancer un pod :
+
+kubectl run nginx --image nginx 
+
+
+
+
+
+
 
 
 
