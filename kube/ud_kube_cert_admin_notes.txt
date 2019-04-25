@@ -260,6 +260,29 @@ kubectl run nginx --image nginx
 on va pouvoir lister les pods présents avec :
 kubectl get pods 
 
+on va pouvoir definir un objet pod puis creer le pod qui sera ici de cette conf 
+
+cat myapp-pod.yaml
+---
+apiVersion: v1
+kind: Pod
+
+metadata:
+  name: myapp-pod
+  labels: 
+    app: myapp
+    type: front-end
+spec:
+  containers:
+    - name: nginx-container 
+      image: nginx
+
+on instancie la creation de l'objet avec : 
+kubectl create -f myapp-pod.yaml
+
+si on modifie un param dans notre objet on pourra reappliquer le changement avec :
+kubectl apply -f myapp-pod.yaml
+
 v2 ch10 -> done
 
 = kubernetes controllers : Replication controller : 
@@ -281,13 +304,58 @@ mais attention ils sont diférents.
 replication controller  est l'ancienne techno qui a été remplacée par le replicat set. 
 ! Le replica set est à privilégier !
 
-v2 ch11 in progress
+v11 no lesson 
 
+- creation d'un replication controller :
 
+on va utiliser une structure qui sera présente dans toutes les fichiers de définition  de nos objets kube :
+la premiere partie de notre definitoin est assez similaire a celle de la creation d'un pod 
+la seconde partie est cruciale et c'est elle qui va gérer les specificité de notre objet ( section spec: )
+vi rc-definition.yaml 
 
+apiVersion: v1 ( -> cela va dependre de l'objet que nous creons: pour un replication controller c'est l'api v1 qui supporte cet objet.)
+kind: ReplicationController (->  ici on renseigne le type d'objet que l'on veut creer : ici ReplicationController)
+metadata:  on va rajouter ici différentes information specifique 
+  name: myapp-rc
+  labels: 
+    app: my-app
+    type: front-end
+spec: on sait ici que dans l'object replication controller la definition va gérer la creation de plusieurs instances de pods
+  template: ( -> on va creer un template de pod qui sera utiliser par le replication controller pour gérer nos réplicas pour cela on va juste inserer la definition d'un pod au préalable créer par exemple : on va imbriquer les définitions d'objects. On reprend l'integralite de notre defintion d'objet pod SAUF la section apiVersion et kind ))
+    metadata:
+      name: myapp-pod
+      labels: 
+        app: myapp
+        type: front-end
+    spec:
+      containers:
+        - name: nginx-container 
+          image: nginx
+    
+nous avons donc deux objets imbriqués avec deux sections metadata et specs.
+Attention à l'indentation : 
+vi rc-definition.yaml 
 
+apiVersion: v1 
+kind: ReplicationController 
+metadata:  
+  name: myapp-rc
+  labels: 
+    app: my-app
+    type: front-end
+spec: 
+  template: 
+    metadata:
+      name: myapp-pod
+      labels: 
+        app: myapp
+        type: front-end
+    spec:
+      containers:
+        - name: nginx-container 
+          image: nginx
 
-
+v2 ch12 ->in progress
 
 
 
