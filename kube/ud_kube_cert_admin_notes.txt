@@ -306,7 +306,7 @@ replication controller  est l'ancienne techno qui a été remplacée par le repl
 
 v11 no lesson 
 
-- creation d'un replication controller :
+- replication controller :
 
 on va utiliser une structure qui sera présente dans toutes les fichiers de définition  de nos objets kube :
 la premiere partie de notre definitoin est assez similaire a celle de la creation d'un pod 
@@ -321,19 +321,20 @@ metadata:  on va rajouter ici différentes information specifique
     app: my-app
     type: front-end
 spec: on sait ici que dans l'object replication controller la definition va gérer la creation de plusieurs instances de pods
-  template: ( -> on va creer un template de pod qui sera utiliser par le replication controller pour gérer nos réplicas pour cela on va juste inserer la definition d'un pod au préalable créer par exemple : on va imbriquer les définitions d'objects. On reprend l'integralite de notre defintion d'objet pod SAUF la section apiVersion et kind ))
-    metadata:
-      name: myapp-pod
-      labels: 
-        app: myapp
-        type: front-end
-    spec:
-      containers:
-        - name: nginx-container 
-          image: nginx
+  - template: ( -> on va creer un template de pod qui sera utiliser par le replication controller pour gérer nos réplicas pour cela on va juste inserer la definition d'un pod au préalable créer par exemple : on va imbriquer les définitions d'objects. On reprend l'integralite de notre defintion d'objet pod SAUF la section apiVersion et kind ))
+     metadata:
+       name: myapp-pod
+       labels: 
+         app: myapp
+         type: front-end
+     spec:
+       containers:
+         - name: nginx-container 
+           image: nginx
+replicas : 3 ( -> c'est dans cette section (qui doit se situer au même niveau que le spec du replication-controller que l'on doit setté le nombre de pod que l'on veut afin d'assurer la HA de notre appli. )
     
 nous avons donc deux objets imbriqués avec deux sections metadata et specs.
-Attention à l'indentation : 
+Attention à l'indentation comme dans tout fichier yaml on doit bien s'assurer de la structure de notre fichier 
 vi rc-definition.yaml 
 
 apiVersion: v1 
@@ -344,16 +345,77 @@ metadata:
     app: my-app
     type: front-end
 spec: 
-  template: 
-    metadata:
-      name: myapp-pod
-      labels: 
-        app: myapp
-        type: front-end
-    spec:
-      containers:
-        - name: nginx-container 
-          image: nginx
+  - template: 
+     metadata:
+       name: myapp-pod
+       labels: 
+         app: myapp
+         type: front-end
+     spec:
+       containers:
+         - name: nginx-container 
+           image: nginx
+replicas: 3 
+
+on va ensuite creer notre replication-controller :
+
+kubectl create -f rc-definition.yaml
+
+on va pouvoir examiner les replication-controller :
+kubectl get replicationcontroller
+
+NAME   DESIRED  CURRENT READY AGE
+my-app       3        3     3  5s
+on voit donc les différents status : etat attendu, l'etat actuel et le status du rc
+
+kubectl get pods va nous montrer les trois pods differents crées via notre rc.
+
+- replica set :
+
+vi replicaset-definition.yaml 
+
+apiVersion: apps/v1   --> ici on est obligé ded saisir apps/v1 pour l'apiversion : sous peine d'avoir une erreur de kube
+kind: ReplicaSet      --> on renseigne ici le replicatset comme type 
+metadata:  
+  name: myapp-replicaset  
+  labels: 
+    app: my-app
+    type: front-end
+spec: 
+  - template: 
+     metadata:
+       name: myapp-pod
+       labels: 
+         app: myapp
+         type: front-end
+     spec:
+       containers:
+         - name: nginx-container 
+           image: nginx
+replicas: 3 
+selector:         --> on est obligé ici de définir le pod qui va être gérer par le replicaset. 
+  matchLabels: 
+    type: front-end 
+    
+Ceci est nécéssaire car le replicaset peut gérer d'autre pods que ceux inclus dans la definition même du replicaset. C'est la difference majeure entre les replication controller et les replicaset.
+on voit qu'on est obliger de setter une mention matchLabels qui va recupérer les  infos settées dans notre section labels précédente.
+
+kubectl create -f replicatset-definition.yaml
+
+on va pouvoir examiner les replication-controller :
+kubectl get replicaset
+
+NAME   DESIRED  CURRENT READY AGE
+my-app       3        3     3  5s
+on voit donc les différents status : etat attendu, l'etat actuel et le status du rc
+
+kubectl get pods va nous montrer les trois pods differents crées via notre rc.
+
+
+- Labels et selectors : 
+
+Le replicaset monitore l'etat des pods crées et s'assure que le nombre en prod en cohérent avec le définition.
+
 
 v2 ch12 ->in progress
 
