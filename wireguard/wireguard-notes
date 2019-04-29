@@ -1,14 +1,31 @@
+=  note wireguard = 
 
-wg 
-wg show
+https://www.wireguard.com/
 
-wg-quick up
+= installation : =
 
-wg-quick down dev
+# echo "deb http://deb.debian.org/debian/ unstable main" > /etc/apt/sources.list.d/unstable.list
+# printf 'Package: *\nPin: release a=unstable\nPin-Priority: 90\n' > /etc/apt/preferences.d/limit-unstable
+# apt update
+# apt install wireguard
 
+= génération de clés : =
+
+on génere la clé priv 
+$ umask 077
+$ wg genkey > privatekey
+
+on va pouvoir générer la clé pub depuis la clé priv :
+$ wg pubkey < privatekey > publickey
+
+on peut tout faire sur une ligne 
+ wg genkey | tee privatekey | wg pubkey > publickey
+
+= creation de notre conf : =
 
 la conf sefait dans un fichier plat : 
-# cat /etc/wireguard/vpn
+ex : 
+# cat /etc/wireguard/vg0
 
 [Interface]
 Address = 172.17.0.7/24
@@ -20,4 +37,19 @@ PublicKey = sdfsdfdfsfderefdfsdsfs
 AllowedIPs = 10.10.0.0/16, 192.168.0.0/24
 Endpoint = 194.79.187.154:7777
 PersistentKeepalive = 25
+
+
+= commandes wireguard : =
+
+il faut biensur demarrer wireguard pour l'utiliser : 
+on leve donc notre interface lié a notre conf vpn 
+
+wg-quick up wg0
+wg  / wg show   : ces deux commandes vont nous permettre d'examiner la conf : 
+
+wg-quick up
+
+On va eteindre notre connection on vpn avec : 
+wg-quick down wg0   
+
 
