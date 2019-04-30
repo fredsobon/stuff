@@ -395,7 +395,7 @@ spec:
 replicas: 3 
 selector:         --> on est obligé ici de définir le pod qui va être gérer par le replicaset. 
   matchLabels: 
-    type: front-end 
+    type: front-end  --> le matchlabels va reprendre le type defini dans notre définition de pod.
     
 Ceci est nécéssaire car le replicaset peut gérer d'autre pods que ceux inclus dans la definition même du replicaset. C'est la difference majeure entre les replication controller et les replicaset.
 on voit qu'on est obliger de setter une mention matchLabels qui va recupérer les  infos settées dans notre section labels précédente.
@@ -414,10 +414,49 @@ kubectl get pods va nous montrer les trois pods differents crées via notre rc.
 
 - Labels et selectors : 
 
-Le replicaset monitore l'etat des pods crées et s'assure que le nombre en prod en cohérent avec le définition.
+on a vu que le replicaset /controller s'occupe de gérer les pods crées et s'assure qu'ils sont up and running.
+ce sont donc des process qui monitorent les pods.
+Comment le replicat set connait les pods qu'il doit surveiller ..il peut y avoir des centaines de pods faisant tourner plusieurs applications.
+C'est la que donner un label à notre pod lors de sa creation peut être vraiment utile..
+on peut donc maintenant donner ce label comme filtre pour notre réplicatset.
+Le replicaset sait donc maintenant quel pods il doit monitorer.
+Le replicaset monitore l'etat des pods crées et s'assure que le nombre en prod en cohérent avec la définition.
 
 
-v2 ch12 ->in progress
+on retrouve les concepts de labels dans diffrents objets gérés dans kubernetes.
+
+
+Attention si on doit gérer un replicatset de pods déja crées ..il faut s'assurer que le bon template est charger dans notre definition. Le rc ne créera pas de nouveau pod si ceux existant avant sa creation comporte les bonnes informations.
+
+- scaling :
+
+il peut nous arriver de definit un replicat a 3 puis avoir une montée en charge et definir a 6 notre réplicat .
+On peut agir de plusieurs manieres :
+
+- update le champ replicat dans notre définition : le passer de 3 à 6.
+ensuite on met a jour notre rc :
+
+kubectl replace -f replicaset-definition.yaml
+
+- on peut utiliser la commande scale en donnant nos arguments :
+
+kubectl scale --replicas=6 -f replicaset-definition.yaml
+
+on peut utiliser cette commande en utilisant le type name format : 
+kubectl scale --replicas=6  replicaset myapp-replicaset
+
+Attention dans ces cas le fichier de definition ne sera pas updater de 3 à 6 réplicats : les pods seront créer mais la conf inchangée.
+
+cmds quick recap : 
+
+kubectl create -f def.yaml
+kubectl get replicaset
+kubectl delete replicaset myapp-replicaset
+kubectl replace -fdef.yaml
+kubectl scale --replicas=6 -f def.yaml 
+
+v2 ch12 ->done
+
 
 
 
