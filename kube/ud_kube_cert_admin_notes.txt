@@ -459,7 +459,7 @@ kubectl edit replicasets new-replica-set
 v2 ch12 ->done
 
 
-== tp replicatset -> done
+-> tp replicatset -> done
 
 kubectl create -f /root/replicaset-definition-1.yaml
 master $ kubectl delete replicasets replicaset-1 replicaset-2
@@ -496,7 +496,275 @@ Events:
   Normal  SuccessfulCreate  16m   replicaset-controller  Created pod: new-replica-set-j2pkm
   Normal  SuccessfulCreate  15m   replicaset-controller  Created pod: new-replica-set-9sx4x
 
-== 
+= deployment : 
+
+Le deployment  est un objet kube qui va permettre le deploiement / mise à jour, rollback d'application sans interruption de service pour le client : seamless deployment / rolling update ( mise à jour séquentielle des pods ) sans interruption de service.
+On va pouvoir mettre a jour une nouvelle version d'une appli dispo dans le docker hub pod par pod , sans devoir relancer tous les pods comme cela se passerai avec le replicaset.
+on va pouvoir rolbacker sur la version précedente de notre appli, on va pouvoir tester le comportement de notre nouvelle appli sur un pod avant de déployer sur tout notre parc ..toutes ses possibilités sont offertes par l'objet deployment.
+
+Tous les containers sont encapsulés dans des pods qui sont deployés par des replicaset ou replication controller : le deployment encapsule tout ces objets dans la hierarchie kube.
+
+La définition d'un deployment se fait comme pour les replicasets :
+
+
+vi deployment-definition.yaml
+
+apiVersion: apps/v1   --> ici on est obligé ded saisir apps/v1 pour l'apiversion : comme pour le replicaset.
+kind: Deployment      --> on renseigne ici le deployment  comme type
+metadata:
+  name: myapp-deployment
+  labels:
+    app: my-app
+    type: front-end
+spec:
+  - template:
+     metadata:
+       name: myapp-pod
+       labels:
+         app: myapp
+         type: front-end
+     spec:
+       containers:
+         - name: nginx-container
+           image: nginx
+replicas: 3
+selector:        
+  matchLabels:
+    type: front-end 
+
+
+On retrouve le template de pod et le nombre de replicas désiré.
+
+kubectl create -f deployment-definition.yaml
+on verifie la creation : 
+kubectl get deployments
+le deployment crée automatiquement le replicaset 
+kubectl get replicaset
+et les pods sont aussi crées automatiquement :
+kubectl get pods
+
+on peut voir la création globale de nos objets avec :
+
+kubectl get all 
+
+ch2 v13 -> done
+
+
+- tp deployment -> done
+
+ex deployment :
+
+master $ kubectl describe deployments
+Name:                   frontend-deployment
+Namespace:              default
+CreationTimestamp:      Wed, 01 May 2019 17:57:33 +0000
+Labels:                 <none>
+Annotations:            deployment.kubernetes.io/revision=1
+Selector:               name=busybox-pod
+Replicas:               4 desired | 4 updated | 4 total | 0 available | 4 unavailable
+StrategyType:           RollingUpdate
+MinReadySeconds:        0
+RollingUpdateStrategy:  25% max unavailable, 25% max surge
+Pod Template:
+  Labels:  name=busybox-pod
+  Containers:
+   busybox-container:
+    Image:      busybox888
+    Port:       <none>
+    Host Port:  <none>
+    Command:
+      sh
+      -c
+      echo Hello Kubernetes! && sleep 3600
+    Environment:  <none>
+    Mounts:       <none>
+  Volumes:        <none>
+Conditions:
+  Type           Status  Reason
+  ----           ------  ------
+  Available      False   MinimumReplicasUnavailable
+  Progressing    True    ReplicaSetUpdated
+OldReplicaSets:  <none>
+NewReplicaSet:   frontend-deployment-b9b7c6cb6 (4/4 replicas created)
+Events:
+  Type    Reason             Age   From                   Message
+  ----    ------             ----  ----                   -------
+  Normal  ScalingReplicaSet  2m    deployment-controller  Scaled up replica set frontend-deployment-b9b7c6cb6 to 4
+
+
+
+creation de deploiement :
+avec comme nom httpd-frontend  / replicas 3 et image : httpd:2.4-alpine
+master $ cat my-deploy.yaml
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: httpd-frontend
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      name: httpd-pod
+  template:
+    metadata:
+      labels:
+        name: httpd-pod
+    spec:
+      containers:
+      - name: httpd-container
+        image: httpd:2.4-alpine
+        command:
+        - sh
+        - "-c"
+        - echo Hello Kubernetes! && sleep 3600
+
+
+
+= Namespaces : 
+
+Les namespaces vont permettre de cloisonner nos resssources dans des espaces complétements distincts et hermétique. on pourra interragir diectement dans un namespace si il est accessible depuis notre namespace  actuel . 
+On peut interroger cependant des objets appartenant a différents namespaces.
+
+De base tous les objets que l'on crée et avec lesquels on interréagis sont dans le "default" namespace de kube.
+Kube pour ses besoins internes crées des objets, pods services , dns, network etc ... dans un namespace privé afin de le protéger des users : c'est le namespace appellé kube-system
+
+Un troisieme namespace est crée automatiquement c'est le kube-public : dans lequel on devrait avoir tous les objets qu'on l'on veut rendre accessible, dispo pour les users.
+
+Bien evidemment pour des tests on peut continuer a travailler dans le namespace par default mais on doit impérativement créer des namespace dans les environmments devant important et en production.
+
+on va pouvoir utiliser le même cluster pour différents env ( dev, preprod )mais on va isoler leur ressources avec des namespaces .
+
+On va pouvoir attribuer des quotats par namespaces ( nombre de pods, cpu , memoire ) : afin d'assurer la garantie de ne pas dépasser des ressources physiques .
+
+
+On va pouvoir au sein d'un namespace appellé directement un service :
+ex : dans le namespace default :
+
+- un web-pod
+- un web-deployment
+- un service-db
+
+pour se connecter a la db on pourra simplement faire :
+
+ex : mysql_connect("db.service")
+
+Si on doit atteindre un service dans un autre namespace ex dev on devra alors utiliser un nom complet créer et diffusé dans le service dns a la création du service par kub lui même :
+ex : mysql_connect("db.service.dev.svc.cluster.local") 
+
+on retrouve le nom du service , le namespace , le type d'objet : svc ici et le domain kube natif cluster.local
+
+- lister les pods d'un autre namespace :
+
+kubectl get pods --namespace="notre_namespace"
+
+- creer un pod dans un namespace particulier : 
+kubectl create -f pod-definition.yaml --namespace="my_namespace"
+
+On peut rajouter directement le namespace concerné par notre pod a la creation de celui ci en rajoutant :
+
+
+cat myapp-pod.yaml
+---
+apiVersion: v1
+kind: Pod
+
+metadata:
+  name: myapp-pod
+
+metadata:
+  name: dev
+  namespace: my-namespace  <<<< on ajoute ici le namespace de notre object.
+  labels:
+    app: myapp
+    type: front-end
+spec:
+  containers:
+    - name: nginx-container
+      image: nginx
+
+- creation de namespace :
+
+on peut ecrire un objet namespace :
+
+cat myapp-namespace.yaml
+---
+apiVersion: v1
+kind: Namespace
+
+metadata:
+  name: dev
+
+puis :
+kubectl create namespace -f myapp-namespace.yaml
+
+on peut creer a la volée le namespace aussi :
+
+kubectl create namespace  dev 
+
+- Switching de namespace : 
+
+on va pouvoir pour plus de facilité quand on travaille longtemps sur un namespace le définir par défaut : de maniere a ne pas devoir systematiqueme ntutiliser le flag : --namespace
+
+kubectl config set-context $(kubectl config current-context) --namespace=dev 
+
+- listing de tous les pods de tous les namespaces : 
+
+pour voir tous les pods de tous les namespaces :
+
+kubectl get pods --all-namespaces
+
+
+= Quota :
+on va pouvoir definir des quota de ressources pour nos namespaces :
+
+
+cat myapp-quota.yaml
+---
+apiVersion: v1
+kind: ResourceQuota
+
+metadata:
+  name: compute-quota
+  namespace: dev 
+spec:
+  hard:
+    pods: "10"
+    requests.cpu: "4"
+    requests.memory: 5Gi
+    limit.cpu: "10"
+    limit.memory: 10Gi
+
+
+kubectl create  -f myapp-quota.yaml
+
+ch2 v14 -> done
+
+tp namespace ->  done
+
+- creation d'un pod pour le namespace finance : 
+master $ cat fin-pod.yaml
+apiVersion: v1
+kind: Pod
+
+metadata:
+  name: redis
+
+metadata:
+  name: redis
+  namespace: finance
+  labels:
+    app: redis
+    type: cache
+spec:
+  containers:
+    - name: redis-container
+      image: redis
+master $ kubectl create -f fin-pod.yaml --namespace=finance
+pod/redis created
+
+
+= services : 
 
 
 
