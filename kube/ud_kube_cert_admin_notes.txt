@@ -782,13 +782,75 @@ le user ne ping pas le pod
 biensur on est donc dans ce cas dans le cluster kube ....ce n'est pas vraiment ce que l'on veut.
 
 on veut pouvoir atteindre l'appli de notre pod via notre laptop: c'est la qu'interviennent les services.
-Le role du service estd'ecouter un port sur le node et de forwarder les connexions sur ce port au port de notre application sur le pod.
+Le role du service est d'ecouter un port sur le node et de forwarder les connexions sur ce port au port de notre application sur le pod : c'es tce qu'on appelle un NodePort service.
 
 Il y a plusieurs type de service :
 
 NodePort c'est le cas le plus simple que nous venons de décrire brièvement.
-ClusterIp : qui sera un service virtuel qui permettra la commnunication entre différents services ( ex: frontend avec backend via ce service )
+ClusterIp : qui sera un service virtuel crée au sein du cluster qui permettra la commnunication entre différents services ( ex: frontend avec backend via ce service )
 LoadBalancer : qui va servir à repartir la charge entre nos différents pods hébergeant une appli frontend par exemple.
+
+- NodePort : 
+dans notre cas le laptop accedera a l'appli en appellant l'ip pod suivi d'un port .Cette connexion sera forwardée par le service sur le pod qui hébergera l'application.
+
+sur le pod
+on a le "target port" du pod qui sert l'application -> 10.244.0.2:80
+sur le service 
+on a le port 80  qui sera le même que celui de notre appli , le service a une ClusterIp qui permettra de recevoir les flux du client passant par le node puis envoyé ce flux vers le pod et le service final : ex: 10.106.1.12:80 
+sur le node :
+on a un port qui permettra d'acceder a ce node et au service  : c'est le NodePort ex: 192.169.0.5:3008
+
+/!\ les NodePorts sont assignés dans un range bien dédié et obligatoire compri entre 30000 et 32767
+
+On va créer un objet service comme nos différents objects :
+
+
+master $ cat service-definition.yaml
+apiVersion: v1
+kind: Service
+
+metadata:
+  name: myapp-service
+
+spec:
+  type: NodePort  <<< c'est le type qu'on vient de voir;
+  ports: 
+    - targetPort: 80 <<< c'est le port final qui sera sur notre pod
+      port: 80 <<< ici il s'agit du port de notre service vers lequel on enverra les flux vers le pod ( c'est le même port )
+      nodeport: 30008 <<<< c'est le port qui sera sur notre node et qui sera le point d'entrée par lequel les appels pourront joindre notre appli
+master $ kubectl create -f service-definition.yaml 
+
+Attention les ports sont sous forme de tableau 
+
+On va maintenant devoir mapper vers quel node on doit envoyer nos requettes ..il peut y avoir enormement de nodes .
+
+On va pour cela utiliser les selectors et labels qu'on a utiliser avec la creation de pod.
+
+master $ cat service-definition.yaml
+apiVersion: v1
+kind: Service
+
+metadata:
+  name: myapp-service
+
+spec:
+  type: NodePort  
+  ports: 
+    - targetPort: 80 
+      port: 80 
+      nodeport: 30008 
+  selector: 
+      app: myapp     <<<< on va ici ajouter les deux params que l'on a créer dans nos pods : afin de bien matcher les bons pods 
+      type: frontend 
+
+-commandes : 
+
+kubectl get services
+
+On va donc pouvoir maintenant atteindre notre application depuis notre laptop en utilisant l'ip du node et le nodeport défini :
+
+curl http://192.168.0.5:30008
+
 
 
 
