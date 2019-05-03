@@ -852,7 +852,64 @@ On va donc pouvoir maintenant atteindre notre application depuis notre laptop en
 curl http://192.168.0.5:30008
 
 
+Nous avons vu ici l'utilisation d'un service permettant l'acces a une app hébergée sur un pod.
+
+Biensur il est possible sur un node 'avoir une multitude de pod hébergeant la même application pour assurer la high availibility et le load balancing .Comment faire ? 
+
+Tous ces pods vont avoir le même label ex : myapp  à la creation du service on va utiliser en selector la même valeur que le label : on aura donc potentiellement un service qui redirigera vers une multitude de pods ayant tous une ip dédié.
+Le service  selectionnera donc tous ces pods comme endpoint pour forward les connexions des users.
+Le loadbalancing est fait automatiquement entre tous les pods via l'algorithme "random" 
+Le service  héberge donc nativement un loadbalancer en build in pour distribuer la charge sur les pods.
+Aucune actions de configuration supplémentaire à faire de notre coté.
 
 
+Il est egalement possible d'avoir plusieurs nodes hébergeant les pods de notre appplication. Comment permettre l'acces via le service ? 
+Kubernetes va automatiquement créer un service qui va distribuer le traffic en asssignant le traget port sur les pods de nos nodes.
+ex: si on a 3 nodes :
+192.168.0.1
+192.168.0.2
+192.168.0.3
+
+on pourra acceder naturellement à l'appli ecoutant sur le port 80 de nos pods hébergés sur chaque nodes en interrogant n'importe qu'ell ip suivi du NodePort défini :
+
+curl http://192.168.0.1:30008
+curl http://192.168.0.2:30008
+curl http://192.168.0.3:30008
+
+Donc on voit l'extreme fluidité du service qui est automatiquement opérationnel :
+pour une app hébergée sur un pod d'un node
+pour une app hébergée sur plusieurs pods d'un node
+pour une app hébergée sur plusieurs pods de plusieurs nodes
+
+ch2 v15 -> done
+
+- ClusterIP :
+
+Dans une appli classique on peut avoir des app de frontend qui doivent communiquées avec des app de backend qui doivent communiquer avec des db 
+Comme on le sait chaque pod a une ip mais celle ci n'est pas a prendre en compte puisque potentiellement volatile.
+
+Un service kube va permettre de grouper différentes ressource de pods afin de les rendre accessibles aux autres composants du cluster.
+Chaque service  une ip et un nom associé :on pourra donc scale notre cluster sans souci.
+Ce nom sera utilisé par les autres pods pour attenidre notre service :
+
+ex les pods frontend appelleront le service backend . les pods du service backend appelleront le service db : derriere chaque service on retrouve les pods qui recevront de manière random les requetes des clients.
+
+master $ cat service-clusterip-definition.yaml
+apiVersion: v1
+kind: Service
+
+metadata:
+  name: backend
+
+spec:
+  type: ClusterIp  <<< c'est le type qu'on vient de voir;
+  ports:
+    - targetPort: 80 <<< c'est le port final qui sera sur notre pod
+      port: 80 <<< ici il s'agit du port de notre service vers lequel on enverra les flux vers le pod ( c'est le même port )
+      
+      selector: 
+        app: myapp   <<<< on va linker notre service aux label des pods hebergeant le service .
+        type: backend         
+master $ kubectl create -f service-definition.yaml
 
 
