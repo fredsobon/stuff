@@ -452,7 +452,7 @@ cmds quick recap :
 kubectl create -f def.yaml
 kubectl get replicaset
 kubectl delete replicaset myapp-replicaset
-kubectl replace -fdef.yaml
+kubectl replace -f def.yaml
 kubectl scale --replicas=6 -f def.yaml 
 kubectl edit replicasets new-replica-set
 
@@ -912,4 +912,218 @@ spec:
         type: backend         
 master $ kubectl create -f service-definition.yaml
 
+on peut controller la creation de notre service avec 
+kubectl get service
 
+
+chap2 v16 -> done
+
+- 
+tp services ->  done.
+
+master $ kubectl get service
+NAME         TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
+kubernetes   ClusterIP   10.96.0.1    <none>        443/TCP   6m    <<<< ce service est crée par default au lancement e kube.
+
+master $ kubectl describe service
+Name:              kubernetes
+Namespace:         default
+Labels:            component=apiserver
+                   provider=kubernetes
+Annotations:       <none>
+Selector:          <none>
+Type:              ClusterIP
+IP:                10.96.0.1
+Port:              https  443/TCP
+TargetPort:        6443/TCP
+Endpoints:         172.17.0.79:6443
+Session Affinity:  None
+Events:            <none>
+
+
+- creation de service de type NodePort pour atteindre depuis le browser via le port 30080 l'appli simple-webapp qui ecoute sur le port 8080
+master $ cat service-definition-1.yaml
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: webapp-service
+spec:
+  type: NodePort
+  ports:
+    - targetPort: 8080
+      port: 8080
+      nodePort: 30080
+  selector:
+    name: simple-webapp
+
+
+== chapitre 3 : Scheduling : 
+
+ch3 v2
+
+= Fonctionnement du scheduling :
+
+sur chaque definition de pod un champ : nodeName n'est pas à remplir quand on crée le pod mais  Kube renseigne se champ automatiquement à la creation
+Le scheduleur va examiner toutes les definitions de pods et quand il voit le champ nodeName vide : il va alors examiner la conf et déterminer sur quel node il va falloir créer ce pod . 
+Le nom du node va donc etre associer au nodeName de la definition de notre pod 
+ex : 
+nodeName : node2
+S'il n'y a pas de sheduleur pour gérer les nouveaux pods ceux restent toujours en etat de pending : dans l'attente de l'assignation a un node.
+
+Dans ce cas nous avons plusieurs solutions : 
+
+= Manual scheduling : 
+
+on va pouvoir assigner manuellement un pod a un node.
+dans ce cas nous avons juste à renseigner la section nodeName dans la création de notre pod
+
+ex : 
+
+
+cat myapp-pod.yaml
+---
+apiVersion: v1
+kind: Pod
+
+metadata:
+  name: nginx
+  labels:
+    name: nginx
+spec:
+  containers:
+    - name: nginx-container
+      image: nginx
+    - Ports: 
+        containerPort : 8080
+
+nodeName : node2
+
+Par contre Kube NE nous laissera pas modifier ce champ si l'objet existe déja.
+Dans ce cas nous allons devoir créer un objet qui referencera notre pod et ira donc sur le node que nous désirons :
+
+cat pod-bind-definition.yaml
+
+apiVersion: v1
+kind: Binding
+
+metadata:
+  name: nginx
+target: 
+  apiVersion: v1
+  kind: Node
+  name: node2
+
+on va ensuite envoyer en requete POST a l'api de binding notre définition d'objet :
+on va convertir notre yaml en json : 
+curl -H "Content-type: application/json" -X POST -D '{"apiVersion: v1, kind: Binding ......}' https://server/api/v1/namespaces/default/pods/$podname/binding
+
+tp manual shedule -> done 
+
+master $ cat nginx.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx
+spec:
+  containers:
+  -  image: nginx
+     name: nginxmaster
+master $ kubectl create -f nginx.yaml
+pod/nginx created
+master $ kubectl get pods
+NAME      READY     STATUS    RESTARTS   AGE
+nginx     0/1       Pending   0          3s
+
+master $ kubectl get pods --all-namespaces
+NAMESPACE     NAME                             READY     STATUS    RESTARTS   AGE
+default       nginx                            0/1       Pending   0          1m
+kube-system   coredns-78fcdf6894-7zbqs         1/1       Running   0          6m
+kube-system   coredns-78fcdf6894-c9zll         1/1       Running   0          6m
+kube-system   etcd-master                      1/1       Running   0          5m
+kube-system   kube-apiserver-master            1/1       Running   0          5m
+kube-system   kube-controller-manager-master   1/1       Running   0          5m
+kube-system   kube-proxy-fdlnz                 1/1       Running   0          6m
+kube-system   kube-proxy-wgccj                 1/1       Running   0          6m
+kube-system   weave-net-9mhgm                  2/2       Running   1          6m
+kube-system   weave-net-wqfwn                  2/2       Running   1          6m
+
+on voit qu'il n'y a pas de scheduler 
+on va detruire le pod puis le recreer en inserant dans la defintion le nodeName que l'on veut : 
+
+cat myapp-pod.yaml
+---
+apiVersion: v1
+kind: Pod
+
+metadata:
+  name: myapp-pod
+  labels:
+    app: myapp
+    type: front-end
+spec:
+  containers:
+    - name: nginx-container
+      image: nginx
+  nodeName: node01
+
+
+
+master $ vi nginx.yaml
+master $ kubectl create -f nginx.yaml
+pod/nginx created
+master $ kubectl get pod
+NAME      READY     STATUS    RESTARTS   AGE
+nginx     1/1       Running   0          11s
+master $ kubectl describe pod nginx
+Name:               nginx
+Namespace:          default
+Priority:           0
+PriorityClassName:  <none>
+Node:               node01/172.17.0.73
+Start Time:         Sun, 05 May 2019 17:57:28 +0000
+Labels:             <none>
+Annotations:        <none>
+Status:             Running
+IP:                 10.32.0.2
+Containers:
+  nginx:
+    Container ID:   docker://e990f90c76b0712ddfcba7632c047b3158e24c2e2b23de406b593b8cfd925234
+    Image:          nginx
+    Image ID:       docker-pullable://nginx@sha256:e71b1bf4281f25533cf15e6e5f9be4dac74d2328152edf7ecde23abc54e16c1c
+    Port:           <none>
+    Host Port:      <none>
+    State:          Running
+      Started:      Sun, 05 May 2019 17:57:37 +0000
+    Ready:          True
+    Restart Count:  0
+    Environment:    <none>
+    Mounts:
+      /var/run/secrets/kubernetes.io/serviceaccount from default-token-89rxh (ro)
+Conditions:
+  Type              Status
+  Initialized       True
+  Ready             True
+  ContainersReady   True
+  PodScheduled      True
+Volumes:
+  default-token-89rxh:
+    Type:        Secret (a volume populated by a Secret)
+    SecretName:  default-token-89rxh
+    Optional:    false
+QoS Class:       BestEffort
+Node-Selectors:  <none>
+Tolerations:     node.kubernetes.io/not-ready:NoExecute for 300s
+                 node.kubernetes.io/unreachable:NoExecute for 300s
+Events:
+  Type    Reason   Age   From             Message
+  ----    ------   ----  ----             -------
+  Normal  Pulling  22s   kubelet, node01  pulling image "nginx"
+  Normal  Pulled   15s   kubelet, node01  Successfully pulled image "nginx"
+  Normal  Created  14s   kubelet, node01  Created container
+  Normal  Started  14s   kubelet, node01  Started container
+
+
+= Labels et selectors : 
+
+  
