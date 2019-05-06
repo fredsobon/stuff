@@ -1188,34 +1188,112 @@ ex dans un replicaset on va definir les pods utilisés via leur labels
 
 Attention on a dans ce cas 2 labels :
 
-le premier en debut de definition concerne le replicaset lui meme alors que le second concerne les pods.  --> Il faut bien faire attention c'est une erreur classique.
+le premier en debut de definition concerne le replicaset lui meme alors que le second defini dans la section du template concerne les pods.  --> Il faut bien faire attention c'est une erreur classique.
 Dans notre cas actuellement les labels de replicaset  ne sont pas utilisés : nous verrons plus tard que ceci peut être utile pour la decouverte auto de replicaset.
 
 Afin de connecter le replicaset au pod : on va definir dans la conf de notre replicaset un matchingLabels qui va comporter une entrée qui va correspondre a une definition de label dans la section de notre pod :
 
----- ch3 v3 en cours : 
 
 definition de replicaset a revoir pour l'exemple de correspondance matchlabels repliscaset et label pod sur entrée app: app1
 
-kind: ReplicaSet      --> on renseigne ici le replicatset comme type
+kind: ReplicaSet      
 metadata:
-  name: myapp-replicaset
+  name: simple-webapp
   labels:
-    app: my-app
+    app: app1
     type: front-end
 spec:
+  replicas: 3
+  selector:        
+    matchLabels:
+      type: app1
   - template:
      metadata:
        name: myapp-pod
        labels:
-         app: myapp
+         app: app1
          type: front-end
      spec:
        containers:
-         - name: nginx-container
-           image: nginx
-replicas: 3
-selector:         --> on est obligé ici de définir le pod qui va être gérer par le replicaset.
-  matchLabels:
-    type: front-end  --> le matchlabel
+         - name: simple-webapp
+           image: simple-webapp
+
+
+C'est le même principe pour les differents objects kube
+
+ex : pour les services :
+quand un service est créer il va utiliser  l'entrée defini dans le selector pour matcher avec l'entree du label du pod defini dans le replicaset.
+
+On peut rajouter une autre caracteristique en plus des labels et selectors : les annotations .
+Cela va anous permettre de donner des infos supplementaires dans la description de nos pods ( numero de version , adresse mail ...)
+
+
+kind: ReplicaSet      
+metadata:
+  name: simple-webapp
+  labels:
+    app: app1
+    type: front-end
+  annotations:
+    buildversion: 1.34
+
+ch 3 v3 -> done
+
+= Ressources limits : 
+
+comme on l'a vu le scheduleur va s'occuper de la creation et la repartition des pods sur les différents nodes, en fonction des ressources nécéssaires pour le pod et des ressources dispos sur les nodes.
+
+Si un pod demande des ressources non dispos alors il reste en status pending et on a une info spécifique au pb : ..insufficiant cpu  ....etc .
+
+kube de base considère qu'un container  de base a besoin de :
+
+0.5 cpu 
+256M ram 
+Si de base on sait que notre appli va consommer plus , il suffit de déclarer dans la définition les valeurs nécéssaires.
+
+
+cat myapp-pod.yaml
+---
+apiVersion: v1
+kind: Pod
+
+metadata:
+  name: myapp-pod
+  labels:
+    app: myapp
+    type: front-end
+    function: web 
+spec:
+  containers:
+    - name: nginx-container
+      image: nginx
+  nodeName: node01
+
+  ressources: 
+    requests:
+      memory: "1Gb"
+      cpu: 1
+
+- cpu :
+L'unite 1 cpu correspond a :
+1 vcpu
+1 thread
+on peut mettre 100m et decendre jusqu'a 0.1m qui veut dire milli.
+on n'est pas obligé de mettre des multiples de 0.5 ou 100m 
+
+- memory :
+on peut mettre les valeurs que l'on veut avec le suffixes qu'on veut mais  il s'agit de Mi Gi ayant pour base 1k = 1024bytes 
+contrairement a 1K = 1000bytes pour Mo et Go
+
+Dans le monde de docker ..il n'y a pas de limite et le container peut consumer les ressources qu'il veut sur le node.
+De base kube fixe des limites pour les containers afin de preserver les nodes :
+
+1vcpu par container
+512mi de ram 
+
+On va pouvoir definir des limits à nos container dans la definition de notre pod 
+
+le container ne pourra pas depasser le cpu defini mais il pourra depasser la memoire jusqu'a crasher ....
+
+ch 3 v4 -> en cours
 
