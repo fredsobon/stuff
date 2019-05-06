@@ -1126,4 +1126,96 @@ Events:
 
 = Labels et selectors : 
 
+ Les labels et les selectors sont des methodes pour grouper les choses entre elles.
+ On veut etre capable de filtrer en fonctions de group mais également en fonction de certains critères.
+ ex : tous les animaux verts
+ tous les animaux de type oiseaux verts
+ Les labels sont alors ideaux . Les labels sont des propriétés attachees a des items 
+ex : 
+class : mammal
+kind : domestic 
+color : green
+
+class : reptile
+kind : wild 
+color : purple
+
+on trouve les lables dans plein de contexte web : sur les blogs, dans les boutiques on line ...
   
+- utilisation des labels et selectors dans kube : 
+
+on crée plein de differents objects : pods, deployment, replicaset, service ....
+avec le temps on peu donc avoir une multitude d'objet dans notre cluster.
+on doit donc etre capable de voir nos différents objects par catégories.
+on peut grouper les objects par leur type ( pods ..) , leur application ( my-app1 ), leut fonctionnalité ( frontend )
+chaque object attache les labels selon nos besoins.
+
+On va donc créer dansla section metadata les labels que l'on veut sans limitation de nombre :
+
+cat myapp-pod.yaml
+---
+apiVersion: v1
+kind: Pod
+
+metadata:
+  name: myapp-pod
+  labels:
+    app: myapp
+    type: front-end
+    function: web 
+spec:
+  containers:
+    - name: nginx-container
+      image: nginx
+  nodeName: node01
+
+
+Le selector va utiliser des labels pour filtrer nos objects : 
+selectors :
+  app: app1
+  function: front-end 
+
+le selector sera ici app=app1 par exemple.
+
+Un fois l'object créer on va pourvoir selectionner en fonction de critère passés en arguments au selector :
+
+
+kubeclt get pods --selector app=app1 
+
+kube utilise les labels et selectors en interne pour grouper les ressources.
+
+ex dans un replicaset on va definir les pods utilisés via leur labels 
+
+Attention on a dans ce cas 2 labels :
+
+le premier en debut de definition concerne le replicaset lui meme alors que le second concerne les pods.  --> Il faut bien faire attention c'est une erreur classique.
+Dans notre cas actuellement les labels de replicaset  ne sont pas utilisés : nous verrons plus tard que ceci peut être utile pour la decouverte auto de replicaset.
+
+Afin de connecter le replicaset au pod : on va definir dans la conf de notre replicaset un matchingLabels qui va comporter une entrée qui va correspondre a une definition de label dans la section de notre pod :
+
+---- ch3 v3 en cours : 
+
+definition de replicaset a revoir pour l'exemple de correspondance matchlabels repliscaset et label pod sur entrée app: app1
+
+kind: ReplicaSet      --> on renseigne ici le replicatset comme type
+metadata:
+  name: myapp-replicaset
+  labels:
+    app: my-app
+    type: front-end
+spec:
+  - template:
+     metadata:
+       name: myapp-pod
+       labels:
+         app: myapp
+         type: front-end
+     spec:
+       containers:
+         - name: nginx-container
+           image: nginx
+replicas: 3
+selector:         --> on est obligé ici de définir le pod qui va être gérer par le replicaset.
+  matchLabels:
+    type: front-end  --> le matchlabel
+
