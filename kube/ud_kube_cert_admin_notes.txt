@@ -1295,5 +1295,70 @@ On va pouvoir definir des limits à nos container dans la definition de notre po
 
 le container ne pourra pas depasser le cpu defini mais il pourra depasser la memoire jusqu'a crasher ....
 
-ch 3 v4 -> en cours
+
+cat myapp-pod.yaml
+---
+apiVersion: v1
+kind: Pod
+
+metadata:
+  name: myapp-pod
+  labels:
+    app: myapp
+    type: front-end
+    function: web 
+spec:
+  containers:
+    - name: nginx-container
+      image: nginx
+  nodeName: node01
+
+  ressources:                    <<<<< definition d'une section de resources: on defini le besoin de notre pod 
+    requests:
+      memory: "1Gi"
+      cpu: 1
+    limits:                     <<<<<< definition des limites de notre container : limites fixées manuellement pour contenir les eventuels debordements du container
+      memory: "2Gi"
+      cpu: 2
+
+
+ch 3 v4 -> done
+
+= Daemon sets : 
+
+Le daemonset va permettre comme le replicaset de s'assurer du deploiement correct des pods définis.
+A la différence du replicaset , le daemonset va déployer un pod apres sa creation  sur CHAQUE node du cluster.
+Il s'assure qu'une copie de chaque pods et toujours presentes sur tous les nodes du cluster.
+
+Un exemple parfait d'utilisation est l'ajout de monitoring et de logger que le cluster.
+On va deployer ses agents sous formes de pod et déployer sur chaque node du cluster via un daemonset pour s'assurer du bon fonctionnement de notre cluster.
+Dans ce cas on n'a pas besoin de s'occuper de retirer / rajouter des agents de log ou monito sur un node qui sort du cluster ou un nouveau node qui rentre dasn le cluster.
+Un second exemple d'utilisation du daemonset est le kube-proxy qui va être deployer sous forme de pod sur chaque noeud de notre cluster en daemonset.
+Une solution de networking comme weave nécéssite le deployment de conf sur chaque node : le daemonset est la encore conseillé.
+
+La definition du daemonset est identique au replicaset :
+
+
+cat daemonset-definition.yaml 
+apiVersion: apps/v1  
+kind: DeaemonSet      
+metadata:
+  name: monitring-daemon
+spec:
+  selector:         
+    matchLabels:
+      app: monitoring-agent
+  - template:
+     metadata:
+       labels:
+         app: monitoring-agent
+     spec:
+       containers:
+         - name: monitoring-agent
+           image: monitoring-agent
+ch 3 v5 -> en cours
+
+
+
+
 
