@@ -49,12 +49,12 @@ def collect(servers, metric, verbose, previous):
     return stats
 
 def servers(group):
-    cmd = ['/ilius/scripts/distrib', 'list',  '-g', group]
+    cmd = ['/server/list', 'list',  '-g', group]
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE)
     return proc.stdout.read().strip().split(' ')
 
 def alert(stats, warn, error):
-    servs = dict((x, stats[x]) for x in stats if not os.path.isfile('/ilius/monitors/lock/dont-monitor.' + x))
+    servs = dict((x, stats[x]) for x in stats if not os.path.isfile('/server/list/exclude.' + x))
     failures = [x for x in servs if servs[x]['fail'] or (servs[x]['rate'] > error)] or ['none']
     warnings = [x for x in servs if servs[x]['rate'] > warn] or ['none']
     print 'SERVER_IN_WARNING='  + ' '.join(warnings)
