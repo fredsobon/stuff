@@ -1329,36 +1329,83 @@ ch 3 v4 -> done
 Le daemonset va permettre comme le replicaset de s'assurer du deploiement correct des pods définis.
 A la différence du replicaset , le daemonset va déployer un pod apres sa creation  sur CHAQUE node du cluster.
 Il s'assure qu'une copie de chaque pods et toujours presentes sur tous les nodes du cluster.
+Chaque nouveau node va donc recevoir les pods définis dans notre daemonset.
 
-Un exemple parfait d'utilisation est l'ajout de monitoring et de logger que le cluster.
+Un exemple parfait d'utilisation est l'ajout de monitoring et de logger pour le cluster.
 On va deployer ses agents sous formes de pod et déployer sur chaque node du cluster via un daemonset pour s'assurer du bon fonctionnement de notre cluster.
-Dans ce cas on n'a pas besoin de s'occuper de retirer / rajouter des agents de log ou monito sur un node qui sort du cluster ou un nouveau node qui rentre dasn le cluster.
+Dans ce cas on n'a pas besoin de s'occuper de retirer / rajouter des agents de log ou monito sur un node qui sort du cluster ou un nouveau node qui rentre dans le cluster.
 Un second exemple d'utilisation du daemonset est le kube-proxy qui va être deployer sous forme de pod sur chaque noeud de notre cluster en daemonset.
 Une solution de networking comme weave nécéssite le deployment de conf sur chaque node : le daemonset est la encore conseillé.
 
-La definition du daemonset est identique au replicaset :
 
+
+La definition du daemonset est identique au replicaset :
+on a les pods du daemonset definis et imbriquer dans la section template, on a un selector défini pour matcher ces pods.
 
 cat daemonset-definition.yaml 
 apiVersion: apps/v1  
 kind: DeaemonSet      
 metadata:
-  name: monitring-daemon
+  name: monitoring-daemon
 spec:
   selector:         
     matchLabels:
       app: monitoring-agent
   - template:
-     metadata:
-       labels:
-         app: monitoring-agent
-     spec:
-       containers:
-         - name: monitoring-agent
-           image: monitoring-agent
-ch 3 v5 -> en cours
+      metadata:
+        labels:
+          app: monitoring-agent
+      spec:
+        containers:
+          - name: monitoring-agent
+            image: monitoring-agent
+
+on doit s'assurer que le matchLabels de notre selector correspond au label defini dans le template de nos pods.            
 
 
+kubectl create -f daemonset-definition.yaml
+
+kubectl get daemonsets
+
+kubectl describe daemonsets our_daemonset_name
+
+Fonctionnement :
+
+on peut definir manuellement comme on l'a vu l'affectation de pod à un node  
+
+-> c'etait comme cela avant kubernetes v1.12
+
+Depuis le daemonsets utilise le scheduleur par defaut et les nodes affinity.
 
 
+ch 3 v5 -> done
+
+
+= multiple schedulers : =
+
+On a vu que le sheduling va dependre de plusieurs criteres que l'on peut avoir défini : ( node affinity , ressources ..)
+Que ce passe il quand aucune des specificité ne sont disponibles ?
+
+On va pouvoir définir notre propre sheduleur.
+
+On peut downloader le binaire du sheduleur sur le site de kube.
+Si on ne precise rien : se sera un sheduleur par defaut qui se lancera  comme un service 
+
+  --sheduleur-name=default
+on peut déployer un scheduleur perso en utilisant le même bianaire mais en specifiant un nom :
+
+ ... 
+  --sheduleur-name=my-own-scheduler
+
+Il va être nécéssaire de bien identifié le nom du scheduleur
+
+ex : kubeadm deploi le scheduleur sous forme de pod 
+on peut s'inspirer de la conf de kubeadm pour créer la definition de notre scheduler 
+
+
+il faudra biensur s'assurer de bien rensiegner son nom et aussi de rajouter la section : --leader-elect: true
+
+qui sert a s'assurer qu'un seul master est le sheduler dans le cas d'un cluster multi master ( HA )
+
+v3 ch6 -> en cours.
 
