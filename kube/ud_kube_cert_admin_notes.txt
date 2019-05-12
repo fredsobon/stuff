@@ -1000,7 +1000,7 @@ spec:
 nodeName : node2
 
 Par contre Kube NE nous laissera pas modifier ce champ si l'objet existe déja.
-Dans ce cas nous allons devoir créer un objet qui referencera notre pod et ira donc sur le node que nous désirons :
+Dans ce cas nous allons devoir créer un objet qui referencera notre pod et ira donc sur le node que nous désirons : ce nouvel object est de type Binding.
 
 cat pod-bind-definition.yaml
 
@@ -1140,7 +1140,7 @@ class : reptile
 kind : wild 
 color : purple
 
-on trouve les lables dans plein de contexte web : sur les blogs, dans les boutiques on line ...
+on trouve les labels dans plein de contexte web : sur les blogs, dans les boutiques on line ...
   
 - utilisation des labels et selectors dans kube : 
 
@@ -1180,7 +1180,7 @@ le selector sera ici app=app1 par exemple.
 Un fois l'object créer on va pourvoir selectionner en fonction de critère passés en arguments au selector :
 
 
-kubeclt get pods --selector app=app1 
+kubectl get pods --selector app=app1 
 
 kube utilise les labels et selectors en interne pour grouper les ressources.
 
@@ -1238,6 +1238,58 @@ metadata:
     buildversion: 1.34
 
 ch 3 v3 -> done
+
+
+ch3 tp labels /selector -> done 
+
+aster $ kubectl get pods --selector env=dev
+NAME          READY     STATUS    RESTARTS   AGE
+app-1-g9k8r   1/1       Running   0          1m
+app-1-t7qcs   1/1       Running   0          1m
+app-1-zhbdm   1/1       Running   0          1m
+db-1-2vgkv    1/1       Running   0          1m
+db-1-7678l    1/1       Running   0          1m
+db-1-fj5rm    1/1       Running   0          1m
+db-1-z6hbq    1/1       Running   0          1m
+master $ kubectl get pods --selector bu=finance
+NAME          READY     STATUS    RESTARTS   AGE
+app-1-g9k8r   1/1       Running   0          1m
+app-1-t7qcs   1/1       Running   0          1m
+app-1-zhbdm   1/1       Running   0          1m
+app-1-zzxdf   1/1       Running   0          1m
+auth          1/1       Running   0          1m
+db-2-sdnz9    1/1       Running   0          1m
+master $ kubectl get all --selector env=prod
+NAME              READY     STATUS    RESTARTS   AGE
+pod/app-1-zzxdf   1/1       Running   0          2m
+pod/app-2-cfnth   1/1       Running   0          2m
+pod/auth          1/1       Running   0          2m
+pod/db-2-sdnz9    1/1       Running   0          2m
+
+kubectl get all --selector env=prod,bu=finance,tier=frontend
+NAME              READY     STATUS    RESTARTS   AGE
+pod/app-1-zzxdf   1/1       Running   0          3m
+
+cat replicaset-definition-1.yaml
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: replicaset-1
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      tier: frontend   <<<< il faut faire matcher le label de notre replicatset avec celui des pods
+  template:
+    metadata:
+      labels:
+        tier: frontend   <<<< label des pods
+    spec:
+      containers:
+      - name: nginx
+        image: nginx
+
+
 
 = Ressources limits : 
 
@@ -1324,6 +1376,46 @@ spec:
 
 ch 3 v4 -> done
 
+
+tp ressources -> done 
+
+creation d'un pod avec ressources cpu : 
+
+
+Attention à l'indentation -> le yaml ici est correct.
+
+master $ cat lion.yaml
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: lion
+spec:
+  containers:
+  - name: lion
+    image: vish/stress
+    resources:
+       requests:
+        cpu: 2
+      
+
+ cat elephant.yaml
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: elephant
+spec:
+  containers:
+  - name: elephant
+    image: polinux/stress
+    resources:
+       limits:
+        memory: "20Mi"
+       requests:
+        memory: "15Mi"
+        cpu: 2
+
 = Daemon sets : 
 
 Le daemonset va permettre comme le replicaset de s'assurer du deploiement correct des pods définis.
@@ -1379,6 +1471,84 @@ Depuis le daemonsets utilise le scheduleur par defaut et les nodes affinity.
 
 
 ch 3 v5 -> done
+
+
+tp daemonsets -> done 
+
+master $ kubectl get daemonsets --all-namespaces
+NAMESPACE     NAME         DESIRED   CURRENT   READY     UP-TO-DATE   AVAILABLE   NODE SELECTOR                   AGE
+kube-system   kube-proxy   2         2         2         2            2           beta.kubernetes.io/arch=amd64   3m
+kube-system   weave-net    2         2         2         2            2           <none>
+
+master $ kubectl describe daemonset kube-proxy --namespace=kube-system
+Name:           kube-proxy
+Selector:       k8s-app=kube-proxy
+Node-Selector:  beta.kubernetes.io/arch=amd64
+Labels:         k8s-app=kube-proxy
+Annotations:    <none>
+Desired Number of Nodes Scheduled: 2
+Current Number of Nodes Scheduled: 2
+Number of Nodes Scheduled with Up-to-date Pods: 2
+Number of Nodes Scheduled with Available Pods: 2
+Number of Nodes Misscheduled: 0
+Pods Status:  2 Running / 0 Waiting / 0 Succeeded / 0 Failed
+Pod Template:
+  Labels:           k8s-app=kube-proxy
+  Annotations:      scheduler.alpha.kubernetes.io/critical-pod=
+  Service Account:  kube-proxy
+  Containers:
+   kube-proxy:
+    Image:      k8s.gcr.io/kube-proxy-amd64:v1.11.3
+    Port:       <none>
+    Host Port:  <none>
+    Command:
+      /usr/local/bin/kube-proxy
+      --config=/var/lib/kube-proxy/config.conf
+    Environment:  <none>
+    Mounts:
+      /lib/modules from lib-modules (ro)
+      /run/xtables.lock from xtables-lock (rw)
+      /var/lib/kube-proxy from kube-proxy (rw)
+  Volumes:
+   kube-proxy:
+    Type:      ConfigMap (a volume populated by a ConfigMap)
+    Name:      kube-proxy
+    Optional:  false
+   xtables-lock:
+    Type:          HostPath (bare host directory volume)
+    Path:          /run/xtables.lock
+    HostPathType:  FileOrCreate
+   lib-modules:
+    Type:          HostPath (bare host directory volume)
+    Path:          /lib/modules
+    HostPathType:
+Events:
+  Type    Reason            Age   From                  Message
+  ----    ------            ----  ----                  -------
+  Normal  SuccessfulCreate  5m    daemonset-controller  Created pod: kube-proxy-q2csm
+  Normal  SuccessfulCreate  5m    daemonset-controller  Created pod: kube-proxy-dssqz
+
+creation d'un daemonset dont on défini le nom "elasticsearch" , le namespace dans le quel il evolue : kube-system et avec une image : k8s.gcr.io/elasticsearch:1.20
+
+master $ cat fluend-daemonset.yaml
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: elasticsearch
+  namespace: kube-system
+spec:
+  selector:
+    matchLabels:
+      app: elasticsearch
+  template:
+     metadata:
+       labels:
+         app: elasticsearch
+     spec:
+       containers:
+         - name: elasticsearch
+           image: k8s.gcr.io/elasticsearch:1.20
+
 
 
 = multiple schedulers : =
