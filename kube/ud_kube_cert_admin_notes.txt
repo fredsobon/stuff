@@ -1399,7 +1399,7 @@ spec:
         cpu: 2
       
 
- cat elephant.yaml
+cat elephant.yaml
 ---
 apiVersion: v1
 kind: Pod
@@ -1553,13 +1553,17 @@ spec:
 
 = multiple schedulers : =
 
-On a vu que le sheduling va dependre de plusieurs criteres que l'on peut avoir défini : ( node affinity , ressources ..)
+On a vu que le sheduling va dependre de plusieurs criteres que l'on peut avoir défini : ( node affinity , ressources ..).
+Il est possible d'avoir des besoins complexes avec par exemple une appli qui devra avoir ses pods placés sur des nodes après des tests additionnels (??)
 Que ce passe il quand aucune des specificité ne sont disponibles ?
 
 On va pouvoir définir notre propre sheduleur.
+Dans ce cas les applications normales utiliseront le scheduleur par defaut et notre application scpecifique elle sera gérée par notre scheduleur personel.: 
+le cluster kube peut utiliser en même temps plusieurs scheduleurs.
 
+Quand on crée un pod ou un deployement on va pouvoir definir le scheduleur qui va être utilisé.
 On peut downloader le binaire du sheduleur sur le site de kube.
-Si on ne precise rien : se sera un sheduleur par defaut qui se lancera  comme un service 
+Si on ne precise rien : se sera un sheduleur par defaut qui se lancera  comme un service (linux)
 
   --sheduleur-name=default
 on peut déployer un scheduleur perso en utilisant le même bianaire mais en specifiant un nom :
@@ -1569,13 +1573,73 @@ on peut déployer un scheduleur perso en utilisant le même bianaire mais en spe
 
 Il va être nécéssaire de bien identifié le nom du scheduleur
 
-ex : kubeadm deploi le scheduleur sous forme de pod 
+ex : kubeadm deploi le scheduleur sous forme de pod ( pas comme un service ) 
 on peut s'inspirer de la conf de kubeadm pour créer la definition de notre scheduler 
 
-
-il faudra biensur s'assurer de bien rensiegner son nom et aussi de rajouter la section : --leader-elect: true
-
+il faudra biensur s'assurer de bien renseigner son nom et aussi de rajouter la section : --leader-elect: true
 qui sert a s'assurer qu'un seul master est le sheduler dans le cas d'un cluster multi master ( HA )
 
+Un seul scheduleur doit être actif sur un master : il faut faire une election de leader.
+ex : 
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    name: custom-scheduler
+    namespace: kube-system
+spec:
+  containers:
+    - command:
+    - /usr/local/bin/kube-scheduler
+    - --address=127.0.0.1
+    - --leader-elect=true
+    - --scheduler-name=custom-scheduler
+    image: g1g1/custom-kube-scheduler:1.0
+    name: kube-second-scheduler
+
+On va pouvoir examiner une fois que l'on lance notre pods qu'il tourne bien . Une fois que notre sheduleur est up , on va definir les pods qui vont l'utiliser.
+dans la définition du pod on va definir le scheduleur crée au prealable: 
+cat elephant.yaml
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: elephant
+spec:
+  containers:
+  - name: elephant
+    image: polinux/stress
+    resources:
+       limits:
+        memory: "20Mi"
+       requests:
+        memory: "15Mi"
+        cpu: 2
+  schedulerName: custom-scheduler    <<< on defini explicitement le scheduleur qui va être utilisé pour notre pod.
+
+  On crée notre popd et on le lance : il doit être en runnning 
+
+
+- Comment identifier quel sheduler est  utilisé ?
+
+on va utiliser la gestion des events : 
+
+kubectl get events : va lister les evenement s dans le namespace courant.
+on peut voir dans notre cas apres la creation du pods qu'il y a une section SOURCE qui indique les scheduleurs en charge de l'event : ici la creation du pod est bien dépendante de notre scheduleur personalisé.
+
+
+on va egalement pouvoir examiner les logs :
+
+kubectl logs custom-scheduler --namespace=kube-system
+
+ch3 v6 ->  done 
+
+todo tp scheduleur
+
+
+
+
+
 v3 ch6 -> en cours.
+
 
