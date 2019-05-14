@@ -1,0 +1,188 @@
+===== notes etcd : ===
+
+
+
+- tester en ssl :
+
+# etcdctl --endpoints "https://etcdserver.io:2379" --ca-file /etc/kube-tls/etcd_ca.crt  --cert-file /etc/kube-tls/etcd_client.crt --key-file /etc/kube-tls/etcd_client.key  set bla blou
+
+# etcdctl --endpoints "https://etcdserver.io:2379" --ca-file /etc/kube-tls/etcd_ca.crt  --cert-file /etc/kube-tls/etcd_client.crt --key-file /etc/kube-tls/etcd_client.key    get bla
+blou
+
+avec en conf : 
+
+
+= exemples de conf : 
+
+cat etcd/etcd.yml
+# Source URL: https://raw.githubusercontent.com/coreos/etcd/master/etcd.conf.yml.sample
+# This is the configuration file for the etcd server.
+
+# Human-readable name for this member.
+name: "etcdserver"
+
+# Path to the data directory.
+data-dir: "/var/lib/etcd/default.etcd"
+
+
+# Number of committed transactions to trigger a snapshot to disk.
+snapshot-count: 10000
+
+# Time (in milliseconds) of a heartbeat interval.
+heartbeat-interval: 100
+
+# Time (in milliseconds) for an election to timeout.
+election-timeout: 1000
+
+# Raise alarms when backend size exceeds the given quota. 0 means use the
+# default quota.
+quota-backend-bytes: 0
+
+# List of comma separated URLs to listen on for peer traffic.
+listen-peer-urls: "https://0.0.0.0:2380"
+
+# List of comma separated URLs to listen on for client traffic.
+listen-client-urls: "https://0.0.0.0:2379"
+
+# Maximum number of snapshot files to retain (0 is unlimited).
+max-snapshots: 5
+
+# Maximum number of wal files to retain (0 is unlimited).
+max-wals: 5
+
+
+# List of this member's client URLs to advertise to the public.
+# The URLs needed to be a comma-separated list.
+advertise-client-urls: "https://etcdserver.boogie.net:2379"
+
+# List of this member's peer URLs to advertise to the rest of the cluster.
+# The URLs needed to be a comma-separated list.
+initial-advertise-peer-urls: "https://etcdserver.boogie.net:2380"
+
+
+# Valid values include 'exit', 'proxy'
+discovery-fallback: "proxy"
+
+
+
+# Initial cluster configuration for bootstrapping.
+initial-cluster: "etcdserver=https://etcdserver.boogie.net:2380"
+
+# Initial cluster token for the etcd cluster during bootstrap.
+initial-cluster-token: "etcd-cluster-paas-kubeinfra"
+
+# Initial cluster state ('new' or 'existing').
+initial-cluster-state: "new"
+
+# Reject reconfiguration requests that would cause quorum loss.
+strict-reconfig-check: false
+
+# Auto compaction retention for mvcc key value store in hour. 0 means disable it.
+auto-compaction-retention:
+
+# Force to create a new one member cluster.
+force-new-cluster: false
+
+# Accept etcd V2 client requests
+enable-v2: true
+
+# Valid values include 'on', 'readonly', 'off'
+proxy: "off"
+
+# Time (in milliseconds) an endpoint will be held in a failed state.
+proxy-failure-wait: 5000
+
+# Time (in milliseconds) of the endpoints refresh interval.
+proxy-refresh-interval: 30000
+
+# Time (in milliseconds) for a dial to timeout.
+proxy-dial-timeout: 1000
+
+# Time (in milliseconds) for a write to timeout.
+proxy-write-timeout: 5000
+
+# Time (in milliseconds) for a read to timeout.
+proxy-read-timeout: 0
+
+client-transport-security:
+  # Path to the client server TLS cert file.
+  cert-file: "/etc/kube-tls/etcd_server.crt"
+
+  # Path to the client server TLS key file.
+  key-file: "/etc/kube-tls/etcd_server.key"
+
+  # Enable client cert authentication.
+  client-cert-auth: true
+
+  # Path to the client server TLS trusted CA key file.
+  trusted-ca-file: "/etc/kube-tls/etcd_server.crt"
+
+
+peer-transport-security:
+  # Path to the peer server TLS cert file.
+  cert-file: "/etc/kube-tls/etcd_peer.crt"
+
+  # Path to the peer server TLS key file.
+  key-file: "/etc/kube-tls/etcd_peer.key"
+
+  # Enable peer client cert authentication.
+  client-cert-auth: true
+
+  # Path to the peer server TLS trusted CA key file.
+  trusted-ca-file: "/etc/kube-tls/etcd_peer.crt"
+
+
+# Enable debug-level logging for etcd.
+debug: false
+
+= 
+cat etcd/etcd.conf
+# Managed by Puppet
+
+#[member]
+ETCD_NAME="etcdserver"
+ETCD_DATA_DIR="/var/lib/etcd/default.etcd"
+ETCD_SNAPSHOT_COUNT=10000
+ETCD_HEARTBEAT_INTERVAL=100
+ETCD_ELECTION_TIMEOUT=1000
+ETCD_QUOTA_BACKEND_BYTES=0
+ETCD_LISTEN_CLIENT_URLS="https://0.0.0.0:2379"
+ETCD_ADVERTISE_CLIENT_URLS="https://etcdserver.boogie.net:2379"
+ETCD_MAX_SNAPSHOTS=5
+ETCD_MAX_WALS=5
+ETCD_ENABLE_V2=true
+#
+#[proxy]
+ETCD_PROXY="off"
+ETCD_PROXY_FAILURE_WAIT=5000
+ETCD_PROXY_REFRESH_INTERVAL=30000
+ETCD_PROXY_DIAL_TIMEOUT=1000
+ETCD_PROXY_WRITE_TIMEOUT=5000
+ETCD_PROXY_READ_TIMEOUT=0
+#
+
+#[cluster]
+ETCD_LISTEN_PEER_URLS="https://0.0.0.0:2380"
+ETCD_INITIAL_ADVERTISE_PEER_URLS="https://etcdserver.boogie.net:2380"
+ETCD_INITIAL_CLUSTER="etcdserver=https://etcdserver.boogie.net:2380"
+ETCD_INITIAL_CLUSTER_STATE="new"
+ETCD_INITIAL_CLUSTER_TOKEN="etcd-cluster-paas-kubeinfra"
+ETCD_DISCOVERY_FALLBACK="proxy"
+ETCD_STRICT_RECONFIG_CHECK=false
+ETCD_FORCE_NEW_CLUSTER=true
+#
+
+#[security]
+ETCD_CERT_FILE="/etc/kube-tls/etcd_server.crt"
+ETCD_KEY_FILE="/etc/kube-tls/etcd_server.key"
+ETCD_CLIENT_CERT_AUTH=true
+ETCD_TRUSTED_CA_FILE="/etc/kube-tls/etcd_ca.crt"
+ETCD_PEER_CERT_FILE="/etc/kube-tls/etcd_peer.crt"
+ETCD_PEER_KEY_FILE="/etc/kube-tls/etcd_peer.key"
+ETCD_PEER_CLIENT_CERT_AUTH=true
+ETCD_PEER_TRUSTED_CA_FILE="/etc/kube-tls/etcd_ca.crt"
+#
+#[logging]
+ETCD_DEBUG=true
+# 
+
