@@ -1,0 +1,58 @@
+=== notes draft ssl : ===
+
+
+principes tres généraux tls / ssl 
+
+
+
+on utilise a la fois un system de crytage symmetrique : clé priv qui sera partagée entre le client et le server
+on utilise un system de cryptage à clé priv /pub pour les echanges entre les clients et server 
+
+
+1/ pour communiquer avec un server de manière securisé :
+le client génére une paire de clé priv /pub :
+il garde la priv et envoi la pub sur le server : c'est de manière classique la connexion ssh : le client peut se connecter en ssh , les données qu'ils envoient sont chiffrées avec sa clé privées et sur le serveur sa clé ublique est utilisée pour déchiffrer le message.
+inversement le serveur chiffre les données avec la clé pub du client qui sera le seul a pouvoir déchiffrer avec sa clé priv.
+
+pour le traffic https :
+
+le server génere une paire de clé pub /priv 
+il va tout d'abord envoyer une demande de signature de certificat à une authorite de certification ( ca ) : c'est le csr qui va contenir la clé pub du server et les informations relatives au nom de domaines, id site, proprietaire societe ....
+La ca signe le certificat avec sa clé priv , les users / server ont les clés pubs des CA ( dans les os , browsers ) , le certificat est ensuite envoyé au server .
+On va configurer le server pour gérer https ( lb / nginx, apache ....) 
+Quand un user accede à l'application : le server envoit immédiatement le certificat avec sa clé pub. le user utilise la clé publique de la ca ( contenue dans les brosers ) pour valider le certificat.
+A partir de ce moment la une génération de clé symmetrique est faite pour etablir la communication chiffrée avec le server : 
+la clé symmetrique (générée par le browser : c'est transparent pour le user) va etre chiffrée avec la clé pub du server dont le client a recu une copie dans le certificat.
+Le serveur va utiliser sa clé priv pour déchiffrer le message du client et donc recupérer la clé symetrique envoyée.
+
+
+
+
+
+
+
+
+
+
+
+= nomenclature : 
+
+
+- certificats :
+
+sont appellés de plusieurs manière mais il faut juste retenir qu'ils contiennent la clé publique :
+
+*.cert :  server.cert, client.cert ...
+*.pem  :  server.pem, client.pem
+
+
+- key : 
+
+il s'agit de la clé privée donc jamais partagée.
+*.key : server.key, client.key
+*.key.pem : server-key.pem, client-key.pem 
+
+- ca : certificate authorithy :
+
+ca.key
+ca.pem 
