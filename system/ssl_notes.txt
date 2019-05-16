@@ -1,13 +1,15 @@
 === notes draft ssl : ===
 
 
-principes tres généraux tls / ssl 
-
+= principes tres généraux tls / ssl : 
 
 
 on utilise a la fois un system de crytage symmetrique : clé priv qui sera partagée entre le client et le server
 on utilise un system de cryptage à clé priv /pub pour les echanges entre les clients et server 
 
+
+
+/!\ attention dans le cas ou on a par exemple plusieurs domaines, ou plusieurs server qui vont être contacter en tls : on va devoir au moment de saisir les infos pour la génération de notre certif : renseigner les champs Alt names : on rajoute exemple : server-etcd01, server-etcd02 ou boogie7.net , boogie7.org ...
 
 1/ pour communiquer avec un server de manière securisé :
 le client génére une paire de clé priv /pub :
@@ -25,18 +27,21 @@ A partir de ce moment la une génération de clé symmetrique est faite pour eta
 la clé symmetrique (générée par le browser : c'est transparent pour le user) va etre chiffrée avec la clé pub du server dont le client a recu une copie dans le certificat.
 Le serveur va utiliser sa clé priv pour déchiffrer le message du client et donc recupérer la clé symetrique envoyée.
 
+On voit donc que le user peut s'assurer que le server est bien authentique grace a la verification de la clé pub envoyée par le serveur dans le certificat.
+Mais comment le server est il sur de l'identité du user ? pour les transactions humaines / server : il n'y a pas de vrai méthode.
+Par contre pour les echanges avec un client ( machinne cliente) qui se connecte au server : un certificat peut être demandé par le server au client pour s'assurer que le client est bien identifié.
+Dans ce cas le client va générer une paire de clé puis envoyé un csr avec sa clé pub à faire valider par une ca.
+une fois le certif recu il va être envoyé au server par le client.
 
 
+on a donc :
+des certificats servers
+des certificats clients
+des ca 
 
-
-
-
-
-
-
+ces ensembles forment une pki 
 
 = nomenclature : 
-
 
 - certificats :
 
@@ -44,7 +49,6 @@ sont appellés de plusieurs manière mais il faut juste retenir qu'ils contienne
 
 *.cert :  server.cert, client.cert ...
 *.pem  :  server.pem, client.pem
-
 
 - key : 
 
@@ -56,3 +60,5 @@ il s'agit de la clé privée donc jamais partagée.
 
 ca.key
 ca.pem 
+
+

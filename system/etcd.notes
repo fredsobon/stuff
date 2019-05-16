@@ -1,6 +1,40 @@
 ===== notes etcd : ===
 
 
+- etcd stocke les fichiers de configurations du cluster, comme le répertoire /etc sur Linux. Et comme pour les fichiers de configuration dans /etc, une bonne pratique consiste à avoir un backup des fichiers gérés par etcd. Ceci permettra de remettre en route plus rapidement un cluster après incident majeur.
+
+sudo apt install etc
+
+
+- le serveur ecoute principalement sur deux ports : 
+-2379 : pour les clients qui se connecteront sur etcd.
+-2380 : pour les communications intra cluster etcd ( peers )  
+
+
+- set up cluster : 
+
+on va pouvoir demarrer avec un nombre limité de server etcd ( attention a respecter les qorum : voir matrices sur le site coreos ) 
+en bonne pratique on demarre à 3 noeuds
+
+pour ce faire on va devoir  s'assurer que certaines variables dans le fichier de conf ou service systemd comporte des valeurs specifiques :
+
+- on va definir un token pour notre cluster : 
+
+# Initial cluster token for the etcd cluster during bootstrap.
+initial-cluster-token: "etcd-cluster-paas-kube"
+
+- le premier demarrage du cluster ( bootstrap ) doit s'assurer qu'on a la variable
+initial-cluster-state: "new" 
+avec la liste des serveurs membres renseignée dans l'entree :
+
+# Initial cluster configuration for bootstrapping.
+initial-cluster: "etcdserver=https://etcdserver.boogie.net:2380"
+
+Si on veut ajouter un nouveau membre , il faudra changer la valeur :
+initial-cluster-state: "existing" 
+puis alimenter la liste des peer urls
+
+
 
 - tester en ssl :
 
