@@ -1767,5 +1767,76 @@ tp logging -> done
 == Application life cycle managment : ==
 
 
+= rolling update and rollback : =
+
+- rollout :
+
+quand on crée un deployment , cela trigger un nouveau rollout.
+Ce rollout crée un nouveau num de revision pour le deploiement.
+ex : 
+on cree un deploiement pour des images nginx:1.7.0 , cela trigger un rollout qui va générer un num de revision pour le deploiement: ex :revision 1
+Dans le futur si on upgrade une nouvelle version de container avec des images updatées nginx:1.7.1 : on aura apres le deploiement un rollout qui créera un num de recision : ex : revision 2
+Cela permet de garder un historique des déploiements et de faciliter le rollback si besoin.
+
+On peut voir le status de notre rollout avec :
+kubectl rollout status deployment/my-app-deploy
+
+on peut voir l'historique de nos déployments avec :
+kubectl rollout history deployment/my-app-deploy
+
+- strategy de deployement :
+
+il y a deux types de stratégie de déploiement :
+
+- recreate :
+dans cette strategie : on va detruire tous les pods de notre deploiement puis les recreer avec la nouvelle version.
+Biensur : il y a une interruption de service pendant ce temps.
+
+- rolling-update :
+dans cette deuxieme strategie , on va detruire et recréer tous les pods un par un :
+si on a un deployement de 4 pods nginx :
+on detruit le premier pod puis on créer le premier pod nouvelle version, on fait pareil avec tous les autres pods.
+Dans ce cas il n'y a aucune coupure de service et le deploiement est seamless.
+Cette stratégie est celle utilisée par default dans kubernetes.
+Si on ne precise rien dans notre deployement : cette stratégie sera utilisée par defaut.
+
+
+update : on peut avoir beaucoup de parametres qu'on peut updaté : num d'application, numbre de replicat, images docker etc ...
+
+on peut renseigner les changements dans notre fichier de déploiement et mettre a jour avec :
+kubectl apply -f definition-deployment.yaml
+
+on peut faire un update a chaud :
+ex: 
+kubectl set image deployment/my-app-deploy nginx=nginx:1.9.1 
+Attention on aura donc une différence avec le fichier de déploiment qui aura la version de l'image inchangée.
+
+On peut voir le detail du deploiment avec :
+
+kubectl describe deployment my-app-deploy 
+on peut bien voir le champ :
+StrategyType: Recreate ou RollingUpdate 
+
+on peut voir les différences de deploiement :
+dans un cas tous est detruit puis recréer , dans le second les operations se font une a une pour chaque pod.
+
+upgrade : 
+fonctionnement interne :
+dans le cas d'un nouveau deployment :
+le deployment va crée un replicat set avec le nombre de pod necessaire
+dans le cas d'une modif de deployment :
+un nouveau replicatset est créer et le premier pod du premier replicaset est detruit, le premier pod du nouveau replicat set est crée etc ..
+
+on peut voir le  resultat en consultant :
+kubectl get replicasets
+on voit le premier replicatset avec 0 pod et le second avec le nombre de pod definit dans notre deployement.
+
+- Rollback :
+on va pouvoir revenir a une version anterieure :
+
+kubectl rollout undo deployment/my-app-deploy
+
+
+
 
 
