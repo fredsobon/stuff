@@ -1806,6 +1806,8 @@ update : on peut avoir beaucoup de parametres qu'on peut updaté : num d'applica
 on peut renseigner les changements dans notre fichier de déploiement et mettre a jour avec :
 kubectl apply -f definition-deployment.yaml
 
+on peut editer notre deployment : il sera pris à chaud 
+
 on peut faire un update a chaud :
 ex: 
 kubectl set image deployment/my-app-deploy nginx=nginx:1.9.1 
@@ -1837,6 +1839,167 @@ on va pouvoir revenir a une version anterieure :
 kubectl rollout undo deployment/my-app-deploy
 
 
+
+
+tp ch5 rolling-update rollback -> done
+
+
+on examine un deployment , on modifie l'image utilisée ( kubectl edit deployment frontend)
+
+on voit ensuite la modification : on observe le shutdown des anciens pods et l'allumage des nouveaux pods avec nouvelle image qui se fait de maniere incrémentale 
+
+
+master $ kubectl describe deployments.
+Name:                   frontend
+Namespace:              default
+CreationTimestamp:      Sun, 19 May 2019 18:00:33 +0000
+Labels:                 name=webapp
+Annotations:            deployment.kubernetes.io/revision=2
+Selector:               name=webapp
+Replicas:               4 desired | 4 updated | 5 total | 3 available | 2 unavailable
+StrategyType:           RollingUpdate
+MinReadySeconds:        20
+RollingUpdateStrategy:  25% max unavailable, 25% max surge
+Pod Template:
+  Labels:  name=webapp
+  Containers:
+   simple-webapp:
+    Image:        kodekloud/webapp-color:v2
+    Port:         8080/TCP
+    Host Port:    0/TCP
+    Environment:  <none>
+    Mounts:       <none>
+  Volumes:        <none>
+Conditions:
+  Type           Status  Reason
+  ----           ------  ------
+  Available      True    MinimumReplicasAvailable
+  Progressing    True    ReplicaSetUpdated
+OldReplicaSets:  frontend-7965b86db7 (1/1 replicas created)
+NewReplicaSet:   frontend-65998dcfd8 (4/4 replicas created)
+Events:
+  Type    Reason             Age   From                   Message
+  ----    ------             ----  ----                   -------
+  Normal  ScalingReplicaSet  10m   deployment-controller  Scaled up replica set frontend-7965b86db7 to 4
+  Normal  ScalingReplicaSet  25s   deployment-controller  Scaled up replica set frontend-65998dcfd8 to 1
+  Normal  ScalingReplicaSet  25s   deployment-controller  Scaled down replica set frontend-7965b86db7 to 3
+  Normal  ScalingReplicaSet  25s   deployment-controller  Scaled up replica set frontend-65998dcfd8 to 2
+  Normal  ScalingReplicaSet  0s    deployment-controller  Scaled down replica set frontend-7965b86db7 to 1
+  Normal  ScalingReplicaSet  0s    deployment-controller  Scaled up replica set frontend-65998dcfd8 to 4
+master $ kubectl describe deployments.
+Name:                   frontend
+Namespace:              default
+CreationTimestamp:      Sun, 19 May 2019 18:00:33 +0000
+Labels:                 name=webapp
+Annotations:            deployment.kubernetes.io/revision=2
+Selector:               name=webapp
+Replicas:               4 desired | 4 updated | 5 total | 3 available | 2 unavailable
+StrategyType:           RollingUpdate
+MinReadySeconds:        20
+RollingUpdateStrategy:  25% max unavailable, 25% max surge
+Pod Template:
+  Labels:  name=webapp
+  Containers:
+   simple-webapp:
+    Image:        kodekloud/webapp-color:v2
+    Port:         8080/TCP
+    Host Port:    0/TCP
+    Environment:  <none>
+    Mounts:       <none>
+  Volumes:        <none>
+Conditions:
+  Type           Status  Reason
+  ----           ------  ------
+  Available      True    MinimumReplicasAvailable
+  Progressing    True    ReplicaSetUpdated
+OldReplicaSets:  frontend-7965b86db7 (1/1 replicas created)
+NewReplicaSet:   frontend-65998dcfd8 (4/4 replicas created)
+Events:
+  Type    Reason             Age   From                   Message
+  ----    ------             ----  ----                   -------
+  Normal  ScalingReplicaSet  10m   deployment-controller  Scaled up replica set frontend-7965b86db7 to 4
+  Normal  ScalingReplicaSet  28s   deployment-controller  Scaled up replica set frontend-65998dcfd8 to 1
+  Normal  ScalingReplicaSet  28s   deployment-controller  Scaled down replica set frontend-7965b86db7 to 3
+  Normal  ScalingReplicaSet  28s   deployment-controller  Scaled up replica set frontend-65998dcfd8 to 2
+  Normal  ScalingReplicaSet  3s    deployment-controller  Scaled down replica set frontend-7965b86db7 to 1
+  Normal  ScalingReplicaSet  3s    deployment-controller  Scaled up replica set frontend-65998dcfd8 to 4
+
+ 
+-script pour vérifier la version des pods déployés apres un update de deployment : 
+
+master $ cat curl-test.sh
+for i in {1..35}; do
+   kubectl exec --namespace=kube-public curl -- sh -c 'test=`wget -qO- -T 2  http://webapp-service.default.svc.cluster.local:8080/info 2>&1` && echo "$test OK" || echo "Failed"';
+   echo ""
+
+Hello, Application Version: v1 ; Color: blue OK
+
+master $ cat curl-test.sh
+for i in {1..35}; do
+   kubectl exec --namespace=kube-public curl -- sh -c 'test=`wget -qO- -T 2  http://webapp-service.default.svc.cluster.local:8080/info 2>&1` && echo "$test OK" || echo "Failed"';
+   echo ""
+done
+
+
+
+en changeant la methode de déployement a recreate on a : 
+
+master $ kubectl describe  deployments.
+Name:               frontend
+Namespace:          default
+CreationTimestamp:  Sun, 19 May 2019 18:00:33 +0000
+Labels:             name=webapp
+Annotations:        deployment.kubernetes.io/revision=3
+Selector:           name=webapp
+Replicas:           4 desired | 4 updated | 4 total | 4 available | 0 unavailable
+StrategyType:       Recreate
+MinReadySeconds:    20
+Pod Template:
+  Labels:  name=webapp
+  Containers:
+   simple-webapp:
+    Image:        kodekloud/webapp-color:v3
+    Port:         8080/TCP
+    Host Port:    0/TCP
+    Environment:  <none>
+    Mounts:       <none>
+  Volumes:        <none>
+Conditions:
+  Type           Status  Reason
+  ----           ------  ------
+  Available      True    MinimumReplicasAvailable
+  Progressing    True    NewReplicaSetAvailable
+OldReplicaSets:  <none>
+NewReplicaSet:   frontend-5c858cd557 (4/4 replicas created)
+Events:
+  Type    Reason             Age   From                   Message
+  ----    ------             ----  ----                   -------
+  Normal  ScalingReplicaSet  34m   deployment-controller  Scaled up replica set frontend-7965b86db7 to 4
+  Normal  ScalingReplicaSet  24m   deployment-controller  Scaled up replica set frontend-65998dcfd8 to 1
+  Normal  ScalingReplicaSet  24m   deployment-controller  Scaled down replica set frontend-7965b86db7 to 3
+  Normal  ScalingReplicaSet  24m   deployment-controller  Scaled up replica set frontend-65998dcfd8 to 2
+  Normal  ScalingReplicaSet  24m   deployment-controller  Scaled down replica set frontend-7965b86db7 to 1
+  Normal  ScalingReplicaSet  24m   deployment-controller  Scaled up replica set frontend-65998dcfd8 to 4
+  Normal  ScalingReplicaSet  23m   deployment-controller  Scaled down replica set frontend-7965b86db7 to 0
+  Normal  ScalingReplicaSet  7m    deployment-controller  Scaled down replica set frontend-65998dcfd8 to 0
+  Normal  ScalingReplicaSet  6m    deployment-controller  Scaled up replica set frontend-5c858cd557 to 4
+
+
+on va pouvoir voir les différents déployements : 
+
+master $ kubectl rollout history deployment/frontend
+deployments "frontend"
+REVISION  CHANGE-CAUSE
+1         <none>
+2         <none>
+3         <none>
+
+on peut executer un rollback : 
+master $ kubectl rollout undo deployment/frontend
+deployment.extensions/frontend
+
+
+= Commands and arguments dans une définition de pod :
 
 
 
