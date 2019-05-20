@@ -2092,5 +2092,118 @@ Todo tp ch5 -> commandes args
 
 - commands et arguments dans kube :
 
-ch5 v4 -> todo 
+on a vu qu'on pouvait créer avec docker un container qui se lancerait et pendant 5 secondes ne ferait rien
+docker run --name ubuntu-sleeper ubuntu-sleeper
+on a vu qu'on pouvait overrider les commandes et arguments pour le lancer 10 secondes : 
+docker run --name ubuntu-sleeper ubuntu-sleeper 10
+
+on va pouvoir créer un pod ayant le même comportement : 
+et on va pouvoir passer les argumants overridant le comportement par defaut du pod dans la section args de notre container : 
+pod-def.yaml
+
+apiVersion: v1 
+kind: Pod
+metadata:
+  name: ubuntu-sleeper-pod
+specs:
+  containers:
+    - name: ubuntu-sleeper
+      image: ubuntu-sleeper
+      args: ["10"]
+
+kubectl create -f pod-def.yaml
+
+ c'est comme si on overridait la partie CMD dans le dockerfile :
+
+ From ubuntu
+ ..
+ ENTRYPOINT ["sleep"]
+ CMD ["5"]
+
+ Comment faire si on veut overrider l'entrypoint ? 
+ dans ce cas on va renseigner le champ command dans la def de notre pod: 
+
+
+
+pod-def.yaml
+
+apiVersion: v1 
+kind: Pod
+metadata:
+  name: ubuntu-sleeper-pod
+specs:
+  containers:
+    - name: ubuntu-sleeper
+      image: ubuntu-sleeper
+      command: ["sleepv2"]
+      args: ["10"]
+Attention donc on a 
+
+ENTRYPOINT : docker -> command: kubernetes
+CMD: docker         -> args: kubernetes
+
+
+ch5 v4 -> done
+
+tp ch5 command args
+
+master $ cat ubuntu-sleeper-2.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ubuntu-sleeper-2
+spec:
+  containers:
+  - name: ubuntu
+    image: ubuntu
+    command: ["sleep"]
+    args: ["5000"]
+master $
+
+
+Il est possible de passer plusieurs commandes à la suite sous forme de tableau dans la directive commandes :
+
+master $ cat ubuntu-sleeper-3.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ubuntu-sleeper-3
+spec:
+  containers:
+  - name: ubuntu
+    image: ubuntu
+    command:
+      - "sleep"
+      - "1200"
+
+      
+ici on voit que la commande qui sera executé au demarrage du container sera:  "--color","green" : car la valeur déclarée dans le pod va ovverider ce qui est defini dans le dockerfile.
+
+master $ cat /root/webapp-color-2/Dockerfile2
+FROM python:3.6-alpine
+
+RUN pip install flask
+
+COPY . /opt/
+
+EXPOSE 8080
+
+WORKDIR /opt
+
+ENTRYPOINT ["python", "app.py"]
+
+CMD ["--color", "red"]master $ cat /root/webapp-color-2/webapp-color-pod.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: webapp-green
+  labels:
+      name: webapp-green
+spec:
+  containers:
+  - name: simple-webapp
+    image: kodekloud/webapp-color
+    command: ["--color","green"]
+
+
 
