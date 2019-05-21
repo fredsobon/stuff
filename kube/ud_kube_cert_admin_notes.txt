@@ -2207,3 +2207,91 @@ spec:
 
 
 
+= Variable d'environment dans kube : =
+
+on va pouvoir specifier dans la definition de notre pod des variables.
+La section commencera par env qui est lui même suivi de tableau :chaque élément est compris dans le tableau :
+chaque item du tableau a un nom et une valeur
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: webapp-green
+  labels:
+      name: webapp-green
+spec:
+  containers:
+  - name: simple-webapp
+    image: kodekloud/webapp-color
+    ports: 
+      - containerport: 8080
+    command: ["watch -n2 "]
+    env: 
+      - name: APP_COLOR
+        value: green
+
+On va pouvoir configurer nos variables autrement qu'en associant des clés valeur dans notre pod.
+On peut utiliser des configMap et des secrets 
+
+- configMap :
+
+    env: 
+      - name: APP_COLOR
+        valueFrom:
+          configMapKeyRef:
+
+
+- secret :           
+
+    env: 
+      - name: APP_COLOR
+        valueFrom:
+          secretKeyRef: 
+
+-> ch5 v5 -> done
+
+=  configMap :
+
+on a vu qu'on pouvait setter des variables d'environment dans la defintion de notre pod. 
+Quand on a beaucoup de defintion de pod cela devient compliquer de gérer les variables au sein de multiples fichiers.
+
+on va donc externaliser les differentes variables au sein d'un fichier pour centraliser nos données.
+Ce fichier peut être un configMap
+
+configMap est un fichier comportant des clés /valeurs.
+on va donc dans la definition de notre pod faire matcher les entrées de nos configmap dans les caracteriqtiques de notre pod .
+
+On va donc créer notre configmap puis l'injecter dans notre pod.
+
+ex: 
+ConfigMap 
+
+APP_COLOR: blue
+APP_MODE: prod
+
+- creation de configmap : 
+
+on va avoir deux methodes pour créere notre configmap :
+-> impératif : sans fichier de config :
+kubectl create configmap  
+
+-> declaratif : avec un fichier de definition.
+kubectl create -f 
+
+
+- imperatif :
+
+kubectl create configmap  
+  <config-name> --from-litteral=<key>=<value>
+  app-config --from-litteral=APP_COLOR=blue
+
+l'utilisation de --from-litteral permet de passer directement en cli les clés /valeurs
+on peut ajouter autant de clés /valeurs que l'on veut en rajoutant une ligne -from-litteral suivie des clés/ valeurs: 
+
+
+
+kubectl create configmap  
+  app-config --from-litteral=APP_COLOR=blue
+             --from-litteral=APP_MODE=prod
+
+ch5 v6 -> en cours.
