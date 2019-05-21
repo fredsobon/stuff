@@ -2253,10 +2253,10 @@ On peut utiliser des configMap et des secrets
 =  configMap :
 
 on a vu qu'on pouvait setter des variables d'environment dans la defintion de notre pod. 
-Quand on a beaucoup de defintion de pod cela devient compliquer de gérer les variables au sein de multiples fichiers.
+Quand on a beaucoup de definition de pod cela devient compliquer de gérer les variables au sein de multiples fichiers.
 
 on va donc externaliser les differentes variables au sein d'un fichier pour centraliser nos données.
-Ce fichier peut être un configMap
+Ce fichier peut être un configMap 
 
 configMap est un fichier comportant des clés /valeurs.
 on va donc dans la definition de notre pod faire matcher les entrées de nos configmap dans les caracteriqtiques de notre pod .
@@ -2294,4 +2294,109 @@ kubectl create configmap
   app-config --from-litteral=APP_COLOR=blue
              --from-litteral=APP_MODE=prod
 
-ch5 v6 -> en cours.
+on peut également charger nos données depuis un fichier :
+
+kubectl create configmap  
+  app-config --from-file=app_config.properties
+
+- declaratif :
+
+kubectl create -f configmap-def.yaml
+
+apiVersion: 1
+kind: ConfigMap
+metadata:
+  name: app-config
+data:  <<<< a la place de spec que l'on trouve dans les objects kube habituels  ici on a la definition data
+  APP_COLOR: blue
+  APP_MODE: prod
+
+
+kubectl create -f configmap-def.yaml
+
+On peut biensur avoir plusieurs configmap :
+mysql-config:
+
+port: 3306
+max_allowed-packets: 32M
+
+etc ...
+
+pour examiner les configmap :
+
+kubectl get configmaps
+
+kubectl describe  configmaps
+
+- Declaration dans le pod :
+
+on va maintenant definir notre configmap dans le pod :
+
+on va utiliser des declaration specifique:
+envFrom:
+  configMapRef:
+    name: notre_config_map 
+
+pod-def.yaml
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: webapp-green
+  labels:
+      name: webapp-green
+spec:
+  containers:
+  - name: simple-webapp
+    image: kodekloud/webapp-color
+    ports: 
+      - containerport: 8080
+    command: ["watch -n2 "]
+    envFrom:            <<<<<<<<  on va donc maintenant rattacher les valeurs definis dans notre configmap au pod 
+      - configMapRef:
+        name: app-config
+
+
+kubectl create -f pod-def.yaml
+
+ch5 v6 -> done
+
+->>> todo tp configmap 
+
+= secrets : =
+
+comme on l'a vu on peut charger des variables depuis un fichier de type configMap 
+mais pour les données sensibles (mdp ..) il faut preserver une securité ..
+
+On va donc dans ce cas utiliser un secret qui est un object qui sert a stocker les données sensibles.
+
+Les data seront hachées et invisibles pour les users.
+comme pour les configmap on va créer dans un premier temps les secrets puis injecter la conf dans le pod.
+
+ex: 
+
+secret 
+
+DB_HOST: mysql
+DB_USER: root
+DB_PASSWORD: psswd
+
+- imperatif :
+
+kubectl create secret generic
+  <secret_name> --from-litteral=key=value
+  app-secret --from-litteral=DB_HOST=mysql
+             --from-litteral=DB_USER=root
+             --from-litteral=DB_PASSWORD=psswd
+
+biensur cela commence a etre compliqué quand on a beaucoup de secret a passer 
+on va pouvoir passer l'option -from-file qui permetrra de gérer un fichier contenant toutes nos valeurs
+
+kubectl create secret generic
+  <secret-name> --from-file=<path-to-file>
+  app-secret --from-file=fichier_contenant_nos_secrets
+
+
+
+
+
