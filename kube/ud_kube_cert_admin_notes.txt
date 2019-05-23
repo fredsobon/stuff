@@ -2488,12 +2488,118 @@ On peut créer des secrets :
 
 -> en env
 
+envFrom:
+  - secretRef:
+    name: app-secret
 
 -> en single env
 
+env:
+  - name: DB_PASSWORD
+    valueFrom:
+      secretkeyRef:
+        - name: app-secret
+        key: DB_PASSWORD
+
+-> dans un fichier qui sera monté dans un volume :
+
+volumes:
+  - name: volume-app-secret
+    secret:
+      secretName: app-secret 
+      
+ch 5 v7 -> done 
+
+todo tp configmap / secret 
+
+== Readiness  probe / monitoring concepts : =
+
+on a vu qu'un pod a un status et des conditions.
+
+ex : 
+-pending (quand le sheduler va s'occupé du dispatch ..)
+- quand le pod est dispatché sur un node on est dans l'etat containercreating 
+- quand le container est up le pod passe en running
 
 
--> en volume
+les conditions competent le pod status 
 
-ch5 v7 en cours.
+ce sont des tableaux true /false sur le status des pods :
+
+PodScheduled  -> true / false
+Initialized   -> true /false 
+ContainerReady -> true /false
+Ready          -> true /false
+
+on peut voir les conditions d'un pod avec un :
+
+kubectl describe pod 
+
+
+Le status ready indique que l'application dans le pod est running 
+et prete a accepter du traffic user
+l'appli peut etre un simple script, une db, un server web ...
+
+Certaines applications peuvent mettre plusieurs minutes à démarrer ...
+
+ex : quand jenkins démarre c'est tres long 
+pourtant même si l'application n'est pas completement démarrée le status du pod peut etre en ready ce qui n'est pas complétement vrai.
+
+Comment kube peut savoir si les applications d'un pod sont bien démarrées ou non ?
+
+des que le container est créer kube pense que l'appli est up.
+
+un pod s'il expose via un service un acces aux users sera donc vu up même si l'appli n'est pas démarrée completement.
+
+On doit donc trouver un moyen de vraiment s'assurer que l'appli est dispo 
+
+on va donc builder des tests :
+
+readiness probes : ex http /api test ; tcp test port 3306 ...
+
+On va pouvoir le faire au sein de notre pod :
+on fait un set up de sonde qui ne permettra a kube de déclarer le pod en ready que quand la sonde sera ok : 
+
+pod-def.yaml
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: webapp-green
+  labels:
+      name: webapp-green
+spec:
+  containers:
+  - name: simple-webapp
+    image: kodekloud/webapp-color
+    ports: 
+      - containerport: 8080
+    command: ["watch -n2 "]
+    envFrom:            
+      - secretRef:
+        name: app-secret
+    readinessProbe:   <<<<<< definition de notre sonde  
+      httpGet:
+        path: /api/ready
+        port: 8080
+        
+
+on a plusieurs type de sondes :
+
+
+    readinessProbe:   <<<<<< check http  
+      httpGet: 
+        path: /api/ready
+        port: 8080
+        
+
+    readinessProbe:   <<<< check tcp 
+      tcpSocket:
+        port: 3306
+
+    readinessProbe:   <<< execution de script 
+      exec:
+        command: 
+          - cat 
+          - /app/is_ready
 
