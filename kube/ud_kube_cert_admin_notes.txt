@@ -2397,6 +2397,103 @@ kubectl create secret generic
   app-secret --from-file=fichier_contenant_nos_secrets
 
 
+- declaratif :
+
+on va biensur pouvoir utiliser un fichier pour créer notre object en mode déclaratif :
+
+secret-data.yaml
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: app-secret
+data: 
+  DB_HOST: mysql
+  DB_USER: root
+  DB_PASSWORD: psswd
+
+kubectl create -f  secret-data.yaml
+  
+Biensur ici on voit que les données sont en clair se qui n'est biensur pas tolérable.
+On va donc devoir présenter les valeurs dans un format hashé :
+
+on pourra par exemple utiliser la base64 :
+echo "mysql" |base64
+bXlzcWwK
+echo "root" |base64
+cm9vdAo=
+echo "psswd" |base64
+cHNzd2QK
+
+On pourra donc facilement injecter ces datas hashé dans la conf de notre object :
 
 
+apiVersion: v1
+kind: Secret
+metadata:
+  name: app-secret
+data:
+  DB_HOST: bXlzcWwK
+  DB_USER: cm9vdAo=
+  DB_PASSWORD: cHNzd2QK
+
+pour lister les secrets :
+
+kubectl get secrets
+
+Kube en crée naturellement pour le fonctionnement interne du cluster.
+
+kubectl describe secrets permet la description mais les data sont cachées 
+
+on peut voir les valeurs des secrets avec :
+
+kubectl get secrets app-secret -o yaml
+
+pour decoder les valeurs hachées on va utiliser la méthode inverse :
+
+echo bXlzcWwK |base64 --decode
+mysql
+echo cm9vdAo= |base64 --decode
+root
+echo cHNzd2QK |base64 --decode
+psswd
+
+on va maintenant configurer notre secret dans la definition du pod 
+
+
+pod-def.yaml
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: webapp-green
+  labels:
+      name: webapp-green
+spec:
+  containers:
+  - name: simple-webapp
+    image: kodekloud/webapp-color
+    ports: 
+      - containerport: 8080
+    command: ["watch -n2 "]
+    envFrom:            <<<<<<<<  on va donc maintenant rattacher les valeurs definis dans notre configmap au pod 
+      - secretRef:
+        name: app-secret
+
+on va pouvoir créer notre pod et les data seront donc présentes         
+kubectl create -f pod-def.yaml
+
+
+On peut créer des secrets :
+
+-> en env
+
+
+-> en single env
+
+
+
+-> en volume
+
+ch5 v7 en cours.
 
