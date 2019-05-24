@@ -2672,8 +2672,102 @@ ex : v1.11.3
 11 -> version mineure  : sortent regulierement avec des améliorations 
 3  -> numero de patch  : sorent plus regulierement avec des bugfix ,secu ...
 
+on a aussi comme d'habitude des alphas, betas 
+
 sur le site de kube on peut downlader le package relatif à notre version : tous les composants du backplane sont present et a la meme version 
-seuls etcd et coredns ne suivent pas la version .
+seuls etcd et coredns ne suivent pas la version car ils sont des projets à part.
+
+
+exam de liens de version a faire cf slides
+
+ch6 v3 -> done
+
+= kubernetes upgrade version =
+
+cluster upgrade process : on ne parle pas de coredns ni d'etcd 
+tous les composants doivent etre à la même version 
+aucun composant ne doit avoir de version supérieure à apiserver 
+
+on peut avoir une version en moins pour controller-manager et kube-scheduleur
+on peut avoir deux version en moins pour kubelet et kube-proxy 
+
+le kubectl peut avoir une version sup a l'apiserver , la meme version ou une version en moins que l'apiserver
+
+on peut  upgrader composants par composants.
+
+- Quand upgrader ? 
+
+!! Attention kubernetes ne peux pas supporter d'upgrade supérieure à 3 versions !! 
+
+1.12 -- 1.11 -- 1.10 
+l'upgrade de 1.9 a 1.12 ne passe pas.
+
+Il est recommandé d'upgrader une version mineure à la fois.
+
+Dans l'examen actuel nous allons étudier l'upgrade avec kubeadm :
+
+1/ on upgrade d'abord le master
+2/ les nodes apres.
+
+
+1/ upgrade de master :
+
+on met a jour le master : pendant ce temps les workers travaillent toujours
+les users ne sont pas impactés.
+
+pour les nodes ont a plusieurs stratégies :
+
+- upgrade de tous les nodes :
+dans ce cas plus aucuns service n'est dispo pour les users.
+
+- upgrade node par node :
+
+on update un node ..les pods partent sur les nodes dispos du cluster et on fait cela au fur et mesure
+
+
+- injection d'un nouveau node avec la nouvelle version :
+on injecte les pods dessus et on eteind le vieux node ..on poursuit pour tous les noeuds du cluster.
+
+
+- kubeadm upgrade :
+
+on va utiliser cette methode
+
+- kubeadm upgrade plan 
+
+-> va nous montrer les info de versions presentes et disponibles pour l'upgrade 
+
+on peut voir egalement que l'upgrade de certains composants (kubelet) doit se faire manuellement sur chaque node.
+puis on peut faire un kubadm apply num_version quand on est pret 
+
+1- on va upgrade kubeadm :
+
+apt upgrade -y kubeadm=1.14.0-00
+
+2- upgrade 
+
+kubeadm upgrade apply v1.14.0 : l'upgrade se fait naturellement.
+
+quand on fait un kubectl get nodes on voit les num de versions inchangés -> c'est uniquement car c'est la version de kubelet qui est remontées sur les nodes.
+
+en fonction de la maniere dont on a déployer notre cluster on peut avoir kubelet present sur notre master node. : si on a installer avec kubeadm.
+
+on upgrade kubelet :
+- sur le master en premier ( si présent ) 
+apt upgrade -y kubelet=1.14.0-00
+
+- sur les nodes :
+on drain les nodes d'un node puis on upgrade ..on le fait partout
+puis on uncordon 
+kubeadm upgrade node config  --kubelet-version v1.14.0
+systemctl restart kubelet
+
+
+ch6 v4 -> done 
+
+to do exo
+
+= Backup and restore = 
 
 
 
