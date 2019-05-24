@@ -2603,3 +2603,81 @@ on a plusieurs type de sondes :
           - cat 
           - /app/is_ready
 
+on peut définir d'autres options :
+
+initialDelaySeconds -> nombre de secondes nécéssaire à l'appli pour être up
+periodSeconds -> nombre d'attente entre chaque sonde
+
+readinessProbe:   <<<<<< check http  
+  httpGet: 
+    path: /api/ready
+    port: 8080
+  initialDelaySeconds: 10 
+  periodSeconds: 5
+
+par défault trois tests seront fait pour assurer que l'appli est up et donc la passer en running mais on peut modifier ce nombre :
+avec le param failureThreshold qui va permettre d'indique le nombre de test qui seront fait avant que le status ne passe soit en running soit en failure.
+  failureThreshold: 8 
+
+Il existe beaucoup de params : consulter la doc.
+
+Les  readiness probes vont être très utiles dans un set up de multipods :
+
+ex : une appli a deux pods exposant un service par lesquels se connectent les users : si on met un troisieme pod et qu'on l'injecte sans test de vie alors le traffic sera envoyer sur tous les pods même celui qui n'est pas pret ..on aura donc des failures coté users ...si on met une sonde readiness alors on pourra correctement mettre en prod le pod quand il sera vraiment pret.
+
+
+ch5 v8 -> done 
+
+to do exos ch5
+
+== cluster maintenance ==
+
+
+= operations d'upgrade sur notre cluster ( os, patch secu ...) : =
+
+Si on perd un node ou qu'on fait une maintenance sur un node ...le service peut etre transparent pour les users sir le deploiement implique des multipod ..si on a qu'un seul pod déployé et qu'il  se trouve sur le noeud en erreur / maintenance le service ne sera pas rendu .
+
+si on a juste une tres petite interruption : kubelet va remettre online les pods rapidement.
+si la panne dure plus de 5 miniutes alors les pods de ce nodes passsent en status  terminated.
+si les pods font partis d'un replicat set alors ils sont recrées sur un nouveau node.
+Le delai pour lequel le pod est considéré ko est le timeeviction défini dans le controller-manager :
+ex :
+kube-controller-manager --pod-eviction-timeout=5m0s ...
+
+pour assurer des maintenances propre on va drain le node :
+les pods vont etre détruit du node sur lequel l'intervention va avoir lieu puis ils vont etre recréés sur les autres nodes dispos.
+
+kubectl drain node1
+
+le node va être marqué cordon egalement -> ce qui va empécher d'avoir des pods schedule dessus .
+Quand le node revient en prod on va devoir permettre la creation de pods dessus : on va donc le "uncordon" :
+
+kubectl uncordon node1
+
+il est possible de simplement empecher le schedule de nouveaux pods sur le node en inter avec :
+
+kubectl cordon node1 
+
+dans ce cas les pods presents sur ce node ne sont pas éjectés ....
+
+ch6 v2 -> done 
+
+= kubernetes releases : =
+
+on voit que la version de kube est dispo avec un kubectl get nodes 
+
+ex : v1.11.3
+
+1  -> version majeur
+11 -> version mineure  : sortent regulierement avec des améliorations 
+3  -> numero de patch  : sorent plus regulierement avec des bugfix ,secu ...
+
+sur le site de kube on peut downlader le package relatif à notre version : tous les composants du backplane sont present et a la meme version 
+seuls etcd et coredns ne suivent pas la version .
+
+
+
+
+
+
+
