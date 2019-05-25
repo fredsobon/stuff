@@ -2179,6 +2179,7 @@ spec:
       
 ici on voit que la commande qui sera executé au demarrage du container sera:  "--color","green" : car la valeur déclarée dans le pod va ovverider ce qui est defini dans le dockerfile.
 
+- dockerfile : 
 master $ cat /root/webapp-color-2/Dockerfile2
 FROM python:3.6-alpine
 
@@ -2192,7 +2193,10 @@ WORKDIR /opt
 
 ENTRYPOINT ["python", "app.py"]
 
-CMD ["--color", "red"]master $ cat /root/webapp-color-2/webapp-color-pod.yaml
+CMD ["--color", "red"]
+
+-pod : 
+master $ cat /root/webapp-color-2/webapp-color-pod.yaml
 apiVersion: v1
 kind: Pod
 metadata:
@@ -2204,7 +2208,6 @@ spec:
   - name: simple-webapp
     image: kodekloud/webapp-color
     command: ["--color","green"]
-
 
 
 = Variable d'environment dans kube : =
@@ -2303,7 +2306,7 @@ kubectl create configmap
 
 kubectl create -f configmap-def.yaml
 
-apiVersion: 1
+apiVersion: v1
 kind: ConfigMap
 metadata:
   name: app-config
@@ -2354,19 +2357,82 @@ spec:
     command: ["watch -n2 "]
     envFrom:            <<<<<<<<  on va donc maintenant rattacher les valeurs definis dans notre configmap au pod 
       - configMapRef:
-        name: app-config
+          name: app-config
 
 
 kubectl create -f pod-def.yaml
 
 ch5 v6 -> done
 
-->>> todo tp configmap 
+
+tp configmap : 
+
+master $ kubectl get configmaps
+NAME        DATA      AGE
+db-config   3         14s
+master $ kubectl describe configmaps db-config
+Name:         db-config
+Namespace:    default
+Labels:       <none>
+Annotations:  <none>
+
+Data
+====
+DB_PORT:
+----
+3306
+DB_HOST:
+----
+SQL01.example.com
+DB_NAME:
+----
+SQL01
+Events:  <none>
+master $
+
+
+master $ cat webapp-configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: webapp-config-map
+data:
+  APP_COLOR: darkblue
+
+master $ kubectl create -f webapp-configmap.yaml
+configmap/webapp-config-map created
+master $ kubectl get configmaps
+NAME                DATA      AGE
+db-config           3         5m
+webapp-config-map   1         5s
+
+
+on va maintenant accrocher notre configmap a notre pod :
+
+master $ cat webapp-color.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: webapp-color
+  labels:
+      name: webapp-color
+spec:
+  containers:
+  - name: simple-webapp
+    image: kodekloud/webapp-color
+    envFrom:
+      - configMapRef:
+          name: webapp-config-map
+
+
+tp var / configmap -> done
 
 = secrets : =
 
 comme on l'a vu on peut charger des variables depuis un fichier de type configMap 
 mais pour les données sensibles (mdp ..) il faut preserver une securité ..
+
+https://kubernetes.io/docs/tasks/administer-cluster/encrypt-data/
 
 On va donc dans ce cas utiliser un secret qui est un object qui sert a stocker les données sensibles.
 
@@ -2510,7 +2576,99 @@ volumes:
       
 ch 5 v7 -> done 
 
-todo tp configmap / secret 
+
+"notes : 
+Remember that secrets encode data in base64 format. Anyone with the base64 encoded secret can easily decode it. As such the secrets can be considered as not very safe.
+The concept of safety of the Secrets is a bit confusing in Kubernetes. The kubernetes documentation page and a lot of blogs out there refer to secrets as a "safer option" to store sensitive data. They are safer than storing in plain text as they reduce the risk of accidentally exposing passwords and other sensitive data. In my opinion it's not the secret itself that is safe, it is the practices around it.
+Secrets are not encrypted, so it is not safer in that sense. However, some best practices around using secrets make it safer. As in best practices like:
+Not checking-in secret object definition files to source code repositories.
+Enabling Encryption at Rest for Secrets so they are stored encrypted in ETCD.
+Also the way kubernetes handles secrets. Such as:
+A secret is only sent to a node if a pod on that node requires it.
+Kubelet stores the secret into a tmpfs so that the secret is not written to disk storage.
+Once the Pod that depends on the secret is deleted, kubelet will delete its local copy of the secret data as well.
+Read about the protections and risks of using secrets here
+Having said that, there are other better ways of handling sensitive data like passwords in Kubernetes, such as using tools like Helm Secrets, HashiCorp Vault."
+
+
+tp secrets :
+
+
+master $ kubectl get secrets
+NAME                  TYPE                                  DATA      AGE
+default-token-mn8z6   kubernetes.io/service-account-token   3         7m
+
+on a 3 secrets dans l'objet secret default-token-mn8z6
+
+master $ kubectl describe secrets default-token-mn8z6
+Name:         default-token-mn8z6
+Namespace:    default
+Labels:       <none>
+Annotations:  kubernetes.io/service-account.name=default
+              kubernetes.io/service-account.uid=4d9de3b5-7ece-11e9-99f1-0242ac11004b
+
+Type:  kubernetes.io/service-account-token      <<<<<<<< type de secret utilisé 
+
+Data
+====
+ca.crt:     1025 bytes
+namespace:  7 bytes
+token:      eyJhbGciOiJSUzI1NiIsImtpZCI6IiJ9.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJkZWZhdWx0Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZWNyZXQubmFtZSI6ImRlZmF1bHQtdG9rZW4tbW44ejYiLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC5uYW1lIjoiZGVmYXVsdCIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VydmljZS1hY2NvdW50LnVpZCI6IjRkOWRlM2I1LTdlY2UtMTFlOS05OWYxLTAyNDJhYzExMDA0YiIsInN1YiI6InN5c3RlbTpzZXJ2aWNlYWNjb3VudDpkZWZhdWx0OmRlZmF1bHQifQ.FPP7-jwZsweSyn8tEps3PTJBgIGND4MliO4AwiP_Sj8yl2Xcb6mjO1eCpkD5hz-_taJNIVLvIrSm5W9oyNAzp1DL2_UChcFDb82Y8y-u0NZEFbCOvJTt1hcdOA_Idj4f8iELaCxxJwuuHTGWcIzjv952g7hB_09otZiRUxVcXKWvVQ0KObOvziOvelWRI14tOzosijebtywrUnt_6A41A5-xa1ULXaXfapOKrBzOPe5ntj1hfMzOQkq31WHkaLML5i5gee952klRelCAj69E9N16RMnO3qudC5qVGwpXKQKwUsXMPg4KEguqOPcaL9d3x8L6sye6OVLRK77n04Q4Ew
+
+une appli est déployée : 
+
+master $ kubectl get pods
+NAME         READY     STATUS    RESTARTS   AGE
+mysql        1/1       Running   0          32s
+webapp-pod   1/1       Running   0          33s
+master $ kubectl get service
+NAME             TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)          AGE
+kubernetes       ClusterIP   10.96.0.1       <none>        443/TCP          12m
+sql01            ClusterIP   10.100.100.76   <none>        3306/TCP         36s
+webapp-service   NodePort    10.96.171.216   <none>        8080:30080/TCP   36s
+master $ kubectl get secrets
+NAME                  TYPE                                  DATA      AGE
+default-token-mn8z6   kubernetes.io/service-account-token   3         12m
+
+
+creation d'un secret en litteral : 
+
+master $ kubectl create secret generic db-secret --from-literal=DB_Host=sql01 --from-literal=DB_User=root --from-literal=DB_Password=password123
+secret/db-secret created
+master $ kubectl get secrets db-secret -o yaml
+apiVersion: v1
+data:
+  DB_Host: c3FsMDE=
+  DB_Password: cGFzc3dvcmQxMjM=
+  DB_User: cm9vdA==
+kind: Secret
+metadata:
+  creationTimestamp: 2019-05-25T09:37:22Z
+  name: db-secret
+  namespace: default
+  resourceVersion: "1814"
+  selfLink: /api/v1/namespaces/default/secrets/db-secret
+  uid: b24325ca-7ed0-11e9-99f1-0242ac11004b
+type: Opaque
+
+
+
+master $ cat webapp-pod.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: webapp-pod
+spec:
+  containers:
+  - name: webapp-pod
+    image: kodekloud/simple-webapp-mysql
+    envFrom:
+      - secretRef:
+          name: db-secret
+
+
+tp secret -> done          
+
 
 == Readiness  probe / monitoring concepts : =
 
@@ -2628,7 +2786,7 @@ ex : une appli a deux pods exposant un service par lesquels se connectent les us
 
 ch5 v8 -> done 
 
-to do exos ch5
+pas de tp sur les sondes : pas requis sur certif kube admin mais requis sur kube dev application certif
 
 == cluster maintenance ==
 
@@ -2661,6 +2819,55 @@ kubectl cordon node1
 dans ce cas les pods presents sur ce node ne sont pas éjectés ....
 
 ch6 v2 -> done 
+
+tp maintenance cluster 
+
+on va mettre en maintenance le node01 : 
+
+master $ kubectl get pods -o wide
+NAME                   READY     STATUS    RESTARTS   AGE       IP          NODE      NOMINATED NODE
+blue-684d969bd-dlr7q   1/1       Running   0          2m        10.38.0.2   node03    <none>
+blue-684d969bd-h8qcl   1/1       Running   0          2m        10.44.0.2   node01    <none>
+blue-684d969bd-mcfsn   1/1       Running   0          2m        10.32.0.2   node02    <none>
+red-67465685c-27ncp    1/1       Running   0          2m        10.44.0.1   node01    <none>
+red-67465685c-fjgj4    1/1       Running   0          2m        10.38.0.1   node03    <none>
+
+Il est possible de drain un node tout en ignorant les daemonsets :
+
+master $ kubectl drain node01 --ignore-daemonsets
+
+
+WARNING: Ignoring DaemonSet-managed pods: kube-proxy-wf675, weave-net-89bh8
+pod/blue-684d969bd-h8qcl evicted
+pod/red-67465685c-27ncp evicted
+master $ kubectl get pods -o wide
+NAME                   READY     STATUS    RESTARTS   AGE       IP          NODE      NOMINATED NODE
+blue-684d969bd-dlr7q   1/1       Running   0          3m        10.38.0.2   node03    <none>
+blue-684d969bd-mcfsn   1/1       Running   0          3m        10.32.0.2   node02    <none>
+blue-684d969bd-rc94x   1/1       Running   0          6s        10.32.0.3   node02    <none>
+red-67465685c-fjgj4    1/1       Running   0          3m        10.38.0.1   node03    <none>
+red-67465685c-w2wrk    1/1       Running   0          6s        10.32.0.4   node02    <none>
+
+une fois que l'operation de maintenance sur le node01 est fait on permet de reschedule des pods dessus : 
+
+master $ kubectl uncordon node01
+node/node01 uncordoned
+
+
+le master ne prend pas de pod car il est marqué :
+
+Taints:             node-role.kubernetes.io/master:NoSchedule  quand on fait un kubectl describe nodes master.
+
+on peut forcer un drain même si des pods ne font pas partis de replicatset ..dans ce cas ces pods sont detruits !
+
+kubectl drain node02 --ignore-daemosents --force
+
+
+pour forcer un node a ne plus prendre de nouveaux pods : 
+master $ kubectl cordon node03
+node/node03 cordoned
+
+
 
 = kubernetes releases : =
 
@@ -2765,7 +2972,127 @@ systemctl restart kubelet
 
 ch6 v4 -> done 
 
-to do exo
+
+tp upgrade :
+
+on est en version 1.11.3 on va donc pouvoir upgrader max jusqu'en 1.14 
+on ne pourra le faire que de version mineure en mineure 
+on va upgrader le master qui héberge aussi des pods :
+kubectl drain master --ignore-daemonsets
+
+on update kubeadm avec la version mineure du premier step : 
+apt-get update && apt-get upgrade -y kubeadm=1.12.0-00
+
+on lance l'update avec kubeadm : on verifie d'abord le status d'upgrade possible : 
+
+master $ kubeadm upgrade plan
+[preflight] Running pre-flight checks.
+[upgrade] Making sure the cluster is healthy:
+[upgrade/config] Making sure the configuration is correct:
+[upgrade/config] Reading configuration from the cluster...
+[upgrade/config] FYI: You can look at this config file with 'kubectl -n kube-system get cm kubeadm-config -oyaml'
+[upgrade] Fetching available versions to upgrade to
+[upgrade/versions] Cluster version: v1.11.3
+[upgrade/versions] kubeadm version: v1.12.0
+[upgrade/versions] Latest stable version: v1.14.2
+[upgrade/versions] Latest version in the v1.11 series: v1.11.10
+[upgrade/versions] WARNING: No recommended etcd for requested kubernetes version (v1.14.2)
+
+Components that must be upgraded manually after you have upgraded the control plane with 'kubeadm upgrade apply':
+COMPONENT   CURRENT       AVAILABLE
+Kubelet     1 x v1.11.3   v1.11.10
+            1 x v1.11.3   v1.11.10
+
+Upgrade to the latest version in the v1.11 series:
+
+COMPONENT            CURRENT   AVAILABLE
+API Server           v1.11.3   v1.11.10
+Controller Manager   v1.11.3   v1.11.10
+Scheduler            v1.11.3   v1.11.10
+Kube Proxy           v1.11.3   v1.11.10
+CoreDNS              1.1.3     1.2.2
+Etcd                 3.2.18    3.2.18
+
+You can now apply the upgrade by executing the following command:
+
+        kubeadm upgrade apply v1.11.10
+
+_____________________________________________________________________
+
+Components that must be upgraded manually after you have upgraded the control plane with 'kubeadm upgrade apply':
+COMPONENT   CURRENT       AVAILABLE
+Kubelet     1 x v1.11.3   v1.14.2
+            1 x v1.12.0   v1.14.2
+
+Upgrade to the latest stable version:
+
+COMPONENT            CURRENT   AVAILABLE
+API Server           v1.11.3   v1.14.2
+Controller Manager   v1.11.3   v1.14.2
+Scheduler            v1.11.3   v1.14.2
+Kube Proxy           v1.11.3   v1.14.2
+CoreDNS              1.1.3     1.2.2
+Etcd                 3.2.18    N/A
+
+You can now apply the upgrade by executing the following command:
+
+        kubeadm upgrade apply v1.14.2
+
+Note: Before you can perform this upgrade, you have to update kubeadm to v1.14.2.
+
+_____________________________________________________________________
+
+
+master $ kubeadm upgrade apply v1.12.0
+[preflight] Running pre-flight checks.
+[upgrade] Making sure the cluster is healthy:
+[upgrade/config] Making sure the configuration is correct:
+[upgrade/config] Reading configuration from the cluster...
+[upgrade/config] FYI: You can look at this config file with 'kubectl -n kube-system get cm kubeadm-config -oyaml'
+[upgrade/apply] Respecting the --cri-socket flag that is set with higher priority than the config file.
+[upgrade/version] You have chosen to change the cluster version to "v1.12.0"
+[upgrade/versions] Cluster version: v1.11.3
+[upgrade/versions] kubeadm version: v1.12.0
+[upgrade/confirm] Are you sure you want to proceed with the upgrade? [y/N]: y
+
+....
+
+[upgrade/successful] SUCCESS! Your cluster was upgraded to "v1.12.0". Enjoy!
+
+on remet le master en prod on permet d'acceuillir des pods :
+
+kubectl uncordon master
+
+on passe au node :
+
+master $ kubectl drain node01 --ignore-daemonsets
+node/node01 cordoned
+WARNING: ignoring DaemonSet-managed Pods: kube-system/kube-proxy-wcn2g, kube-system/weave-net-58ssj
+evicting pod "coredns-576cbf47c7-z48rv"
+evicting pod "red-67465685c-j5vcg"
+evicting pod "coredns-576cbf47c7-2lzjk"
+evicting pod "red-67465685c-8sxwc"
+pod/red-67465685c-j5vcg evicted
+pod/coredns-576cbf47c7-z48rv evicted
+pod/red-67465685c-8sxwc evicted
+pod/coredns-576cbf47c7-2lzjk evicted
+node/node01 evicted
+
+ssh node01
+node01 $ apt-get update && apt-get upgrade -u kubeadm=1.12.0-00
+
+node01 $ kubeadm upgrade node config --kubelet-version $(kubelet --version | cut -d ' ' -f 2)
+[kubelet] Downloading configuration for the kubelet from the "kubelet-config-1.12" ConfigMap in the kube-system namespace
+[kubelet] Writing kubelet configuration to file "/var/lib/kubelet/config.yaml"
+[upgrade] The configuration for this node was successfully updated!
+[upgrade] Now you should go ahead and upgrade the kubelet package using your package manager.
+
+
+on update kubelet : 
+node $ apt install kubelet=1.12.0-00
+
+tp upgrade done 
+
 
 = Backup and restore = 
 
