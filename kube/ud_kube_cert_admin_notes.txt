@@ -3170,6 +3170,58 @@ ch6 v5 -> done
 todo tp backup
 
 
+== security ==
+
+
+ch7 v6
+
+rappel des fondamentaux sur le chiffrement tls /ssl 
+
+
+-> CA (certification authorithy) pour signer les certificats
+-> certificats servers : ( private key / cert (pub key )
+-> clients certificats ( pour authentifier les users se connectant au server )
+
+nomencalture :
+
+clé pub -> *cert / .pem  : quand on a des fichier de type .cert ou pem se sont les clés pub ( ex : server.crt , client.crt ..)
+clé prive -> .key / *-key.pem  : quand le nom du fichier contient key ..c'est la clé privée. ( ex: server.key , client.key ..)
+
+
+Dans kube on a des master et worker dont les communications sont chiffrées.
+un admin se connectant au cluster aura une connexion chiffrée et c'est la même chose pour les composants du cluster kube.
+on a donc des certificats server et des certificats client 
+
+- server : 
+-> kube api : server ( on génere : apiserver.key / apiserver.cert ) : composant principal : les users et les composants s'y connectent
+on essaye de nommer les fichiers clairement 
+
+-> etcd cluster : server ( on genere : etcdserver.key /etcdserver.cert ) : stocke les infos du cluster.
+
+-> kubelet : server ( on genere kubelet.key / kubelet.cert) : ce server est présent sur tous les nodes 
+
+- clients:
+
+-> admin : client ( on genere admin.key /admin.crt ) : on s'authentifie pour se connecter a l'apiserver  avec kubectl 
+-> scheduler : client ( on genere scheduler.key /scheduler.cert) : le scheduler s'autentifie a l'apiserver 
+-> controller-manager : client ( on genere controllermanager.key / controllermanager.cert) : le controller manager s'authentifie apures de l'apiserver
+-> kube-proxy: client  ( on genere kube-proxy.key /kube-proxy.cert) le kube-proxy s'authentifie aupres de l'api server
+
+
+Les servers communiquent aussi entre eux :
+
+-> apiserver se connecte a etcd 
+l'apiserver peut utiliser la meme paire de clé qu'il utilise pour servir ses clients. On peut en générer une paire de clé dédiée si on veut.
+-> apiserver se connecte a kubelet : on peut utiliser la meme paire de clé ou en générer une nouvelle pour que l'apiserver s'authentifie a kubelet.
+
+on va devoir avoir 2 CA :
+-> une pour l'api  : ca.key / ca.cert
+-> une pour etcd  etcd-ca.key / etcd-ca.cert
+
+
+
+
+
 
 
 
