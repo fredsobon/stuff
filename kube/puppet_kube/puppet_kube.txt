@@ -1,0 +1,406 @@
+=== notes sur setup kube avec utilisation module puppet officiel kubernetes ===
+
+https://forge.puppet.com/puppetlabs/kubernetes
+
+1 - set up et boostrap : 
+
+on va pour le setup utiliser la version 1.14.2 de kubernetes.
+Le module puppet kubernetes 4.0.0
+Le docker tool doit etre dans la même version que le module puppet 
+
+puppet module install puppetlabs-kubernetes --version 4.0.0
+puppet/kubetool:4.0.0
+
+on va préparer la conf de notre set up avec le docker kubetool auquel on passe les params : 
+
+docker run --rm -v $(pwd):/mnt -e OS=debian -e VERSION=1.10.2 -e CONTAINER_RUNTIME=docker -e CNI_PROVIDER=weave -e ETCD_INITIAL_CLUSTER=kube-master:172.17.10.101,kube-replica-master-01:172.17.10.210,kube-replica-master-02:172.17.10.220 -e ETCD_IP="%{::ipaddress_eth1}" -e KUBE_API_ADVERTISE_ADDRESS="%{::ipaddress_eth1}" -e INSTALL_DASHBOARD=true puppet/kubetool:{$module-version}
+
+pour faciliter la saisie on peut renseigner dans un fichier les variables : 
+
+
+Attention pour une conf simple nous saisissons en KUBE_API_ADVERTISE_ADDRESS
+l'adresse 0.0.0.0 ( ne pas faire en prod) 
+
+docker run --rm -v $(pwd):/mnt --env-file env puppet/kubetool:{$module_version}
+
+cat env 
+OS=redhat
+VERSION=1.14.2
+CONTAINER_RUNTIME=docker
+CNI_PROVIDER=flannel
+ETCD_INITIAL_CLUSTER=kmaster01:10.0.2.15
+ETCD_IP=10.0.2.15
+KUBE_API_ADVERTISE_ADDRESS=0.0.0.0
+INSTALL_DASHBOARD=true
+
+deux fichiers dans notre repertoire courant vont être crées :
+Redhat.yaml
+kmaster01.yaml
+
+les data de ces fichiers vont être ajoutés dans la conf de notre node en plus des params de profile et de base (voir plus loin)
+
+conf  vagrant fonctionnelle pour test :
+
+cat local_servers.yaml
+servers:
+  # Agent
+  - name: kmaster01
+    box:  centos-7.4-x86_64
+    ram:  2548
+    cpus: 2
+    ssh_private_key: 'keys/vagrant_rsa'
+    facts:
+      stage: sandbox
+
+
+
+conf puppet fonctionnelle :
+
+cat profile/manifests/paasinfra/controller.pp 
+#
+class profile::paasinfra::controller () {
+  class {'kubernetes':
+    controller => true,
+  }
+}
+
+conf hiera fonctionnelle : 
+
+cat certname_sandbox/kmaster01.yaml
+---
+classes:
+  - profile::paasinfra::controller
+
+profile::base::params::pulp_config: 'true'
+profile::base::params::pulp_canari: 'production'
+
+
+kubernetes::kubernetes_version: 1.14.2
+kubernetes::kubernetes_package_version: 1.14.2
+kubernetes::container_runtime: docker
+kubernetes::cni_network_provider: https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
+kubernetes::cni_pod_cidr: 10.244.0.0/16
+kubernetes::etcd_initial_cluster: kmaster01=https://10.0.2.15:2380
+kubernetes::etcd_peers:
+  - 10.0.2.15
+kubernetes::etcd_ip: 10.0.2.15
+kubernetes::kube_api_advertise_address: 0.0.0.0
+kubernetes::api_server_count: 1
+kubernetes::install_dashboard: true
+kubernetes::controller_address: 10.0.2.15:6443
+kubernetes::token: c6fb73.e108799010163afe
+
+kubernetes::etcd_ca_crt: |
+  -----BEGIN CERTIFICATE-----
+  MIIC7jCCAdagAwIBAgIUCTskgR8nXh7S1fW2O2ioa48aK0EwDQYJKoZIhvcNAQEL
+  BQAwDzENMAsGA1UEAxMEZXRjZDAeFw0xOTA1MzExOTAxMDBaFw0yNDA1MjkxOTAx
+  MDBaMA8xDTALBgNVBAMTBGV0Y2QwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEK
+  AoIBAQDRU9Ui6wohO/tYWXDSj7q2m/WA9SwNeM+89+z9uOUm9zuG1ldLyExoOh+z
+  wJHoFOQDwqJpLij4F/PGVWG3aMkFjrC12iITNEn8FCOda09v3QK8NSxlPqcStIAV
+  5SmyD4wb5LUo0RngoDDkmcMqlOrFmFLb+lbHuKgNG0NZUIxIkGZ7cztJ/LCFY47j
+  uOBfa8wYxPFqyR/Tf6vKPnNB7fFMZEWBjmLaaZjXy9WASgE10/eddyiw0FBl+Bmh
+  hbLm5k/uSgjJ4dkJKIrdKPO95eagycm3rczue7N3ZSAlzErwRPxRuTCEDDoC3KRE
+  mZZJq6uhss+labUZT9eoJ9ouRSVtAgMBAAGjQjBAMA4GA1UdDwEB/wQEAwIBBjAP
+  BgNVHRMBAf8EBTADAQH/MB0GA1UdDgQWBBQRy1QiNp02QMweNc1+7uiIeUbm7DAN
+  BgkqhkiG9w0BAQsFAAOCAQEAUWbtj9dgZvRIb0g2/MhU7Db66FVyMeQLXh/YZdi2
+  WxqvB/dtpAHL/LAfEo5OHi2cGTtDhqLT+Du3ZOd5sunASEWWzDbIb3cRbkOCYMQK
+  wHw93/O8+so234fHZ+z1bWkAtkosOTy8yJzipfI796OCNAhiS0gewtp1ImAcvhT1
+  V8uKewlCevxjSpvpiCtqvlIo47vPR3S95+bWyWv1K/yrflU/C/7/WIGIgA8wWoMW
+  rp1Vqxl1pPoWlZ2u4sIFym2I1BffVpnBY0pCN3Twq2J8rAX2EbowNlKLP1z72xp1
+  ImBoPPxwHK+H2+1gp+sADdiSlKH9n3FCufcqnK0r21MnLg==
+  -----END CERTIFICATE-----
+kubernetes::etcd_ca_key: |
+  -----BEGIN RSA PRIVATE KEY-----
+  MIIEowIBAAKCAQEA0VPVIusKITv7WFlw0o+6tpv1gPUsDXjPvPfs/bjlJvc7htZX
+  S8hMaDofs8CR6BTkA8KiaS4o+BfzxlVht2jJBY6wtdoiEzRJ/BQjnWtPb90CvDUs
+  ZT6nErSAFeUpsg+MG+S1KNEZ4KAw5JnDKpTqxZhS2/pWx7ioDRtDWVCMSJBme3M7
+  SfywhWOO47jgX2vMGMTxaskf03+ryj5zQe3xTGRFgY5i2mmY18vVgEoBNdP3nXco
+  sNBQZfgZoYWy5uZP7koIyeHZCSiK3SjzveXmoMnJt63M7nuzd2UgJcxK8ET8Ubkw
+  hAw6AtykRJmWSaurobLPpWm1GU/XqCfaLkUlbQIDAQABAoIBAENvh3VlVPEZ+sIe
+  pksfRJ55peCym0uHxRzyniWrAB/KfCHXQW5Hi930A6yL+DVVLZPMizfpSAeM59rY
+  PM+ycThaHLGpIVsgeEk+T67yGDhIcg4h7zh6s6ZCAhWLqyATBCckSfxpSLXlxXqP
+  0qEQMoYPqXn2ryhOY809IDhQy7DARt9qLBsy45sF0pUOwPZTzaQWez1PCYV1rCrX
+  DYc+tmPqvOxRu95D9bn7n70lSuk7ErF7lqVbQfeyGHuFQfq+JkQDTUn+7zMCd8nQ
+  vAsIag33RMc3Yi+42GA6mkpBmdLBvrV8ieFMErAhe0Zdi68LQyR6gBokVDQhX0MW
+  OjNk9qECgYEA2T8T84EWr2CNyJi+/I07iAzy/ib/7v9hgvz52bBZDiA1lChFKjqD
+  j/7FuehtKhgLf/ZcV8Jh8yumM8aLs7ALN6MqlqiEfLHEmgLp2yxF4BjJYQ08Dckz
+  hUp9B3X2MKfjKArruwZZkZFdlgCinyfK0wqiu3gcKep055JWW1bmT6kCgYEA9qsf
+  ndt2VV3nQHfY+D0sG3PEq03Ys3KattrVW8l52kC+x2EvB0ZhTLzUFRvn8kIllw//
+  KCxOrVDGa09xSn/1ESlum5hSl1TPzzB/v9nyUYJStLWY+qF32wgkp9nmbBl2dfCB
+  GhfPZRwGBEnMkzBkkoJn3t3dg7VURS/I3vZr0iUCgYEA0UVVF71jN9+/1NtnJut5
+  zE4FCVRSOEzkBwVgPRYGQ3g9hJHiRpKFR4G5wKMn/WOaOFL+kz9ZkaCbgsagrqBH
+  vfm8vdJphaDM7TsfQRT93qih3I6eKf2GVsDxfe1hEW+4f0s91zR/tZ0dVLEZ9kyj
+  sfZN2l8SakJDCQvLikNEqrkCgYBmqGNZJDwEXTdgCkDfVz4jErQ4Awb77+dZ0ItZ
+  TumKnsWHXvfelDjsYe319w46MbNJQlwT0RTRZrudb4ub0NMiWFbzJJrC5oYyGWIh
+  a0hBCfb3xFgtfsPOAX6X6MTQGmzFutlQDba/wsDySfB9FXfVzbYC99038mBnBvMX
+  cAEBjQKBgFKS3RpoNHvCRytuyTcNGjgnLOzRBRPvc4xxumnzATIw5jXXPNUyAJ59
+  4r6MtEeHGHHH70JeBjSAMuYda96BH5jZjWeAS9hIV4iekPGtvlbIVVx2yC4stWek
+  koVDWCiMYQyVM7ObDDwUePz1EYlYXVqUxpry6DmCGN/m6PdBRRxV
+  -----END RSA PRIVATE KEY-----
+
+kubernetes::etcdclient_crt: |
+  -----BEGIN CERTIFICATE-----
+  MIIDMjCCAhqgAwIBAgIUSCOWQXuFRjz1R483+NsIyvJvcj0wDQYJKoZIhvcNAQEL
+  BQAwDzENMAsGA1UEAxMEZXRjZDAeFw0xOTA1MzExOTAxMDBaFw0yNDA1MjkxOTAx
+  MDBaMBExDzANBgNVBAMTBmNsaWVudDCCASIwDQYJKoZIhvcNAQEBBQADggEPADCC
+  AQoCggEBAOjZYMuj1TjbJU+UbFPaQQIm0dVGpMk3i8i/jm0SWhS9hinklX1KU932
+  7qyPk2xg4KX5W0gVfMPHLYm8nBvP+/WIKqnG3wsk6CzQbldSyEXf7FCd2Mc+cxAa
+  dTZBSwHIoVXJA67uwQlnpQtLzMLvBa8AvC2rTW9PakhtbGqsX/Po2u9NtuqE2wIU
+  1imh060uf7W8eMI846dkcytCFGe8aPYIe9LJuISCeFzKVDrYxYc4ILgienWOKGkI
+  WFKUM+0KrTOZfbs2wtktTLi+NJ1CgdZXjp7QoZ67e/E5T3dgL08oImp/v+qPoEim
+  XspOwySPx/1brw0h6ErMowx0pYLMYFECAwEAAaOBgzCBgDAOBgNVHQ8BAf8EBAMC
+  BaAwEwYDVR0lBAwwCgYIKwYBBQUHAwIwDAYDVR0TAQH/BAIwADAdBgNVHQ4EFgQU
+  h2rDiXaAuDZ/fSvvVuzMNY36QTUwHwYDVR0jBBgwFoAUEctUIjadNkDMHjXNfu7o
+  iHlG5uwwCwYDVR0RBAQwAoIAMA0GCSqGSIb3DQEBCwUAA4IBAQAq7dmjl7NjMuV+
+  3UH/w5E/LcNiWjr6v+BYmwKkHiqNzmBB+pjCsdcaPvRMUCJ71ob1ucj8+AXvqq0y
+  14dlxKdA8e1Z+jamogR9hfd7jl746xj+1Dca8KdsbWU9U9tUBJmAJmZNTJB2uMTh
+  CmHZ59sszq7W+uKkkZ0qa8A9cFbdKKIsqMPZ1Fm0IOEr33ZIa3a/nlmJwCC9HHc2
+  8jXGhP/Te5rP2A0N6aJD0QHNlbtUduQeRWS8UX7Nlf+6ZeOApCTdFMBq6C2hKVx3
+  hVSykxDqtj4kvFho/I72uYQVdWJsMIL077209W4rtA4MujxLwjrR+B8JqO+55Llj
+  tMmFBH+p
+  -----END CERTIFICATE-----
+kubernetes::etcdclient_key: |
+  -----BEGIN RSA PRIVATE KEY-----
+  MIIEpAIBAAKCAQEA6Nlgy6PVONslT5RsU9pBAibR1UakyTeLyL+ObRJaFL2GKeSV
+  fUpT3fburI+TbGDgpflbSBV8w8ctibycG8/79YgqqcbfCyToLNBuV1LIRd/sUJ3Y
+  xz5zEBp1NkFLAcihVckDru7BCWelC0vMwu8FrwC8LatNb09qSG1saqxf8+ja7022
+  6oTbAhTWKaHTrS5/tbx4wjzjp2RzK0IUZ7xo9gh70sm4hIJ4XMpUOtjFhzgguCJ6
+  dY4oaQhYUpQz7QqtM5l9uzbC2S1MuL40nUKB1leOntChnrt78TlPd2AvTygian+/
+  6o+gSKZeyk7DJI/H/VuvDSHoSsyjDHSlgsxgUQIDAQABAoIBAGe/28pAsJPJyWEg
+  //eIyuh7hYljFa92aXlEKODeiXauT6ZA7H7L7Hx9NzF6M7TZoZ8ycQK4WEQfbmHt
+  wRz/WgO37VKCgwVDJ5Q4NsH/566CrJfrDRkR8VDeiRVomFQuIfzIOTTruuVG4hob
+  ZxwARmcIi9BJgJI1L2UgJGuPbJ2PbMw9IrSUTKJ79+Kmh69OD41KhTSL+ZBnbvo+
+  LYbOMCPNctic46Ob4LuewAYsRluOJZ7OHfhG4w4FEUx87tlwA5BBMEbtQbjojy3W
+  g1xegvQsKu9hpcN4XUbJfyH50pfkk9vhCLbcVvz7hGR5bmviCq9kpT9gVbcUolaR
+  6XqkiXUCgYEA8GGc18W4Hi9vSichC8aChrP9852Dy8AfkvuPM6Iw9gbMMv07w7IF
+  XpG5Uz8tATE1xTLTu6rgIJWmAHSzZrOh4N7ViWvkOBa3kcHrPN5SDIab0ftmRE8+
+  ZLQx7oZHFwFKiKvXt2RekxiEvts9wCGRj8+EqV2Ntbo8gAmjEHc/LcMCgYEA9/p6
+  n3/F5ciIgglWaGoNuVkLKgDCiwRo9OV6OpRCmN5fKXmIEBUqIybeTLYqO4N+7rmR
+  pZnnB5BDqBQJm7b6T1TWdxehggSD8wiEq2WJThLs8+9FCviyKtb1bMgYkpzTr/2u
+  mC2jMCfyjWjdj2jcBhug2uvNRwpUxd7YoVuOtFsCgYBH+YJD3TDG4P8aneK4KuUU
+  PjqQwh4fWNRbZzU2iZ7NW7Wyor5NVzViXpG2ClmIXNqzxAc/zucy+nvs8QRygOC8
+  exxG/GYmIS8v1neADzVUCM4JLpQtaejNsGKu/8ezbLCLgaCiicwDkTjWCMFRkPuL
+  quAW8isnOa85yyjnGj1xjwKBgQCz7zp+9bXhUCtNP/1E8n9W2HezWK3RNbf6y3Bv
+  hRj115VxgM/r64+RxihTvXLTkEzQaDJ42T28TT/qe++k35atbb/Y1nrI3wHnnWy2
+  +Ywx7KWnMx0EIwUU9LlM37yE1er8rrS7k5Hv5Wyok0kBQHM2s2F6uNNREvwEP/ks
+  zES2NQKBgQCeU4km5OBYM9Aund4aAiTY88cwDGxlytJgc+o67FOXyorXQob3WVSa
+  AriJ585C+mG64zBUeHT3jS6uXhghrMF+WBhrwJhLtI+6lMDvXqN4pfLtF57sJ3CO
+  e3VYcr9AE1ATUOsuencUr0HjdjShcvrazXXc6iAH63aoy2Mb1fvCnA==
+  -----END RSA PRIVATE KEY-----
+
+kubernetes::kubernetes_ca_crt: |
+  -----BEGIN CERTIFICATE-----
+  MIIC+jCCAeKgAwIBAgIUTJOc+ZZaHJEa0x2SdE5tMTXdap0wDQYJKoZIhvcNAQEL
+  BQAwFTETMBEGA1UEAxMKa3ViZXJuZXRlczAeFw0xOTA1MzExOTAxMDBaFw0yNDA1
+  MjkxOTAxMDBaMBUxEzARBgNVBAMTCmt1YmVybmV0ZXMwggEiMA0GCSqGSIb3DQEB
+  AQUAA4IBDwAwggEKAoIBAQDDq9htdbzSHAcie3sd0dxISY3VBmEdN5PNStv9jpVh
+  f2sf7XbsZuuyH1t7haeKJJAGFc38hB7S7L8VfQNeSPheZUnlvfgZn5ExoNtF++iD
+  64VlCoDCXJlYS3KId3cWP8itWt9STeBtgnLHK9QLbItJNR7gt2ZUORcZrrZ4zTN2
+  3VYM45EvJQIFCMCnRiTataPwyj3J8kK+JxmRVbJDRhEHjPN3TlEfIP9sW6s9PJpt
+  yO/fRKFhjT3aM2zeheokVlq9M/fvgkKkDiUiDvqkIgevlPlBE6iSqo2Qg2kFBUb4
+  dQmfmuz/ILFsUwRyP1mhD/pHWwdqpolbF6a0to0gXZwJAgMBAAGjQjBAMA4GA1Ud
+  DwEB/wQEAwIBBjAPBgNVHRMBAf8EBTADAQH/MB0GA1UdDgQWBBSWTSM0n0JKH2L6
+  89k/qKmyGyYaLjANBgkqhkiG9w0BAQsFAAOCAQEAm9bSL33NNosOAIVdPt99NQmK
+  Gbp7YE3qHgI3yjiWJkAfR7NJxdnw2gIpUsz4U0iCZ3qDLW6I9S55AKLD92F7Sq4d
+  AS8NnEtXBMYgpjQrkPzA90U/G4VWwereYVDYUBxiE8LT+3XG0sutGicTKJUFPn+Z
+  DiFDoWaUiAZVWGfhV8/hTzLTy3Zkt6ybxeVkJ/hJWAAbuPJQEMasJ7zbjRwPDmb/
+  Nq8aelEm24BSkIaYQaGmHIjeqSf0d4OuMx9sdoRNyvcI4tW6vE7VNtoO8fZPJyQo
+  5wpG9G9WG3IqBoP/4eijQYENu4pSGjevEL19Bm8CSZpREJs8ZFb2nk85hDNq2g==
+  -----END CERTIFICATE-----
+kubernetes::kubernetes_ca_key: |
+  -----BEGIN RSA PRIVATE KEY-----
+  MIIEogIBAAKCAQEAw6vYbXW80hwHInt7HdHcSEmN1QZhHTeTzUrb/Y6VYX9rH+12
+  7Gbrsh9be4WniiSQBhXN/IQe0uy/FX0DXkj4XmVJ5b34GZ+RMaDbRfvog+uFZQqA
+  wlyZWEtyiHd3Fj/IrVrfUk3gbYJyxyvUC2yLSTUe4LdmVDkXGa62eM0zdt1WDOOR
+  LyUCBQjAp0Yk2rWj8Mo9yfJCvicZkVWyQ0YRB4zzd05RHyD/bFurPTyabcjv30Sh
+  YY092jNs3oXqJFZavTP374JCpA4lIg76pCIHr5T5QROokqqNkINpBQVG+HUJn5rs
+  /yCxbFMEcj9ZoQ/6R1sHaqaJWxemtLaNIF2cCQIDAQABAoIBAAhNmYCDl4Ce+dqH
+  vOC2EA/tNxyMCcDwo8/5Vj57N3GMs6IGNJ6xe1zyobIrKMHe7VGkyTnm7Vvr+evS
+  gzsUA54V1D3wgr+rmsCtX8CngOVgMCfqey5EOamaggCyeRYznLNmgMWAUn6zI2W6
+  QWQ+teZkX6wPfEMkrQtE869Knd10UftFoQ4fw7YmtixddHS3YCnPgvt5ISNtvAW4
+  HafUJjwt2tJmjX67adjDS7sTH8Sr2RvkFBsKDd6QHnRyjwWNvDoxC1p4FNzEP/B/
+  D/LiIUi+fi1Zpxo8GQoRcJNLwMFFsKvUbCCQzlCDbvyVbx7l42F5y5m7Sy4jsiRI
+  l8JkOdECgYEA2kSVNe4PomZPWqg2dLAwxvWRd1wBf3QuW0pmHT7LPL4+2gxvRGKb
+  bZTNkpTRveltOCSrTSnHiUeAeHdKimzsXLZjAe44AE/56hxDWwaEmUp3YqX4ZWVX
+  gHOrqsetrUGPQRzH12r5lXAc7U5selE2DsZEzdgxCJCozlfbg8sD5h0CgYEA5X9A
+  bSKhZs7UP4LS24HknBERfMnMnycYXjlMnQf+63QZ/0A3VqEBmqmzDmfmx4w31lCJ
+  T+FpYmeehGoVlsECi21WqgONJrn4u9QWJUgurQC0vzc+kbVz45TWBuTZTHq+8SaU
+  H7SnWbk4QO41w8HnhKW1MZtl3LZI5LMiSB15ud0CgYBKWVpKSJFizF7zjqEeFnZH
+  D5dBhUGtXLH9vtYR2DX6twNJ2zp7nOs85Jcx+yeG/WCK41LGshiaFpUYc+ocRQYu
+  fqIzIiZJVPTYXlBDTXEVllwcalS2lVK9Gqm7PtFWVyKpF1irdHEYClyQKUqiT8+O
+  MNN3GtF5DW2y/BJ2Tk1BsQKBgCMBAcajnZKcwWrefWLVsRTM1an+7aLox6K3gqQA
+  8DThhIWWOdqQvDnm4FS2LFELZgjeR9NTQkusGlWACMLxtX2ms61C1WiuvO2JL8eH
+  9vaUQP1ZY8W9s2tm7C4pAavUnQMTK0yatVvOEHJ24uR00uc8jyJ93U+Izh1z5Sqy
+  tDpRAoGAEdhgpsqEuoQrupqPT6EUye0mS8jVPQv6szsPO3qhcqAunGRoBWw92sb/
+  vZnpnaRD9221MSW8sqW9UkAZ3Yz4LLoDJ/frTsKOjMbCKcx/8CjJPnE/GhNs9yMt
+  mHPijM4JSWW2o7nSn/t5PskrwIFy2VvjTVXnwoc8tbYNQ5Qr5WE=
+  -----END RSA PRIVATE KEY-----
+kubernetes::discovery_token_hash: c28338dde4ce68bb5d3f8713e1df4bd60e6e3cb6c2cfa9b9b941b89cc089e586
+
+kubernetes::sa_pub: |
+  -----BEGIN PUBLIC KEY-----
+  MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAzhaBmyT0BpRlxJv2ydNr
+  JeTOwcSunz/tU/DkPwhkh64uykTXG82IHhgYGBJCqtnhdOsWDHxwmslb/nUBqUvl
+  njDgy4MT4nVOudHTEd5koKD3lXQ/azkgNs0BR/fGEG32NGyZuQ0wchF8SQva+Z5V
+  xTGED0aoKaZDjfUw5ZGf9ljLcTRfa825eipTPpWWPnKPNIAnglYQoMLix0bj3ojt
+  8tq8Eo6V0fBupDc8ziXtQ4p3+/LPAUIHiLg/Ijcco6BGNo9PA0zZCTKP5EtcyPRG
+  RbY78MRICQTM1wTI6qFdWWzFiYRmTnAA3lEMelBGwYuuK+4HW+ofR+aYsuA6v/6i
+  /wIDAQAB
+  -----END PUBLIC KEY-----
+kubernetes::sa_key: |
+  -----BEGIN RSA PRIVATE KEY-----
+  MIIEogIBAAKCAQEAzhaBmyT0BpRlxJv2ydNrJeTOwcSunz/tU/DkPwhkh64uykTX
+  G82IHhgYGBJCqtnhdOsWDHxwmslb/nUBqUvlnjDgy4MT4nVOudHTEd5koKD3lXQ/
+  azkgNs0BR/fGEG32NGyZuQ0wchF8SQva+Z5VxTGED0aoKaZDjfUw5ZGf9ljLcTRf
+  a825eipTPpWWPnKPNIAnglYQoMLix0bj3ojt8tq8Eo6V0fBupDc8ziXtQ4p3+/LP
+  AUIHiLg/Ijcco6BGNo9PA0zZCTKP5EtcyPRGRbY78MRICQTM1wTI6qFdWWzFiYRm
+  TnAA3lEMelBGwYuuK+4HW+ofR+aYsuA6v/6i/wIDAQABAoIBACH1ZW/aG/fFlita
+  g8Tn+HzrAgK91QRatVGinQmh6WbOFdmwlD15lZdX4wh8Yc3jTxpD7oMqMiffTDBW
+  uWpbHj/9z9zZAXrMV6eY4o3MNoqdW46d9CFH7X36M97W/iUQ6YPj7USn3ra9GNy0
+  fmWpaHqw2RDnVKhgRDttDpyVbWVbGm2xh0kOtxU+4ISufufPyi4jgp6zQHRW6Akb
+  DjkVEjRSqWRYy/IE4adOGiSl4rb/uJvL1wClxaTt4mghBgZYzcAYD0iCn92lDzcM
+  djR4o3eixifGByng1kGmSaafEQq0217Vx5ud/RhEmh7+v7VdfIU28TgMMyBIdcaP
+  PpSglikCgYEA9uixJfHEFUD2d+eUzOPKD4ZdngQZV8t+KJXxhPEN+ZCiqPTOVOOK
+  S0DbX2c7c4sA1f9IOVS9XzInUBSsz4BrOp7kAWG/cq8izuum/+mEHoaRc7GHW3pG
+  M4UlUQJYTdLYtJ9+Ygpanq4rL3sDhDkWhdZr6bhHtkFPR/PdneLtbX0CgYEA1a0L
+  XjT7fFneyCwYVha5bMnOmafSBKFqRMDe23OT3Nuq45wBDwLQWTIy19A3gtOfhcnU
+  jIMJyHFpkvSFM256PZEhfe4f5LKm+h+lWjgmN9AQYFrTyjXAqHrlGm/p3aFSL4CH
+  WHW7tgGMnn6OYoV9Yt73wgQhlpnKcpkCWUHiaysCgYAJ6n5yz6rYT6uWVS6cq+lJ
+  hlPsLK334KxIZP02IZg2FaDyuCIxNpIvQ4OL6VFx6ns2HPKBmu2gDRuXE7189+NW
+  j1sI0ywlJvN26+/hBzfPIghlZRPSkK6REx/UiQuS1IzvdBhXR6MsDEKfvYj+nmxR
+  I7Nhx4zZvPW6JgkYdiyi4QKBgAMnHX7TW06XaOEdPXKvvSasx56eykuFMjM3gVJN
+  n0Xn+9qF58IX8YkPY46ppNgKVVU9CCTWniNWAQ/JCdobbDRSWuMny1KtjCcuplrx
+  bybtrAAv9uYJ6wDRZ2X/drztb3AB/n1Ap3dlCHUiOumbPKFj1tYHB5PYSxNrzIwS
+  m8unAoGAGZC017s1dDTQZffUwFXU6jrm7krJqAuhwwqIn0G7cat3/hjYgkK4Npxw
+  GtG4e25w61jtsWEMFUq7xu1FJJnsT/lvMGpHSjv5rf+5AEf34/IipvpF09Kn13iw
+  qYWc8pgx4yugdiAMPtZzqTI7gq7YO0cSm9H+t99OllsU6ctJ3rM=
+  -----END RSA PRIVATE KEY-----
+kubernetes::etcdserver_crt: |
+  -----BEGIN CERTIFICATE-----
+  MIIDUzCCAjugAwIBAgIURApo6P5aSX5ybnR6iZDbTa73rEkwDQYJKoZIhvcNAQEL
+  BQAwDzENMAsGA1UEAxMEZXRjZDAeFw0xOTA1MzExOTAxMDBaFw0yNDA1MjkxOTAx
+  MDBaMBkxFzAVBgNVBAMTDmV0Y2Qta21hc3RlcjAxMIIBIjANBgkqhkiG9w0BAQEF
+  AAOCAQ8AMIIBCgKCAQEAkfjAgo6MY/wxf+TWxU/EvMhLXMrT8yhkWs+ZLtpPSVF/
+  EbuQty+YfxU46dENd2wpRccddS/wgVinoiimFALxHpM3kAc2VcYDMLjBg1ANe2dP
+  Utp4872Gbj7fehDbWr37c2F6R7hJuGRd95qJvNoukAQfv6sSRQiF64U0gRi38WXs
+  XfGTKMjA2tOvQkEdi5t5n4mQc0arCmtmSqi4y+VylqWGqvfrT9EPvoO1PQEsC/um
+  aL6cEObjdDgE9mnUfR5zr+CHLnYbShlVOIEe+RKNrwEdsh5B/SZhwSqrluAnWscf
+  f3RTzFMNhpJKbdUs/1UC0b5Hwd0/PHmJUhFvP4iF+wIDAQABo4GcMIGZMA4GA1Ud
+  DwEB/wQEAwIFoDAdBgNVHSUEFjAUBggrBgEFBQcDAQYIKwYBBQUHAwIwDAYDVR0T
+  AQH/BAIwADAdBgNVHQ4EFgQUfSkqX2pctS+dJgeluHxuKmfXd+YwHwYDVR0jBBgw
+  FoAUEctUIjadNkDMHjXNfu7oiHlG5uwwGgYDVR0RBBMwEYIJa21hc3RlcjAxhwQK
+  AAIPMA0GCSqGSIb3DQEBCwUAA4IBAQAt9/7XnYcTCr+b6i37TvlbvDYCy1yrIPO2
+  qD6wXr7nuKqV/7S9AxwNJuy9v6xkmJ13II1kQcBXBjG8lTxuSckrU3G++qQvXaN7
+  fuylXhBYXxGccQRE6bsG9+ohwJfXtwYaIr67j/8Rm7tywqouyBfbPFigUlPjYma0
+  Z28YIvKexFRbdlfi7wC7yTeanwOmPnnh30TMFmyIETi7LZKmOl331KpLv+GoiK0J
+  BYT4UQBykUP5S/sjvWOVf9oSMdiCgBFn0MD9H8ueg6XfSlBsMHGotYNph02uc8wJ
+  M5GZfzXedfdGHT1+GAPADG7QES2I9EGdalagnS98pGbq9iKefaWA
+  -----END CERTIFICATE-----
+kubernetes::etcdserver_key: |
+  -----BEGIN RSA PRIVATE KEY-----
+  MIIEowIBAAKCAQEAkfjAgo6MY/wxf+TWxU/EvMhLXMrT8yhkWs+ZLtpPSVF/EbuQ
+  ty+YfxU46dENd2wpRccddS/wgVinoiimFALxHpM3kAc2VcYDMLjBg1ANe2dPUtp4
+  872Gbj7fehDbWr37c2F6R7hJuGRd95qJvNoukAQfv6sSRQiF64U0gRi38WXsXfGT
+  KMjA2tOvQkEdi5t5n4mQc0arCmtmSqi4y+VylqWGqvfrT9EPvoO1PQEsC/umaL6c
+  EObjdDgE9mnUfR5zr+CHLnYbShlVOIEe+RKNrwEdsh5B/SZhwSqrluAnWscff3RT
+  zFMNhpJKbdUs/1UC0b5Hwd0/PHmJUhFvP4iF+wIDAQABAoIBAFfTSciDidZymzmu
+  7sWim+VVwXogEuv/BnpY43p8IS4k2YZKyuRcv6zekPKlNCwBKMfx6Dhk0piQRbPc
+  LyhlKLvTqZ9/p2JuE+dRkiS2mpX/74sTJajJBEP6kiz4TXJIUiz2nkLej4Rg5uSd
+  13eH8nH1+UAx5nkgiqrM520w+SNE3hbcHA2SfiARpIbi+OgrsIoC0Vipi1pWLSjE
+  zreOdl91Nm2QDJPjkQ8JcTRPuhlTLDiVk3OGsFTr/arSQX4ldDKC2fpY+0p1Rusm
+  eLTzhVsZUOXkG6g2qZNrmtyvDafHEzxRft0PmNz8FE/HRMLX+xTlJ3rliopUfzP6
+  3NFAtIkCgYEAwc/rZATYUWwwlN+2qMzZ+tGne7lZ352gkCKCecVPIvqbyoMUCwSS
+  Us9WxmrBKtLAE6Ub/U8PBh8L1MS8AULx7moSl3zO7vvHpEl4PH9VBzMl+Ijr9Iko
+  WxCdfgeqZe390tkHsvFdReyCiLMfV6joQBIB2EAQUX2hsAQNCjWufaUCgYEAwM8g
+  0PvdZtN/UeDNB6w0DF2OfVWeazjX9FIXGKxL/KnqNXeHW/RFxqzl+EuUXsjXgMuB
+  WmRdiwZxuVpNWmo3uWMUAU5xkWvmrNw5TJB5nquYsH+cFDORC/5Nf8bWRt0HI5VZ
+  5zjqGA0gO4A3hxCnN+eADeM+fXexdmxRCcmm4x8CgYAf6wcAFNAvMJsbmXAygnIP
+  nYFwncjQS9xKgHRua3Ep+I25nzaozdrvKlhHGwOu8sBRO+rNH70ArBI9uxyfNJA1
+  TGC9c/98Whi51KOpiurM4b6KHLqHLiNoQ+c7/zUvzi70D2v2K0vKHTYuHxm1TQra
+  qlyFaZ+GXCNJopEnMkoHRQKBgQC2z+2CmTyssV4oCSj93GYhT1e6OMMTUPtZubgS
+  edM2hvj9pw6dvnemT+tgyHCuimniwZItXbpgBkUwBJIRZ2LckTe3oWQHCTLXtZtS
+  oC3gpz0IJIadlOMzZvSeca5b1Fhfgc2TciBrm45zPDfqBX03gXWmNU/b8PA/o6YW
+  zK9C6wKBgEjyrUNug5kSOOChtyeRjwwgpLG5SAcWSezB+OZuMmpjNWVYiSU1y+l6
+  p/cUh+Pj8NxPcC5zLNHDOeLK0q9m9Snv22+o7Vf2Wwbi+0lRyhik8TmD5YIRxoPN
+  83Cv3cgHV2k3ExLC7AFPj3YrK26KA+uQCtgDs++w3jdk5Lzwkd7y
+  -----END RSA PRIVATE KEY-----
+kubernetes::etcdpeer_crt: |
+  -----BEGIN CERTIFICATE-----
+  MIIDUzCCAjugAwIBAgIULKUlhE9ksoMf+oFrEIuOXCY53kEwDQYJKoZIhvcNAQEL
+  BQAwDzENMAsGA1UEAxMEZXRjZDAeFw0xOTA1MzExOTAxMDBaFw0yNDA1MjkxOTAx
+  MDBaMBkxFzAVBgNVBAMTDmV0Y2Qta21hc3RlcjAxMIIBIjANBgkqhkiG9w0BAQEF
+  AAOCAQ8AMIIBCgKCAQEA6R571S7SFq1zL8IwPICdsB/mNxkj9x+KvQCf6SCbN9RI
+  ESVH7bybqZyz5gGNtag/wcT2t30MXzcE4uwHrYLPgnysNJ8IJ2m6HvPbqC2eA1D+
+  r5w63L3qL1EMDz1GSqnkZKrHulszfYi4Ilh75cAblkymRosBWa1RQTvfLjcBK2XH
+  6i8ImRkji/DjJdbJRgx06lzhaleaJyehiKqalUpMA6Fxr7XMYU5AB4W9k4nq8O3W
+  8pTgfE0Gp4s/JpO/XmbYqSilU9lw61MmdnYQ963gmaglybWIczTUGWiExeUZSIJ5
+  dc6MVhRdtGx2fL8Bc6eI1kRwF2xFFLxG9iLTREQkwwIDAQABo4GcMIGZMA4GA1Ud
+  DwEB/wQEAwIFoDAdBgNVHSUEFjAUBggrBgEFBQcDAQYIKwYBBQUHAwIwDAYDVR0T
+  AQH/BAIwADAdBgNVHQ4EFgQUZPg099pf3kVUxb8KFkK5tFR0IxgwHwYDVR0jBBgw
+  FoAUEctUIjadNkDMHjXNfu7oiHlG5uwwGgYDVR0RBBMwEYIJa21hc3RlcjAxhwQK
+  AAIPMA0GCSqGSIb3DQEBCwUAA4IBAQC3/+TJgZUC6Gb2fdjHSxfNNWap3VxCKF6V
+  HWDm63/bSlwekqzXgFfy1WW4RiHhyOB9aWr/c0L4rvaMLtBOBfHPYYpG222HO3rR
+  rZAeCtkPZylu/553e/ZYh1xHySfiLhfTovZdHU97yr/UDVI2U9IPesi//KrilccW
+  +iwwjsEsp7wX6D262rKdnpmYNc0pLBbNy60fXMjJNmQc3rClnpBYr1QMZLqr48hw
+  n38d9o5A30XYCgA+YTiRJT2cTLceqsD7lsvRlpqzdedm3MutXuWlOXB+UxSe6GIU
+  SBgXLYXKvZb/QAlCqLfHKG2cnklHsgnYtYbKKsFd2e3yvE3dqjN4
+  -----END CERTIFICATE-----
+kubernetes::etcdpeer_key: |
+  -----BEGIN RSA PRIVATE KEY-----
+  MIIEowIBAAKCAQEA6R571S7SFq1zL8IwPICdsB/mNxkj9x+KvQCf6SCbN9RIESVH
+  7bybqZyz5gGNtag/wcT2t30MXzcE4uwHrYLPgnysNJ8IJ2m6HvPbqC2eA1D+r5w6
+  3L3qL1EMDz1GSqnkZKrHulszfYi4Ilh75cAblkymRosBWa1RQTvfLjcBK2XH6i8I
+  mRkji/DjJdbJRgx06lzhaleaJyehiKqalUpMA6Fxr7XMYU5AB4W9k4nq8O3W8pTg
+  fE0Gp4s/JpO/XmbYqSilU9lw61MmdnYQ963gmaglybWIczTUGWiExeUZSIJ5dc6M
+  VhRdtGx2fL8Bc6eI1kRwF2xFFLxG9iLTREQkwwIDAQABAoIBADfIJZWTiI4InyF0
+  dBpmJFV6rJnOmD6P+6DSP3GHbdzkHQKNSzLmCNGDP8Dv6jrnsanqOacacxVtkuvB
+  0ux/+qucrZBB5a+YqwKxE4SgtcjRXsAiwCsF/r2nxRz4apN/J7m26+f53s5RIs6F
+  IdCOMYu7d6Y1qPMOd/0GGJd0bgE1+rqkMkgYPhYj2NOn5pgBayEeAgyhjcOuR771
+  nupKUjAqAdLZPTCBmKSz7AnD7u5vhvru9gOr1+7UmwN5ifagYHWt9qHRBD3nBTc2
+  W3yNy93akvilyyDmVrTV86dGodttPc0vaLOjKe3I/tL53kvVgV9H9hwTY6tzB3OS
+  x6YJSEECgYEA72LOHvn3lCHepg4N8QB407ZvO+0JwUEDejsbSG4nuz/Rcqt3kgKZ
+  aT3RG0HbWhwdTkSX19gnEh0xpihqEeauZOIeMukH6R6CoP/Ldzj2fxMejC7rfZYp
+  MmYieGSCP53KkNPI+HLky+tpMVOBle911bR3EVy8VgY7Or5miXYBkRMCgYEA+UxV
+  kX9a696pWsdkHm+QHiQ0o4UldEFDeSIuB3x94GuXi+Hxw3/dZx+xjY85vJMmcVQC
+  TrIGv9WIF5qbd9sAEPLIjm8A1ngJksfOTprhKiihz+E7qgxUaZcembrnnWVjCMCg
+  bulsiDQeZDXt1XeHlExz21Eb4A6fj0sPU8ATQ5ECgYEAr5D2fQ91PWYtxfmuzd87
+  voIhSIELU3ncFAw/cTqg1xryALiy5BoV63KT5vrA5nCSKbHy7zGvTgCtRiCD0oct
+  xf10ioAP9jATPAL+dX0Ig6BBGizbN2sm4bi4dTW5tPCD/P3mehjBprELoEqPUqih
+  8k79uHUcB7dgPzAfQZeThJMCgYBSKT0+QYnWmMCZ4YL2oPAPbwFGLxiD8wpovsIK
+  x5W4w9zjRijmtJpkZUagD+cIZjrSOMy14OhmitpaZSL94lhoPYupnZ3aER+el2k/
+  8L1qpo+FsoZ2aa/cSOjV44p4DjUQamO1igqx7PNjNX7XzpgJYRUB3/5e3pLpp+Q6
+  RuBScQKBgEXx1q9920Arb8k0rdGmtsPGj+gRfgDUCISztuzvYsI3gR7CvWQg+qEe
+  l/8Rw0XQrAO6lCBybXV3lFbvGI+Ik2cFOXM4kzdGUD+PmaRm2IMiPO8xO8tagh3V
+  n+HMAwYmGLR7jEnpXQqlak+BfGJ6T0gD0whZQKDhKcoxanvX0DXd
+  -----END RSA PRIVATE KEY-----
+
+2 - le run puppet se passe sans pb :
+
+on va créer notre conf pour kubectl 
+
+cd /etc/kubernetes/
+cat admin.conf > /root/.kube/admin.conf
+export KUBECONFIG='/root/.kube/admin.conf'
+bash
+[root@kmaster01 kubernetes]# kubectl version
+Client Version: version.Info{Major:"1", Minor:"14", GitVersion:"v1.14.2", GitCommit:"66049e3b21efe110454d67df4fa62b08ea79a19b", GitTreeState:"clean", BuildDate:"2019-05-16T16:23:09Z", GoVersion:"go1.12.5", Compiler:"gc", Platform:"linux/amd64"}
+Server Version: version.Info{Major:"1", Minor:"14", GitVersion:"v1.14.2", GitCommit:"66049e3b21efe110454d67df4fa62b08ea79a19b", GitTreeState:"clean", BuildDate:"2019-05-16T16:14:56Z", GoVersion:"go1.12.5", Compiler:"gc", Platform:"linux/amd64"}
+[root@kmaster01 kubernetes]# kubectl cluster-info
+Kubernetes master is running at https://10.0.2.15:6443
+KubeDNS is running at https://10.0.2.15:6443/api/v1/namespaces/kube-system/services/kube-dns:dns/proxy
+
+To further debug and diagnose cluster problems, use 'kubectl cluster-info dump'.
+[root@kmaster01 kubernetes]# kubectl get nodes
+NAME        STATUS   ROLES    AGE   VERSION
+kmaster01   Ready    master   39m   v1.14.2
+[root@kmaster01 kubernetes]# kubectl get pods --all-namespaces
+NAMESPACE     NAME                                    READY   STATUS    RESTARTS   AGE
+kube-system   coredns-fb8b8dccf-4cbh9                 1/1     Running   0          39m
+kube-system   coredns-fb8b8dccf-4tksb                 1/1     Running   0          39m
+kube-system   kube-apiserver-kmaster01                1/1     Running   0          38m
+kube-system   kube-controller-manager-kmaster01       1/1     Running   0          38m
+kube-system   kube-flannel-ds-amd64-2hwgp             1/1     Running   0          39m
+kube-system   kube-proxy-665r2                        1/1     Running   0          39m
+kube-system   kube-scheduler-kmaster01                1/1     Running   0          38m
+kube-system   kubernetes-dashboard-5f7b999d65-hhk69   1/1     Running   0          39m
+
