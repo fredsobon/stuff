@@ -45,6 +45,8 @@ LISTEN   0         128               127.0.0.1:2379             0.0.0.0:*
 - ecrire des données en base : 
 
 on peut utiliser le client etcdctl (fourni dans le paquet pour injecter /retrouver des data ) :
+
+
 boogie@satellite:~/Documents/stuff/kube$ etcdctl set key1 value1
 value1
 boogie@satellite:~/Documents/stuff/kube$ etcdctl set key2  boogie
@@ -3255,7 +3257,7 @@ admin.key
 openssl req -new -key admin.key -subj "/CN=kube-admin/O=system:masters" -out admin.csr
 admin.csr
 
-openssl x509 -req in admin.csr -CA ca.crt -CAkey ca.key -signkey ca.key -out admin.crt 
+openssl x509 -req in admin.csr -CA ca.crt -CAkey ca.key -signkey admin.key -out admin.crt 
 admin.crt
 
 Comment fait on pour différencier notre admin kube d'un autre admin ?
@@ -3272,16 +3274,101 @@ On va pouvoir nous connecter en https ou mettre notre conf  dans un fichier de c
 
 Tous les composants devront en plus avoir à dispo le certificat "root" de notre ca : ca.crt 
 
-4/ tls pour les servers :
-
 ch7 v7 -> en cours
 
+4/ tls pour les servers :
+pour rester simple et uniquement pour l'exemple on ne génere pas pour nos tests de ca pour etcd. Nous restons sur la ca kube déja gérée.
+on va avoir trois groupes  : etcd / apiserver /kubelet 
+
+- etcd :
+
+on génere un cert pour etcdserver :
+
+openssl genrsa -out etcd_server.key 2048 
+etd_server.key 
+
+openssl req -new -key etcd_server.key -subj "/CN=kube-admin/O=system:masters" -out etcd_server.csr
+etcd_server.csr
+
+openssl x509 -req in etcd_server.csr -CA ca.crt -CAkey ca.key -signkey etcd_server.key -out etcd_server.crt 
+etcd_server.crt
+
+-> on va deployer ces fichiers sur tous les serveurs etcd qui seront en Ha.
+on va egalement générer un etcd peer certificate pour assurer la comm entre les noeuds du cluster etcd 
+
+
+openssl genrsa -out etcd_peer.key 2048 
+etd_peer.key 
+
+openssl req -new -key etcd_peer.key -subj "/CN=kube-admin/O=system:masters" -out etcd_peer.csr
+etcd_peer.csr
+
+openssl x509 -req in etcd_peer.csr -CA ca.crt -CAkey ca.key -signkey etcd_peer.key -out etcd_peer.crt 
+etcd_peer.crt
+
+on va ensuite devoir renseigner les paths de nos certif et da la ca dans la conf etcd ( etcd.yaml ) 
+
+- apiserver :
+
+même principe que le server etcd pour apiserver
+
+Attention tout passe par l'apiserver dans le cluster kube
+
+Il va y avoir plusieurs noms qu'on va definir dans la conf de notre kube :
+les  noms minimums à définir sont : 
+kubernetes
+kubernetes.default
+kubernetes.default.svc
+kubernetes.default.svc.cluster.local   >>>> nom global 
+
+on doit ausssi avoir l'ip de l'api 
+ex: 10.96.0.1
+on peut voir l'ip du pod qui héberge l'apiserver :
+ex : 172.17.0.87
+
+Pour définir plusieurs noms on va créer un fichier de config dans lequel on va saisir nos données pour générer le csr :
+on va remplir les champs dans la section alt_names :
+ex : openssl.cnf
+
+[req ]
+....
+[v3_req]
+...
+[alt_names]
+DNS.1=kubernetes
+DNS.2=kubernetes.default
+DNS.3=kubernetes.default.svc
+DNS.4=kubernetes.default.svc.cluster.local   >>>> nom global 
+IP.1=10.96.0.1
+IP.2=172.17.0.87
 
 
 
+openssl genrsa -out apiserver.key 2048 
+apiserver.key 
 
 
+openssl req -new -key apiserver.key -subj "/CN=kube-apiserver" -out apiserver.csr -config openssl.conf
+aapiserver.csr
 
+openssl x509 -req in etcd_peer.csr -CA ca.crt -CAkey ca.key -signkey etcd_peer.key -out etcd_peer.crt 
+apiserver.crt
+
+on va definir les path des fichiers server (et clients) pour l'api directement dans l'executable ou alors en service.
+
+
+- kubelet :
+
+cet api est sur chaque node : on doit avoir une clé /cert par nodes 
+
+on doit donc le faire pour chque node du cluster
+node01, node02 ....
+
+on a aussi des kubelet client qui vont s'autehntifier pour communiquer avec kube-apiserver 
+
+on doit aussi donc avoir le nom :
+
+le nom du groupe a définir dans notre cert est : system:node:node01 etc ....
 
 
 
