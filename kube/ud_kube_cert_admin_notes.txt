@@ -3274,7 +3274,6 @@ On va pouvoir nous connecter en https ou mettre notre conf  dans un fichier de c
 
 Tous les composants devront en plus avoir à dispo le certificat "root" de notre ca : ca.crt 
 
-ch7 v7 -> en cours
 
 4/ tls pour les servers :
 pour rester simple et uniquement pour l'exemple on ne génere pas pour nos tests de ca pour etcd. Nous restons sur la ca kube déja gérée.
@@ -3370,6 +3369,173 @@ on doit aussi donc avoir le nom :
 
 le nom du groupe a définir dans notre cert est : system:node:node01 etc ....
 
+ch7 v7 -> done
+
+= examen des certificats dans un cluster existant :
+
+on va devoir connaitre la maniere dont les certif ont été générés : hard way / kubeadm
+
+-> hard way : tout  ce fait de manière manuelle et  la conf des certif se fait dans les services des composants de kube
+-> kubeadm : va dans son cas gérer en auto les  certif et appliquer leur conf au sein de pod
+
+Dans nos exemples on va utiliser kubeadm.
+On peut se faire une feuille détaillant tous les composants, le type de cert associés (server / client ), le path des cert, la ca ,le cn ,les alt names , l'organisation, l'issuer ,la date d'expiration.
+
+avec kubeadm utilisé pour le setup on va pouvoir identifier les certif en examinant les différents fichier de conf :
+
+ex: fichier de l'apiserver d'un minikube :
+# cat /etc/kubernetes/manifests/kube-apiserver.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  annotations:
+    scheduler.alpha.kubernetes.io/critical-pod: ""
+  creationTimestamp: null
+  labels:
+    component: kube-apiserver
+    tier: control-plane
+  name: kube-apiserver
+  namespace: kube-system
+spec:
+  containers:
+  - command:
+    - kube-apiserver
+    - --admission-control=Initializers,NamespaceLifecycle,LimitRanger,ServiceAccount,DefaultStorageClass,DefaultTolerationSeconds,NodeRestriction,MutatingAdmissionWebhook,ValidatingAdmissionWebhook,ResourceQuota
+    - --service-account-key-file=/var/lib/localkube/certs/sa.pub
+    - --client-ca-file=/var/lib/localkube/certs/ca.crt
+    - --tls-private-key-file=/var/lib/localkube/certs/apiserver.key
+    - --secure-port=8443
+    - --requestheader-extra-headers-prefix=X-Remote-Extra-
+    - --requestheader-group-headers=X-Remote-Group
+    - --service-cluster-ip-range=10.96.0.0/12
+    - --kubelet-client-certificate=/var/lib/localkube/certs/apiserver-kubelet-client.crt
+    - --requestheader-client-ca-file=/var/lib/localkube/certs/front-proxy-ca.crt
+    - --proxy-client-cert-file=/var/lib/localkube/certs/front-proxy-client.crt
+    - --proxy-client-key-file=/var/lib/localkube/certs/front-proxy-client.key
+    - --insecure-port=0
+    - --allow-privileged=true
+    - --requestheader-username-headers=X-Remote-User
+    - --tls-cert-file=/var/lib/localkube/certs/apiserver.crt
+    - --enable-bootstrap-token-auth=true
+    - --requestheader-allowed-names=front-proxy-client
+    - --advertise-address=192.168.99.100
+    - --kubelet-client-key=/var/lib/localkube/certs/apiserver-kubelet-client.key
+    - --kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname
+    - --authorization-mode=Node,RBAC
+    - --etcd-servers=https://127.0.0.1:2379
+    - --etcd-cafile=/var/lib/localkube/certs/etcd/ca.crt
+    - --etcd-certfile=/var/lib/localkube/certs/apiserver-etcd-client.crt
+    - --etcd-keyfile=/var/lib/localkube/certs/apiserver-etcd-client.key
+    image: k8s.gcr.io/kube-apiserver-amd64:v1.10.0
+    livenessProbe:
+      failureThreshold: 8
+      httpGet:
+        host: 192.168.99.100
+        path: /healthz
+        port: 8443
+        scheme: HTTPS
+      initialDelaySeconds: 15
+      timeoutSeconds: 15
+    name: kube-apiserver
+    resources:
+      requests:
+        cpu: 250m
+    volumeMounts:
+    - mountPath: /var/lib/localkube/certs/
+      name: k8s-certs
+      readOnly: true
+    - mountPath: /etc/ssl/certs
+      name: ca-certs
+      readOnly: true
+  hostNetwork: true
+  volumes:
+  - hostPath:
+      path: /var/lib/localkube/certs/
+      type: DirectoryOrCreate
+    name: k8s-certs
+  - hostPath:
+      path: /etc/ssl/certs
+      type: DirectoryOrCreate
+    name: ca-certs
+status: {}
+
+
+
+on voit que tous les certificats sont gérés pour le démarrage du service 
+
+on va pouvoir examiner les infos de nos cert avec des commandes openssl classiques :
+
+openssl --noout -text -in /etc/kubernetes/manifests/kube-apiserver.yaml
+
+on peut biensur faire la même chose pour tout nos composants kube.
+
+- troubleshooting :
+
+En cas de pb : si on setté nos conf en hard way : on va examiner les fichiers de logs des services :
+ex: journalctl -u etcd.service -l
+si c'est via kubedam :
+kubectl logs etcd-master 
+
+si kubect lne repond pas alors on doit decendre un niveau plus bas : ex du container 
+
+ex :
+docker ps  -a
+
+on trouve notre container et on exam ses logs :
+
+docker logs id_container
+
+ch7 v8 -> done
+
+= Certificats api dans kube : 
+
+quand un nouveau user arrive ..il va falloir faire toute la chaine pour qu'elle ait un cert valide ....biensur cela devient tres fastidieux avec un nombre conséquent de user ...
+kube a une api build in pour gérer les certs 
+-> le user crée sa clé  :
+openssl genrsa -out user.key 2048
+
+-> on genere un object de type csr
+openssl req -new-key user.key -subj "CN=user" -out user.csr
+ 
+un type kube dédié existe :
+
+usr-csr.yaml
+
+apiVersion ..
+kind: CertificatSigningRequest
+
+
+on va par contre encoder en base 64 le csr avant de l'injecter dans notre objet kube :
+
+cat user.csr |base64  
+on ajoute ensuite la sortie dans le champ request de l'objet yaml kube
+
+
+-> on exam les requests ..
+kubectl get csr 
+
+-> on approuve le cert
+kubectl certificate approve  user 
+user approved!
+
+-> on deploy le cert
+on peur exam le cert :
+
+kubectl get csr user -o yaml
+
+on va devoir pour exm le cert le decoder :
+
+cette fois :
+
+echo "le texte de notre cert" |base64 --decode
+
+
+dans kube c'est le controller manager qui est en charge des operations sur les certifs :
+il a des composants internes :
+csr-approving 
+csr-signing
+
+ch7 v9 -> done 
 
 
 
