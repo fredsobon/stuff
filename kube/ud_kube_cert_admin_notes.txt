@@ -3700,5 +3700,87 @@ echo "LsCCZD.." |base64 et que l'on renseigne dans  la section
 
 ch7 v10 -> done 
 
+= api kube = 
 
-    
+toutes les opérations sont effectuées via l'api (en rest ou via kubectl )
+
+ex: 
+curl https://kube-api:6443/version
+curl https://kube-api:6443/api/v1/pods
+
+
+on va donc se focus sur les parties qui nous interressent ici : /version /api  /logs /healthz /metrics /apis 
+
+-> les points d'entrés sont regroupés en fonction des types.
+
+
+- on va se focus sur /api et /apis
+
+
+- /api : core group 
+ici on a toutes les fonctionalitées qui existent.
+
+/api/v1 :
+/pods
+/rc
+/namespace
+/nodes
+/events
+..
+.....
+
+
+
+- /apis : named group 
+cette section est plus organisée et toutes les nouvelles features seront accessible via cette entrée.
+/apps/ :
+  /v1 :
+    /deployments > create, delete, update.
+    /replicasets
+    /statefulsets
+    ...
+/extensions
+/networking.k8s.io:
+  /networkpolicies
+  ..
+/storage.k8s.io
+/authentication.k8s.io
+/certificates.k8s.io:
+  /certificatesigningrequests
+
+
+on a donc au premier niveau : les api groups (ex : apps, /certificates.k8s.io ..)
+a un niveau plus fin les resources ( /deployments, /certificatesigningrequests ..)
+on peut agit de differentes maniere sur les resource a l'aide de verbs : create , delete , update ...
+
+on va pouvoir a l'aide de la doc kubernetes trouver a quel group d'api appartient quelle ressource.
+
+on peut interroger via curl les differents points d'entrées 
+
+[root@kmaster01 ~]# curl -k http://172.28.128.3:6443/version
+[root@kmaster01 ~]# curl -k http://172.28.128.3:6443/api |grep name
+
+on doit s'authentifier en utilisant notre cert, clé et ca 
+curl http://localhost:6443 -k -cert admin.cert -key admin.key -cacert ca.crt
+
+
+on peut sinon utiliser kubectl proxy qui va permettre d'acceder a notre cluster via un proxy 
+
+[root@kmaster01 ~]# kubectl proxy
+Starting to serve on 127.0.0.1:8001
+
+en lancant une autre console on peut récupérer les infos de notre cluster 
+
+Attention : kubeproxy != kubectl proxy 
+
+ch7 v11 -> done 
+
+= rbac : role base access configuration =
+
+
+
+
+
+
+
+
