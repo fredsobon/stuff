@@ -3869,6 +3869,67 @@ rules:
 - apiGroups: [""]   
   ressources: ["pods"]
   verbs: ["list", "get", "create", "update", "delete"]
-  ressourcesNames: ["pod-nginx", "pod-mysql"]
+  ressourcesNames: ["app-web1", "app-vcs2"]
+
+ch7 v12 -> done
+
+
+=  cluster roles  / cluster roles binding = 
+
+on a vu que les roles et rolesbinding sont associés à un namespace donné.
+
+Comment peut on faire pour les nodes ? Ce type de ressource n'est pas associée à un namespace : on est dans ce cas dans le domaine du cluster.
+
+Les ressources sont donc catégorisées en 2 :
+
+-> namespaced : pods, replicatset, jobs, services ....
+-> cluster scoped : nodes, cluster roles, clusters roles binding , namespaced, certificate signing requests 
+
+
+on peut examiner les différents type de ressources avec :
+
+kubectl api-resources --namespaced=true --> on va voir ici toutes les ressources du scope 'namespace'
+kubectl api-resources --namespaced=false --> on va voir ici toutes les ressources du scope 'cluster'
+
+Comment donner le droits a des users de gérer certaines parties du cluster ???
+avec les  cluster roles et les clusterroles binding 
+
+ex: 
+cluster-admin-role.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cluster-admin
+rules:
+  apigroups: [""]
+  resources: ["nodes"]
+  verbs: ["list", "create", "delete", "get"]
+
+kubectl create -f cluster-admin-role.yaml
+
+
+on va maintenance linker le user à notre cluster role :
+
+ex: clusteradmin-rolebinding.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cluster-admin-role-binding
+subjects: 
+- kind:
+  name: cluster-admin
+  apiGroup: rbac.authorization.k8s.io
+roleRef: 
+  kind: 
+  name: cluster-admin
+  apiGroup: rbac.authorization.k8s.io
+
+kubectl create -f  clusteradmin-rolebinding.yaml
+
+ch7 v13 -> done
+
+= image security =
+
+
 
 
