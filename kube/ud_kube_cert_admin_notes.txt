@@ -3775,12 +3775,100 @@ Attention : kubeproxy != kubectl proxy
 
 ch7 v11 -> done 
 
-= rbac : role base access configuration =
+= rbac : role base access control =
+
+on va pouvoir créer un role de la même maniere que les autres objets kube :
+on va donner un nom au group que l'on crée et trois sections seront mandatory ( apiGroups, ressources, verbs : comme on l'a vu dans la section api de kube) 
+pour les ressources de type core on peut laisser la section apiGroups vide  
+
+cat developer-role.yaml
+apiversion: rbac.authorization.k8s.io/v1
+kind: role 
+metadata: 
+  name: developer
+rules: 
+- apiGroups: [""]   
+  ressources: ["pods"]
+  verbs: ["list", "get", "create", "update", "delete"]
+on peut biensur créer plusieurs rules dans notre role : ex on va rajouter la possibilité au group dev de créer des configmap :
+- apiGroups: [""]   
+  ressources: ["ConfigMap"]
+  verbs: ["create"]
+  
+kubectl create -f developer-role.yaml
 
 
+on va maintenant devoir linker les users à notre role : pour cela on va créer un nouvel object RoleBinding :
+on relie un object user à un object role 
+Il y a deux sections : 
+Subjects : on y renseiggne les infos du user
+RoleRef : va servir a definir les infos du role que l'on a crée
 
 
+cat developper-rolebinding.yaml
+apiversion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata: 
+  name: devuser-developer-binding
+Subjects:
+- kind:
+  name: devuser
+  apiGroup: rbac.authorization.k8s.io
+RoleRef:
+  kind: Role
+  name: devloper
+  apiGroup: rbac.authorization.k8s.io
+  
+  
+
+kubectl create -f developper-rolebinding.yaml
+
+Attention : les roles et rolebindings sonr associés au namespace par default : si on veut définir un scope particulier il faudra donc d&éfinir explicitement le namesapce concerné par nos  configurations.
+
+on peut examiner les roles/rolebindings  crées avec les commandes :
+
+kubectl get roles 
+kubectl get rolebindings
+
+kubectl describe role developer
+kubectl describe rolebinding  devuser-developer-binding
 
 
+Pour examiner les droits qu'un user dispose :
+
+kubectl auth can-i create deployements
+yes
+
+
+kubectl auth can-i delete nodes
+no
+
+
+on peut en tant qu'admin examiner les droits d'un user :
+
+kubectl auth can-i create deployements --as dev-user
+no
+
+kubectl auth can-i create pods --as dev-user
+yes
+
+on peut definir les perms sur un namespace aussi :
+
+kubectl auth can-i create deployements --as dev-user --namespace test
+no
+
+Il va être possible de définir des droits specifiques a certaines ressources : ex acces uniquement a certains pods :
+
+
+cat developer-role.yaml
+apiversion: rbac.authorization.k8s.io/v1
+kind: role 
+metadata: 
+  name: developer
+rules: 
+- apiGroups: [""]   
+  ressources: ["pods"]
+  verbs: ["list", "get", "create", "update", "delete"]
+  ressourcesNames: ["pod-nginx", "pod-mysql"]
 
 
