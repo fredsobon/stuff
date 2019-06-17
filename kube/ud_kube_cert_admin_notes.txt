@@ -3930,6 +3930,84 @@ ch7 v13 -> done
 
 = image security =
 
+- basics memo :
+
+on deploy plein d'appli  avec des images
+
+quand on deploit un pod de maniere basique on peut avoir par exemple une def très simple :
+
+apiVersion: v1
+kind: Pod 
+metadata:
+  name : nginx-pod
+spec:
+  - containers:
+    - name: nginx
+      image: nginx 
+
+ici on deploit une image nginx pour un container nginx qui formera un pod nginx-pod       
+  
+ici on voit que l'image est tres simple : nginx : cela suit la convention d'image docker 
+
+image: nginx => image repository
+en fait si on on prefixe rien c'est qu'on a alors le même nom de repo pour le user account 
+on sous entend : nginx(user account) /nginx (repo name) 
+
+mais d'ou viennent les images ?
+si on ne precise rien alors les images seront issues de la registry docker : on sous entend donc :
+
+image : docker.io/nginx/nginx 
+
+docker.io est la registry par defaut.
+
+quand  on update notre image on va la pousser dans notre régistry ...
+
+on a biensur plusieurs registry possible  :
+ex :
+gcr.io/kubernetes-test/dnsutils
+
+en interne il est important d'avoir une registry private.
+
+on doit pouvoir y avoir access avec des credentials 
+
+ex : docker login private-registry.io
+username: registry-user
+password: 
+
+
+une fois authentifié on pourra utiliser les images de la registry :
+
+docker run private-registry.io/apps/internal-app
+
+
+pour indiquer le chemin complet de notre image dans notre pod on doit donc renseigner le path de la registry.
+ex: 
+      
+mais comment allons nous passer les crédentials a notre runtime docker sur les workers pour recupérer l'image ? 
+
+on va créer un object de type secret en y renseignant les crédentials :
+
+kubectl create secret docker-registry regcred \
+  --docker-server=private-registry.io
+  --docker-username=registry-user
+  --docker-password=registry-password
+  --docker-email=registry-user@org.com
+
+et on va ajouter ce secret dans la definition de notre pod : 
+apiVersion: v1
+kind: Pod 
+metadata:
+  name : nginx-pod
+spec:
+  - containers:
+    - name: nginx
+      image: private-registry.io/apps/nginx 
+    imagePullSecrets:                <<<<<<< section dans laquelle on rajoute le contenu du secret a injecter pour recupérer l'image de notre registry private 
+    - name: regcred  
+
+ch7 v14 -> done
+
+
 
 
 
