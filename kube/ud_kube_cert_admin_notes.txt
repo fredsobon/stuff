@@ -4008,6 +4008,128 @@ spec:
 ch7 v14 -> done
 
 
+= security contexts : =
 
+on peut en lancant un container passer des arguments pour la secu ( definir le user, les capabilities )
+docker run --user=1001 ubuntu sleep 100
+docker run --cap-add MAC_ADMIN ubuntu
+
+on peut biensur le faire dans kuberentes :
+on peut setter notre secu au niveau :
+-> container 
+ou 
+-> pod 
+
+si on configure au niveau pod tous les containers au sein du pod seront affectés par les regles de secu.
+Les settings fait au niveau du container overrident ceux au niveau du pod.
+
+ex: 
+on peut rajouter la conf secu au niveau du pod en rajoutant la section securityContext dans le pod 
+
+apiVersion: v1
+kind: Pod 
+metadata:
+  name : nginx-pod
+spec:
+  securityContext:
+    runAsUser: 1001
+
+  - containers:
+    - name: nginx
+      image: private-registry.io/apps/nginx 
+      command: ["sleep", "3600"]
+
+on peut rajouter la conf secu au niveau du container en rajoutant la section securityContext dans le pod 
+
+apiVersion: v1
+kind: Pod 
+metadata:
+  name : nginx-pod
+spec:
+
+  - containers:
+    - name: nginx
+      image: private-registry.io/apps/nginx 
+      command: ["sleep", "3600"]
+      securityContext:
+        runAsUser: 1001
+        capabilities:
+          add: ["MAC_ADMIN"]
+          
+ch7 v15 done
+
+= network policies intro : =
+
+ex: on a un traffic web classic 
+
+
+client  -> web    ->  api -> db 
+
+
+on a deux type de traffic :
+
+quand le server web recoit du traffic c'est du ingress 
+quand le server web envoi du traffic a l'api c'est de l'egress
+
+bien sur le traffic que recoit l'api du server web est de l'ingress 
+
+on va avoir schematiquement plusieurs regles :
+
+1/ ingress  port 80 (web <- client ) 
+2/ egress   port 5000 ( web -> api) 
+3/ ingress port 5000  (api <- web )
+4/ egress port 3306 ( api -> db) 
+5/ ingress port 3306 (db <- api)
+
+
+dans kubernetes :
+chaque node, service et pod a une adresse ip
+
+Chaque pod doit communiquer avec tous les autres pods : c'est la regle : ils doivent communiquer  par l'adresse des pods ou service : toutes les regles sont autorisées.
+
+il va donc falloir securiser nos applis :
+
+nous ne voulons pas que notre pod web communique directement avec le pod db mais on veut que cela passe systematiquement par l'api
+
+on va donc créer une network policie qui va permttre cela :
+
+niveau db on crée une regle qui 
+autorise l'ingress sur le port 3306 depuis le pod  api : tous les autres flux seront bloqués.
+
+on va pour cela créer un  object en utilisant des labels :
+ex: 
+
+network-policie-db.yaml 
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: db-policy
+spec:
+  podSelector: 
+    matchLabel: 
+      role: db
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    -podSelector:
+      matchLabels:
+        name: api-pod
+    ports:
+    -protocol: TCP
+     port: 3306
+
+
+on cree l'object :
+
+kubectl create -f network-policie-db.yaml
+
+Attention les network policies ne sont appliquée que par des cni qui les gère ( calico, kube-router, weave ...) .
+Flannel ne les gere pas : mais ne crée pas d'erreur .
+
+Il faut donc bien choisir sa solution réseau pour les pods.
+
+ch7 v16 -> done 
 
 
