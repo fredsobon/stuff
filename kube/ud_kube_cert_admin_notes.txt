@@ -4132,4 +4132,60 @@ Il faut donc bien choisir sa solution réseau pour les pods.
 
 ch7 v16 -> done 
 
+== Volumes : ==
+
+
+Beaucoup de solutions de stockage sont disponibles pour kubernetes.
+Une connaissance de la gestion interne doit nous permettre d'adapter nos besoins facilement avec des solutions externes (third parties).
+
+= volumes : =
+
+
+- concepts : 
+on va d'abord se focus sur la notion de volumes dans docker : de base les données ne sont pas persistantes dans docker : une suppression de container implique naturellement une suppression de data : qui sont donc de base volatiles.
+pour assurer de la persistance à nos data on va attacher un volume que l'on aura créer au prealable à notre container : même si notre container est détruit pas de souci les data sont présentes et un nouveau container peut les exploiter.
+
+Le  principe est le même dans kubernetes : les pods par nature sont éphémère et perdent donc les data quand ils sont détruits.
+On va donc attacher un volume dans  un pod : si celui ci est détruit pas de souci un nouveau pod pourrra accéder au data du volume en le montant.
+
+- Implémentation :
+
+ex: on va créer un pod qui va écrire dans le fichier d'un repertoire un nombre aléatoire : 
+
+on va définir un volume qui va utiliser une méthode de stockage ( drivers nécéssaire à l'utilisation du stockage) 
+ici on va monter un volume local à notre host et specifier que le stockage sera dans un repertoire local à notre systeme.
+On va monter ce volume dans notre container en définissant un point de montage et le volume dédié crée sur notre host.
+
+apiVersion: v1
+kind: Pod 
+metadata:
+  name : random-number
+spec:
+
+  containers:
+  - name: alpine
+    image: alpine
+    command: ["/bin/sh", "-c"]
+    args: ["shuff -i 0-100 n -1 >> /opt/numb.out";]
+    volumeMounts:                   <<<<<   definition du montage au sein de notre container
+      mountPath: /opt               <<<<<   point de montage sur lequel on stockera / accedera au data depuis le container
+      name: data-volume             <<<<    nom du volume utilisé   
+  volume:                           <<<<< def de notre volume 
+  - name: data-volume                  
+    hostPath:                       <<<< definition d'un volume local à notre host 
+      path: /data                   <<<< point de montage de notre host
+      type: Directory               <<<< type de montage : ici c'est un repoertoire simple.
+
+      
+
+quand on aura ecrit un nombre aléatoire via la commande de notre pod : le fichier généré sera accessible au sein du pod dans /opt ..et forcement en local sur le host dans /data ..la suppression du pod n'affectera pas la persistance  de données.
+
+
+- Options de volumes : 
+
+Si le montage d'un volume local est interessant pour un pod sur un node ceci est absolument déconseillé sur un cluster de plusieurs nodes : les pods de chacun des nodes auront un volumes /opt propre a repoertoire /data de chaque node  : ils seront donc potentiellement différents : ce qui génere de l'inconsistance  de données ...
+
+Dans le cas d'un cluster de plusieurs nodes ont va devoir utiliser des solutions de stockage repliquées ( de nombreuses solutions existent : glusterfs, ceph, 
+nfs, google ...)
+
 
