@@ -4185,7 +4185,77 @@ quand on aura ecrit un nombre aléatoire via la commande de notre pod : le fichi
 
 Si le montage d'un volume local est interessant pour un pod sur un node ceci est absolument déconseillé sur un cluster de plusieurs nodes : les pods de chacun des nodes auront un volumes /opt propre a repoertoire /data de chaque node  : ils seront donc potentiellement différents : ce qui génere de l'inconsistance  de données ...
 
+NB: On utilisera pas l'option :"hostPath" pour un systeme de production.
+
 Dans le cas d'un cluster de plusieurs nodes ont va devoir utiliser des solutions de stockage repliquées ( de nombreuses solutions existent : glusterfs, ceph, 
 nfs, google ...)
+
+Pour renseigner un volume avec un systeme externe on va simplement renseigner le type dans notre déclaration.
+ex avec un volume amazon :
+
+apiVersion: v1
+kind: Pod 
+metadata:
+  name : random-number
+spec:
+
+  containers:
+  - name: alpine
+    image: alpine
+    command: ["/bin/sh", "-c"]
+    args: ["shuff -i 0-100 n -1 >> /opt/numb.out";]
+    volumeMounts:                   
+      mountPath: /opt              
+      name: data-volume           
+  volume:                        
+  - name: data-volume                  
+    awsElasticBlocStore:               
+      volumeID: < volume-id >           
+      fsType: ext4                       
+
+ch8 v2 -> done
+
+
+= persistent volume : =
+
+
+on a vu que la configuration d'un volume implique une définition dans chaque pod. Si nous avons plusieurs users chacun devra configurer le volume dans sa definition de pod ..et la modifier en cas de changement .
+
+On va vouloir pouvoir gérer le volume de maniere plus centralisée. l'admin va créer un pool de storage qui seront a dispo pour les users qui donc pourront selectionner un volume pour le deploiment de leur appli . 
+cest ce qu'on appelle un "persistant volume claims" : PVC 
+
+
+ex :
+
+pvc-definition.yaml
+
+apiVersion: v1
+type: PersistantVolume
+metadata: 
+  - name : pv-vol1
+spec: 
+  accessModes: 
+    - ReadWriteOnce
+  capacity: 
+    storage: 1Gi
+  awsElasticBlocStore:               
+    volumeID: < volume-id >           
+    fsType: ext4                       
+    
+kubectl create -f pvc-definition.yaml
+
+pour examiner nos pvc :
+
+kubectl get persistentvolume 
+
+ch8 v3 -> done.
+
+
+= persistant volume claims : =
+
+on a vu comment declarer un pvc maintenant on va voir comment mettre a dispo se volume claim pour un node.
+
+nous avons deux type d'objects : un pv : persistant volume que l'admin met a dispo et un pvc que le user crée pour utiliser le pv 
+une fois que les objects sont crées kubernetes va binder les objects pv et pvc entre eux .
 
 
