@@ -4224,7 +4224,6 @@ on a vu que la configuration d'un volume implique une définition dans chaque po
 On va vouloir pouvoir gérer le volume de maniere plus centralisée. l'admin va créer un pool de storage qui seront a dispo pour les users qui donc pourront selectionner un volume pour le deploiment de leur appli . 
 cest ce qu'on appelle un "persistant volume claims" : PVC 
 
-
 ex :
 
 pvc-definition.yaml
@@ -4250,12 +4249,84 @@ kubectl get persistentvolume
 
 ch8 v3 -> done.
 
-
 = persistant volume claims : =
 
 on a vu comment declarer un pvc maintenant on va voir comment mettre a dispo se volume claim pour un node.
 
 nous avons deux type d'objects : un pv : persistant volume que l'admin met a dispo et un pvc que le user crée pour utiliser le pv 
-une fois que les objects sont crées kubernetes va binder les objects pv et pvc entre eux .
+une fois que les objects sont crées kubernetes va binder les objects pv et pvc entre eux en fonction des properties definies dans les volumes.
 
+Chaque pvc est bindé sur un pv . pendant l'operation de montage kubernetes va chercher un pv ayant la volumétrie, les modes d'access, le type de storage définis dans le pvc.
+Si plusieurs volumes sont candidats : on pourra toujours sélectionner un pv particulier en utilisant les labels et selectors.
+
+On pourra donc avoir un gros volume de monté sur un petit claim s'il n'y a pas d'autre meilleure option
+Il y a une relation 1/1 entre les claims et les volumes.
+Si aucun volume n'est dispo alors le volume claim restera en etat pending jusqu'a ce qu'un nouveau volume soit dispo : dans ce cas le montage sera automatique.
+
+
+- declaration et creation de notre object : 
+pvc-definition.yaml
+
+apiVersion: v1
+type: PersistantVolumeClaim
+metadata:
+  - name: my_claim
+spec:
+  accessModes:
+    - ReadWriteOnce
+  ressources:
+    requests: 
+      storage: 500Mi
+
+kubectl create pvc-definition.yaml
+
+on va pouvoir examiner nos pvc avec : 
+
+kubectl get persistantvolumeclaim
+
+Quand on va examiner le pvc et le volume precedement crée on va  voir que les options matchent :
+
+pvc-definition.yaml
+
+apiVersion: v1
+type: PersistantVolume
+metadata: 
+  - name : pv-vol1
+spec: 
+  accessModes: 
+    - ReadWriteOnce
+  capacity: 
+    storage: 1Gi
+  awsElasticBlocStore:               
+    volumeID: < volume-id >           
+    fsType: ext4                       
+
+on va maintenant pouvoir voir que le pvc a bien ete bindé sur notre pv 
+
+kubectl get persistantvolumeclaim
+
+NAME    STATUS  VOLUME  CAPACITY ACCESS MODES STORAGECLASS AGE
+myclaim Bound   pv-vol1  1GBi    RWO                       3mnts
+
+- pour supprimer un pvc :
+
+kubectl delete persistantvolumeclaim myclaim
+
+Nous avons plusieurs options pour gérer le volume.
+De maniere native le volume est en mode :
+persistantVolumeReclaimPolicy:  Retain 
+
+--> le volume sera conservé jusqu'à ce qu'il soit détruit manuellement par l'admin.
+Le volume ne sera pas réutilisable pour d'autres claims.
+
+On peut sinon decider de supprimer le volume :
+persistantVolumeReclaimPolicy:  Delete
+
+dans ce cas des que le claim est supprimé le volume est egalement supprimé.
+
+On peut egalement "wipper" les data a la suppression du claim :
+
+persistantVolumeReclaimPolicy:  Recycle
+
+ch8 v4 -> done
 
