@@ -4410,9 +4410,51 @@ biensur il faut le faire sur tous les systemes : pc3 doit pouvoir communiquer av
 ip route add 192.168.1.0/24 via 192.168.2.1
 
 
-pour que nos pc sur 192.168.1.0/24 puissent acceder a internet (admettons une ip publique en 172.217.194.0 : on va rajouter une route de la meme maniere 
+pour que nos pc sur 192.168.1.0/24 puissent acceder a internet (admettons une ip publique en 172.217.194.0 que l'on veut joindre pour google : on va rajouter une route de la meme maniere 
 (il faut que notre routeur soit connecter a la sortie internet )
 
 ip route add 172.217.194.0 via 192.168.1.1
+
+biensur il n'est pas possible de rajouter toutes les routes pour tous les sites .
+
+On va donc rajouter une route par defaut qui permettra de se connecter à tous les réseaux en passant par une interface  
+
+ip route add default via 192.168.1.1
+on peut definir à la place de default le 0.0.0.0 qui signifie toutes les destinations.
+
+- comment definir un host linux en router : 
+
+si on a trois pc 
+
+a  192.168.1.2 
+b  192.168.1.7 / 192.168.3.7 -> on doit avoir un host avec 2 interfaces  
+c  192.168.3.2
+
+sur a : 
+ip route add 192.168.3.0/24 via 192.168.1.7
+
+
+sur b : 
+ip route add 192.168.1.0/24 via 192.168.3.7
+
+
+de base les paquets sur linux ne sont pas forwarder d'une interface à une autre : par raison de securité.
+on est sur un reseau privé donc pas de souci :
+
+pour transformer notre pc en router on va définir a 1 le contenu du fichier :
+
+echo 1 > /proc/sys/net/ipv4_forward
+
+il faut modifier l'entree dans le fichier /etc/sysctl.conf pour garder la valeur :
+
+net.ipv4_forward = 1
+
+ch9 v2 -> done
+
+= Dns configuration: =
+
+
+
+
 
 
