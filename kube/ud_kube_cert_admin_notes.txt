@@ -4453,6 +4453,110 @@ ch9 v2 -> done
 
 = Dns configuration: =
 
+(absolute beguiners)
+
+A : 192.168.0.1.10 
+
+B : 192.168.0.1.11
+on va mettre un alias avec db 
+
+
+-> on ajoute une entrée dans le /etc/hosts de nos servers :
+
+ping db depuis A est ok
+
+
+biensur on met se que l'on veut dans la hosts : on peut mettre google pointant sur 192.168.1.11 
+
+ceci ne verifie pas que l'on est bien  sur le bon hosts ...
+
+biensur ceci est ingérable plus on multiplie les entrées.
+
+-> on installe un dns 
+
+ex : 192.168.1.100 
+
+on va ajouter sur nos clients l'entrée de ce serveur dans le fichier /etc/resolv.conf 
+
+nameserver 192.168.1.100
+
+biensur on peut utiliser le /etc/hosts pour des tests.
+si on a deux entrées (/etc/hosts et dns) : il y a un e priorité :
+
+Il y a un ordre de priorité dans la lecture des infos :
+
+/etc/nsswitch.conf 
+
+
+
+ boogie   master ✚ 1 … 1  ~  Documents  stuff  cat /etc/nsswitch.conf
+# /etc/nsswitch.conf
+#
+# Example configuration of GNU Name Service Switch functionality.
+# If you have the `glibc-doc-reference' and `info' packages installed, try:
+# `info libc "Name Service Switch"' for information about this file.
+
+passwd:         compat systemd
+group:          compat systemd
+shadow:         compat
+gshadow:        files
+
+hosts:          files mdns4_minimal [NOTFOUND=return] dns myhostname
+networks:       files
+
+protocols:      db files
+services:       db files
+ethers:         db files
+rpc:            db files
+
+netgroup:       nis
+
+pour avoir des résolutions externes on peut utiliser une entrée externe : ex :
+/etc/resolv.conf 
+nameserver 8.8.8.8
+
+- domain names : 
+
+top level domain : ex : .com / .org 
+
+
+.  -< root
+.com : tld 
+google.com < domain
+www / apps / mail  ...< sous domain 
+(www.google.com) 
+
+pour conserver les entrées on va les mettre en cache pour un moment.
+
+
+pour eviter dans un domaine interne de rajouter le nom de domaine complet ( ex : web.mycompany.com ) 
+
+on va vouloir saisir web directement 
+pour cela dasn notre /etc/resolv.conf : on va rajouter un champ search qui va être automatiquement compléter quand on cherchera un nom 
+
+ex : on saisi web > le nom web.mycompany.com sera automatiquement ajouté et la recherche dns se fera sur ce domaine.
+
+- records types :
+
+- A : faire pointer un nom de domaine vers une ip 
+- AAAA : faire pointer un nom de domaine vers une ipv-
+- CNAME : faire pointer un nom vers un autre nom : food.steack.com -> lunch.meat.com 
+
+- nslookup 
+
+pour requeter un nom : attention cet outil ne requette pas le fichier /etc/hosts.
+
+- dig 
+
+ch9 v3 done.
+
+
+== network namespaces ==
+
+
+
+
+
 
 
 
