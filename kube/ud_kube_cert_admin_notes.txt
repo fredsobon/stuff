@@ -4621,15 +4621,78 @@ ip link set veth-blue netns blue
 sudo ip -n red addr add 192.168.15.2 dev veth-red
 sudo ip -n blue addr add 192.168.15.3 dev veth-blue
 
- boogie  /  tmp  sudo ip -n red addr add 192.168.15.2 dev veth-red
- boogie  /  tmp  sudo ip -n blue addr add 192.168.15.3 dev veth-blue
- boogie  /  tmp  sudo ip -n red link set veth-red up 
- boogie  /  tmp  sudo ip -n blue link set veth-blue up 
- boogie  /  tmp  sudo ip netns exec red ping 192.168.15.3
+sudo ip -n red addr add 192.168.15.2 dev veth-red
+sudo ip -n blue addr add 192.168.15.3 dev veth-blue
+sudo ip -n red link set veth-red up 
+sudo ip -n blue link set veth-blue up 
+
+
+- on peut passer des commandes depuis notre namespace : 
+
+sudo ip netns exec red ping 192.168.15.3
+sudo ip netns  exec blue arp
+sudo ip netns  exec blue route -n
+
+
+Quand on a plusieurs machinnes cela devient compliqué a gérer : on va docn créer un virtual switch 
+on a plusieurs solutions qui s'offrent à nous : linux bridge, openvswitch  ....
+
+- linux bridge :
+on va ajouter une nouvelle iface de type bridge pour gérer notre réseau 192.168.15.0/24
+
+sudo ip link add v-net-0 type bridge
+
+sudo ip link |grep v-net-0
+9: v-net-0: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+
+ on l'active :
+
+sudo ip link set dev v-net-0 up
+sudo ip link |grep v-net-0
+9: v-net-0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UNKNOWN mode DEFAULT group default qlen 1000
+
+on va donc maintenant vouloir connecter tout nos namespaces sur notre switch :
+
+on va delete le link entre les namespace que l'on a créée précédemment :
+
+sudo ip -n red link del veth-red
+
+il suffit de delete une extremité dans ce cas l'autre est delete automatiquement : 
+
+udo ip -n blue link del veth-blue
+Cannot find device "veth-blue"
+
+on va maintenant créee des ifaces virtuelles qui vont pointer sur des ifaces virtuelles de birdge : 
+sudo ip link add veth-red type veth peer name veth-red-br
+sudo ip link add veth-blue type veth peer name veth-blue-br
+
+
+on va maintenant raccorder notre namespace à l'iface puis 
+l'interface virt bridge au bridge :
+
+sudo ip link set veth-red netns red
+sudo ip link set veth-red-br master v-net-0
+sudo ip link set veth-blue netns blue
+sudo ip link set veth-blue-br master v-net-0
+
+on va maintenant setter une ip et permette au deux ns de communiquer : 
+
+sudo ip -n red addr add 192.168.15.2 dev veth-red
+sudo ip -n blue addr add 192.168.15.3 dev veth-blue
+sudo ip -n red link set veth-red up
+sudo ip -n blue link set veth-blue up
 
 
 
+sudo ip netns exec red ping 192.168.15.3
 
+
+sur notre host on rajoute une ip dans le reseau virtuel :
+
+sudo ip addr add 192.168.15.5/24 dev v-net-0
+et on peut donc joindre notre reseau virtuel depuis notre host :
+
+ping 192.168.15.3
 
 
 
