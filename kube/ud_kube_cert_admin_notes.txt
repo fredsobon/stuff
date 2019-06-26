@@ -4451,9 +4451,7 @@ net.ipv4_forward = 1
 
 ch9 v2 -> done
 
-= Dns configuration: =
-
-(absolute beguiners)
+= Dns configuration: (absolute beguiners) =
 
 A : 192.168.0.1.10 
 
@@ -4552,6 +4550,86 @@ ch9 v3 done.
 
 
 == network namespaces ==
+
+ils sont utilisés pour la separation / isolation des containers.
+On peut dans une maison par analogie les representer par les chambres d'une maison appartenant chacune par exemple à un enfant  de la famille.
+Chaque personne ne peut voir que ce qu'il y a dans sa chambre quand elle y est.
+En tant que parent on a la visibilité sur toutes les chambres et si on veut on peut permettre la communication entre deux chambres.
+
+quand on crée un container on veut s'assurer qu'il soit parfaitement isolé.
+on a pour cela un process namespace qui permet au container de ne voir que celui ci et donc penser qu'il est isolé sur son propre host.
+on a depuis le container la vision que le pid 1 est le process init comme sur un host.
+depuis le host on voit le process init du container comme n'importe quel autre process avec forcement un autre pid.
+
+- network namespace :
+
+chaque host a une iface connecté au lan.
+chaque host dispose de sa table de routage et arp 
+quand on crée un container  celui ci n'a aucune visibilité sur les informations de reseaux du host . Le container dispose de sa propre virtual iface ainsi que se propre table de routage et arp .
+
+Pour créee un nouveau network namespace sous linux :
+
+ip netns add notre_namespace
+
+sudo ip netns  add blue
+sudo ip netns  add red
+sudo ip netns  list
+red
+blue
+
+pour voir l'interface créee dans notre namespace : 
+ip netns exec notre_ns link
+ou
+
+ip -n notre_namespace link 
+
+
+sudo ip netns exec red ip link
+1: lo: <LOOPBACK> mtu 65536 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+
+sudo ip -n red link
+1: lo: <LOOPBACK> mtu 65536 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+
+on a donc une isolation dans notre namespace : aucune visibilité de l'iface du host.
+
+- tables routage et  arp :
+
+c'est le même principe pour les tables de roitages et de cache mac address :
+
+sudo ip netns exec red route
+Table de routage IP du noyau
+Destination     Passerelle      Genmask         Indic Metric Ref    Use Iface
+sudo ip netns exec red arp
+
+
+- connexion de deux namespaces réseaux ensemble :
+
+on va pouvoir raccorder plusieurs ns ensemble via un "cable virtuel"
+
+- creation du cable  virtuel :
+sudo ip link add veth-red type veth peer name veth-blue
+
+- on attache maintenant ce cable aux namespaces dédiés : 
+
+ip link set veth-red netns red 
+ip link set veth-blue netns blue
+
+- on va maintenant pouvoir assigner une ip à nos interfaces :
+
+sudo ip -n red addr add 192.168.15.2 dev veth-red
+sudo ip -n blue addr add 192.168.15.3 dev veth-blue
+
+ boogie  /  tmp  sudo ip -n red addr add 192.168.15.2 dev veth-red
+ boogie  /  tmp  sudo ip -n blue addr add 192.168.15.3 dev veth-blue
+ boogie  /  tmp  sudo ip -n red link set veth-red up 
+ boogie  /  tmp  sudo ip -n blue link set veth-blue up 
+ boogie  /  tmp  sudo ip netns exec red ping 192.168.15.3
+
+
+
+
 
 
 
