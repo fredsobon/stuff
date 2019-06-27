@@ -4694,6 +4694,44 @@ et on peut donc joindre notre reseau virtuel depuis notre host :
 
 ping 192.168.15.3
 
+Il faut bien noter que ce réseau est entierement situé sur le host et restreint à son périmètre.
+La seule porte d'acces au reste du monde est l'iface sur notre host.
+
+Comment permettre donc l'acces au net et aux autres réseaux depuis nos namespaces ?
+
+si on veut pinger une ip 192.168.1 depuis un namespace blue en 192.168.15 on y arrive pas .. il n'y a pas d'information dans la table de routage.
+Il va falloir ajouter une gateway permettant aux ns de communiquer avec le réseau voulu.
+
+LA seule iface qui est dans plusieurs reseaux est la virtuelle iface : v-net-0 192.168.15.5 qui comunique avec l'ip 192.168.1.2 de eth0 sur notre host
+
+ip net exec blue ip route add 192.168.1.0/24 via 192.168.15.5
+
+On ne pourra cependant toujours pas contacter l'exterrieur : il va falloir 'nater' nos flux : en transformant les ip 192.168.15.0/24 de nos namespaces qui vont sortir et chercher à communiquer avec d'autre réseaux . pour cela on utilise  iptables le nat et le masquerading 
+
+
+iptables -t nat -A POSTROUTING -s 192.168.15.0/24  -j MASQUERADE 
+
+> tous les flux des ns sortiront avec l'ip de notre gateway et les réseaux destinations n'auront en aucun cas connaissance de la source des ns initiaux.
+
+Pour s'assurer que tous nos namespaces pourront communiquer avec le net et pas uniquement le réseau 192.168.1.0/24 on va rajouter une gateway par defaut :
+
+ip netns blue exec ip route add default via 192.168.15.5 
+
+cette fois le net est accessible.
+
+
+Comment maintenant permettre aux autres réseaux de se connecter aux namespaces internes puisque les ip ne sont pas connues ?
+admettons que  dans notre ns blue on ait une appli web comment faire pour l'atteindre depuis un host de notre lan ?
+
+on a deux choix ajouter une route pour dire que tout le réseau 192.168.15.0/24 sera joignable via la 192.168.1.2
+ou alors affiner notre filtrage : c'est ce qu'on privilégie 
+on va s'assurer que les requettes sur le port 80 seront bien envoyées sur le container/ appli de l'ip 192.168.15.2 ecoutant sur le port 80 , en natant ce flux.
+
+iptables -t nat -A PREROUTING --dport 80 --to-destination 192.168.15.2:80 -J DNAT 
+
+ch9 v4 -> done 
+
+= docker networking =
 
 
 
