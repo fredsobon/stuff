@@ -4809,8 +4809,113 @@ dès qu'on crée un container : un namespace est créee egalement :
 docker run -it --rm -d nginx
 
 
+docker va accrocher le  namespace à l'interface du bridge
+
+docker va créer un cable virtuel entre le container et le bridge  :
+
+on peut voir en faisant un ip link une interface monter sur le bridge :
+
+ip link |grep docker |grep veth
+8: vethdfafb28@if7: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue master docker0 state UP mode DEFAULT group default
+    link/ether e6:69:75:4d:61:0a brd ff:ff:ff:ff:ff:ff link-netnsid 0
+
+si on examine le lien de l'autre coté : donc depuis le namespace de notre container on verra le bridge :
+
+ip -n <namespace> link 
+
+ethO@if8  ....
+
+on peut examiner l'ip donné par docker au container :
+
+ip -n <namespace> addr 
+
+
+-> a chaque container crée docker fait la même chose :
+
+-> creation d'un namespace
+-> crée deux interfaces : 
+en attache une au bridge 
+attache l'autre au container 
+
+les interfaces peuvent être identifiées par leur nombre 
+if11 et if12 forme une paire , if7 et if8 une autre etc ..
+
+tous les containers peuvent donc communiquer entre eux.
+
+
+- port mapping :
+
+quand on lance un container nginx :
+un container va ecouter sur le port 80
+on pourra donc se connecter au serveur web en utilisant l'ip du container depuis un container ou notre host :
+
+curl http://172.17.0.4:80
+Welcome to nginx!
+
+
+On ne pourra pas contacter le server web depuis une autre machine , ou reseau
+
+pour permettre cela on va utiliser une fonctionalité de docker pour faire du mapping de port
+on va dire a docker de mapper le port 8080 sur notre host avec le port 80 de notre container.
+
+Tous les users qui utiliseront le mapping pour se connecter au server web du container.
+
+curl http://http://192.168.0.2:8080
+Welcome to nginx!
+
+On va donc forward le traffic arrivant sur un port vers un autre port.
+
+on va se servir d'iptables :
+
+iptables -t nat -A prerouting -j DNAT --dport 8080 --to-destination 80
+
+ici on a une regle de type  : 
+
+
+iptables -t nat -A DOCKER  -j DNAT --dport 8080 --to-destination 172.17.0.4:80
+
+on peut voir les regles créees pour docker dans iptables :
+
+iptables -nvL -t nat 
+
+ch9 v5 -> done.
 
 
 
+= cni : container network interfaces = 
 
+precedemment on a vu comment :
+
+- creer un namespace 
+- creer une interface reseau de type bridge 
+- creer un cable virtuel de type veth 
+- attacher ce cable a un namespace
+- attacher l'autre extremité au bridge
+- assigner des ip
+- les monter 
+- activer le nat et le masquerade pour les comm externes.
+
+on a vu que docker utilisait la même approche pour effectuer ses taches.
+d'autres solutions de containers existent et utilisent les mêmes concepts : rkt, mesos ...
+
+pourquoi ne pas utiliser une maniere unique de faire ces taches independamment des containers ?
+
+->  on va donc utiliser une methode standart que tout le monde peut suivre! 
+
+c'est la que le cni intervient : il correspond a un standart permettant de régler les conf réseaux pour un runtime de container 
+
+on va donc utiliser un plugin cni pour permettre au container runtime d'avoir les conf réseaux et savoir comment créer cette conf
+
+
+le runtime de container doit remplir des conditiions :
+
+-> creer un namespace
+-> identifier le reseau sur lequel attacher le container.
+-> il doit invoquer un plugin reseau ( bridge ) quand le container est ajouté
+-> il doit invoquer un plugin reseau ( bridge ) quand le container est detruit
+-> utiliser un format json de configuration.
+
+
+
+-> 
 
