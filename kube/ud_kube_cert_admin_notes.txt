@@ -4733,7 +4733,80 @@ ch9 v4 -> done
 
 = docker networking =
 
+- bases :
 
+
+pc 1 a une iface connectée au lan : 192.168.0.1
+
+- docker network options :
+on a la possibilité de configurer nos containers avec plusieurs options 
+
+- none :
+
+notre container n'est rattaché à aucune iface :
+
+docker run --network none nginx 
+
+le container ne peut contacter aucun réseaux ni ne peut être contacté par l'exterrieur 
+on peut créer autant de container que l'on veut il seront tous indépendant.
+
+- host :
+
+avec cette conf notre container est attaché directement à l'iface de notre host.
+si on héberge une webapp dans notre container elle sera accessible directement depuis l'ip de notre host sur le port 80 sans avoir besoin de rebinder les ports.
+
+docker run --network host nginx
+
+-> http://192.168.0.1:80
+
+biensur on ne peut lancer qu'un seul container sur ce port ....
+
+- bridge :
+
+dans ce cas une interface bridge virtuelle est créee et attachée à l'iface du host 
+un reseau privé virtuel est créee 
+ex : 172.17.0.0 - 192.168.0.1 (iface host )
+par defaut les containers crées auront une ip dans le reseau virtuel :
+
+ex : container1 : 172.17.0.2
+     container2 : 172.17.0.3
+
+c'est biensur le mode de fonctionnement qui nous iteresse le plus.
+
+- fonctionnement du bridge  docker :
+
+a la création de notre container :
+
+docker crée un reseau virtuel privé en bridge 
+on peut le voir avec :
+
+docker network ls 
+
+docker network ls
+NETWORK ID          NAME                DRIVER              SCOPE
+60259b840d53        bridge              bridge              local
+8db544f00b99        host                host                local
+c228dc1811b9        none                null                local
+110f911da12d        work31              bridge              local
+9f7e0265b97b        workshop4_default   bridge              local
+sur le host une iface docker0 est créee :
+ip link |grep docker
+4: docker0: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc noqueue state DOWN mode DEFAULT group default
+
+on voit que l'iface / network est down 
+
+on a donc clairement eu une manip auto faite par docker de type 
+
+ip link add docker0 type bridge
+
+ce bridge a une ip assignée automatiquement :
+
+ip a |grep docker
+4: docker0: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc noqueue state DOWN group default
+    inet 172.17.0.1/16 brd 172.17.255.255 scope global docker0
+
+dès qu'on crée un container : un namespace est créee egalement :
+docker run -it --rm -d nginx
 
 
 
