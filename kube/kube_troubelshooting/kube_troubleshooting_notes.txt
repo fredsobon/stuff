@@ -1,0 +1,28 @@
+===== notes pour troubleshooter kube =====
+
+
+
+
+== set up boostrap kubeadm : ==
+
+
+- kubelet :
+
+si on a des soucis pour pull des images et lancer les pods :
+
+-> relancer kubelet
+
+-> purger : /var/lib/kubelet 
+
+
+- cri_containerd :
+
+attention avec un repo privé d'images il faut setter une conf dediée pour recupérer l'image pause : sinon le pull se fait dans le repo de google et se fait ban par un fw en sortie potentiellement :
+l'arbo et le fichier suivant sont donc a créer sur tous les membres du cluster :
+
+[root@master01bv ~] # cat /etc/containerd/config.toml
+# The "plugins.cri" table contains all of the server options.
+[plugins.cri]
+  # sandbox_image is the image used by sandbox container.
+  sandbox_image = "artifact.priv.repo/google_containers/pause:3.1"
+
