@@ -4620,9 +4620,6 @@ ip link set veth-blue netns blue
 
 sudo ip -n red addr add 192.168.15.2 dev veth-red
 sudo ip -n blue addr add 192.168.15.3 dev veth-blue
-
-sudo ip -n red addr add 192.168.15.2 dev veth-red
-sudo ip -n blue addr add 192.168.15.3 dev veth-blue
 sudo ip -n red link set veth-red up 
 sudo ip -n blue link set veth-blue up 
 
@@ -4909,13 +4906,48 @@ on va donc utiliser un plugin cni pour permettre au container runtime d'avoir le
 
 le runtime de container doit remplir des conditiions :
 
--> creer un namespace
+
+des normes sont faites pour le cni ( qui sont livré sous forme d'app qu'on appelle des plugins et la maniere dont le runtime du container utilise le cni )
+
+- normes pour le runtime de container : 
+
+-> creer un namespace pour le reseau des containers 
 -> identifier le reseau sur lequel attacher le container.
--> il doit invoquer un plugin reseau ( bridge ) quand le container est ajouté
--> il doit invoquer un plugin reseau ( bridge ) quand le container est detruit
+-> il doit invoquer un plugin reseau ( bridge ) quand le container est ajouté : utilisation de la commande ADD
+-> il doit invoquer un plugin reseau ( bridge ) quand le container est detruit : utilisation de la commande DEL 
 -> utiliser un format json de configuration.
 
+- normes du plugin :
+
+-> il doit supporter les  commandes ADD/DEL/CHECK 
+-> il doit accepter des parametres comme les namespaces, container id ....
+-> il doit gérer l'adressage ip des pods ainsi que les routes associées pour permettre la comm ente les pods.
+-> le resultat doit être retourné dans un format specifique
+
+n'importe quel runtime doit pouvoir fonctionner avec n'importe quel plugin.
 
 
--> 
+le cni embarque nativement plusieurs plugins : ( bridge, vlan, macvlan ...)
+d'autre plugin sont dispos : calico, flannel, weave 
+
+tout ces plugins donctionne
+
+Docker ne fait pas parti des cni car il n'est pas exactement adapté au format cni
+
+on peut cependant configurer docker pour fonctionner avec un plugin cni :
+
+ex : 
+on va lancer un docker sans interface puis ajouter un iface de type bridge a notre container 
+
+docker run --network=none nginx
+bridge add 2erertdee34 /var/run/netns/2erertdee34
+
+quand kube setup un container docker , il va d'abord le monter sans conf réseau puis charger le plugin cni de la conf reseau du container créee
+
+ch9 v6 -> done
+
+== network cluster configuration ==
+
+
+
 
