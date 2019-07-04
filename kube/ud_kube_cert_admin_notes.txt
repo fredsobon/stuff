@@ -4968,7 +4968,7 @@ prendre en ref la doc officielle de kube qui reference les confs nécéssaires.
 ch9 v7 -> done
 
 
-== pod networking : ==
+== pod networking concepts : ==
 
 comment les pods communiquent entre eux a travers differents nodes, et vers l'exterrieur ?
 chaque pod doit avoir une ip et doit pouvoir contacter n'importe quel autre pod du cluster.
@@ -4991,4 +4991,97 @@ ip link add v-net-0 type bridge
 on monte l'interface 
 ip link set dev v-net-0 up 
 on assigne une ip on va decider que chaque sous reseau de pod sera dans un reseau global
+
+on va devoir répéter toutes les operatiosn a chasue creation de containers.
+ceci peur donc se scripter simplement :
+
+
+on va definir sur chacun des nodes le sous reseau de nos containers 
+
+souslan node1 : 10.244.1.0/24
+gw 10.244.1.1
+souslan node2 : 10.244.2.0/24
+gw 10.244.2.1
+souslan node3 : 10.244.3.0/24
+gw 10.244.3.1
+
+net.sh 
+
+#on cree un cable virtuel :
+ip link add ..
+
+# on attache un coté du cable à l'interface virtuelle et la seconde au bridge 
+ip link set ...
+
+# on assigne une ip et une route vers la gateway par defaut 
+ip -n namespace addr add ...
+ip -n namspace route add ...
+
+# on demarre ensuite l'interface du container :
+ip -n namespace link set ...
+
+on doit repeter les opérations sur chacun des nodes 
+
+
+- communication des containers :
+
+si 10.244.1.2 (container1 sur node1  veut contacter 10.244.2.2 container2 sur node 2 : de base ce n'est pas possible : ce sont deux reseaux distincts sur deux nodes différents 
+
+le container va envoyer sont traffic sur sa gateway : 10.244.1.1 
+puis on va devoir definir une route sur notre node 1 pour router le traffic vers le container 2 du node 2 :
+
+node1 # ip route add 10.244.2.2 via 192.168.1.12
+
+on peut maintenant permettre aux containers de différents sous reseaux à communiquer entre eux même s'ils sont sur des nodes différents.
+il faut biensur répeter toutes les opérations  pour tous les containers et nodes ....
+
+pour faciliter les operations on va pouvoir inserer un router sur notre infra et permettre simplement de créer un grand reseau  global pour tout nos containers 
+on va definir le reseau de nos containers  
+ex: 
+Lan : 10.244.0.0/16
+
+et on va juste indiquer a chaque sous reseau de coontainer la gw a prendre ( donc du node ) pour joindre un autre sous reau de container.
+
+10.244.1.0/24 gw 192.168.1.11
+10.244.2.0/24 gw 192.168.1.12
+10.244.3.0/24 gw 192.168.1.13
+
+Comment faire lorqu'on a plusieurs containers qui se créent et se detruisent par minutes ? 
+
+C'est la que le cni intervient pour que kube soit capable d'utiliser notre plugin cni : il faut que celui-ci respecte les standarts :
+
+on doit avoir dans notre script :
+
+des sections sont mandatory 
+
+ADD )
+create veth pair
+attach veth pair
+assign address bring up iface
+
+DEL )
+delete veth pair 
+
+
+kubelet est responsable de la creation des container : il va donc charger le plugin cni ( on peut le voir en argument de la command line ) 
+
+--cni-conf-dir=/etc/cni/net.d
+
+on doit pouvoir créer notre container en utilisant le script qui doit prendre des params conformes aux standards cni ) 
+ex : 
+./net.sh add <container> <namespace>
+
+on va pouvoir utiliser des solutions existantes pour permettre la configuration reseau de nos containers.
+
+ch9 v8 -> done 
+
+== CNI : container network interface : ==
+
+cni defini les responsabilité du runtime container 
+le plugin cni doit être correctement invoqué par le composant de kube gerant les containers : kubelet  après la création du container.
+on peut voir les entrées relatives au cni dans le conf de kubelet :
+
+--network-plugin=cni
+--cni-bin-dir=/opt/cni/bin
+--cni-conf-dir=/etc/cni/net.d
 
