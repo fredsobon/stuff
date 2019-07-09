@@ -5122,4 +5122,83 @@ ch9 v9 -> done
 
 = cni exemple avec weave works : =
 
+on a pu voir comment un script maison peut servir de cni plugin.
+On peut forcement avoir des soucis avec le nombre de resources augmentant 
+
+ex  si on a des nodes et pods repartis dans le monde ..les tables de routages deviennent tres compliquées à maintenir
+on va devoir trouver une solution pour gérer tout cela
+
+ex avec weave 
+-> on place un system sur chaque node. tous les agents ont connaissance des autres agent répartis sur les nodes
+
+un node en greece
+pod bureau1
+weave
+un node en france
+pod bureau 2
+weave
+un node en uk
+pod bureau3
+weave
+un node a bali 
+pod bureau4 
+weave
+
+quand le pod bureau1 veut envoyer un message a pod bureau4 
+l'agent weave de greece intercepte le message et examine la destination : il injecte le message dans un propre message qu'il ecrit et envoi au node de bali pour le pod bureau4 
+le node de bali recoit le message , l'agent weave examine le contenu et le transfere au pod bureau4
+
+chaque peer weave a la topologie exacte du setup du cluster
+weave crée un bridge  (ex 10.244.1.0/24° sur chaque node et y assigne une ip ( 10.244.1.1)
+on sait qu'un pod peut atteindre plusieurs reseau : weave s'assure que la route correct pour joindre un autre agent weave est correcte.
+
+weave et weave peer peuvent être deployés en service ou en pod 
+
+il est simple de deployer weave en pod : le manifest qu'on peut appliquer configure weave en deamonset et on aura donc un agent par node de déployé.
+
+
+on peut troubleshooter en examinant les logs 
+
+ex :
+kubectl logs weave-cdgsgdsgd -n kube-system
+
+ch9 v10 -> done
+
+= ipam CNI =
+
+ip adress managment 
+
+comment les sous reseaux et les ip de pods sont attibuées ?
+comment s'assurer qu'il n'y a pas de duplicate ip ? qui assigne les ip ? 
+
+les standardss cni imposent au plugin cni ces taches.
+
+une mecanique interne permet de s'assurer que les ip ne sont assignées qu'une fois.
+c'est le role de  host-local 
+
+on peut avoir la conf de l'ipam, le sous reseau et la route par defaut definie dans notre conf cni si on developpe notre script nous même : 
+..
+.."ipam"
+    "type": "host-local",
+    "subnet": "10.244.0.0/16",
+    "routes": [
+          { "dest": "0.0.0.0" }
+    ]
+
+weave de base distribue un reseau : 10.32.0.0/12 ce qui permet :
+10.32.0.2 -> 10.47.255.254 en adressage 
+plus d'un million d'ip pour nos pods.
+
+les peers vont décider de s'attribuer  des ranges 
+
+ex : 
+node1 
+10.32.0.1
+node2 
+10.38.0.0
+....
+
+ch9 v11 -> done
+
+= service networking =
 
