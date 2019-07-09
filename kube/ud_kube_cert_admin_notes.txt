@@ -5202,3 +5202,69 @@ ch9 v11 -> done
 
 = service networking =
 
+on a vu que les pods pouvaient communiquer entre eux a travers un grand reseaux privés.
+Pour les services : un pod disposant d'un service : va adresser une ip a ce service : ainsi un autre pod accedra a ce service via l'ip fournie .
+ceci est possible quelque soit le noeud du cluster sur lequel se trouve le pod voulant joindre le service.
+Attention ce service ne sera accessible qu'au sein du cluster.
+on utilisera pour cela une conf de service ClusterIp 
+
+on peut egalement faire un service qui sera accessible depuis le cluster mais aussi depuis l'exterrieur du cluster en expansant un port pour notre service : ceci se fait via une conf en NodePort
+
+Comment sont gérer les services ?
+kube proxy installé sur tous les nodes : va communiquer avec l'api server et surveiller chaque changement dans la definition des services .
+C'est lui qui gère les services  : qui ne sont pas associé à un node mais on une portée globale sur le cluster.
+
+Les services sont des objects virtuels dans kube.
+
+Quand on crée un service dans kube celui ci se voit attribuer une ip issue d'un reseau pré-défini.
+kubeproxy va ensuite créer des regles de forwarding sur chacun des nodes
+
+chaque appel à l'ip de notre service sera forwardé vers l'ip du pod portant le service . Le pod portant le service est lui accessible partout dasn le cluster.
+
+en fait il y a aussi la notion de port qui rentre en ligne de compte.
+
+kubeproxy a des possibilité de travailler avec  de namespaces, iptables , ipvs
+
+- iptables : 
+
+ex: 
+
+ip:port          forwardto: 
+10.99.1.13:80    10.244.0.1
+
+
+quand on cree un service on peut voir avec kubectl 
+
+kubectl get service 
+
+name         type            clusterip    port      age
+db-service   clusterip       10.103.10.5  3306/tcp  2H
+
+
+on peut voir que le range utilisé est :
+kube-api-server --service-cluster-ip-range ipNet (default: 10.0.0.0/24)
+
+
+on doit bien faire attention a ce que le range de nos services ne chevauche pas le range de notre reseau de pod 
+
+on peut voir les rules crées :
+iptables -L -t nat  |grep db-service 
+
+10.103.10.5  -> 10.244.0.5:3306 
+
+quand on crée un service de type Nodeport les flux vont pouvoir transiter vers / depuis l'exterrieur
+
+on peut voir les logs du proxy dans :
+/var/log/kube-proxy.log
+
+ch9 v12 -> done 
+
+= cluster dns = 
+
+notre cluster est composé de nodes ayant une ip et un nom probablement enregistré dans notre dns d'entreprise.
+Comment fonctionne la resolution de nom au sein de notre cluster pour les pods,services ... ?
+
+
+
+
+
