@@ -117,3 +117,73 @@ RUN rm -r /var/www/html
 
 on peut donc acceder à notre app en saisissant http://localhost:8081
 
+
+
+
+==== docker compose env : ==
+
+par defaut deocker-compose va chercher les variables d'environmenent nécéssaires ason build dans un fichier 
+.env 
+
+ce fichier peut être passé en argumant de build mais souvent il sera présent dans le repertoire hébergeant le fichier docker-compose.yaml 
+
+ex: 
+
+ ls -la
+total 28
+drwxr-xr-x 3 boogie boogie 4096 juil.  8 12:45 .
+drwxr-xr-x 7 boogie boogie 4096 juil.  8 11:42 ..
+-rw-r--r-- 1 boogie boogie  939 juil.  8 12:27 docker-compose.yml
+drwxr-xr-x 5 boogie boogie 4096 juil.  8 11:42 docker-services
+-rw-r--r-- 1 boogie boogie  353 juil.  8 12:26 .env
+-rw-r--r-- 1 boogie boogie   24 juil.  8 11:42 .gitignore
+-rw-r--r-- 1 boogie boogie  717 juil.  8 11:42 Makefile
+
+cat .env
+## DOCKER COMPOSE PROFILE ##
+PROFILE=default
+
+### APPS GEN ##
+
+##  ##
+PHP_VERSION=php72
+PORT_WEB=82
+PORT_APP=9002
+
+ex: docker-compose.yaml
+
+--version: '7.7'
+
+  services:
+    web-nginx:
+      container_name: web-nginx
+      restart: on-failure
+      build:
+        context: ./docker-services/nginx
+      volumes:
+        - ./src:/var/www/html:cached
+        - ./logs/nginx:/var/log/nginx:cached
+      labels:
+        - traefik.enable=true
+        - traefik.backend=web
+        - traefik.frontend.rule=Host:web.local, web
+        - traefik.docker.network=web
+        - traefik.port=80
+
+    web-php:
+      container_name: web-php
+      restart: on-failure
+      build:
+        context: ./docker-services/${PHP_VERSION}-fpm
+      image: web-php-${PHP_VERSION}
+      volumes:
+        - ./src:/var/www/html:cached
+        - ./logs/web:rw,cached
+      ports:
+        - "${PORT_APP}:9000"
+      environment:
+        # env variable used to debug cli scripts
+        PHP_IDE_CONFIG: serverName=web.local
+      labels:
+        - traefik.enable=false
+
