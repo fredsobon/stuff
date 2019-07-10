@@ -5264,6 +5264,139 @@ ch9 v12 -> done
 notre cluster est composé de nodes ayant une ip et un nom probablement enregistré dans notre dns d'entreprise.
 Comment fonctionne la resolution de nom au sein de notre cluster pour les pods,services ... ?
 
+kube deploie un dns interne quand on set up un cluster.
+
+ex :
+
+test-pod                     service-web  web-pod         
+10.244.0.2                   10.107.10.5   10.244.1.2
+
+on voit dans notre exemple que les deux pods semblent être sur des nodes différents : peut importe car le service dns va entrer en jeu.
+
+Dès que le service est crée :kube va créer un enregistrement dns qui va mapper le nom du service avec son ip
+N'importe quel pod pourra donc atteindre le service en utilisant son nom :
+
+curl http://service-web
+
+Welcome to nginx!
+
+On va retrouver les notions de namespaces :
+si nos pods sont dans le même namespace ( ex le namespace par default ) alors ils pourront contacter le service directement en saisissant son nom.
+
+
+Si maintenant nos pods sont dans des namespaces differents , il faudra utiliser le nom de celui hébergeant le service pour atteindre celui-ci 
+ex :
+
+  ns - default                      ns - apps 
+test-pod                     service-web  web-pod         
+10.244.0.2                   10.107.10.5   10.244.1.2
+
+
+test-pod pourra atteindre le service avec: 
+
+curl http://service-web.apps
+
+pour les namespaces kube crée donc des sous domaines.
+
+Kube va en plus regrouper tous les services dans un sous domaine nommé svc
+on peut donc contacter notre service avec :
+
+curl http://service-web.apps.svc
+
+kube rassemble les objets dans un root domaine qui se nomme par default : cluster.local 
+
+on peut donc atteindre notre service aussi en faisant un 
+curl http://service-web.apps.svc.cluster.local
+
+on atteind donc ici le fully qualified domain name -> fqdn.
+
+Les enregistrement pour les pods ne sont pas fait explicitement.
+
+kube pour chaque pod va créer un enregistement dns dans lequel il va remplacer le point de l'ip du pod par un tiret :
+
+10.244.1.2  -> 10-244-1-2 en dns kube
+
+un sous domain pod existe 
+
+on peut toujours atteindre le pod :
+
+curl http://10-244-1-2.apps.pod.cluster.local
+
+pour le pod dans le namespace default on aura donc :
+
+10-244-0-2.default.svc.cluster.local
+
+ch9 v13 -> done 
+
+
+= implementation dns dans kube = 
+
+on peut enregistrer le nom de nos pods avec leur ip dans un dns local et renseigner le dns dans les /etc/resolv de chaque nodes pour resoudre les pods 
+kube ne procede pas comme ceci et remplace le nom du pod par l'ip de celui ci dont les "." sont remplacés par des tirets. 
+
+10.244.1.2  -> 10-244-1-2 en dns kube
+
+kube rensigne les enregistrements dans son dns .
+Depuis la version 1.12 de kube le dns est coredns
+
+il est deployer en tant que pod dans un replicaset
+
+Un fichier de conf est utilisé :
+
+/etc/coredns/Corefile
+
+:53 {
+  errors
+  health
+  kubernetes cluster.local in addr-arpa ip6.arpa {
+  pods insecure 
+  upstream
+  fallthrough in addr-arpa ip6.arpa
+  }
+  prometheus :9153
+  proxy . /etc/resolv.conf 
+  cache 30
+  reload
+}
+
+
+des plugins sont présents dans ce fichier de conf .
+on voit que le top level domain de kube y est setté : 
+
+cluster.local
+
+on voit que par default la creation de records pour les pods avec la conversion de "." en "-" est par defaut desactivée :
+
+pods insecure 
+chaque resolution dns faite par un pod est forwardée au fichier /etc/resolv.conf 
+kube dans ce cas utilise le /etc/resolv.conf du node !
+
+le corefile de coredns est passé à kube en tant que configmap object :
+
+kubectl get configmap -n kube-system 
+NAME      DATA  AGE
+coredns   1     20d
+
+si on a besoin de modifier la conf on peut alors modifier ce configmap 
+
+Quel est l'adresse que les pods utilisent pour atteindre le server coredns ?
+
+quand on deploie coredns un service est aussi crée par kube 
+
+kubectl get service -n kube-system
+NAME    TYPE           CLUSTER-IP EXTERNAL-IP   PORT(S)
+kube-dns  ClusterIP    10.96.0.10   <none>      53/udp 53/tcp
+
+
+l'ip de ce service est configurée comme dns dans la conf des pods :
+
+/etc/resolv.conf 
+nameserver 10.96.0.10
+
+kube cree tout ceci pour nous.
+
+on peut voir la conf utilisée dans kubelet 
+
 
 
 
