@@ -5388,7 +5388,7 @@ NAME    TYPE           CLUSTER-IP EXTERNAL-IP   PORT(S)
 kube-dns  ClusterIP    10.96.0.10   <none>      53/udp 53/tcp
 
 
-l'ip de ce service est configurée comme dns dans la conf des pods :
+l'ip de ce service est configurée comme le nameserver dans la conf des pods :
 
 /etc/resolv.conf 
 nameserver 10.96.0.10
@@ -5396,8 +5396,63 @@ nameserver 10.96.0.10
 kube cree tout ceci pour nous.
 
 on peut voir la conf utilisée dans kubelet 
+on voit l'ip du dns 
+
+on peut maintenant resoudre en short ou fqdn ( en fonction de l'endroit depuis lequel on interroge )
 
 
+en fait dans le resolv.conf on a aussi une section search : on a plusieurs entrées du fqdn au plus court pour permettre la résolution :
+ex : 
+host web-service
+web-service.default.svc.cluster.local 
+
+cat /etc/resolv.conf 
+nameserver 10.96.0.10
+search default.svc.cluster.local svc.cluster cluster.local
+
+Attention pour les pods se systeme ne fonctionne pas il faut fournir le fqdn 
+
+ch9 v14 ->done
+
+
+= ingress =
+
+
+
+on a une appli web dans notre boite :
+
+www.my-online-store.com
+
+
+
+on a un pod :
+
+   wear (service web) 
+
+
+   ^ service cluster ip pour exposer la db au service web 
+   db 
+
+
+
+pour rendre le service web  accessible au monde : on ajoute un NodePort en service au container wear  
+
+
+      port 30880 
+   ^  web-service (NodePort 
+
+   wear (service web) 
+
+
+   ^ service cluster ip pour exposer la db au service web 
+   db 
+
+
+ Maintenant les users peuvent acceder en interne  a l'appli en utilisant :
+
+ http://node_ip:30880
+
+ Quand la charge augmente on ajoute plusieurs pods a notre déploiement pour tenir la charge.
 
 
 
