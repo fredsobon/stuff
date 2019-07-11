@@ -5417,32 +5417,23 @@ ch9 v14 ->done
 
 = ingress =
 
-
-
 on a une appli web dans notre boite :
 
 www.my-online-store.com
-
-
 
 on a un pod :
 
    wear (service web) 
 
-
    ^ service cluster ip pour exposer la db au service web 
    db 
 
-
-
 pour rendre le service web  accessible au monde : on ajoute un NodePort en service au container wear  
-
 
       port 30880 
    ^  web-service (NodePort 
 
    wear (service web) 
-
 
    ^ service cluster ip pour exposer la db au service web 
    db 
@@ -5453,6 +5444,130 @@ pour rendre le service web  accessible au monde : on ajoute un NodePort en servi
  http://node_ip:30880
 
  Quand la charge augmente on ajoute plusieurs pods a notre déploiement pour tenir la charge.
+
+Biensur on va pouvoir faire une entree dns pour permettre aux users de saisir http://www.my-online-store.com:30880
+
+on ne peut pas demander aux users de saisir un num de port et les services de kube distribuent des ports au dessus de 30000
+
+on va pouvoir rajouter une couche : un reverse proxy qui va rediriger les flux de www.my-online-store.com vers notre pod sur le port 30880
+on va rediriger notre entree dns de notre site vers le proxy 
+      http://www.my-online-store.com
+
+      proxy 80
+        |
+      port 30880 
+   ^  web-service (NodePort 
+
+   wear (service web) 
+
+   ^ service cluster ip pour exposer la db au service web 
+   db 
+
+Quand on utilise le cloud : un service   de type Loadbalancer est créee et un loadbalancer va être utiliser pour rediriger les flux
+
+ex :
+
+      www.my-online-store.com   -> gcp-loadbalancer 
+      http://www.my-online-store.com
+
+      proxy 80
+        |             gcp-loadbalancer 
+      port 30880 
+   ^  web-service (Loadbalancer )
+
+   wear (service web) 
+
+   ^ service cluster ip pour exposer la db au service web 
+   db 
+
+maintenant on monte un nouveau site :
+
+http://www.my-online-store.com/watch < vend des montres on garde l'ancien site 
+http://www.my-online-store.com/wear 
+
+on va pouvoir acceder en fonction de l'url à tel ou tel appli :
+
+
+      www.my-online-store.com   -> anotherlb                        
+  
+     http://www.my-online-store.com 
+                                               /wear   -> lb1
+                    anotherlb                 / watch  -> lb2 
+  
+        | lb1                                  | lb2                        
+      port 30880                                port 30882
+   ^  web-service-wear lb            ^ web-service-watch lb
+
+   wear (service web)                        watch (service web )
+
+   ^ service cluster ip pour exposer la db au service web 
+   db 
+
+il faut assurer les regles de fw, de https etc ......
+
+
+Il va être possible de gérer tout ceci dans le kube dans un objet : 
+
+ingress permet d'acceder simplement a une ressource , implemente le ssl ..comme un lb layer7 
+
+
+                      port 30880 
+               ingress  :    https / lb
+
+       wear-service            watch-service
+
+       wear wear wear             watch watch watch 
+
+
+en cluster héberger on va setter un node port , en cloud un port loadbalancer car on doit exposer le port de l'ingress pour l'exterrieuur      
+
+
+plusieurs solutions d'ingress existent : nginx / haproxy /traeffic 
+
+on a un controller ingress ( ex : nginx ) : ingress-controller 
+
+et on a la conf dans laquelle on definie les urls, https etc ... : les rules  : ingress-ressources
+
+attention un ingres-controller n'est pas installer de base dans kube
+
+
+on doit en déployer un 
+
+nginx est supporté par kube - les regles de loadbalacing sont presentes dans le controller 
+on le créer sous forme de déploiement 
+
+
+apiVersion: extensions/V1beta1
+kind: Deployment
+metadata:
+  name: nginx-ingress-controller
+spec:
+  replica: 1
+  selectors:
+    matchLabel:
+      name: ingress-nginx
+    template:
+      metadata:
+        labels:
+          name: nginx-ingress
+      spec: 
+        containers:
+          - name: nginx-ingress-controller
+            image: quay.io/kubernetes-ingress-controller/nginx-ingress-controller:0.21.0
+l'image ici est dediée à un ingress-controller 
+on va avoir des conf prebuild on rajoute des args et un configmap devra etre créer et appelé dan notre depploiement 
+        args:
+          - /nginx-ingress-controller
+          - --configmap=${POD_NAMESPACE}/nginx-configuration
+
+kind: configMap
+apiversion: v1
+metadata:
+  name: nginx-configuration
+
+        
+
+ch9 v15 min10
 
 
 
