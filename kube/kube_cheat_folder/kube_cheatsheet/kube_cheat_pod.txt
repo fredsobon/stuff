@@ -1,0 +1,63 @@
+=  memo kube pod : =
+
+- recupérer et lancer un shell dans  une busybox :
+
+kubectl run -i --tty busybox --image=busybox --restart=Never -- sh
+If you don't see a command prompt, try pressing enter.
+/ #
+
+on peut  contacter un pod du cluster et recupérer une ressource si on connait un port ouvert :
+# wget http://172.17.0.4:3000
+Connecting to 172.17.0.4:3000 (172.17.0.4:3000)
+saving to 'index.html'
+/ # cat index.html
+Hello World (v1.0.2)!/ #
+
+
+
+- executer une commande sur notre pod et avoir le retour sur la sortie standart :
+
+kubectl -n default exec helloworld-pod -- ls /app
+Dockerfile
+docker-compose.yml
+index-db.js
+index.js
+misc
+node_modules
+package.json
+test
+
+
+- se connecter dans notre pod : (ex :ici se connecter dans  le pod en lancant un shell )
+
+ kubectl -n default -it exec helloworld-pod "/bin/bash"
+root@helloworld-pod:/app#
+
+
+- port forwarding :
+
+on va vouloir rediriger le port de notre pod sur un autre port local par exemple  
+
+kubectl port-forward helloworld-pod 8081:3000
+Forwarding from 127.0.0.1:8081 -> 3000
+Forwarding from [::1]:8081 -> 3000
+
+curl http://localhost:8081
+Hello World (v1.0.2)!
+
+- expose pod :
+on va vouloir exposer l'appli d'un pod via la creation d'un service :
+
+kubectl expose pod helloworld-pod --type=NodePort --name=helloworld-service
+service/helloworld-service exposed
+
+on peut voir par exemple dans minikube : l'url et le port qui redirigeront vers notre pod qui ecoute sur le port 3000 
+
+minikube service helloworld-service --url
+http://192.168.99.101:30568
+
+curl http://192.168.99.101:30568
+Hello World (v1.0.2)!
+
+
+
