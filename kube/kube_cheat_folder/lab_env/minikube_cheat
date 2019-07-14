@@ -1,0 +1,51 @@
+==  minikube notes ===
+
+
+
+== utilisation images locale ==
+
+eval $(minikube docker-env)
+
+# Start minikube
+minikube start
+
+# Set docker env
+eval $(minikube docker-env)
+
+cat Dockerfile 
+FROM fredsobon/kuard
+
+docker build -t boogie/kuard:0.0.1 .
+
+# Build image
+docker build -t foo:0.0.1 .   <<<<<<< /!\ attention tagger l'image est fondamentale sinon minikube ne retrouve pas  l'image 
+
+
+# Run in minikube   : on va indiquer a minikube de ne pas recupérer d'image distante : 
+kubectl run kuard1 --image=boogie/kuard:0.0.1 --image-pull-policy=Never
+deployment "kuard1" created
+
+# Check that it's running
+kubectl get pods
+
+NAME                             READY     STATUS    RESTARTS   AGE
+hello-minikube-6c47c66d8-rczth   1/1       Running   9          227d
+kuard1-68fb5b4df4-c426v          1/1       Running   0          6m
+nodejs-demo                      1/1       Running   2          226d
+
+
+# Tests :
+
+on peut obtenir la description de notre pod :
+
+kubectl describe pods kuard1-68fb5b4df4-c426v 
+
+toute une serie d'info apparaissent ..
+
+on va pouvoir rediriger un port de notre hostt vers le port natif de notre pod :
+
+kubectl port-forward kuard1-68fb5b4df4-c426v 8080:8080
+
+en ouvrant un navigateur sur http://localhost:8080 on accede bien à la webapp de notre pod  
+kubectl port-forward kuard1-68fb5b4df4-c426v 8080:8080
+

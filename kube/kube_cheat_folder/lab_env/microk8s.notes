@@ -1,0 +1,371 @@
+=== notes microk8S ===
+
+
+- ajouter dans notre path les binairesde snap :
+
+export PATH="$PATH:${HOME}/bin:/usr/local/custom-go/go/bin:/snap/bin"
+
+
+- install :
+
+on aura la version stable de kube portée dans microk8s
+snap install microk8s --classic
+
+on pourra choisir un version précise avec :
+snap install microk8s --classic --channel=1.14/stable
+
+on peut voir les différentes versions avec : 
+snap info microk8s
+
+- status /start /stop 
+
+microk8s.status
+microk8s.start
+microk8s.stop
+
+- cmd kube : 
+microk8s.kubectl get nodes
+microk8s.kubectl get services
+
+Nb : les binaires sont dans /snap/bin 
+
+- on peut créer un alias pour kubectl ( si on a pas deja le binaire sur notre machine )
+snap alias microk8s.kubectl kubectl
+
+on peut supprimer l'alias sans souci : 
+snap unalias kubectl
+
+
+- integration de microk8s dans notre conf globale : si on a deja acces a des cluster kube : on va pour voir definir les infos a saisir dans notre .kube/config pour ajouter les infos de microk8s nécéssaires .
+
+On recupere les infos avec : 
+microk8s.kubectl config view --raw 
+
+si on a que le cluster microk8s a gérer alors on peut direct injecter la conf dans le fichier de conf dédié de kubectl :
+
+microk8s.kubectl config view --raw > $HOME/.kube/config
+
+
+- add ons :
+
+on peut activer / desactiver des plugins mirok8s facilement :
+microk8s.enable dns dashboard
+microk8s.disable dashboard dns
+
+
+- remove de microk8s :
+
+microk8s.reset
+snap remove microk8s
+
+- reseau :
+
+quand on crée le premier pod : microk8s génére l'iface cbr0 : il peut etree nécéssaire d'authoriser le traffic dessus : 
+
+sudo ufw allow in on cbr0 && sudo ufw allow out on cbr0
+
+pour eviter d'avoir des pbs de flux  vers ou depuis les pods il peut etre nécéssaire de s'assurer que les flux sont ouverts :
+
+on va installer le paquet iptables-persistent 
+sudo iptables -P FORWARD ACCEPT
+sudo apt-get install iptables-persistent
+si on est sur ufw on accept le traffic : 
+sudo ufw default allow routed
+
+
+- registries :
+
+on peut bosser avec les registries distantes ( ex dockerhub) , locales ....
+
+ex: simple : install de docker, set up user puis login avec le user ayant les droits : 
+sudo apt-get install docker.io
+sudo usermod -aG docker ${USER}
+su - ${USER}
+
+ex: docker file simple, puis build d'image : 
+cat Dockerfile 
+FROM nginx:alpine
+
+To build the image tagged with mynginx:local, navigate to the directory where Dockerfile is and run:
+docker build . -t nginx-local
+
+on va devoir s'authentifier chez docker hub pour pull l'image de base qui sert à la construction de la notre :
+docker login 
+
+maintenant cette image buildée est dans le cache local de docker et on doit pouvoir la voir :
+
+ boogie@FRLDE01011  /tmp/temp  docker images  |grep nginx   
+nginx-local                   latest              ea1193fd3dde        12 days ago         20.6MB
+nginx                         alpine              ea1193fd3dde        12 days ago         20.6MB
+
+
+L'image créee est connu par docker mais par  microk8s puisque le daemon docker n'est pas inclu dans le cluster kube de microk8s.
+On va donc exporter l'image de notre docker local et l'injecter dans le cache de microk8s 
+
+docker save nginx-local > nginx-local-image.tar
+Noter qu'on importe l'image dans microk8s en utilisant le namespace k8s.io 
+microk8s.ctr -n k8s.io image import nginx-local-image.tar
+
+on voit maintenant que  notre image est bien vu dans le cluster kube : 
+
+ microk8s.ctr -n k8s.io images ls |grep nginx   
+docker.io/library/nginx-local:latest                                                                          application/vnd.oci.image.manifest.v1+json                sha256:30957479162ba6d7e558dbdd69289d08cfb27262e79ac825fd55c4de47e0408f 22.6 MiB  linux/amd64                                                 io.cri-containerd.image=managed 
+
+on va maintenant pouvoir tester et déployer un manifest pour tester. on va referencer l'image nginx-local:1  : kube va se comporter comme si c'etait une image du docker hub , comme il a deja l'image dans sont cache il ne va pas chercher à la pull.
+Attention containerd (ctr) ne cache pas les images qui ont un tag latest ! il faut donc toujours mettre un num de tag 
+
+ ✘ boogie@FRLDE01011  /tmp/temp  cat deploy 
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+  labels:
+    app: nginx
+spec:
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx-local:1
+        ports:
+        - containerPort: 80
+
+
+on deploy notre manifest :
+kubectl apply -f deploy 
+
+et on le voit dans  notre cluster microk8s :
+
+kubectl -n default get pods
+NAME                               READY   STATUS    RESTARTS   AGE
+nginx-deployment-bd5df9459-cbf7x   1/1     Running   0          2m36s
+
+
+
+Working with public registries
+After building an image with docker build . -t mynginx:local, it can be pushed to one of the mainstream public registries. You will need to create an account and register a username. For this example we created an account with https://hub.docker.com/ and we log in as kjackal.
+
+First we run the login command:
+
+docker login
+Docker will ask for a Docker ID and password to complete the login.
+
+Login with your Docker ID to push and pull images from Docker Hub. If you don't have a Docker ID, head over to https://hub.docker.com to create one.
+Username: kjackal
+Password: *******
+Pushing to the registry requires that the image is tagged with your-hub-username/image-name:tag. We can either add proper tagging during build:
+
+docker build . -t kjackal/mynginx:public
+Or tag an already existing image using the image ID. Obtain the ID by running:
+
+docker images
+The ID is listed in the output:
+
+REPOSITORY          TAG                 IMAGE ID            SIZE
+mynginx             local               1fe3d8f47868        16.1MB
+....
+Then use the tag command:
+
+docker tag 1fe3d8f47868 kjackal/mynginx:public
+Now that the image is tagged correctly, it can be pushed to the registry:
+
+docker push kjackal/mynginx
+At this point we are ready to microk8s.kubectl apply -f a deployment with our image:
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+  labels:
+    app: nginx
+spec:
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: kjackal/mynginx:public
+        ports:
+        - containerPort: 80
+We refer to the image as image: kjackal/mynginx:public. Kubernetes will search for the image in its default registry, docker.io.
+
+Working with MicroK8s’ registry add-on
+Having a private Docker registry can significantly improve your productivity by reducing the time spent in uploading and downloading Docker images. The registry shipped with MicroK8s is hosted within the Kubernetes cluster and is exposed as a NodePort service on port 32000 of the localhost. Note that this is an insecure registry and you may need to take extra steps to limit access to it.
+
+You can install the registry with:
+
+microk8s.enable registry
+The add-on registry is backed up by a 20Gi persistent volume is claimed for storing images. To satisfy this claim the storage add-on is also enabled along with the registry.
+
+The containerd daemon used by MicroK8s is configured to trust this insecure registry. To upload images we have to tag them with localhost:32000/your-image before pushing them:
+
+We can either add proper tagging during build:
+
+docker build . -t localhost:32000/mynginx:registry
+Or tag an already existing image using the image ID. Obtain the ID by running:
+
+docker images
+The ID is listed in the output:
+
+REPOSITORY          TAG                 IMAGE ID            SIZE
+mynginx             local               1fe3d8f47868        16.1MB
+....
+Then use the tag command:
+
+docker tag 1fe3d8f47868 localhost:32000/mynginx:registry
+Now that the image is tagged correctly, it can be pushed to the registry:
+
+docker push localhost:32000/mynginx
+Pushing to this insecure registry may fail in some versions of Docker unless the daemon is explicitly configured to trust this registry. To address this we need to edit /etc/docker/daemon.json and add:
+
+{
+  "insecure-registries" : ["localhost:32000"]
+}
+The new configuration should be loaded with a Docker daemon restart:
+
+sudo systemctl restart docker
+At this point we are ready to microk8s.kubectl apply -f a deployment with our image:
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+  labels:
+    app: nginx
+spec:
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: localhost:32000/mynginx:registry
+        ports:
+        - containerPort: 80
+What if MicroK8s runs inside a VM?
+Often MicroK8s is placed in a VM while the development process takes place on the host machine. In this setup pushing container images to the in-VM registry requires some extra configuration.
+
+Let’s assume the IP of the VM running MicroK8s is 10.141.241.175. When we are on the host the Docker registry is not on localhost:32000 but on 10.141.241.175:32000. As a result the first thing we need to do is to tag the image we are building on the host with the right registry endpoint:
+
+docker build . -t 10.141.241.175:32000/mynginx:registry
+If we immediately try to push the mynginx image we will fail because the local Docker does not trust the in-VM registry. Here is what happens if we try a push:
+
+docker push  10.141.241.175:32000/mynginx
+The push refers to repository [10.141.241.175:32000/mynginx]
+Get https://10.141.241.175:32000/v2/: http: server gave HTTP response to HTTPS client
+We need to be explicit and configure the Docker daemon running on the host to trust the in-VM insecure registry. Add the registry endpoint in /etc/docker/daemon.json:
+
+{
+  "insecure-registries" : ["10.141.241.175:32000"]
+}
+Then restart the docker daemon on the host to load the new configuration:
+
+sudo systemctl restart docker
+We can now docker push  10.141.241.175:32000/mynginx and see the image getting uploaded. During the push our Docker client instructs the in-host Docker daemon to upload the newly built image to the 10.141.241.175:32000 endpoint as marked by the tag on the image. The Docker daemon sees (on /etc/docker/daemon.json) that it trusts the registry and proceeds with uploading the image.
+
+Consuming the image from inside the VM involves no changes:
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+  labels:
+    app: nginx
+spec:
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: localhost:32000/mynginx:registry
+        ports:
+        - containerPort: 80
+Reference the image with localhost:32000/mynginx:registry since the registry runs inside the VM so it is on localhost:32000.
+
+Working with a private registry
+Often organisations have their own private registry to assist collaboration and accelerate development. Kubernetes (and thus MicroK8s) need to be aware of the registry endpoints before being able to pull container images.
+
+Insecure registry
+Let’s assume the private insecure registry is at 10.141.241.175 on port 32000. The images we build need to be tagged with the registry endpoint:
+
+docker build . -t 10.141.241.175:32000/mynginx:registry
+Pushing the mynginx image at this point will fail because the local Docker does not trust the private insecure registry. The docker daemon used for building images should be configured to trust the private insecure registry. This is done by marking the registry endpoint in /etc/docker/daemon.json:
+
+{
+  "insecure-registries" : ["10.141.241.175:32000"]
+}
+Restart the Docker daemon on the host to load the new configuration:
+
+sudo systemctl restart docker
+Now running
+
+docker push  10.141.241.175:32000/mynginx
+…should succeed in uploading the image to the registry.
+
+Attempting to pull an image in MicroK8s at this point will result in an error like this:
+
+  Warning  Failed             1s (x2 over 16s)  kubelet, jackal-vgn-fz11m  Failed to pull image "10.141.241.175:32000/mynginx:registry": rpc error: code = Unknown desc = failed to resolve image "10.141.241.175:32000/mynginx:registry": no available registry endpoint: failed to do request: Head https://10.141.241.175:32000/v2/mynginx/manifests/registry: http: server gave HTTP response to HTTPS client
+We need to edit /var/snap/microk8s/current/args/containerd-template.toml and add the following under [plugins] -> [plugins.cri.registry] -> [plugins.cri.registry.mirrors]:
+
+        [plugins.cri.registry.mirrors."10.141.241.175:32000"]
+          endpoint = ["http://10.141.241.175:32000"]
+See the full file here.
+
+Restart MicroK8s to have the new configuration loaded:
+
+microk8s.stop
+Allow a few seconds for the service to close fully before starting again:
+
+microk8s.start
+The image can now be deployed with:
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+  labels:
+    app: nginx
+spec:
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: 10.141.241.175:32000/mynginx:registry
+        ports:
+        - containerPort: 80
+Note that the image is referenced with 10.141.241.175:32000/mynginx:registry.
+
+Secure registry
+There are a lot of ways to setup a private secure registry that may slightly change the way you interact with it. Instead of diving into the specifics of each setup we provide here two pointers on how you can approach the integration with Kubernetes.
+
+In the official Kubernetes documentation a method is described for creating a secret from the Docker login credentials and using this to access the secure registry. To achieve this, imagePullSecrets is used as part of the container spec.
+
+MicroK8s v1.14 and onwards uses containerd. As described here to be aware of the secure registry and the credentials needed to access it. As shown above, configuring containerd involves editing  /var/snap/microk8s/current/args/containerd-template.toml and reloading the new configuration via a microk8s.stop, microk8s.start cycle.
+
+
