@@ -265,6 +265,43 @@ app_web::apps_hash:
 on voit ici dans hiera qu'on est pas obligé de preciser le chemin complet de notre conf : app_web::apps_hash suffit ( on ne precise pas app_web::init( ou param)::apps_hash
 
 
+
+- Autobinding restriction :
+
+on va devoir loader dans puppet explicitement une classe dont on aura setté des valeurs dans hiera :
+
+ex:  si on veut definir dans hiera la conf qui sera prise en compte pour un envoi de log par ex : 
+
+cat web01.yaml
+..
+...
+app_logagent::outputs:
+    logstash:
+      hosts: 'indexer01:5044'
+  app_logagent::prospectors:
+    accesslog:
+      paths:
+        - '/var/log/nginx/*.access.log'
+      fields_under_root: true
+      tags:
+        - 'accesslog'
+on devra explicitement dans notre role / profile puppet a un moment charger la classe qui va s'occuper de notre module :
+
+
+  class profile::web::front (
+  {
+
+    # mandatory classes :
+    include profile::base
+    include app_logagent    <<<< on defini l'inclusion de notre module qui sera chargé et donc on pourra ainsi récupérer les data de hiera 
+
+>> c'est aussi de l'autobinding. 
+
+
+
+
+
+
 == generer des commandes bash ==
 
 ici on va definir une variable qui va comporter la date au format qui nous interresse puis la valeur de cette variable sera definie pour le nom d'un fichier de backup : 
