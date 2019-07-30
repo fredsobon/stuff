@@ -1,0 +1,100 @@
+=== notes sur ud complete masterclass elsasticsearch with kibana and logstash : ==
+
+
+https://www.elastic.co/guide/en/elasticsearch/reference/6.1/_basic_concepts.html
+
+
+== Elasticsearch :
+
+
+1- set up Elasticsearch ET kibana pour utiliser la console et requetter le moteur elasticsearch 
+
+- prerequi : avoir java installé : 
+cp meeticgroup.udemy.com.har /home/boogie/Documents/work/repos_work/udemy-dl/
+  ~/Documents/learn/elasticstack/ud_elk_complete  java -version                                                        [☸ kube-infra:monitoring]
+java version "1.8.0_201"
+Java(TM) SE Runtime Environment (build 1.8.0_201-b09)
+Java HotSpot(TM) 64-Bit Server VM (build 25.201-b09, mixed mode)
+
+- download elasticsearch et kibana depuis le site elastic :
+
+extraire les archives.
+
+- elastic :
+
+lancer le binaire dans une fenetre : /bin/elasticsearch 
+dans une autre fenêtre : curl http://localhost:9200 
+ boogie@FRLDE01011  ~/Documents/work/repos_work/udemy-dl  master  curl http://localhost:9200                                            [☸ kube-infra:monitoring]
+{
+  "name" : "FRLDE01011",
+  "cluster_name" : "elasticsearch",
+  "cluster_uuid" : "sAzQv9-bT5-IswPq2ExmSg",
+  "version" : {
+    "number" : "7.2.1",
+    "build_flavor" : "default",
+    "build_type" : "tar",
+    "build_hash" : "fe6cb20",
+    "build_date" : "2019-07-24T17:58:29.979462Z",
+    "build_snapshot" : false,
+    "lucene_version" : "8.0.0",
+    "minimum_wire_compatibility_version" : "6.8.0",
+    "minimum_index_compatibility_version" : "6.0.0-beta1"
+  },
+  "tagline" : "You Know, for Search"
+}
+
+
+-kibana :
+
+editer le fichier : config/kibana.yaml
+decommenter ou renseigner la ligne :
+# The URLs of the Elasticsearch instances to use for all your queries.
+elasticsearch.hosts: ["http://localhost:9200"]
+
+cela permet de configurer kibana pour pointer sur notre elasticsearch.
+
+on lance kibana :
+/bin/kibana 
+à la fin de l'execution on voit l'adresse sur laquelle on peut utiliser kibana : 
+  log   [18:13:41.215] [info][listening] Server running at http://localhost:5601
+
+- devtools : on selectionne ce menu dans le pannel d'icones de la barre laterale gauche 
+on va essentiellement utiliser la section devtools dans kibana pour interroger notre server elasticsearch 
+on selectionne console : puis on peut saisir des requettes et en cliquat sur le petit triangle ou entrée dans la pannel de gauche , on voit le resultat de notre requette à droite.
+
+
+- monitoring : on selectionne idem que devtools dans la barre laterale gauche :
+-> on active le monitoring : "turn on monitoring"
+
+on voit l'etat de nos applis :
+
+Biensur pour nos tests on va lancer /stopper elasticsearch /kibana -> a chaque instance 
+
+- Elasticsearch concepts :
+
+document oriented :  insert /delete/retrieve/analyse/search 
+mais c'est essentiellement un moteur de recherche qui va utiliser les termes de la recherche pour retrouver le document.
+comme analogie on peut prendre l'index d'un livre.
+Basé sur le moteur de recherche lucene , il utilise un index inversé "inverted index" (cf doc elasticsearch :
+https://www.elastic.co/guide/en/elasticsearch/reference/current/documents-indices.html )
+"An inverted index lists every unique word that appears in any document and identifies all of the documents each word occurs in."
+Pour créer un index inversé : tous les mots /champs  du documents vont être isolés et associés à un term ou token ensuite une liste de tous les documents dans lesquels ces mots apparaissent est créée :
+
+doc1 : le lapin nain joue
+doc2: jouer avec le lapin 
+
+terms    doc1  doc2
+le        X     X
+lapin     X     X
+nain      X
+jouer           X
+avec            X
+
+si on cherche le texte lapin nain dans quel document on a le plus de chance de le trouver ?
+-> dans le document 1 : elasticsearch utilise un algorithme de score pour ses recherches : le doc 1 a deux entrées sur le mot lapin, le doc 1 a une seule entrée sur le mot nain ...
+
+Elasticsearch est orienté document . Un document est l'unité de base qui sera indexée et présenté sous le format json.
+https://www.elastic.co/guide/en/elasticsearch/reference/6.1/_basic_concepts.html
+
+part2-ch5
+
