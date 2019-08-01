@@ -1,0 +1,34 @@
+=== notes helm ===
+
+
+on part du principe qu'on utilise helm avec microk8s
+
+on monte donc un snap 
+
+snap install helm --classic
+
+helm init
+
+helm search kibana                                   [☸ boogie-k:default]
+NAME         	CHART VERSION	APP VERSION	DESCRIPTION
+stable/kibana	3.2.3        	6.7.0      	Kibana is an open source data visualization plugin for El...
+
+helm install --name kibana stable/kibana
+
+une fois que notre pod est créee 
+on va recupérer le nom de notre pod , et forward le port 5601 de notre pc vers le pod kibana sur le même port.
+
+On pourra ensuite dans un navigateur consulter kibana 
+
+export POD_NAME=$(kubectl get pods --namespace default -l "app=kibana,release=kibana" -o jsonpath="{.items[0].metadata.name}")
+echo "Visit http://127.0.0.1:5601 to use Kibana"
+kubectl port-forward --namespace default $POD_NAME 5601:5601                                                            [☸ boogie-k:default]
+Forwarding from 127.0.0.1:5601 -> 5601
+Forwarding from [::1]:5601 -> 5601
+Handling connection for 5601
+
+curl http://127.0.0.1:5601  
+Kibana server is not ready yet%
+
+
+
