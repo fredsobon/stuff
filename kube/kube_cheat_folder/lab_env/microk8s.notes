@@ -84,6 +84,10 @@ microk8s.enable dns dashboard
 microk8s.disable dashboard dns
 
 
+
+- activation dashboard : 
+
+microk8s.enable  dashboard
 On va pouvoir par exemple consulter notre dashboard : plusieurs etapes a faire :
 
 1/ recupérer le point d'entrée que l'on utilisera dans notre browser :
@@ -136,10 +140,54 @@ InfluxDB is running at https://127.0.0.1:16443/api/v1/namespaces/kube-system/ser
 
 Grafana pourra donc être utiliser dans un browser.Le compte et le mot de passe renseigné dans notre .kube/config nous permettent la connexion
 
+
+- activation prometheus :
+
+microk8s.enable prometheus
+...
+....
+The Prometheus operator is enabled (user/pass: admin/admin)
+
+
+ boogie@FRLDE01011  ~  microk8s.kubectl get all --all-namespaces |grep prometheus |grep service
+
+
+monitoring    service/prometheus-adapter      ClusterIP   10.152.183.254   <none>        443/TCP                  9m19s
+monitoring    service/prometheus-k8s          ClusterIP   10.152.183.78    <none>        9090/TCP                 9m19s
+monitoring    service/prometheus-operated     ClusterIP   None             <none>        9090/TCP                 9m
+monitoring    service/prometheus-operator     ClusterIP   None             <none>        8080/TCP                 9m20s
+
+un browser sur http://10.152.183.78:9090 permet de consulter la pannel de base de prometheus
+http://10.152.183.78:9090/
+
+
+- activation de fluentd : ce "plugin" permet le déploiment de  la stack elasticsearch-kibana-fluentd 
+
+ boogie@FRLDE01011  ~  microk8s.kubectl get all --all-namespaces |grep elastic               [☸ boogie-k:default]
+kube-system   pod/elasticsearch-logging-0                           1/1     Running   0          4m44s
+
+kube-system   service/elasticsearch-logging   ClusterIP   10.152.183.56    <none>        9200/TCP                 4m44s
+kube-system   statefulset.apps/elasticsearch-logging   1/1     4m44s
+
+
+ boogie@FRLDE01011  ~  microk8s.kubectl get all --all-namespaces |grep kibana                [☸ boogie-k:default]
+kube-system   pod/kibana-logging-df8d4c8fd-f2krf                    1/1     Running   0          4m55s
+kube-system   service/kibana-logging          ClusterIP   10.152.183.187   <none>        5601/TCP                 4m55s
+kube-system   deployment.apps/kibana-logging                   1/1     1            1           4m55s
+kube-system   replicaset.apps/kibana-logging-df8d4c8fd                    1         1         1       4m55s
+
+
+
 - remove de microk8s :
 
 microk8s.reset
 snap remove microk8s
+
+Attention : si on a activé  le storage  
+microk8s.enable storage : le menage des data doit être fait manuellement avant la suppression de microk8s
+
+
+
 
 - reseau :
 
