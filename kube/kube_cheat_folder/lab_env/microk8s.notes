@@ -23,6 +23,10 @@ microk8s.status
 microk8s.start
 microk8s.stop
 
+Attention les binaires sont dans /snap/bin -> il faudra donc les ajouter à notre path :
+
+# add microk8s bin in our path
+export PATH="$PATH:/snap/bin"
 
 
 Attention : il pouvoir etre tres utile d'avoir l'ip de notre host renseignée dans le fichier hosts ...sous peine d'avoir des soucis pour se connecter a nos pods ...
@@ -79,6 +83,58 @@ on peut activer / desactiver des plugins mirok8s facilement :
 microk8s.enable dns dashboard
 microk8s.disable dashboard dns
 
+
+On va pouvoir par exemple consulter notre dashboard : plusieurs etapes a faire :
+
+1/ recupérer le point d'entrée que l'on utilisera dans notre browser :
+
+microk8s.kubectl get all --all-namespaces |grep dashboard |grep service
+..
+kube-system   service/kubernetes-dashboard   ClusterIP   10.152.183.123   <none>        443/TCP                  32m
+
+2/ recupérer le nom du token qui nous servira à la connexion 
+on utilise le default token :
+
+microk8s.kubectl -n kube-system get secret |grep default        
+default-token-t6b45                kubernetes.io/service-account-token   3      72m
+
+3/ recupérer la valeur du default token :
+
+microk8s.kubectl -n kube-system describe secret default-token-t6b45   [☸ boogie-k:default]
+Name:         default-token-t6b45
+Namespace:    kube-system
+Labels:       <none>
+Annotations:  kubernetes.io/service-account.name: default
+              kubernetes.io/service-account.uid: 7c59ad37-8774-4619-a74c-d48e5fc0387b
+
+Type:  kubernetes.io/service-account-token
+
+Data
+====
+ca.crt:     1115 bytes
+namespace:  11 bytes
+token:      eyJhbGciOiJSUzI1NiIsImtpZCI6IiJ9.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJrdWJlLXN5c3RlbSIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VjcmV0Lm5hbWUiOiJkZWZhdWx0LXRva2VuLXQ2YjQ1Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZXJ2aWNlLWFjY291bnQubmFtZSI6ImRlZmF1bHQiLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC51aWQiOiI3YzU5YWQzNy04Nzc0LTQ2MTktYTc0Yy1kNDhlNWZjMDM4N2IiLCJzdWIiOiJzeXN0ZW06c2VydmljZWFjY291bnQ6a3ViZS1zeXN0ZW06ZGVmYXVsdCJ9.mvBecmwSRaYCofqKUPLEVGCOxjWk-ysZdzvpMdOAW15Zz-lv0bIPwuOba6-5IJ2hA6YkHrrYoqht9KQ_9nUXjkj27J1H1o92yD-jpFpfm7a6o9vDllrtjiZ8uSt0xd2-vXfVB06nj1_11jNMwGzMlUXIiGfZNLJzHfyIWMtvmgSvslLk7QKuNuQg3KC--A_urR0KlOmOcw5Y1He2pEwzaMbvT0e3I9ELptZJSDiH6WsVr51o4GKPv8r7U4UPZSKgnhLsIqpIBOXLXbQrIij2vFBUkiLkVNBsp-Cn1c3CyXJvllrxJixln0liPgEr3YUwi_Xs3J5lWcoo-SpTbYzlhw
+
+
+4/ on va pouvoir maintenant se connecter :
+
+https://10.152.183.123/#!/login
+
+> on pourra donc saisir dans le champ token l'info qu'on a récupérer ..et avoir acces à notre dashboard 
+
+
+- NB : l'activation du dashboard install aussi grafana et influx db 
+
+on pourra se connecter aux ressources en recupérant les points d'entrées avec :
+microk8s.kubectl cluster-info                                       [☸ boogie-k:default]
+
+Kubernetes master is running at https://127.0.0.1:16443
+Heapster is running at https://127.0.0.1:16443/api/v1/namespaces/kube-system/services/heapster/proxy
+CoreDNS is running at https://127.0.0.1:16443/api/v1/namespaces/kube-system/services/kube-dns:dns/proxy
+Grafana is running at https://127.0.0.1:16443/api/v1/namespaces/kube-system/services/monitoring-grafana/proxy
+InfluxDB is running at https://127.0.0.1:16443/api/v1/namespaces/kube-system/services/monitoring-influxdb:http/proxy
+
+Grafana pourra donc être utiliser dans un browser.Le compte et le mot de passe renseigné dans notre .kube/config nous permettent la connexion
 
 - remove de microk8s :
 
