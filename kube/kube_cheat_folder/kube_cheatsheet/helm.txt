@@ -7,13 +7,18 @@ on monte donc un snap
 
 snap install helm --classic
 
-helm init
+
+=  helm init : va installer helm et tiller qui sera pousser dans le cluster kube et qui servira de server a helm 
+
+= helm search permet de rechercher des charts :
 
 helm search kibana                                   [☸ boogie-k:default]
 NAME         	CHART VERSION	APP VERSION	DESCRIPTION
 stable/kibana	3.2.3        	6.7.0      	Kibana is an open source data visualization plugin for El...
 
-helm install --name kibana stable/kibana
+= install d'applis : 
+
+- helm install --name kibana stable/kibana
 
 une fois que notre pod est créee 
 on va recupérer le nom de notre pod , et forward le port 5601 de notre pc vers le pod kibana sur le même port.
@@ -30,11 +35,28 @@ Handling connection for 5601
 curl http://127.0.0.1:5601  
 Kibana server is not ready yet%
 
+- helm install avec paramètres :
+
+on peut charger des parametres en les settant dans un fichier également :
+
+$ echo $'master:\n  serviceType: NodePort' > config.yaml
+$ helm install -f config.yaml stable/jenkins
+
+on peut aussi passer des arguments en cli :
+
+ex : 
+helm install --name jenkins --set master.serviceType=NodePort stable/jenkins
+
+
+- install dans un repertoire contenant nos conf :
+ex : on recupere un repo qui contient nos conf et on veut set up une appli et on precise "." comme source d'install 
+
+cd repo
+
+helm install --name elastic . 
 
 
 == exemple set up : =
-
-
 
  boogie@FRLDE01011  ~  helm install --name elastic elastic/elasticsearch                                                                                                                                               [☸ boogie-k:default]
 NAME:   elastic
