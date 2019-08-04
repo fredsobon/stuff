@@ -1,0 +1,60 @@
+=== notes post install helm charts ===
+
+= jenkins :
+helm install --name jenkins stable/jenkins
+
+NOTES:
+1. Get your 'admin' user password by running:
+  printf $(kubectl get secret --namespace default jenkins -o jsonpath="{.data.jenkins-admin-password}" | base64 --decode);echo
+2. Get the Jenkins URL to visit by running these commands in the same shell:
+  NOTE: It may take a few minutes for the LoadBalancer IP to be available.
+        You can watch the status of by running 'kubectl get svc --namespace default -w jenkins'
+  export SERVICE_IP=$(kubectl get svc --namespace default jenkins --template "{{ range (index .status.loadBalancer.ingress 0) }}{{ . }}{{ end }}")
+  echo http://$SERVICE_IP:8080/login
+3. Login with the password from step 1 and the username: admin
+For more information on running Jenkins on Kubernetes, visit:
+https://cloud.google.com/solutions/jenkins-on-container-engine
+
+
+NB: pour les installs sur minikube il faut changer des params le type Loadbalancer pour le service n'est pas pri en compte : on va le changer en nodeport :
+
+helm install --name jenkins --set master.serviceType=NodePort  stable/jenkins
+
+on peut charger des parametres en les settant dans un fichier également :
+
+$ echo $'master:\n  serviceType: NodePort' > config.yaml
+$ helm install -f config.yaml stable/jenkins
+
+
+pour pouvoir acceder à l'inteface de jenkins avec minikube :
+on va récupérer le service associé et ensuite permettre l'ouverture de ce service via minikube :
+
+kubectl get service                                                                                                 [☸ minikube:default]
+NAME            TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)          AGE
+jenkins         NodePort    10.108.149.85   <none>        8080:30553/TCP   14m
+jenkins-agent   ClusterIP   10.104.231.81   <none>        50000/TCP        14m
+kubernetes      ClusterIP   10.96.0.1       <none>        443/TCP          43m
+
+ boogie@FRLDE01011  ~  minikube service jenkins                                                                                                 [☸ minikube:default]
+🎉  Opening kubernetes service default/jenkins in default browser...
+
+
+on peut ensuite se logguer en utilisant le user admin et le password récupéré en step 1 de post install :
+
+http://192.168.99.100:30553/
+
+
+
+= elastic :
+
+on peut installer le chart elastic en local, apres avoir cloner le repo git :
+
+cd helm-charts/elasticsearch
+helm install --name elasticsearch  . --namespace elastic 
+
+NOTES:
+1. Watch all cluster members come up.
+  $ kubectl get pods --namespace=elastic -l app=elasticsearch-master -w
+2. Test cluster health using Helm test.
+  $ helm test elasticsearch
+
