@@ -1,0 +1,91 @@
+== notes from katakoda ==
+
+=Deploy ElasticSearch
+
+- Persistent Volume
+ElasticSearch will be making a PersistentVolumeClaim for its persistence. A PersistentVolume will be needed. Since this is all temporary in Katacoda, a hostPath based PersistentVolume is created.
+
+mkdir -p /mnt/data/efk-master && kubectl create -f pv-master.yaml
+
+mkdir -p /mnt/data/efk-data && kubectl create -f pv-data.yaml
+
+- Install ElasticSearch
+Deploy the public Helm chart for ElasticSearch. The chart's default settings are appropriately opinionated for a production deployment. Here, some of the default settings are downsized to fit in this KataCoda cluster.
+
+helm install stable/elasticsearch --name=elasticsearch --namespace=logs \
+--set client.replicas=1 \
+--set master.replicas=1 \
+--set cluster.env.MINIMUM_MASTER_NODES=1 \
+--set cluster.env.RECOVER_AFTER_MASTER_NODES=1 \
+--set cluster.env.EXPECTED_MASTER_NODES=1 \
+--set data.replicas=1 \
+--set data.heapSize=300m \
+--set master.persistence.storageClass=elasticsearch-master \
+--set master.persistence.size=5Gi \
+--set data.persistence.storageClass=elasticsearch-data \
+--set data.persistence.size=5Gi
+
+ElasticsSearch is starting and will become available in a few minutes. In the meantime, move onto the next installation step.
+
+= Deploy Fluent Bit
+Create the configuration for Fluent Bit.
+
+Install Fluent Bit and pass the ElasticSearch service endpoint as a chart parameter. This chart will install a DaemonSet that will start a Fluent Bit pod on each node. With this each Fluent Bit services will collects the logs from each node and stream it to ElasticSearch.
+
+helm install stable/fluent-bit --name=fluent-bit --namespace=logs --set backend.type=es --set backend.es.host=elasticsearch-client
+
+Fluent Bit is starting and will become available in a few minutes. In the meantime, move onto the next installation step.
+
+= Deploy Kibana
+Deploy Kibana. The service will be on a NodePort at 31000.
+
+helm install stable/kibana --name=kibana --namespace=logs --set env.ELASTICSEARCH_HOSTS=http://elasticsearch-client:9200 --set service.type=NodePort --set service.nodePort=31000
+
+Security caution. This NodePort exposes the logging to the outside world intentionally for demonstration purposes. However, for production Kubernetes clusters never expose the Kibana dashboard service to the world without any authentication.
+
+Kibana is starting and will become available in a few minutes.
+Verify Running Stack
+All three installations of ElasticSearch, Fluent Bit, and Kibana are either still initializing or fully available.
+
+To inspect the status of these deployments run this watch.
+
+watch kubectl get deployments,pods,services --namespace=logs
+
+Once complete, the Pods will move to the Running state. The full stack is not ready until all the Deployment statuses move to the Available (1) state.
+
+While observing the progress, be patient, as it takes time for the stack to initialize, even with this small configuration.
+
+When all Deployments report Available and the Pods report Running use this clear action to ctrl-c and clear the shell or press ctrl-c to break out of the watch.
+
+You know have a full EFK stack running. Granted this stack smaller and not configure to he highly available or with access protection, but it comprises a functional solution to get started.
+
+
+
+= Generate Log Events
+Run this container to start generating random log events.
+
+kubectl run random-logger --image=chentex/random-logger
+
+Thank you to Vicente Zepeda for providing this beautifully simple container.
+
+The log events will look something like this.
+
+...
+2019-03-27T11:06:25+0000 INFO takes the value and converts it to string.
+2019-03-27T11:06:29+0000 DEBUG first loop completed.
+2019-03-27T11:06:31+0000 ERROR something happened in this execution.
+2019-03-27T11:06:46+0000 WARN variable not in use.
+...
+Inspect the actual log events now being generated with this log command.
+
+kubectl logs deployment/random-logger
+
+Don't be alarmed by the messages, these are just samples.
+
+= Discover item.
+The log list will appear.
+Refine the list a bit by selecting log near the bottom the left-hand Selected fields list.
+When you hover over or click on the word log, click the Add button to the right of the label.
+The log list now is filtered to show log events from the random-logger service. You can expand each event to reveal further details.
+
+From here you can start to appreciate the amount of information this stack provides. More information is in the Kibana documentation.
