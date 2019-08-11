@@ -1,0 +1,243 @@
+==== notes proxmox : ==
+
+https://community.capensis.org/t/nouveautes-installation-et-configuration-de-proxmox-5-2/133
+
+
+on va monter un hyperviseur proxmox qui va servir à heberger nos vms
+
+1/ download le dernier iso dispo sur le site de proxmox :
+https://www.proxmox.com/en/downloads
+
+2/ on crée une flash key / iso : en reperant bien le nom du disque qui va être utilisé :
+sudo dd if=proxmox-ve_6.0-1.iso of=/dev/sdb bs=1M
+
+3/ on boot en usb / iso 
+
+4/ on suit le set up en gui 
+
+ex :
+hostname -> boogie-hypervisor
+ip -> 192.168.0.7
+netmask 255.255.255.0
+gateway 192.168.0.254
+dns 192.168.0.254
+
+on peut faire un set up minimal pour commencer et choisir toutes les options par defaut .
+L'hyperviseur sera accessible par la suite sur le couple ip:port :
+
+https://192.168.0.7:8006
+
+5/ conf de repo :
+on va modifier le repo de base de proxmox : on supprime le repo de la version entreprise et on ajoute dans me source list le repo no-subscription :
+
+/etc/apt/sources.list.d# rm pve-enterprise.list
+
+root@boogie-hypervisor:~# cat /etc/apt/sources.list
+...
+# proxmox no sub repo :
+deb http://download.proxmox.com/debian/pve buster pve-no-subscription
+
+
+6/ setup de fail2ban 
+apt install fail2ban
+
+on copie le fichier de conf original et on modifie notre copie :
+
+boogie-hypervisor:/etc/fail2ban#cp jail.conf jail.local
+on passe à 14m le bann des ip qui tentent de passer :
+root@boogie-hypervisor:/etc/fail2ban# grep 14m jail.local
+bantime  = 14m
+findtime  = 14m
+on ne bann pas les ip de loopback 
+root@boogie-hypervisor:/etc/fail2ban# grep 127 jail.local
+ignoreip = 127.0.0.1/8 ::1
+
+on ajoute une section de bann dédiée  à proxmox dans notre jail.local
+# Virt section :
+[proxmox]
+enabled = true
+port    = https,http,8006
+filter  = proxmox
+logpath = /var/log/daemon.log
+
+on defini un filtre pour proxmox dans le rep des filtres :
+root@boogie-hypervisor:~# cat /etc/fail2ban/filter.d/proxmox.conf
+# Fail2Ban configuration file
+#
+# Author: Cyril Jaquier
+#
+# $Revision: 569 $
+#
+
+[Definition]
+
+# Option:  failregex
+# Notes.:  regex to match the password failure messages in the logfile. The
+#          host must be matched by a group named "host". The tag "<HOST>" can
+#          be used for standard IP/hostname matching and is only an alias for
+#          (?:::f{4,6}:)?(?P<host>\S+)
+# Values:  TEXT
+#
+
+failregex = pvedaemon\[.*authentication failure; rhost=<HOST> user=.* msg=.*
+
+# Option:  ignoreregex
+# Notes.:  regex to ignore. If this regex matches, the line is ignored.
+# Values:  TEXT
+#
+ignoreregex =
+
+redemarrage de proxmox  et c'est ok :
+service fail2ban restart
+
+= config proxmox : =
+
+1/ user :
+on va ajouter un user en ssh sur notre server : ex : adduser boogie
+on va ensuite ajouter un nouveau user dans l'interface d'admin de proxmox 
+> users > add : on renseigne notre user
+> permissions > add : on va ajouter les paths auquels notre users aura droit d'acceder ainsi que les  droits ( roles : ex: / pour boogie et role PVE admin )
+
+2/ reseau :
+de base un bridge est créee sur notre hyperviseur :
+boogie@boogie-hypervisor:~$ ip a show vmbr0
+3: vmbr0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default qlen 1000
+    link/ether 18:03:73:d3:c7:6f brd ff:ff:ff:ff:ff:ff
+    inet 192.168.0.7/24 brd 192.168.0.255 scope global vmbr0
+       valid_lft forever preferred_lft forever
+    inet6 2a01:e0a:109:4220:1a03:73ff:fed3:c76f/64 scope global dynamic mngtmpaddr
+       valid_lft 86341sec preferred_lft 86341sec
+    inet6 fe80::1a03:73ff:fed3:c76f/64 scope link
+       valid_lft forever preferred_lft forever
+
+les vms que l'on va creer vont être raccordées à ce bridge et seront donc dans le même lan.
+L’ajout de règles de firewall peut se faire directement à l’aide de l’interface web. Au niveau le plus haut, elles seront stockées dans :
+/etc/pve/firewall/cluster.fw .
+
+NOTA BENE : Les cartes réseau émulées pour les VMs seront gérées au mieux par Proxmox si on choisis le modèle “Virt IO”.
+
+3/ stockage :
+
+Par défaut, le stockage ‘local-lvm’ contiendra les images de vos VMs KVM, et vos conteneurs LXC. Le stockage ‘local’, lui, est destiné aux images iso (pour installerles systèmes de VM), les templates de conteneurs et les fichiers de sauvegardes.
+Chaque stockage doit être édité, afin de déclarer les types de contenu qu’il sera amené à stocker.
+
+Par défaut, Proxmox stocke le contenu utile dans /var/lib/vz , dans une arborescence déterminée :
+
+├── dump
+├── images
+└── template
+
+        ├── cache
+        ├── iso
+        └── qemu
+Hint : dans le répertoire ‘iso’, il peut s’avérer très pratique de stocker un fichier iso tel que celui de netboot.xyz  : une fois téléchargé, il permet d’accéder via le site netboot.xyz à un menu PXE, qui permettra l’installation directe d’un grand nombre de distributions !
+root@boogie-hypervisor:/var/lib/vz# tree
+.
+|-- dump
+|-- images
+`-- template
+    |-- cache
+    |-- iso
+    |   `-- netboot.xyz.iso
+    `-- qemu
+
+5/ VMs en émulation complète :
+Si c’est possible, préférez la création de VM au format qcow2, bien supporté nativement par qemu et permettant les snapshots et l’allocation dynamique. Cette dernière caractéristique est très intéressante, car elle permet de disposer d’images disque qui ne pèsent que le poids réel des données qu’elle contiennent.
+
+Pour créer une VM, cliquez tout simplement en haut à droite sur le bouton “Créer VM”, et laissez-vous guider par l’installeur.
+Chaque VM est identifiée par un n°, de 100 à 99999. On peut bien sûr lui adjoindre un nom plus explicite, mais le sytème identifiera les systèmes hôte par leur n°.
+Pour installer le système, il vous est proposé de démarrer sur une image iso que vous devez avoir préalablement stockée dans le répertoire idoine : c’est là que l’utilisation de l’image netboot.xyz.iso 52 prend tout son sens !
+
+Si vous installez un système windows, il sera utile d’adjoindre au système hôte les “Qemu Guest Agents”, pour optimiser l’échanges des signaux systèmes entre la VM et son hôte, tels que l’arrêt / redémarrage du système, entre autres.
+Hint : Sous Windows, la version 64 bits dysfontionne. La version 32 bits à installer est qemu-ga-x86.msi 16 .
+
+Si vous installez un système linux, installez simplement les “Qemu Guest Agents” dans le système de la VM avec la commande :
+
+apt-get install qemu-guest-agent ( pour Debian / Ubuntu )
+
+suivi de :
+
+systemctl enable qemu-guest-agent
+systemctl start qemu-guest-agent
+
+NOTA BENE : pour héberger des systèmes sous linux, préférez là où c’est possible les VMs en paravirtualisation : elles consommeront nettement moins de ressources et d’espace disque.
+
+-  Les VMs en paravirtualisation :
+Les premières versions de Proxmox proposaient des containers OpenVZ. Ils ont été abandonnés au profit du format LXC, plus souple et désormais éprouvé.
+
+En paravirtualisation, la VM partage le noyau et la RAM avec son hôte, et le reste du système est indépendant, dans une sorte de chroot amélioré. Le système de fichiers se résume à un fichier en .raw, ou un LV (Logical Volume) dans du LVM.
+
+Avant de créer un container, il faut commencer par récupérer un ou plusieurs templates à partir desquels on créera les VMs. Pour cela, sélectionnez dans le volet de gauche le stockage pour lequel vous avez indiqué qu’il stockerait les “Templates de Conteneurs” dans le paramétrage du datacenter.
+Un bouton ‘Templates’ apparaît en haut de la fenêtre principale. Cliquez-le, et choisissez parmi la liste les types de conteneurs que vous souhaitez installer.
+Chaque template sera télécharge localement depuis linuxcontainers.org 28.
+
+Une fois ceci fait, vous pouvez alors cliquer sur le bouton “Create CT” en haut à droite de l’interface, et vous laisser guider par l’installeur qui vous proposera d’installer à partir des templates que vous venez de télécharger.
+
+Les templates sont stockées dans /var/lib/vz/template/cache.
+Il est évidemment possible de créer ses propres templates, une fois un container bien configuré.
+
+Hint :
+Connectez-vous à un terminal sur votre serveur, soyez root, puis tapez la commande :
+
+pveam update
+
+Celle-ci met à jour la liste des templates disponibles pour vos conteneurs LXC. Si par conséquent vous retournez sur votre stockage ‘local’ dans le volet de gauche, que vous sélectionnez ‘contenu’ dans le second volet, puis que vous cliquez le bouton ‘Templates’, vous vous apercevrez qu’une section supplémentaire est apparue :
+En plus de la section ‘System’, qui vous propose une vingtaine d’environnements linux issus des distributions les plus populaires, vous avez désormais une section 'TurnKey Linux’ 10, qui vous fournit plus de cent templates de serveurs pré-installés avec les produits logiciels les plus courus du moment !
+
+
+ 5/ Misc :
+
+-turnkey
+Les serveurs viennent préconfigurés, avec des interfaces d’administration et de prise de contrôle à distance par défaut telles que Webmin, et vous feront gagner un temps précieux lors de mises en service d’environnements virtualisés. Essayez !
+
+-Stockage distribué et SaMBa
+Ajout des partages SMB/CIFS comme support de stockage officiel (backups, images, templates, iso et containers).
+Il est désormais possible d’adosser un hyperviseur Proxmox VE 62 à un serveur de fichiers Windows ou à un serveur SaMBa directement depuis l’interface d’admnistration.
+
+L’intégration de Ceph a été simplifiée.
+S’il vous est possible de dédier un disque sur chacun des trois hyperviseurs de votre cluster, vous pouvez déployer sur ceux-ci un volume distrubé géré par Ceph, qui vous donnera l’équivalent en sécurité d’un stockage en réseau de ce que vous donnerait une architecture en RAID 5 en stockage local.
+
+La condition principale est de se trouver sur un réseau proposant des débits moyens autour de 10 Gb/s.
+Sur chacun des trois noeuds de votre cluster, exécutez le script d’installation avec un simple :
+
+# pveceph install
+
+Puis vous générez la configuration initiale de Ceph sur un premier noeud, sur la base de votre adressage local (192.168.X.0 ici) :
+
+# pveceph init --network 192.168.X.0/24
+
+Ensuite, les moniteurs Ceph maintiennent une copie de la structure maître de votre cluster Ceph. Dans un contexte de Haute Disponibilité il vaous faudra au moins trois moniteurs.
+Sur chacun des trois noeuds de votre cluster, exécutez par conséquent :
+
+# pveceph createmon
+
+La création des moniteurs entraîne l’installation du démon Manager.
+La commande suivante est à passer sur au moins un noeud de votre cluster :
+
+# pveceph createmgr
+
+Une fois ces étapes préliminaires réalisées, il nous faut créer les OSD.
+Ceci peut être fait simplement via l’interface d’administration de Proxmox VE :
+
+-ceph
+
+Enfin, un -ou plusieurs- Pool Ceph est créé. C’est un groupe logique qui permet de stocker des objets de toute sorte. Etant donné que Ceph est un système de fichiers distribué, il sera visible et accessible directement depuis chaque noeud de votre cluster.
+Un autre système de fichiers distribué est également disponible dans Proxmox VE, il s’agit de GlusterFS.
+Des interfaces de configuration pour des stockages iSCSI ou DRBD sont évidemment disponibles également, afin de pouvoir adosser vos hyperviseurs à un SAN.
+
+- Let’s Encrypt
+La nouvelle gestion des certificats autorise maintenant l’usage de certificats provenant d’autorités de certification de tierce partie, et notamment depuis Let’s Encrypt.
+La gestion des certificats est désormais possible directement depuis la GUI.
+Les administrateurs de Proxmox VE peuvent l’utiliser directement pour demander des certificats TLS gratuits chez Let’s Encrypt. Ils sont directement acceptés sur la plupart des systèmes d’exploitation et des navigateurs actuels.
+
+Pour cela, allez sur l’un des noeuds de votre Datacenter, puis dans le 2nd volet dans la Partie “Certificats” (juste sous "Réseau).
+
+Là, cliquez sur le bouton “Edit Domains” dans la partie “ACME” de l’interface, et renseignez le nom de domaine pleinement qualifié ( FQDN )
+pour lequel vous voulez obtenir un certificat.
+
+(Il va de soi que la partie DNS du domaine en question a été préalablement prise en compte).
+Enregistrez, puis cliquez sur “Register Account”, conservez l’option “Let’s Encrypt V2”, cochez
+“Accept TOS” et renseignez une adresse e-mail valide.
+Validez puis cliquez sur le bouton “Order Certificate” pour faire automatiquement la demande de certificat auprès de Let’s Encrypt, ainsi que l’installation du certificat une fois celui-ci obtenu.
+Il vous faudra recharger la page dans votre navigateur pour le faire prendre en compte ce nouveau certificat.
+Un détail très appréciable est que le renouvellement de ce certificats se fera automatiquement en arrière-plan !
