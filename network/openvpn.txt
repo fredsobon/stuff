@@ -1,0 +1,71 @@
+
+== notes openvpn : ==
+
+
+
+= difference mode routé et mode bridgé = 
+
+What are the fundamental differences between bridging and routing in terms of configuration?
+When a client connects via bridging to a remote network, it is assigned an IP address that is part of the remote physical ethernet subnet and is then able to interact with other machines on the remote subnet as if it were connected locally. Bridging setups require a special OS-specific tool to bridge a physical ethernet adapter with a virtual TAP style device. On Linux, for example, brctlis this tool. On Windows XP or higher, select your TAP-Win32 adapter and your ethernet adapter in Control Panel -> Network Connections, then right click and select Bridge Connections.
+
+When a client connects via routing, it uses its own separate subnet, and routes are set up on both the client machine and remote gateway so that data packets will seamlessly traverse the VPN. The "client" is not necessarily a single machine. It could be a subnet of several machines.
+
+Bridging and routing are functionally very similar, with the major difference being that a routed VPN will not pass IP broadcasts while a bridged VPN will.
+
+When you are bridging, you must always use --dev tap on both ends of the connection. If you are routing you can use either --dev tap or --dev tun, but you must use the same on both ends of the connection. --dev tun tends to be slightly more efficient for the routing case.
+
+= activation serveur openvpn freebox : =
+
+on va pouvoir utiliser ipsec pour nos echanges 
+> on clic sur ipsec IKEv2 et on active : attention il faut une entrée dns ( soit un sous domaine free :ex boogie7.freeboxos.fr soit un nom de domaine que l'on a deja.
+
+on peut avec l'option freeboxos.fr avoir un certif ssl via let's encrypt de généré.
+
+ouvrir console management freebox
+> param avancés > serveur vpn > openvpn routé > cocher activer > appliquer 
+> on va créer un user pour acceder à notre vpn 
+> s'assurer en fermant / ouvrant le panneau de conf serveur vpn que le cadenas openvpn est maintenant de couleur jaune : il est donc actif.
+
+on va desactiver la fragmentation des packets en décochant la case
+
+-> on va pouvoir récupérer le fichier de conf dédié à notre user pour  notre serveur vpn > download
+
+
+= activation client : =
+
+on va installer les paquets suivants sur notre pc :
+openvpn network-manager-openvpn network-manager-openvpn-gnome
+
+pour tester et se connecter en cli 
+il suffira de lancer la commande openvpn suivie du fichier des infos de clients downloadées depuis la freebox : 
+
+sudo openvpn config_openvpn_routed_boogie.ovpn
+
+On  aura une interface de type tun0 de montée : 
+boogie$ ip link show  tun0                                                                     [☸ boogie-k:default]
+5: tun0: <POINTOPOINT,MULTICAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UNKNOWN mode DEFAULT group default qlen 100
+    link/none
+
+les routes propagées automatiquement :  
+boogie$ ip r                                                                                   [☸ boogie-k:default]
+default via 212.27.38.253 dev tun0 
+default via 192.168.0.254 dev wlp1s0 proto dhcp metric 600 
+82.64.37.48 via 192.168.0.254 dev enp0s31f6 
+169.254.0.0/16 dev enp0s31f6 scope link metric 1000 
+172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown 
+192.168.0.0/24 via 212.27.38.253 dev tun0 
+192.168.0.0/24 dev enp0s31f6 proto kernel scope link src 192.168.0.15 metric 100 
+192.168.0.0/24 dev wlp1s0 proto kernel scope link src 192.168.0.37 metric 600 
+192.168.27.64/27 via 212.27.38.253 dev tun0 
+212.27.38.253 dev tun0 proto kernel scope link src 192.168.27.65 
+    
+boogie$ ip a ls tun0                                                                           [☸ boogie-k:default]
+5: tun0: <POINTOPOINT,MULTICAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UNKNOWN group default qlen 100
+    link/none 
+    inet 192.168.27.65 peer 212.27.38.253/32 scope global tun0
+       valid_lft forever preferred_lft forever
+    inet6 2a01:e0a:109:4228::10/124 scope global 
+       valid_lft forever preferred_lft forever
+    inet6 fe80::bf0e:4928:c252:b130/64 scope link stable-privacy 
+       valid_lft forever preferred_lft forever
+    
