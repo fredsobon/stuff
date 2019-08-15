@@ -1,0 +1,24 @@
+=== notes pour set up mini cluster kube ===
+
+= spec : 
+1 master / 2 nodes
+3 vms debian stretch montées dans un hyperviseur proxmox
+
+= env :
+
+fichier hosts qui sert d'inventaire à ansible 
+> 2 groupes de machines : master - worker
+> variable d'env en python3 pour l'execution via cmds ansible / ansible-playbook
+
+= playbooks : 
+
+> base.yml : creation user, basic settings ssh, installations pkgs utiles
+ ansible-playbook -i hosts base.yml 
+> k8s-requirements.yml : setup repos pour composants kube, chargement des modules kernels, setting valeurs systcl , modules, shoot de swap , install composant kube sur nodes, install kubectl sur master 
+ ansible-playbook -i hosts k8s-requirements.yml
+> master.yml : initialisation du cluster ,setting avec kubeadm , copie de ka conf pour kubectl , application manifest calico
+ ansible-playbook -i hosts master.yml
+> worker.yml : sur le master creation de token pour les workers, integration des nodes dans le cluster
+  ansible-playbook -i hosts worker.yml -C    << a check ...
+
+

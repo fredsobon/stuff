@@ -1,0 +1,133 @@
+- hosts: all
+  become: yes
+  tasks:
+   - name: install remote apt deps
+     apt:
+       name: "{{ item }}"
+       state: present
+     with_items:
+       - apt-transport-https
+       - ca-certificates
+       - gnupg2
+       - software-properties-common
+
+   - name: Installing mandatory packages.
+     apt:
+       name: ['apt-transport-https', 'ca-certificates', 'vim' ,'curl', 'tree', 'sudo', 'haveged', 'gnupg2', 'openssl', 'python-pip', 'qemu-guest-agent', 'software-properties-common']
+
+## Repos setup  
+   - name: add Docker apt-key
+     apt_key:
+       url: https://download.docker.com/linux/debian/gpg
+       state: present
+
+   - name: add Docker's APT repository
+     apt_repository:
+      repo: deb https://download.docker.com/linux/debian buster stable
+      state: present
+      filename: 'docker'
+
+   - name: install Docker
+     apt:
+       name: docker-ce
+       state: present
+       update_cache: true
+
+   - name: add Kubernetes apt-key
+     apt_key:
+       url: https://packages.cloud.google.com/apt/doc/apt-key.gpg
+       state: present
+
+   - name: add Kubernetes' APT repository
+     apt_repository:
+      repo: deb http://apt.kubernetes.io/ kubernetes-xenial main
+      state: present
+      filename: 'kubernetes'
+
+###  mandatory for kube setup 
+# kick swap 
+   - name: kick swap  as it's mandatory to install kube
+     command: swapoff --all
+
+   - name: Remove swap from /etc/fstab (when named swap)
+     mount:
+      name: swap
+      fstype: swap
+      state: absent
+
+   - name: Remove swap from /etc/fstab (when named none)
+     mount:
+      name: none
+      fstype: swap
+      state: absent
+     when: turn_swapoff | default (true)
+
+## Load kernel modules ensure loaded after reboot  and setting   - kernel module names for debian like os : modprobe br_netfilter / modprobe overlay / bridge 
+# Bridge section :
+   - name: load bridge kernel module ( for /proc/sys/net/bridge/bridge-nf-call-iptables )
+     modprobe: name={{item}} state=present
+     with_items:
+      - bridge
+      - br_netfilter
+      - overlay  
+   - name: every reboot load bridge kernel modules
+     copy:
+      dest: "/etc/modules-load.d/k8s_bridge.conf"
+      content: |
+        bridge
+
+# Br_netfilter section :         
+   - name: load br_netfilter kernel module (for /proc/sys/net/bridge/bridge-nf-call-iptables in newer kernels)
+     modprobe: name={{item}} state=present
+     with_items:
+      - br_netfilter
+     register: br_netfilter_load_result
+     ignore_errors: yes # because in some old kernels br_netfilter does not exist and bridge is enough
+
+   - name: every reboot load bridge and br_netfilter kernel modules (for k8s)
+   # Note: br_netfilter is available only in the newer kernel versions
+     copy:
+       dest: "/etc/modules-load.d/k8s_br_netfilter.conf"
+       content: |
+        br_netfilter
+     when:
+      - br_netfilter_load_result is not failed
+
+# systcl settings - ensure  correct value set and loaded        
+   - name: setup kernel parameters for k8s - reboot might be required, but we will not trigger
+   #here RH asks for reboot: https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/load_balancer_administration/s1-initial-setup-forwarding-vsa
+     sysctl: name={{item.name}} value={{item.value}} state=present
+     with_items:
+      - {name:  "net.bridge.bridge-nf-call-iptables", value: "1" }
+      - {name:  "net.bridge.bridge-nf-call-ip6tables", value: "1" }
+      - {name:  "net.ipv4.ip_forward", value: "1" }
+      - {name:  "net.ipv4.ip_nonlocal_bind", value: "1" }
+
+# optional setting for elastic memory settings :        
+   - name: setup kernel parameters for eventual elasticsearch - reboot might be required, but we will not trigger
+     #here RH asks for reboot: https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/load_balancer_administration/s1-initial-setup-forwarding-vsa
+     sysctl: name={{item.name}} value={{item.value}} state=present
+     with_items:
+      - {name:  "vm.max_map_count", value: "262144" }
+
+## Kube pkgs section 
+
+   - name: install kubelet
+     apt:
+       name: kubelet=1.15.0-00
+       state: present
+       update_cache: true
+
+   - name: install kubeadm
+     apt:
+       name: kubeadm=1.15.0-00
+       state: present
+
+- hosts: k-master01
+  become: yes
+  tasks:
+   - name: install kubectl
+     apt:
+       name: kubectl=1.15.0-00
+       state: present
+       force: yes
