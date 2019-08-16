@@ -1,0 +1,84 @@
+=== commandes de base /troubleshooting pour stack elastic : ===
+
+== commandes utiles / usuelles ( à passer directement dans la console dev tool de kibana ou en curl depuis un membre du cluster : 
+
+- test de fonectionnement de base : 
+GET _search
+{
+  "query": {
+    "match_all": {}
+  }
+}
+
+- topologie du cluster : 
+GET /_cluster/settings
+
+- examiner les noeux du cluster : 
+GET /_cat/nodes
+
+- santé du cluster : 
+GET /_cat/health?pretty
+GET /_cluster/health?level=indices    <<< ici on regarde spécifiquement les index 
+
+
+- voir les index 
+GET /_cat/indices
+
+
+- Examiner l'allocation des shards : 
+
+GET /_cat/allocation?v
+GET /_cluster/allocation/explain?pretty
+
+- Arrêter l'allocation de shard : utile quand on doit faire une inter sur un server elastic : on est sur qu'il ne prendra pas d'index pendant l'inter : 
+PUT /_cluster/settings
+{
+  "persistent": {
+"cluster.routing.allocation.enable": "none"
+  }
+}
+
+- Remettre l'allocation de shard auto : apres une inter sur un /des serveurs du cluster : 
+PUT /_cluster/settings
+{
+  "persistent": {
+"cluster.routing.allocation.enable": null
+  }
+}
+
+
+== troubleshooting : == 
+
+= probleme d'index en rouge dans elastic : 
+
+potentiellement un pb de reallocation de shard. on va examiner en recherchant par le nom de l'index qui nous interresse et le status "ALLOCATION FAILED" :
+
+
+curl -s "http://127.0.0.1:9200/_cluster/state/routing_table" | jq '.routing_table.indices  | .[] | .shards | .[] | .[] | select(.index == "accesslog-private-2019.08.15.18") | select(.unassigned_info.reason == "ALLOCATION_FAILED")'
+{
+  "state": "UNASSIGNED",
+  "primary": false,
+  "node": null,
+  "relocating_node": null,
+  "shard": 3,
+  "index": "accesslog-2019.08.15.18",
+  "recovery_source": {
+    "type": "PEER"
+  },
+  "unassigned_info": {
+    "reason": "ALLOCATION_FAILED",
+    "at": "2019-08-16T00:26:04.899Z",
+    "failed_attempts": 5,
+    "delayed": false,
+    "details": "failed shard on node [cXQDsqDFSS]: failed recovery, failure RecoveryFailedException[[accesslog-2019.08.15.18][3]: Recovery failed from {logdb-idx01}{jfrP3TtTT6iLWNii0AZBCg}{YQSYfyIZQCKOn9uOZluucw}{192.168.0.5}{192.168.0.5:9300}{ml.machine_memory=67254464512, ml.max_open_jobs=20, datacenter=home, xpack.installed=true} into {logdb-idx04}{cXQDxuBAT76aftWvbztzWA}{ao5Fa5AJQF66YdxSik29Ww}{19.168.0.7}{192.168.0.7:9300}{ml.machine_memory=67254464512, xpack.installed=true, ml.max_open_jobs=20, datacenter=outside}]; nested: RemoteTransportException[[logdb-idx01][192.168.0.5:9300][internal:index/shard/recovery/start_recovery]]; nested: RecoveryEngineException[Phase[1] prepare target for translog failed]; nested: RemoteTransportException[[logdb-idx04][192.168.0.7:9300][internal:index/shard/recovery/prepare_translog]]; nested: EngineCreationFailureException[failed to open reader on writer]; nested: FileSystemException[/var/lib/elasticsearch/logdb/nodes/0/indices/nEkAL4RWSASA/3/index/_2yi_Lucene50_0.pos: Too many open files]; ",
+    "allocation_status": "no_attempt"
+  }
+}
+
+on voit ici qu'on a un pb de nombre de fichiers ouvert. On va pouvoir executer un retry pour tenter une nouvelle allocation :
+
+curl -s -XPOST "http://127.0.0.1:9200/_cluster/reroute?retry_failed" | jq '.state.routing_table.indices | .[] | .shards | .[] | .[]  | select(.unassigned_info.reason=="ALLOCATION_FAILED")'
+
+
+
+
