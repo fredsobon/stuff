@@ -1,0 +1,28 @@
+=== cheatsheet - memo - cmd for nodes ===
+
+
+- taint node :
+on va pouvoir empécher le shedule de pod sur un / des nodes en les marquants comme non shedulable.
+ex : on ne veut pas de pod sur un master :
+kubectl taint nodes k-master01 key=value:NoSchedule
+
+pour de nouveau permettre au node de recevoir des pods :
+on supprime le lock 
+kubectl taint nodes node1 key:NoSchedule-
+
+
+- drain node :
+on va pouvoir ejecter tous les pods d'un node si on a besoin de faire une inter dessus :
+les pods vont être répartis sur les autres nodes de notre cluster :
+kubectl drain k-node01 
+on peut forcer l'ejection de daemonset si un message apparait : 
+kubectl drain k-node01 --ignore-daemonsets
+
+on surveille que les pods sont bien repartis ailleurs que sur notre node :
+kubectl get pods --all-namespaces -o wide
+
+- remettre en prod : permettre de nouveau le schedule sur un node auparavant off : 
+kubectl uncordon k-node01 
+
+
+
