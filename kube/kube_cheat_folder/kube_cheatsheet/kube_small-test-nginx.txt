@@ -1,0 +1,33 @@
+=== petit test fonctionnel de kube : installation d'un server nginx =
+    
+- install de l'appli via un deployment : 
+kubectl create deployment nginx --image=nginx
+- on expose le port du container vers un port local et on assigne le service a un typr NodePort :
+kubectl expose deploy nginx --port 80 --target-port 80 --type NodePort
+
+- check des services : 
+kubectl get services
+
+Output
+NAME         TYPE        CLUSTER-IP       EXTERNAL-IP           PORT(S)             AGE
+kubernetes   ClusterIP   10.96.0.1        <none>                443/TCP             1d
+nginx        NodePort    10.109.228.209   <none>                80:nginx_port/TCP   40m
+
+on voit qu'on port auto ( au dessus de 30000) a ete choisi pour la redir web 
+
+on va pouvoir nous connecter à l'ip de notre node suivi du port de notre service nginx via un brwoser 
+http://worker_1_ip:nginx_port or http://worker_2_ip:nginx_port 
+
+- pour supprimer notre test : 
+kubectl delete service nginx
+on verifie il n'y a plus de trace 
+    kubectl get services
+Output
+NAME         TYPE        CLUSTER-IP       EXTERNAL-IP           PORT(S)        AGE
+kubernetes   ClusterIP   10.96.0.1        <none>                443/TCP        1d
+
+on supprime maintenant le deployment : 
+    kubectl delete deployment nginx
+on verifie il n'y a plus de trace 
+    kubectl get deployments
+
