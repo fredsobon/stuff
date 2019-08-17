@@ -1,31 +1,47 @@
+---
 - hosts: k-master01
-  become: yes
+  gather_facts: False
   tasks:
-    - name: initialize the cluster
-      shell: kubeadm init --pod-network-cidr=10.124.0.0/16 >> cluster_initialized.txt
-      args:
-        chdir: $HOME
-        creates: cluster_initialized.txt
+      - name: Including the variables.
+        include_vars:
+            file: vars.yml
 
-    - name: create .kube directory
-      become: yes
-      become_user: boogie
-      file:
-        path: $HOME/.kube
-        state: directory
-        mode: 0755
+      - name: Initializing Kubernetes on the master.
+        become: yes
+        shell: kubeadm init --pod-network-cidr={{ calico_cidr }}/16 --ignore-preflight-errors=all
 
-    - name: copy admin.conf to user's kube config
-      copy:
-        src: /etc/kubernetes/admin.conf
-        dest: /home/boogie/.kube/config
-        remote_src: yes
-        owner: boogie
+      - name: create .kube directory
+        become: yes
+        become_user: boogie
+        file:
+          path: $HOME/.kube
+          state: directory
+          mode: 0755
 
-    - name: install Pod network
-      become: yes
-      become_user: boogie
-      shell: kubectl apply -f https://docs.projectcalico.org/v3.8/getting-started/kubernetes/installation/hosted/kubernetes-datastore/policy-only/1.7/calico.yaml>> pod_network_setup.txt
-      args:
-        chdir: $HOME
-        creates: pod_network_setup.txt
+      - name: copy admin.conf to user's kube config
+        copy:
+         src: /etc/kubernetes/admin.conf
+         dest: /home/boogie/.kube/config
+         remote_src: yes
+         owner: boogie
+
+      - name: Downloading the Calico Pod Network manifest.
+        get_url:
+            url: "{{ calico_policy_url }}"
+            dest: /tmp/calico.yml
+
+      - name: Modifying the Pod network CIDR for Calico.
+        replace:
+            path: /tmp/calico.yml
+            regexp: 192.168.0.0
+            replace: "{{ calico_cidr }}"
+
+      - name: Applying the Calico Pod Network to Kubernetes.
+        become: yes
+        become_user: boogie
+        shell: kubectl apply -f /tmp/calico.yml
+
+      - name: Deleting the Calico Pod Network manifest from disk.
+        file: 
+            path: /tmp/calico.yml
+            state: absent

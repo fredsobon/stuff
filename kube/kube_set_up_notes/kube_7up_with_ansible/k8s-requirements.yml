@@ -1,3 +1,4 @@
+---
 - hosts: all
   become: yes
   tasks:
@@ -5,8 +6,8 @@
 ## Repos setup  
    - name: add Docker apt-key
      apt_key:
-       url: https://download.docker.com/linux/debian/gpg
-       state: present
+      url: https://download.docker.com/linux/debian/gpg
+      state: present
 
    - name: add Docker's APT repository
      apt_repository:
@@ -14,16 +15,10 @@
       state: present
       filename: 'docker'
 
-   - name: install Docker
-     apt:
-       name: docker-ce
-       state: present
-       update_cache: true
-
    - name: add Kubernetes apt-key
      apt_key:
-       url: https://packages.cloud.google.com/apt/doc/apt-key.gpg
-       state: present
+      url: https://packages.cloud.google.com/apt/doc/apt-key.gpg
+      state: present
 
    - name: add Kubernetes' APT repository
      apt_repository:
@@ -56,7 +51,7 @@
      with_items:
       - bridge
       - br_netfilter
-      - overlay  
+      - overlay 
    - name: every reboot load bridge kernel modules
      copy:
       dest: "/etc/modules-load.d/k8s_bridge.conf"
@@ -85,36 +80,35 @@
    #here RH asks for reboot: https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/load_balancer_administration/s1-initial-setup-forwarding-vsa
      sysctl: name={{item.name}} value={{item.value}} state=present
      with_items:
-      - {name:  "net.bridge.bridge-nf-call-iptables", value: "1" }
-      - {name:  "net.bridge.bridge-nf-call-ip6tables", value: "1" }
-      - {name:  "net.ipv4.ip_forward", value: "1" }
-      - {name:  "net.ipv4.ip_nonlocal_bind", value: "1" }
+      - {name: "net.bridge.bridge-nf-call-iptables", value: "1" }
+      - {name: "net.bridge.bridge-nf-call-ip6tables", value: "1" }
+      - {name: "net.ipv4.ip_forward", value: "1" }
+      - {name: "net.ipv4.ip_nonlocal_bind", value: "1" }
 
 # optional setting for elastic memory settings :        
    - name: setup kernel parameters for eventual elasticsearch - reboot might be required, but we will not trigger
      #here RH asks for reboot: https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/load_balancer_administration/s1-initial-setup-forwarding-vsa
      sysctl: name={{item.name}} value={{item.value}} state=present
      with_items:
-      - {name:  "vm.max_map_count", value: "262144" }
+      - {name: "vm.max_map_count", value: "262144"}
 
 ## Kube pkgs section 
-
-   - name: install kubelet
+   - name: Updating the package repositories.
+     become: yes
      apt:
-       name: kubelet=1.15.0-00
-       state: present
-       update_cache: true
-
-   - name: install kubeadm
+      update_cache: yes
+   - name: Installing the required packages to bootstrap a kubernetes cluster.
+     become: yes
      apt:
-       name: kubeadm=1.15.0-00
-       state: present
-
-- hosts: k-master01
-  become: yes
-  tasks:
-   - name: install kubectl
-     apt:
-       name: kubectl=1.15.0-00
-       state: present
-       force: yes
+      name: ['docker-ce', 'kubelet', 'kubeadm', 'kubectl']
+   - name: Enabling the necessary Systemd modules.
+     become: yes
+     systemd: 
+      state: started
+      name: "{{ item }}"
+      enabled: yes
+     with_items:
+      - "docker"
+      - "kubelet"
+      - "qemu-guest-agent"
+      - "haveged"      
