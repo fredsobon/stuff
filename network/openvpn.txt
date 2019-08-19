@@ -1,7 +1,4 @@
-
 == notes openvpn : ==
-
-
 
 = difference mode routé et mode bridgé = 
 
@@ -29,7 +26,6 @@ ouvrir console management freebox
 on va desactiver la fragmentation des packets en décochant la case
 
 -> on va pouvoir récupérer le fichier de conf dédié à notre user pour  notre serveur vpn > download
-
 
 = activation client : =
 
@@ -69,3 +65,50 @@ boogie$ ip a ls tun0                                                            
     inet6 fe80::bf0e:4928:c252:b130/64 scope link stable-privacy 
        valid_lft forever preferred_lft forever
     
+
+= lancement command en cli : =
+
+on va pouvoir se connecter à notre server vpn en cli :
+
+ex : sudo openvpn notre_fichier_deconf
+
+
+= Connection multiples vpn : =
+
+pour nous connecter  à plusieurs vpn simultannément on va devoir nous assurer qu'ils n'utilisent pas la même interface : on aura sinon un conflit et seul le premier vpn lancé restera up.
+On examinera donc nos ifaces :
+boogie$ ip a ls tun0                                                                          [☸ kube-infra:default]
+6: tun0: <POINTOPOINT,MULTICAST,NOARP,UP,LOWER_UP> mtu 1422 qdisc pfifo_fast state UNKNOWN group default qlen 500
+    link/none
+    inet 10.201.12.76/32 scope global tun0
+       valid_lft forever preferred_lft forever
+    inet6 fe80::7d16:52d7:f071:8942/64 scope link stable-privacy
+       valid_lft forever preferred_lft forever
+
+si on a une interface tun0 de monter et utilisée alors on devra pour lancer notre second vpn definir une autre iface.
+
+par ex dans le fichier de conf de notre second vpn on change le nom de l'iface :
+dev tun7
+
+quand on lancera notre vpn on aura donc une seconde interface montée :
+
+6: tun0: <POINTOPOINT,MULTICAST,NOARP,UP,LOWER_UP> mtu 1422 qdisc pfifo_fast state UNKNOWN group default qlen 500
+    link/none
+    inet 10.184.10.77/32 scope global tun0
+       valid_lft forever preferred_lft forever
+    inet6 fe80::7d16:52d7:f071:8942/64 scope link stable-privacy
+       valid_lft forever preferred_lft forever
+7: tun7: <POINTOPOINT,MULTICAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UNKNOWN group default qlen 100
+    link/none
+    inet 192.168.27.65 peer 212.27.38.253/32 scope global tun7
+       valid_lft forever preferred_lft forever
+    inet6 2a01:e0a:109:4228::10/124 scope global
+       valid_lft forever preferred_lft forever
+    inet6 fe80::ced0:b801:679e:606c/64 scope link stable-privacy
+       valid_lft forever preferred_lft forever
+
+
+
+
+
+
