@@ -95,7 +95,6 @@ si on cherche le texte lapin nain dans quel document on a le plus de chance de l
 Elasticsearch est orienté document . Un document est l'unité de base qui sera indexée et présenté sous le format json.
 https://www.elastic.co/guide/en/elasticsearch/reference/6.1/_basic_concepts.html
 
-part2-ch5
 
 
 = Elastic basics : =
@@ -201,6 +200,101 @@ si on modifie un champ ou on reclic sur play on a une modif : "updated" apparait
   "_primary_term" : 1
 }
 
-Toutes les données qui commencent par "_" sont gérées par elastic.
+Toutes les données qui commencent par "_" sont gérées par elastic. ce sont des "meta field" ajoutés et managés par elastic.
+on voit aussi la section shard (que l'on etudiera plus tard)
+
+- GET :
+on va pouvoir recupérer nos données via la commandes :
+
+GET /vehicles/_doc/123
+{
+  "make": "honda",
+  "milage": "12000",
+  "color": "red"
+  
+}
+--> 
+{
+  "_index" : "vehicles",
+  "_type" : "_doc",
+  "_id" : "123",
+  "_version" : 7,
+  "result" : "updated",
+  "_shards" : {
+    "total" : 2,
+    "successful" : 1,
+    "failed" : 0
+  },
+  "_seq_no" : 6,
+  "_primary_term" : 2
+}
+
+Si on cherche un "type" qui n'existe pas dans notre index pas de surprise elasic ne le retournera pas : 
+
+on va pouvoir recuperer jusqu'en version 6 le contenu de notre document sans les metadata : en suffixant notre requette avec _source 
+
+- HEAD : 
+on peut recupérer le header de la requete comme en http classique :
+
+HEAD /vehicles/_doc/123  -> 200 - ok
+
+si on cherche une reference qui n'existe pas : 
+HEAD /vehicles/_doc/128   -> 404 - Not Found
+
+si on modifie un champ dans notre document : tout le document se trouve update et pas uniquement le champ concerné.
+le document est l'unité granulaire d'elastic.
+
+Les documents dans elastic sont "immutables"  (hash / tuple ..) 
+en changeant un champ dans le doc : on aura le num de version du doc incrémenté.
+
+Une API pour l'update existe on utilisera donc une syntaxe particuliere :
 
 
+Attention v7 only : 
+POST /vehicles/_update/123
+{
+  "doc": {
+  "color": "yellow"
+  }
+}
+
+--> 
+{
+  "_index" : "vehicles",
+  "_type" : "_doc",
+  "_id" : "123",
+  "_version" : 9,
+  "result" : "noop",
+  "_shards" : {
+    "total" : 0,
+    "successful" : 0,
+    "failed" : 0
+  }
+}
+
+
+L'update fait pareil que le post.
+
+- DELETE : pour supprimer un doc :
+
+DELETE /vehicles/_doc/123
+--> 
+{
+  "_index" : "vehicles",
+  "_type" : "_doc",
+  "_id" : "123",
+  "_version" : 10,
+  "result" : "deleted",
+  "_shards" : {
+    "total" : 2,
+    "successful" : 1,
+    "failed" : 0
+  },
+  "_seq_no" : 9,
+  "_primary_term" : 2
+}
+
+ch2v5 mnt21
+
+
+ddpart2-ch5
