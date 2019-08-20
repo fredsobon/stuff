@@ -97,3 +97,110 @@ https://www.elastic.co/guide/en/elasticsearch/reference/6.1/_basic_concepts.html
 
 part2-ch5
 
+
+= Elastic basics : =
+
+Dans un mode sgbd on stocke les données dans des tables, ligne et colonne.
+Dans elastic :
+-> les données sont stockées dans un index
+-> l'equivalent des lignes est un document dans elastic 
+-> l'equivalent d'une colonne est un champ dans elastic
+on peut donc avoir une equivalence  de type : 
+SGBD       ELASTIC
+table      index
+raw        document
+column     field 
+Attention cette comparaison est imagée et on a pas vraiment une correspondance stricte entre sgbd classic et elastic.
+
+/!\ Attention depuis la version 6 : les types disparaissent progressivement  d'elastic pour etre retirés en version 7 
+
+Quand on insere des données dans elastic on dis qu'on index.
+
+
+- Ajout de données :
+
+PUT /{index}/{type}/{id}      <<< attention en v7 on utilise plus le type 
+  {
+   "field1": "value1",
+   "field2": "value2",
+  }
+
+on aura un equivalent du type suivant pour la v7
+
+PUT /{index}/_doc/{id}
+{
+   "field1": "value1",
+   "field2": "value2",
+
+}
+
+ex: 
+PUT /vehicles/_doc/123
+{
+  "brand": "honda",
+  "color": "red"
+}
+
+
+Un type est une sous division d'index. 
+A partir de la version 6 on ne peut plus avoir plusieurs type d'index :
+ex :  avant la v6 : on pouvait avoir : 
+/vehicles/moto/121
+/vehicles/car/123
+/vehicles/truck/333
+    
+maintenant on aura qu'un seul type en v6 ..pour disparaitre en v7
+
+Il peut être conseillé de definir nous même un id au document que l'on va inserer : cela sera plus simple a retrouver sinon elastic en génére automatiquement un. 
+
+
+on va pouvoir utiliser la console de dev elastic dans kibana :
+
+- on cree un index avec un doc et une version (v7) 
+
+PUT /vehicles/_doc/123
+{
+  "make": "honda",
+  "milage": "12000",
+  "color": "red"
+
+}
+
+
+on clic sur play et on a le resultat en json :
+
+{
+  "_index" : "vehicles",
+  "_type" : "_doc",
+  "_id" : "123",
+  "_version" : 1,
+  "result" : "created",
+  "_shards" : {
+    "total" : 2,
+    "successful" : 1,
+    "failed" : 0
+  },
+  "_seq_no" : 4,
+  "_primary_term" : 1
+}
+
+si on modifie un champ ou on reclic sur play on a une modif : "updated" apparait et le num de version est incrémenté.
+
+{
+  "_index" : "vehicles",
+  "_type" : "_doc",
+  "_id" : "123",
+  "_version" : 2,
+  "result" : "updated",
+  "_shards" : {
+    "total" : 2,
+    "successful" : 1,
+    "failed" : 0
+  },
+  "_seq_no" : 4,
+  "_primary_term" : 1
+}
+
+Toutes les données qui commencent par "_" sont gérées par elastic.
+
+
