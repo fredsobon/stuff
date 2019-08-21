@@ -44,17 +44,88 @@ on peut ensuite se logguer en utilisant le user admin et le password récupéré
 http://192.168.99.100:30553/
 
 
-
 = elastic :
 
-on peut installer le chart elastic en local, apres avoir cloner le repo git :
-
-cd helm-charts/elasticsearch
-helm install --name elasticsearch  . --namespace elastic 
 
 NOTES:
 1. Watch all cluster members come up.
   $ kubectl get pods --namespace=elastic -l app=elasticsearch-master -w
 2. Test cluster health using Helm test.
   $ helm test elasticsearch
+
+
+
+= helm charts  =
+
+
+helm va utiliser des templates et on va pouvoir injecter dans un fichier les valeurs qui nous interesse pour un deploiment : les valeurs seront injectées dans les template et poussées lors du deploiement du chart : 
+
+on peut utiliser les charts officiel elastic dispo sur github : 
+https://github.com/elastic/helm-charts
+
+apres un git clone  on va dans le repo : 
+/home/boogie/Documents/work/repos_work/helm-charts
+
+on peut installer le chart elastic en local, apres avoir cloner le repo git :
+
+cd helm-charts/elasticsearch
+helm install --name elasticsearch  . --namespace elastic 
+
+
+On peut aussi vouloir modifier les valeurs fournies par defaut  par elastic 
+ ~/Documents/work/repos_work/helm-charts (master*) 
+boogie$ ls                                                                                                                                                                                                         
+CHANGELOG.md  CONTRIBUTING.md  elasticsearch  filebeat  helpers  kibana  LICENSE  metricbeat  README.md  requirements.txt
+boogie$ ls elasticsearch                                                                                                                                                                                          
+Chart.yaml  examples  Makefile  README.md  templates  tests  values.yaml
+
+
+Ex: ici on va vouloir changer le repo source de l'image et le num de version definie dans le fichier values.yaml :
+
+image: "artifact-lapin.net/elasticsearch/elasticsearch"
+imageTag: "7.3.0"
+imagePullPolicy: "IfNotPresent"
+
+on va egalement commenter la section relative au volume / volume claim car pour notre test nous ne voulons pas de stockage persistant. On va setter a false la persistence : 
+
+volumeClaimTemplate:
+  # accessModes: [ "ReadWriteOnce" ]
+    # resources:
+    #   requests:
+    #     storage: 30Gi
+  
+persistence:
+  enabled: false
+  annotations: {}
+
+
+pour info ces valeurs définies sont ensuite injectées dans le template elasticsearch/templates/statefulset.yaml :
+ex: 
+  selector:
+      matchLabels:
+        app: "{{ template "uname" . }}"
+    replicas: {{ default .Values.replicas }}
+    podManagementPolicy: {{ .Values.podManagementPolicy }}
+    updateStrategy:
+      type: {{ .Values.updateStrategy }}
+    {{- if .Values.persistence.enabled }}       <<<< on voit ici le test fait sur la ref de notre persistence. 
+    volumeClaimTemplates:
+    - metadata:
+        name: {{ template "uname" . }}
+      {{- with .Values.persistence.annotations  }}
+        annotations:
+  {{ toYaml . | indent 8 }}
+      {{- end }}
+
+
+
+
+On va ensuite pouvoir deployer notre chart de la maniere suivant : on donne un nom et on peut specifier un namespace qui servira a heberger notre appli 
+
+boogie$ helm install --name logging-elasticsearch elasticsearch/.  --namespace logging
+
+on peut upgrader egalement un chart déployé :
+
+si on a modifié une valeur dans notre yaml : 
+helm upgrade logging-kibana kibana/. -f kibana/values.yaml --namespace logging
 
