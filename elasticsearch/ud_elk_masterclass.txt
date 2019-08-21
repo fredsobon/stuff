@@ -271,9 +271,7 @@ POST /vehicles/_update/123
     "failed" : 0
   }
 }
-
-
-L'update fait pareil que le post.
+L'update fait pareil que le put.
 
 - DELETE : pour supprimer un doc :
 
@@ -294,7 +292,136 @@ DELETE /vehicles/_doc/123
   "_primary_term" : 2
 }
 
-ch2v5 mnt21
+Quand un doc est supprimé : elastic le mark comme deleted et une tache de fond interne va le supprimer effectivement completement via un mecanisme interne à elastic.
+L'espace disque n'est donc pas immédiatement récupéré : il attendre un peu avant de voir le volume occupé diminuer
+
+Quand on fait un GET sur un index , on recupere juste la structure de cet index.
+
+GET /vehicles
+--> 
+
+{
+  "vehicles" : {
+    "aliases" : { },
+    "mappings" : {
+      "properties" : {
+        "brand" : {
+          "type" : "text",
+          "fields" : {
+            "keyword" : {
+              "type" : "keyword",
+              "ignore_above" : 256
+            }
+          }
+        },
+        "color" : {
+          "type" : "text",
+          "fields" : {
+            "keyword" : {
+              "type" : "keyword",
+              "ignore_above" : 256
+            }
+          }
+        },
+        "make" : {
+          "type" : "text",
+          "fields" : {
+            "keyword" : {
+              "type" : "keyword",
+              "ignore_above" : 256
+            }
+          }
+        },
+        "milage" : {
+          "type" : "text",
+          "fields" : {
+            "keyword" : {
+              "type" : "keyword",
+              "ignore_above" : 256
+            }
+          }
+        }
+      }
+    },
+    "settings" : {
+      "index" : {
+        "creation_date" : "1566288372063",
+        "number_of_shards" : "1",
+        "number_of_replicas" : "1",
+        "uuid" : "6Etn6PwXS1qNCAaE0XMnnQ",
+        "version" : {
+          "created" : "7020199"
+        },
+        "provided_name" : "vehicles"
+      }
+    }
+  }
+}
+
+on voit qu'elastic a defini comme type text des infos qu'on a posté dans notre doc : ex text
+
+on peut biensur delete un index :
+
+DELETE /vehicles
+-->
+
+{
+  "acknowledged" : true
+}
+
+un get sur l'index supprimé retournera forcement une erreur : 
+GET /vehicles
+-->
+{
+  "error" : {
+    "root_cause" : [
+      {
+        "type" : "index_not_found_exception",
+        "reason" : "no such index [vehicles]",
+        "resource.type" : "index_or_alias",
+        "resource.id" : "vehicles",
+        "index_uuid" : "_na_",
+        "index" : "vehicles"
+      }
+    ],
+    "type" : "index_not_found_exception",
+    "reason" : "no such index [vehicles]",
+    "resource.type" : "index_or_alias",
+    "resource.id" : "vehicles",
+    "index_uuid" : "_na_",
+    "index" : "vehicles"
+  },
+  "status" : 404
+}
+
+= Analyse de text : =
+
+quand el index : il va recuperer les data et construire un index inversé puis injecter les data dans des shards.
+L'analyse de text est vraiement au coeur du process d'indexation 
+
+On va avoir des methode pour être le plus efficace possible :
+
+->on va supprimer de l'indexation les "stop words" : nom communb vraiment utilisés au maximum dans la langue : ex en anglais / us : the, and ...
+->on ne va pas tenir compte de la casse : on passe en mode casse insensitive
+->on va indexer les racines des mots : ex dans un text on a swimming, swimmers: on va indexer la racine swim
+->on va indexer les synonymes (ex: thin, skinny)
+
+ces actions sont associées / appellées "filtres".
+ces actions vont  permettre de réduire l'espace occupé par nos data, améliorer le temps de recherche
+on a donc deux phases dans l'indexation :
+tokenisation -> on isole les mots à indexer ( on supprime les espaces ..)
+filtre -> on va appliquer les differents filtres vu precedement
+
+pour resumer :
 
 
-ddpart2-ch5
+indexation :    ->            analyser:           ->            inverted index
+ text                        1/ tokenisation                            
+                             2 filtering
+
+ces etapes se passent egalement pour la recherche 
+
+si on recherche dans le text "the Thin"   on aura de trouvé dans notre index inversé : "thin" (tokenisation puis filtres suppression des stops words et case insensitive)
+
+ch2V7 min9
+
