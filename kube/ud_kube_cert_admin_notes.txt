@@ -5447,10 +5447,17 @@ pour rendre le service web  accessible au monde : on ajoute un NodePort en servi
 
 Biensur on va pouvoir faire une entree dns pour permettre aux users de saisir http://www.my-online-store.com:30880
 
+entrée dns de type www.my-online-store.com  <> node_ip
+
+
 on ne peut pas demander aux users de saisir un num de port et les services de kube distribuent des ports au dessus de 30000
 
 on va pouvoir rajouter une couche : un reverse proxy qui va rediriger les flux de www.my-online-store.com vers notre pod sur le port 30880
 on va rediriger notre entree dns de notre site vers le proxy 
+
+
+entrée dns de type www.my-online-store.com  <> proxy_ip
+
       http://www.my-online-store.com
 
       proxy 80
@@ -5462,6 +5469,9 @@ on va rediriger notre entree dns de notre site vers le proxy
 
    ^ service cluster ip pour exposer la db au service web 
    db 
+
+
+Cette conf est valable quand on heberge nos services.   
 
 Quand on utilise le cloud : un service   de type Loadbalancer est créee et un loadbalancer va être utiliser pour rediriger les flux
 
@@ -5510,7 +5520,6 @@ Il va être possible de gérer tout ceci dans le kube dans un objet :
 
 ingress permet d'acceder simplement a une ressource , implemente le ssl ..comme un lb layer7 
 
-
                       port 30880 
                ingress  :    https / lb
 
@@ -5518,23 +5527,22 @@ ingress permet d'acceder simplement a une ressource , implemente le ssl ..comme 
 
        wear wear wear             watch watch watch 
 
-
 en cluster héberger on va setter un node port , en cloud un port loadbalancer car on doit exposer le port de l'ingress pour l'exterrieuur      
-
+on devra donc exposer le port du service ingress comme pour un service habituel 
+ex: en hebergement : 
+  Node port 30880
+       ^ 
+  ingress service 
 
 plusieurs solutions d'ingress existent : nginx / haproxy /traeffic 
-
 on a un controller ingress ( ex : nginx ) : ingress-controller 
-
 et on a la conf dans laquelle on definie les urls, https etc ... : les rules  : ingress-ressources
 
 attention un ingres-controller n'est pas installer de base dans kube
-
 on doit en déployer un 
 
 nginx est supporté par kube - les regles de loadbalacing sont presentes dans le controller 
 on le créer sous forme de déploiement 
-
 
 apiVersion: extensions/V1beta1
 kind: Deployment
@@ -5644,9 +5652,14 @@ kind: ServiceAccount
 metadata: 
   name: nginx-ingress-serviceaccount
 
-ch9 V15 m 12  
+
+- ingress ressources :
+ce sont des set de rules et de config appliquées au controller ingress
+on va definir le routage simple vers un service, on va rediriger le traffic selon les urls vers les services associes, on peut rediriger les flux en fonction des noms de domaines ( ex on redirige vers wear.my-online-store.com ou watch.my-online-store.com ..)
 
 
+
+ch9 V15 m 13  
 
 
 
