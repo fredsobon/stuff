@@ -1,0 +1,79 @@
+==== memo cheatsheet kafka adm ====
+
+== topic ==
+
+- lister les topics :
+
+sudo /opt/kafka/bin/kafka-topics.sh --zookeeper localhost:2181 --list
+
+- decription de topic : 
+sudo /opt/kafka/bin/kafka-topics.sh --describe --zookeeper localhost:2181 --topic mytopic
+
+sudo /opt/kafka/bin/kafka-topics.sh --describe --zookeeper localhost:2181 --topic mytopic
+Topic:mytopic	PartitionCount:8	ReplicationFactor:2	Configs:
+	Topic: mytopic	Partition: 0	Leader: 1	Replicas: 1,2	Isr: 1,2
+	Topic: mytopic	Partition: 1	Leader: 2	Replicas: 2,1	Isr: 1,2
+	Topic: mytopic	Partition: 2	Leader: 3	Replicas: 3,4	Isr: 3,4
+	Topic: mytopic	Partition: 3	Leader: 4	Replicas: 4,3	Isr: 3,4
+	Topic: mytopic	Partition: 4	Leader: 1	Replicas: 1,2	Isr: 1,2
+	Topic: mytopic	Partition: 5	Leader: 2	Replicas: 2,1	Isr: 1,2
+	Topic: mytopic	Partition: 6	Leader: 3	Replicas: 3,4	Isr: 3,4
+	Topic: mytopic	Partition: 7	Leader: 4	Replicas: 4,3	Isr: 3,4
+
+- modifier le nombre de partition de notre topic  
+sudo /opt/kafka/bin/kafka-topics.sh --alter --zookeeper localhost:2181 --topic mytopic --partitions 3
+
+- modifier la retention de notre topic :
+sudo /opt/kafka/bin/kafka-topics.sh --zookeeper localhost:2181 --alter --topic mytopic --config retention.ms=28800000*
+
+
+- supprimer un topic :
+
+sudo /opt/kafka/bin/kafka-topics.sh --zookeeper localhost:2181 --delete --topic mytopic
+
+
+- purge de topic :
+
+-> sudo /opt/kafka/bin/kafka-topics.sh --zookeeper localhost:2181 --alter --topic mytopic --config retention.ms=1000
+attendre quelques secondes puis :
+-> sudo /opt/kafka/bin/kafka-topics.sh --zookeeper localhost:2181 --alter --topic mytopic --delete-config retention.ms
+
+
+- Connaitre l'offset le plus recent présent dans notre topic :
+sudo /opt/kafka/bin/kafka-run-class.sh kafka.tools.GetOffsetShell --broker-list localhost:9092 --topic mytopic --time -2
+
+- Connaitre l'offset le plus vieux présent dans notre topic :
+sudo /opt/kafka/bin/kafka-run-class.sh kafka.tools.GetOffsetShell --broker-list localhost:9092 --topic mytopic --time -1
+
+
+== partition ==
+
+- on peut verifier que nos topics sont bien assignés à des partitions et qu'ils sont bien répartis : 
+
+sudo /opt/kafka/bin/kafka-reassign-partitions.sh --zookeeper localhost:2181 --reassignment-json-file /opt/kafka/config/topology.json --verify 
+
+- on peut lancer / relancer une reassignation de partition si on a modifier notre topologie de cluser :
+
+sudo /opt/kafka/bin/kafka-reassign-partitions.sh --zookeeper localhost:2181 --reassignment-json-file /opt/kafka/config/topology.json --execute
+
+- on peut examiner les topics n'etant pas repliqués correctement :
+
+sudo /opt/kafka/bin/kafka-topics.sh --zookeeper localhost:2181 --describe --under-replicated-partitions
+
+
+- on peut lancer une reelection de leader  de maniere a assurer une repartition homogene de nos topics sur notre cluster avec un leader et des replicas :
+
+sudo /opt/kafka/bin/kafka-preferred-replica-election.sh --bootstrap-server localhost:9092
+
+
+
+== consumer ==
+
+- lister les groups de consumers :
+
+sudo /opt/kafka/bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 --list
+
+- Description d'un groupe de consumer :
+
+sudo /opt/kafka/bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 --describe --group mygroup
+
