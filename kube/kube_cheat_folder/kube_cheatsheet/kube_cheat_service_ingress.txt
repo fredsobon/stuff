@@ -1,0 +1,50 @@
+==== cheat sheets sur service ingress === 
+
+
+= services : 
+
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: bobsvc
+spec:
+  ports:
+  - port: 80          << port sur lequel le service sera disponible 
+    targetPort: 8080    << port du container vers lequel le service enverra le traffic
+  selector:
+    app: bob          << tous les pods ayant le label 'bob' feront parti du service et le kubeproxy forwardera le traffic vers chacun de ses pods
+
+examiner notre service crée :
+
+$ kubectl get svc
+NAME       CLUSTER-IP       EXTERNAL-IP    PORT(S)   AGE
+kubernetes  10.111.240.1    <none>         443/TCP    30d
+bobsvc       10.111.249.107  <node>         80/TCP      1m
+
+- executer une commande curl depuis un pod pour interroger un service :  
+
+$ kubectl exec kube-pod-1233 -- curl -s http://10.111.249.107
+hello world!
+
+on aura biensur auparavant recupérer l'ip de notre service  avec un kubectl get service (svc)  -n un name_space
+
+
+Le "--" de kubectl indique la fin de l'option de commande et que tout se qui est apres est la commande a executer depuis le pod.
+Ceci est optionnel si la commande que l'on passe n'a pas d'argument avec un "-" mais dans notre cas c'est necessaire : le -s d'option de curl serait interpreeté comme une option de kubectl exec et nous retournerait une erreur.
+
+
+Dans le  cas ou notre service redirige vers plusieurs pods : il peut être utile de sticker les requettes d'un client sur un pod en particulier : dans ce cas on va definir dans notre service une sessionAffinity qui peut prendre  deux valeurs : None / ClientIP
+
+
+apiVersion: v1
+kind: Service
+spec:
+sessionAffinity: ClientIP
+
+Dans le cas ou on set l'option : le kube proxy redirigera systematiquement les requettes de la même ip source vers le même pod.
+
+/!\ Attention il n'y a pas de mecanisme de cookie : kube n'agit qu'au niveau tcp/ udp : la payload http n'est pas pri en compte.
+
+
+
