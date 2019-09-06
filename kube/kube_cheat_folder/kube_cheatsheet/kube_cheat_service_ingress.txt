@@ -3,6 +3,10 @@
 
 = services : 
 
+- definition de service : 
+
+on va rendre disponible un service qui au sein de notre cluster va rediriger le traffic vers un /des pods
+
 
 apiVersion: v1
 kind: Service
@@ -46,5 +50,80 @@ Dans le cas ou on set l'option : le kube proxy redirigera systematiquement les r
 
 /!\ Attention il n'y a pas de mecanisme de cookie : kube n'agit qu'au niveau tcp/ udp : la payload http n'est pas pri en compte.
 
+
+
+- Multiples ports : 
+
+Si nos pods ecountent sur plusieurs ports on peut définir un service qui expose plusieurs ports :
+on peut par exemple definir un service qui va exposer les ports 80 et 443 qui seront redirigés respectivememnt vers les  pods  qui exposent les ports 80 et 443 :
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: bobsvc
+spec:
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080
+    - name: https
+      port: 443
+      targetPort: 8443
+  selector:
+    app: bob
+
+/!\ attention ici on voit qu'on a un selector qui pointe sur tous les ports : notre service sera vu comme une seule entité : si on veut agir sur les ports distinctement il faudra configfurer plusieurs services.
+
+- Utilisation des ports nommés : on va pouvoir définir les ports exposés par leur nom : ce qui peut être utilie pour des ports pas tres connus :
+ex on va definir dans notre pod des noms pour nos ports .
+ex :
+
+kind: Pod
+spec:
+  containers:
+    - name: boss
+  ports:
+    - name: http
+      containerPort: 8080
+    - name: https
+      containerPort: 8443
+
+
+ce qui va pouvoir être récupéré et utilisé dans notre service : 
+
+apiVersion: v1
+kind: Service
+spec:
+  ports:
+    - name: http
+      port: 80
+      targetPort: http    <<<< on va ici referencer le port de notre pod qui est en fait le 8080  : le port 80 de notre service redirige vers le http ( 8080 de notre pod)
+    - name: https
+      port: 443
+      targetPort: https   <<<< on va ici referencer le port de notre pod qui est en fait le 8443
+
+
+on va pouvoir ainsi modifier le port d"un pod de maniere transparente ..puisque notre service pointe sur un "alias" nommé de notre port .
+
+- Decouverte de services : 
+
+on va pouvoir decouvrit des services via différents mecanismes .
+
+-> variables d'environnement  :
+
+quand on crée des services avant les pods : ceux ci vont pouvoir récupérer les infos de services à leur instanciation : on peut le voir en interrogeant les variables d'environment poussées dans ces pods 
+
+kubectl exec pod-123 env 
+
+-> dns : 
+chaque service va avoir un enregistement dns qui pourra être intérrogé depuis un pod par exmemple
+
+
+/!\ Attention une ip de service n'est pas pingable : c'est une ip virtuelle qui n'a pas de sens sans le port associé.
+
+
+- Service externe au cluster :
+
+il va être utile de pouvoir acceder à des ressources externes au cluster  : du coup pas des service hébergés sur des pods mais des ips/ports externes au cluster. 
 
 
