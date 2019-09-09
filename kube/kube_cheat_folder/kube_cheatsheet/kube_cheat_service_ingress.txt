@@ -125,5 +125,72 @@ chaque service va avoir un enregistement dns qui pourra être intérrogé depuis
 - Service externe au cluster :
 
 il va être utile de pouvoir acceder à des ressources externes au cluster  : du coup pas des service hébergés sur des pods mais des ips/ports externes au cluster. 
+Nous allons donc pouvoir permettre à nos pods d'acceder à des ressources externes au cluster comme ils le font naturellment au sein du cluster.
+
+- Endpoints :
+
+on va voir dans la descriotion de nos services la présence de la section endpoint 
+
+ex avec l'api kube :
+
+boogie$ kubectl describe svc kubernetes                                                                                                            [☸ minikube:default]
+Name:              kubernetes
+Namespace:         default
+Labels:            component=apiserver
+                   provider=kubernetes
+Annotations:       <none>
+Selector:          <none>
+Type:              ClusterIP
+IP:                10.96.0.1
+Port:              https  443/TCP
+TargetPort:        8443/TCP
+Endpoints:         192.168.99.100:8443
+Session Affinity:  None
+Events:            <none>
+
+on peut interroger l'objet endpoint : 
+boogie$ kubectl get endpoints -o wide                                                                                                              [☸ minikube:default]
+NAME         ENDPOINTS             AGE
+kubernetes   192.168.99.100:8443   34d
+
+boogie$ kubectl describe endpoints kubernetes                                                                                                      [☸ minikube:default]
+Name:         kubernetes
+Namespace:    default
+Labels:       <none>
+Annotations:  <none>
+Subsets:
+  Addresses:          192.168.99.100
+  NotReadyAddresses:  <none>
+  Ports:
+    Name   Port  Protocol
+    ----   ----  --------
+    https  8443  TCP
+
+Events:  <none>
+
+
+On a biensur lors de service habituels des listes entiere d'ip port 
+
+Bien que le pod selector est défini dans le service : ce n'est pas ditrectement utilisé pour rediriger le traffic . Le selector est utilisé pour construire une liste ip:port qu'il va stocker dans la section endpoint 
+
+Quand un client se connecte a un service : le kube-proxy recupere la liste des endpoints et redirige le flux vers les pods en ecoute. 
+
+Attention : si on crer manuellement un service sans pod selector  ..kube ne remplira pas la section endpoint: en effet il faut savoir ou rediriger le flux.
+Il faut si on le fait manuellement en laissant vide la section endpoint : créer un fichier service et un fichier endpoint.
+Le fichier endpoint et service doivent porter le même nom.
+
+- externalName service :
+au lieu de créer un service externe en configurant les endpoint on peut faire plus simple en utilisant le fqdn : on va créer un alias à notre service externe.
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: external-service      <<<< ici on cree notre service
+spec:
+  type: ExternalName
+  externalName: someapi.somecompany.com   <<< ici le fqdn de notre ressource externe 
+  ports:
+  - port: 80
+
 
 
