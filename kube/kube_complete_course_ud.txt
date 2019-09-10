@@ -1,0 +1,139 @@
+=== notes the complete kubernetes course  ===
+
+= ch1 intro =
+
+- Commandes utiles  : 
+
+- se plugger a une pod en cours d'excution : 
+kubectl attach podname   
+
+ kubectl attach nodehelloworld.example.com                                                                                                  [☸ minikube:default]
+Defaulting container name to k8s-demo.
+Use 'kubectl describe pod/nodehelloworld.example.com -n default' to see all of the containers in this pod.
+If you don't see a command prompt, try pressing enter.
+
+- execution de commande au sein d'un pod :
+
+boogie$ kubectl exec debian-pod -- ip a                                                                                                        [☸ minikube:default]
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+2: sit0@NONE: <NOARP> mtu 1480 qdisc noop state DOWN group default qlen 1000
+    link/sit 0.0.0.0 brd 0.0.0.0
+12: eth0@if13: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default
+    link/ether 02:42:ac:11:00:05 brd ff:ff:ff:ff:ff:ff link-netnsid 0
+    inet 172.17.0.5/16 brd 172.17.255.255 scope global eth0
+       valid_lft forever preferred_lft forever
+
+boogie$ kubectl -it exec debian-pod -- bash                                                                                                        [☸ minikube:default]
+root@debian-pod:/# date
+Tue Sep 10 19:28:13 UTC 2019
+
+
+- port forwarding : on va pouvoir rediriger un port de notre machine vers le port d'un pod ecoutant dessus :
+boogie$ kubectl port-forward nodehelloworld.example.com 8080:3000                                                                [☸ minikube:default]
+Forwarding from [::1]:8080 -> 3000
+
+sur notre poste :
+curl http://localhost:8080                            [☸ minikube:default]
+{
+  "paths": [
+    "/api",
+    "/api/v1",
+    "/apis",
+    "/apis/",
+    "/apis/admissionregistration.k8s.io",
+...
+boogie$ kubectl logs nodehelloworld.example.com               [☸ minikube:default]
+npm info it worked if it ends with ok
+npm info using npm@2.15.11
+npm info using node@v4.6.2
+npm info prestart myapp@0.0.1
+npm info start myapp@0.0.1
+
+> myapp@0.0.1 start /app
+> node index.js
+
+Example app listening at http://:::3000
+
+
+
+
+
+
+- premiers manifests :
+
+
+pod :
+boogie$ cat first-app/helloworld.yml                                                                                                               [☸ minikube:default]
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nodehelloworld.example.com
+  labels:
+    app: helloworld
+spec:
+  containers:
+  - name: k8s-demo
+    image: wardviaene/k8s-demo
+    ports:
+    - name: nodejs-port
+      containerPort: 3000
+
+service avec node port qui va matcher le container du pod précédent 
+
+boogie$ cat first-app/helloworld-nodeport-service.yml                                                                                              [☸ minikube:default]
+apiVersion: v1
+kind: Service
+metadata:
+  name: helloworld-service
+spec:
+  ports:
+  - port: 31001
+    nodePort: 31001
+    targetPort: nodejs-port
+    protocol: TCP
+  selector:
+    app: helloworld
+  type: NodePort
+
+
+=== ch2 bases ===
+
+- nodes :
+
+kubelet -> pilote les set up de container dans les pods
+kubeproxy > va s'occuper du routage des pods : permettre a tous les pods d'être contactables depuis le cluster et hors cluster en alimentant les regles iptables 
+
+- replication controller : 
+
+pour un appli stateless ( qui n'ecrit dans aucun fichier local ) pas d'etat : on va facilement pouvoir scaler.
+La plupart des applis web sont stateless contrairement aux dbs qui sont stateful 
+Attention pour les infrmations de sessions users web doivent être stockées hors containers.
+Aucun fichier ne doit être sauvegarder dans un pod qui de part leur nature sont ephémeres.
+
+On va scaller avec un object s'appelant replication controller : on defini le nombre de pod qu'on veut et kube s'assure que le nombre de ses containers actifs est toujours présent. Le container sera toujours recréee si il est delete ou ko 
+
+boogie$ cat replication-controller/helloworld-repl-controller.yml                                                                                  [☸ minikube:default]
+apiVersion: v1
+kind: ReplicationController
+metadata:
+  name: helloworld-controller
+spec:
+  replicas: 2      <<< on defini le nombre de réplica
+  selector:
+    app: helloworld  <<< le selector va matcher les pods ayant le label app: helloworld
+  template:
+    metadata:
+      labels:
+        app: helloworld    <<<< le label de notre pod
+    spec:
+      containers:
+      - name: k8s-demo
+        image: wardviaene/k8s-demo
+        ports:
+        - name: nodejs-port      <<< on defini un nom a notre port pour l'identifier plus facilement lors d'appels ulterieurs (utiles pour les ports moins connus que 80 /443 par ex)
+          containerPort: 3000
+
+ch2 028
