@@ -158,7 +158,7 @@ helloworld-controller-ndlrd   1/1     Running   1          11h
 
 on peut scale en live le nombre de réplicat :
 
-ex: 
+->on peut passer le fichier de replica en argumant en specifiant le nombre de pod désiré avant : 
 boogie$ kubectl scale --replicas=3 -f helloworld-repl-controller.yml                                                                               [☸ minikube:default]
 replicationcontroller/helloworld-controller scaled
  ~/Documents/learn/kubernetes/learn-devops-the-complete-kubernetes-course/kubernetes-course/replication-controller (master) [10:00:37]
@@ -168,4 +168,98 @@ debian-pod                    1/1     Running   9          36d
 helloworld-controller-fxhs8   1/1     Running   0          5m8s
 helloworld-controller-ndlrd   1/1     Running   1          11h
 helloworld-controller-qw6c4   1/1     Running   0          6s
-ch2 28
+
+->  on peut directement modifier le type d'objet replicationcontroller ( rc ) en le passant en argument :
+ex : on reduit le nombre de pod en utilisant le nom du rc qu'on recupere avant avec un get rc :
+ ~ [10:17:32]
+boogie$ kubectl get rc                                                                                                                             [☸ minikube:default]
+NAME                    DESIRED   CURRENT   READY   AGE
+helloworld-controller   3         3         3       11h
+
+
+boogie$ kubectl scale --replicas=1 rc/helloworld-controller                                                                                        [☸ minikube:default]
+replicationcontroller/helloworld-controller scaled
+ ~ [10:19:40]
+boogie$ kubectl get pod                                                                                                                            [☸ minikube:default]
+NAME                          READY   STATUS             RESTARTS   AGE
+debian-pod                    1/1     Running            10         36d
+helloworld-controller-fxhs8   0/1     ImagePullBackOff   0          24m
+boogie$ kubectl get rc                                                                                                                             [☸ minikube:default]
+NAME                    DESIRED   CURRENT   READY   AGE
+helloworld-controller   1         1         0       11h
+
+Biensur nous scallons de maniere horizontale notre appli c'est qu'elle est stateless 
+
+on peut delete notre replicationcontroller facilement :
+
+boogie$ kubectl delete rc helloworld-controller                                                                                                    [☸ minikube:default]
+replicationcontroller "helloworld-controller" deleted
+ ~ [10:22:41]
+boogie$ kubectl get rc                                                                                                                             [☸ minikube:default]
+No resources found.
+ ~ [10:22:43]
+boogie$ kubectl get pod                                                                                                                            [☸ minikube:default]
+NAME                          READY   STATUS        RESTARTS   AGE
+debian-pod                    1/1     Running       10         36d
+helloworld-controller-fxhs8   0/1     Terminating   0          27m
+
+
+/!\ missing v 29/30/31 ....
+
+
+
+
+
+
+
+v32 demo service 
+
+
+
+oogie$ cat first-app/helloworld.yml                                                                                                               [☸ minikube:default]
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nodehelloworld.example.com
+  labels:
+    app: helloworld
+spec:
+  containers:
+  - name: k8s-demo
+    image: wardviaene/k8s-demo
+    ports:
+    - name: nodejs-port
+      containerPort: 3000
+
+boogie$ cat first-app/helloworld-nodeport-service.yml                                                                                              [☸ minikube:default]
+apiVersion: v1
+kind: Service
+metadata:
+  name: helloworld-service
+spec:
+  ports:
+  - port: 31001
+    nodePort: 31001
+    targetPort: nodejs-port
+    protocol: TCP
+  selector:
+    app: helloworld
+  type: NodePort
+
+kubectl create -f first-app/helloworld.yml
+kubectl create -f first-app/helloworld-nodeport-service.yml
+
+boogie$ kubectl get svc                                                                                                                            [☸ minikube:default]
+NAME                 TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)           AGE
+helloworld-service   NodePort    10.106.205.39   <none>        31001:31001/TCP   13h
+kubernetes           ClusterIP   10.96.0.1       <none>        443/TCP           36d
+
+on recupere le couple ip/port exposé dans minikube 
+boogie$ minikube service helloworld-service --url                                                                                                  [☸ minikube:default]
+http://192.168.99.100:31001
+
+on voit sur notre poste qu'un reseau est monté dans le range :
+boogie$ ip a |grep vboxnet3                                                                                                                        [☸ minikube:default]
+8: vboxnet3: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
+    inet 192.168.99.1/24 brd 192.168.99.255 scope global vboxnet3
+
