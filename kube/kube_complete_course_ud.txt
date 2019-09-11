@@ -136,4 +136,36 @@ spec:
         - name: nodejs-port      <<< on defini un nom a notre port pour l'identifier plus facilement lors d'appels ulterieurs (utiles pour les ports moins connus que 80 /443 par ex)
           containerPort: 3000
 
-ch2 028
+
+On voit qu"on a bien deux pods issus de notre replication controller : 
+
+boogie$ kubectl get pod                                                                                                                            [☸ minikube:default]
+NAME                          READY   STATUS    RESTARTS   AGE
+debian-pod                    1/1     Running   9          36d
+helloworld-controller-dv92r   1/1     Running   1          11h
+helloworld-controller-ndlrd   1/1     Running   1          11h
+
+si on delete un pod : le controller va en réinstancier un automatiquement :
+
+boogie$ kubectl delete pod helloworld-controller-dv92r                                                                                             [☸ minikube:default]
+pod "helloworld-controller-dv92r" deleted
+
+boogie$ kubectl get pod                                                                                                                            [☸ minikube:default]
+NAME                          READY   STATUS    RESTARTS   AGE
+debian-pod                    1/1     Running   9          36d
+helloworld-controller-fxhs8   1/1     Running   0          36s   <<< on voit ici qu'un nouveau pod a été popé pour remplacer celui qui a été détruit.
+helloworld-controller-ndlrd   1/1     Running   1          11h
+
+on peut scale en live le nombre de réplicat :
+
+ex: 
+boogie$ kubectl scale --replicas=3 -f helloworld-repl-controller.yml                                                                               [☸ minikube:default]
+replicationcontroller/helloworld-controller scaled
+ ~/Documents/learn/kubernetes/learn-devops-the-complete-kubernetes-course/kubernetes-course/replication-controller (master) [10:00:37]
+boogie$ kubectl get pod                                                                                                                            [☸ minikube:default]
+NAME                          READY   STATUS    RESTARTS   AGE
+debian-pod                    1/1     Running   9          36d
+helloworld-controller-fxhs8   1/1     Running   0          5m8s
+helloworld-controller-ndlrd   1/1     Running   1          11h
+helloworld-controller-qw6c4   1/1     Running   0          6s
+ch2 28
