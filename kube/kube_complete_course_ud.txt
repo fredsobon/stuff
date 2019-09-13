@@ -204,11 +204,233 @@ debian-pod                    1/1     Running       10         36d
 helloworld-controller-fxhs8   0/1     Terminating   0          27m
 
 
-/!\ missing v 29/30/31 ....
+- Deployment : 
+
+on va d'abord  voir le replicaset qui est la version maintenue par kube puisque le replication  controller est deprecated.
+on va pouvoir dans cet object utiliser des selectors qui vont nous permettre de filtrer de manière plus étendu qu'avec les replicationcontroller qui se contentaient de pouvoir fournir des filtres d'egalite ( ex :env: prod) 
+
+le replicaset est utilisé dans l'object deployment : le deployment va nous permettre de déployer des app, de les updater . On defini un status pour notre appli et kube assure que ce status est bien up and running.
+L'object deployment est plus facile a utiliser que le replicatcontroller / replicaset , demande moins d'intervention manuelle et offre plus de possiblilitées.
+
+-> create un deployment
+-> update un deployment 
+-> rolling update : deployment sans impact
+-> rollback a une version donnée
+-> pause / resume : deployment d'un certain pourcentage de nos pods.
+
+cat deployment/helloworld.yml 
+
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: helloworld-deployment
+spec:
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: helloworld
+    spec:
+      containers:
+      - name: k8s-demo
+        image: wardviaene/k8s-demo
+        ports:
+        - name: nodejs-port
+          containerPort: 3000
+
+- deployments commandes :
+
+- kubectl get deployments
+- kubectl get rs ( replicaset)
+- kubectl get pods --show-labels                                                                                                             [☸ minikube:default]
+NAME                         READY   STATUS    RESTARTS   AGE    LABELS
+debian-pod                   1/1     Running   13         38d    <none>
+nodehelloworld.example.com   1/1     Running   2          2d5h   app=helloworld
+
+- kubectl rollout status  deployment/helloworld-deployment  : etat du deployment 
+- kubectl set image deployment/helloworld-deployment k8s-demo=k8s-demo:2 run k8s-demo avec l'image k8s-demo:2 du label
+- kubectl edit deployment/helloworld-deployment  : edition du deployment 
+- kubectl rollout history deployment/helloworld-deployment  permet de  voir l'historique des versions déployées.
+- kubectl rollout undo  deployment/helloworld-deployment permet de rollback sur la version déployée précédemment.
+- kubectl rollout undo  deployment/helloworld-deployment --to-revision=N permet de rollback sur la version N déployée précédemment.
 
 
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: helloworld-deployment
+spec:
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: helloworld
+    spec:
+      containers:
+      - name: k8s-demo
+        image: wardviaene/k8s-demo
+        ports:
+        - name: nodejs-port
+          containerPort: 3000
+
+ kubectl create -f deployment/helloworld.yml
+
+boogie$ kubectl get deployments                                                                                                                    [☸ minikube:default]
+NAME                    READY   UP-TO-DATE   AVAILABLE   AGE
+helloworld-deployment   3/3     3            3           2m8s
+
+boogie$ kubectl get replicasets                                                                                                                    [☸ minikube:default]
+NAME                               DESIRED   CURRENT   READY   AGE
+helloworld-deployment-748f49d795   3         3         3       2m20s
 
 
+boogie$ kubectl get pods --show-labels                                                                                                             [☸ minikube:default]
+NAME                                     READY   STATUS    RESTARTS   AGE     LABELS
+debian-pod                               1/1     Running   13         38d     <none>
+helloworld-deployment-748f49d795-56h2r   1/1     Running   0          3m26s   app=helloworld,pod-template-hash=748f49d795
+helloworld-deployment-748f49d795-n4fnd   1/1     Running   0          3m26s   app=helloworld,pod-template-hash=748f49d795
+helloworld-deployment-748f49d795-rvczv   1/1     Running   0          3m26s   app=helloworld,pod-template-hash=748f49d795
+nodehelloworld.example.com               1/1     Running   2          2d5h    app=helloworld
+
+-> check de l'etat du deployment : 
+boogie$ kubectl rollout status deployment helloworld-deployment                                                                                    [☸ minikube:default]
+deployment "helloworld-deployment" successfully rolled out
+
+-> modification de l'image utilisée : deploy d'une nouvelle version de notre app: 
+boogie$ kubectl set image deployment/helloworld-deployment k8s-demo=wardviaene/k8s-demo:2                                                          [☸ minikube:default]
+deployment.extensions/helloworld-deployment image updated
+boogie$ kubectl get pods  --show-labels                                                                                                            [☸ minikube:default]
+NAME                                     READY   STATUS        RESTARTS   AGE    LABELS
+debian-pod                               1/1     Running       13         38d    <none>
+helloworld-deployment-748d88f59f-8xw74   1/1     Running       0          36s    app=helloworld,pod-template-hash=748d88f59f
+helloworld-deployment-748d88f59f-pwzl9   1/1     Running       0          30s    app=helloworld,pod-template-hash=748d88f59f
+helloworld-deployment-748d88f59f-zh27v   1/1     Running       0          36s    app=helloworld,pod-template-hash=748d88f59f
+helloworld-deployment-748f49d795-56h2r   1/1     Terminating   0          11m    app=helloworld,pod-template-hash=748f49d795
+helloworld-deployment-748f49d795-n4fnd   1/1     Terminating   0          11m    app=helloworld,pod-template-hash=748f49d795
+nodehelloworld.example.com               1/1     Running       2          2d5h   app=helloworld
+
+
+boogie$ kubectl describe pod helloworld-deployment-748d88f59f-pwzl9                                                                                [☸ minikube:default]
+Name:           helloworld-deployment-748d88f59f-pwzl9
+Namespace:      default
+Priority:       0
+Node:           minikube/10.0.2.15
+Start Time:     Fri, 13 Sep 2019 16:24:16 +0200
+Labels:         app=helloworld
+                pod-template-hash=748d88f59f
+Annotations:    <none>
+Status:         Running
+IP:             172.17.0.15
+Controlled By:  ReplicaSet/helloworld-deployment-748d88f59f
+Containers:
+  k8s-demo:
+    Container ID:   docker://6d211169aa8da1588bf5a96d01e6df1e19646e53142e41f8030a1391a25abfc4
+    Image:          wardviaene/k8s-demo:2
+    Image ID:       docker-pullable://wardviaene/k8s-demo@sha256:c7536949ff900fb7dc923cf9f2475d1209766c65aa07325caf880e754e7e0fae
+    Port:           3000/TCP
+    Host Port:      0/TCP
+    State:          Running
+      Started:      Fri, 13 Sep 2019 16:24:18 +0200
+    Ready:          True
+    Restart Count:  0
+    Environment:    <none>
+    Mounts:
+      /var/run/secrets/kubernetes.io/serviceaccount from default-token-wfc8r (ro)
+Conditions:
+  Type              Status
+  Initialized       True 
+  Ready             True 
+  ContainersReady   True 
+  PodScheduled      True 
+Volumes:
+  default-token-wfc8r:
+    Type:        Secret (a volume populated by a Secret)
+    SecretName:  default-token-wfc8r
+    Optional:    false
+QoS Class:       BestEffort
+Node-Selectors:  <none>
+Tolerations:     node.kubernetes.io/not-ready:NoExecute for 300s
+                 node.kubernetes.io/unreachable:NoExecute for 300s
+Events:
+  Type    Reason     Age   From               Message
+  ----    ------     ----  ----               -------
+  Normal  Scheduled  61s   default-scheduler  Successfully assigned default/helloworld-deployment-748d88f59f-pwzl9 to minikube
+  Normal  Pulling    60s   kubelet, minikube  Pulling image "wardviaene/k8s-demo:2"
+  Normal  Pulled     59s   kubelet, minikube  Successfully pulled image "wardviaene/k8s-demo:2"
+  Normal  Created    59s   kubelet, minikube  Created container k8s-demo
+  Normal  Started    59s   kubelet, minikube  Started container k8s-demo
+
+on a donc notre nouvelle appli déployée.
+
+- Eamen de l'historique des versions déployés :
+
+boogie$ kubectl rollout history  deployment/helloworld-deployment                                                                                  [☸ minikube:default]
+deployment.extensions/helloworld-deployment
+REVISION  CHANGE-CAUSE
+1         <none>
+2         <none>
+
+on va pouvoir rollback et revenir a notre version précédente : 
+boogie$ kubectl rollout undo  deployment/helloworld-deployment                                                                                     [☸ minikube:default]
+deployment.extensions/helloworld-deployment rolled back
+
+le rollback se passe bien ; 
+boogie$ kubectl rollout status  deployment/helloworld-deployment                                                                                   [☸ minikube:default]
+Waiting for deployment "helloworld-deployment" rollout to finish: 2 of 3 updated replicas are available...
+deployment "helloworld-deployment" successfully rolled out
+
+on voit nos différents  pods : 
+ ~/Documents/learn/kubernetes/learn-devops-the-complete-kubernetes-course/kubernetes-course (master) [04:32:27]
+boogie$ kubectl get pods  --show-labels                                                                                                            [☸ minikube:default]
+NAME                                     READY   STATUS        RESTARTS   AGE     LABELS
+debian-pod                               1/1     Running       13         38d     <none>
+helloworld-deployment-748d88f59f-8xw74   1/1     Terminating   0          8m22s   app=helloworld,pod-template-hash=748d88f59f
+helloworld-deployment-748d88f59f-pwzl9   1/1     Terminating   0          8m16s   app=helloworld,pod-template-hash=748d88f59f
+helloworld-deployment-748d88f59f-zh27v   1/1     Terminating   0          8m22s   app=helloworld,pod-template-hash=748d88f59f
+helloworld-deployment-748f49d795-fp79k   1/1     Running       0          11s     app=helloworld,pod-template-hash=748f49d795
+helloworld-deployment-748f49d795-gp8qd   1/1     Running       0          11s     app=helloworld,pod-template-hash=748f49d795
+helloworld-deployment-748f49d795-lddvl   1/1     Running       0          8s      app=helloworld,pod-template-hash=748f49d795
+nodehelloworld.example.com               1/1     Running       2          2d5h    app=helloworld
+
+on peut changer le nombre d'historique de version conservé de notre déployment :
+avec le param revisionHistoryLimit: XX que l'on set dans notre déployment : 
+  spec:
+    progressDeadlineSeconds: 2147483647
+    replicas: 3
+    revisionHistoryLimit: 100
+    selector:
+      matchLabels:
+        app: helloworld
+
+on peut rollnack 
+boogie$ kubectl rollout undo  deployment/helloworld-deployment                                                                                     [☸ minikube:default]
+deployment.extensions/helloworld-deployment rolled back
+ ~/Documents/learn/kubernetes/learn-devops-the-complete-kubernetes-course/kubernetes-course (master) [04:42:17]
+boogie$ kubectl rollout history deployment                                                                                                         [☸ minikube:default]
+deployment.extensions/helloworld-deployment 
+REVISION  CHANGE-CAUSE
+4         <none>
+
+- on utilise une nouvelle image : 
+boogie$ kubectl set image deployment/helloworld-deployment k8s-demo=wardviaene/k8s-demo:1                                                          [☸ minikube:default]
+deployment.extensions/helloworld-deployment image updated
+
+~/Documents/learn/kubernetes/learn-devops-the-complete-kubernetes-course/kubernetes-course (master) [04:48:45]
+boogie$ kubectl rollout status  deployment/helloworld-deployment                                                                                   [☸ minikube:default]
+Waiting for deployment "helloworld-deployment" rollout to finish: 2 out of 3 new replicas have been updated...
+
+on voit qu'on a plusieurs versions historisées : 
+boogie$ kubectl rollout history  deployment/helloworld-deployment
+deployment.extensions/helloworld-deployment 
+REVISION  CHANGE-CAUSE
+4         <none>
+5         <none>
+6         <none>
+7         <none>
+
+on peut donc forcer le rollback dans une version particulière : 
+boogie$ kubectl rollout undo  deployment/helloworld-deployment --to-revision=5                                                                     [☸ minikube:default]
+deployment.extensions/helloworld-deployment rolled back
 
 
 
@@ -262,4 +484,7 @@ on voit sur notre poste qu'un reseau est monté dans le range :
 boogie$ ip a |grep vboxnet3                                                                                                                        [☸ minikube:default]
 8: vboxnet3: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
     inet 192.168.99.1/24 brd 192.168.99.255 scope global vboxnet3
+
+
+
 
