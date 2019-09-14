@@ -101,12 +101,12 @@ spec:
 
 === ch2 bases ===
 
-- nodes :
+= nodes :
 
 kubelet -> pilote les set up de container dans les pods
 kubeproxy > va s'occuper du routage des pods : permettre a tous les pods d'être contactables depuis le cluster et hors cluster en alimentant les regles iptables 
 
-- replication controller : 
+= replication controller : 
 
 pour un appli stateless ( qui n'ecrit dans aucun fichier local ) pas d'etat : on va facilement pouvoir scaler.
 La plupart des applis web sont stateless contrairement aux dbs qui sont stateful 
@@ -204,7 +204,7 @@ debian-pod                    1/1     Running       10         36d
 helloworld-controller-fxhs8   0/1     Terminating   0          27m
 
 
-- Deployment : 
+= Deployment : 
 
 on va d'abord  voir le replicaset qui est la version maintenue par kube puisque le replication  controller est deprecated.
 on va pouvoir dans cet object utiliser des selectors qui vont nous permettre de filtrer de manière plus étendu qu'avec les replicationcontroller qui se contentaient de pouvoir fournir des filtres d'egalite ( ex :env: prod) 
@@ -433,10 +433,24 @@ boogie$ kubectl rollout undo  deployment/helloworld-deployment --to-revision=5  
 deployment.extensions/helloworld-deployment rolled back
 
 
+= services : 
 
-v32 demo service 
+les pods sont éphémeres  par nature :( detruits pendant les déployments etc ..)  nous ne devons pas acceder directement à eux : une couche intermédiaire est défini pour relier les clients ( au sens large: services, end-users ) aux services portés par les pods .
+quand on utilise kubectl expose : on crée un service popur notre pod qui pourra être atteind de l'exterrieur .
+Quand on crée un service on va créer un endpoint pour nos pods 
+On peut utiliser plusieurs conf :
 
+-> clusterip : ip uniquement accésible dans notre cluster kube ( c'est la conf de base si on ne précise rien : de base on crée un service en clusterip )
+-> nodeport: c'est un port identique sur tous les nodes de notre cluster pour atteindre le service de l'exterrieur : on va utiliser un port situé dans un range entre 30000et 32267 pour faire matcher le port du pod sur le nodeport qui lui sera sticker sur le /les nodes de notre cluster.
+-> loadbalancer : c'est utilisé dans le cloud. on va router le traffic externe vers le nodeport de nos nodes kube 
 
+Les options montrées permettrent uniquement le creation de virtualsip ou de ports
+
+on peut utiliser des entrées dns 
+ExternalName peut fournir un nom dns a nos services.
+ex : service discovery pour le dns.
+
+-  service demo : 
 
 oogie$ cat first-app/helloworld.yml                                                                                                               [☸ minikube:default]
 apiVersion: v1
@@ -485,6 +499,391 @@ boogie$ ip a |grep vboxnet3                                                     
 8: vboxnet3: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
     inet 192.168.99.1/24 brd 192.168.99.255 scope global vboxnet3
 
+
+on voit en examinant le service crée qu'on a bien un service de type NodePort et une ClusterIp : cette ip n'est joignable que de notre cluster.
+
+boogie$ kubectl get svc                                                                                                                            [☸ minikube:default]
+NAME                 TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)           AGE
+helloworld-service   NodePort    10.109.171.91   <none>        31001:31001/TCP   3m14s
+kubernetes           ClusterIP   10.96.0.1       <none>        443/TCP           38d
+
+La ClusterIp est une ip virtuelle qui change si on delete et on recree notre service . On peut fixer l'ip si on veut dans le yaml de notre service .
+Comme pour le port static qu'on défini si on veut dans notre yaml
+
+= labels : 
+
+les labels sont des paires clé /valeurs qui peuvent être attachées à un object.
+Ils sont utilisés pour tagguer les objects.
+On peut taguer un pod par exemple en mettant un label de type key: environment valeur: dev/ prod ...
+On peut mettre plusieurs labels sur un object : on peut rajouter sur notre pod précédent un label de type key: department / valeur: finance / it ...
+Une fois que le/s label/s est /sont attachés a un object on va pouvoir les utiliser pour filtrer nos besoins en utilisant un selector.
+Un label selector peut utiliser des regexp pour matcher notre object
+ex: on peut dire qu'un pod ne doit tourner que dur un node avec le label environment equal dev ,  ou environment equal 'dev' or 'qa'
+
+On va pouvoir tagger un node puis dire qu'un pod ira uniquement sur un node contenant le label : ceci se fera grace au nodeSelector qu'on ajoutera dans notre config.
+
+- nodes labels :
+
+ex :on peut ajouter un tag en cli :
+
+boogie$ kubectl label node minikube environment=lab                                                                                                                                                                      [☸ minikube:default]
+node/minikube labeled
+
+on peut voir notre label :
+
+boogie$ kubectl get nodes --show-labels                                                                                                                                                                                  [☸ minikube:default]
+NAME       STATUS   ROLES    AGE   VERSION   LABELS
+minikube   Ready    master   39d   v1.15.0   beta.kubernetes.io/arch=amd64,beta.kubernetes.io/os=linux,environment=lab,kubernetes.io/arch=amd64,kubernetes.io/hostname=minikube,kubernetes.io/os=linux,node-role.kubernetes.io/master=
+
+On va pouvoir ensuite définir un pod en specifiant qu'il doit s"executer uniquement sur les nodes flaggués lab :
+
+  ---
+  apiVersion: v1
+  kind: Pod
+  metadata:
+    name: nodehelloworld.example.com
+    labels:
+      app: helloworld
+  spec:
+    containers:
+   - name: k8s-demo
+      image: wardviaene/k8s-demo
+      ports:
+   - name: nodejs-port
+        containerPort: 3000
+   nodeSelector:
+      environment: lab
+
+Tant qu'un node avec le tag environment: lab n'existe pas alors notre object ne peut pas démarré.
+
+
+= healthcheck :
+
+On peut avoir un pod démarré mais qui ne répond pas vraiment : l'appli est donc ko. Il faut pouvoir nous assurer que le pod est bien  fonctionnel.
+
+Pour detecter et resoudre des pb de fonctionnemnt on va ajouter un healtchcheck 
+
+2 types existent :
+-> lancer une commande périodiquement 
+-> executer un check http sur une url
+
+
+
+boogie$ cat deployment/helloworld-healthcheck.yml                                               [☸ minikube:default]
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: helloworld-deployment
+spec:
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: helloworld
+    spec:
+      containers:
+      - name: k8s-demo
+        image: wardviaene/k8s-demo
+        ports:
+        - name: nodejs-port
+          containerPort: 3000
+        livenessProbe:    <<< definition de la section du healthcheck 
+          httpGet:        <<<< check http
+            path: /       <<<<  on fait un get sur / 
+            port: nodejs-port  <<< sur le port nodejs-port defini dans la section de notre notre pod 
+          initialDelaySeconds: 15  <<<< on attend 15 secondes avant le premier check 
+          timeoutSeconds: 30    <<<< on considere que le pod est ko apres 30 secondes sans réponse.
+
+On voit quand on affiche la description du pod apres le deployment la section de la sonde :
+
+..
+    Liveness:       http-get http://:nodejs-port/ delay=15s timeout=30s period=10s #success=1 #failure=3
+...
+Quand on edite le déployment poussé dans kube on voit le detail que kube ajoute pour les healtchcheck 
+
+    spec:
+        containers:
+>>      - image: wardviaene/k8s-demo
+          imagePullPolicy: Always
+          livenessProbe:
+            failureThreshold: 3   <<< nombre d'occurence de fail conisdérer en critical : le pod sera détruit et unn ouveau lancé
+            httpGet:
+              path: /
+              port: nodejs-port
+              scheme: HTTP
+            initialDelaySeconds: 15
+            periodSeconds: 10  <<<< frequence de check 
+            successThreshold: 1   <<< nombre de fois ou le check est considérer comme ok 
+            timeoutSeconds: 30
+
+
+= readiness probe :
+
+On a vu que le healtcheck va servir a verifier l'etat du pod : si celui ci est ko alors kube en redemarre un
+Une readiness probe va nous assurer que le pod est bien pret a servir les requettes . Si le test est ko alors le pod n'est pas redémarré et son ip est supprimée de la liste des ip des pods du service. 
+
+Au demarrage de notre object ( pod ,deployment ..) : l'object pourra être running mais pas ready : tant que la sonde de readiness ne sera pas passé et aura considérer le pod ok puis que répondant aux requettes.
+On va mettre conjointement readiness et healtcheck dans la def de nos objects :
+boogie$ cat deployment/helloworld-liveness-readiness.yml                                        [☸ minikube:default]
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: helloworld-readiness
+spec:
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: helloworld
+    spec:
+      containers:
+      - name: k8s-demo
+        image: wardviaene/k8s-demo
+        ports:
+        - name: nodejs-port
+          containerPort: 3000
+        livenessProbe:
+          httpGet:
+            path: /
+            port: nodejs-port
+          initialDelaySeconds: 15
+          timeoutSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /
+            port: nodejs-port
+          initialDelaySeconds: 15
+          timeoutSeconds: 30
+
+NAME                                  READY   STATUS    RESTARTS   AGE
+helloworld-readiness-dc8fc5bc-d9phj   0/1     Running   0          11s
+helloworld-readiness-dc8fc5bc-gm6kx   0/1     Running   0          11s
+helloworld-readiness-dc8fc5bc-tcwbx   0/1     Running   0          11s
+
+
+= pods states :
+
+
+les pods peuvent avoir plusieurs status :
+
+
+-> running : ils sont en cours d'execution
+-> pending : en cours de creation ( recup d'image , attente de ressources définie dans l'object : label , memoire ,cpu .. resources ...) 
+-> succeeded : tous les pods ont été correctement déployés
+-> failed : les containers dans le pod sont en etat terminated et au moins un container a renvoyé un code retour d'erreur.
+-> unknow : impossible de connaitre l'etat
+
+on peut connaitre les differentes etapes que le pod a connu en faisant un 
+kubectl describe pod mon pod 
+
+- pods conditions : il y a differentes conditions 
+
+-> podScheduled : le pod a été schedule sur un node
+-> Ready : le pod est pret a servir du traffic et va etre ajouté pour matcher un service 
+-> initialized : les containers du pod sont initialisés correctement
+-> unschedulable : les pod ne peuvent pas être dispatcher : pb de contrainte de ressource ( ex pod devant etre sur un node avec 2T de ram de libre ...) 
+-> containersready : les onctainers du pod sont prets
+
+on peut avoir aussi l'etat du container avec :
+
+boogie$ kubectl get pod helloworld-readiness-dc8fc5bc-tcwbx -n default -o yaml                  [☸ minikube:default]
+apiVersion: v1
+kind: Pod
+metadata:
+  ....
+
+  containerStatuses:
+  - containerID: docker://95e9a8c9afc2092471107fa066acaf567613c4c71da186f5ef3aa3016e53cbcc
+    image: wardviaene/k8s-demo:latest
+    imageID: docker-pullable://wardviaene/k8s-demo@sha256:2c050f462f5d0b3a6430e7869bcdfe6ac48a447a89da79a56d0ef61460c7ab9e
+    lastState: {}
+    name: k8s-demo
+    ready: true
+    restartCount: 0
+    ....
+
+Les containers  peuvent être en running / terminated ou waiting
+
+
+exemple de fichier comportant deux containers , et deux hooks servant a differents moment de la vie de notre container :
+
+
+-> un init container va être utiliser pour la prépartion d'element pour l'acceuil de notre pod :
+ex : on lance un init container pour préparer un volume qui sera ensuite monter par le pod principal.
+
+Ici dans notre exemple l'init container va juste tourner quelques seconde ..puis laisser la main au hook, au second container puis au second hook : 
+
+
+boogie$ cat pod-lifecycle/lifecycle.yaml                                                        [☸ minikube:default]
+kind: Deployment
+apiVersion: apps/v1beta1
+metadata:
+  name: lifecycle
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: lifecycle
+    spec:
+      initContainers:
+      - name:           init
+        image:          busybox
+        command:       ['sh', '-c', 'sleep 10']
+      containers:
+      - name: lifecycle-container
+        image: busybox
+        command: ['sh', '-c', 'echo $(date +%s): Running >> /timing && echo "The app is running!" && /bin/sleep 120']
+        readinessProbe:
+          exec:
+            command: ['sh', '-c', 'echo $(date +%s): readinessProbe >> /timing']
+          initialDelaySeconds: 35
+        livenessProbe:
+          exec:
+            command: ['sh', '-c', 'echo $(date +%s): livenessProbe >> /timing']
+          initialDelaySeconds: 35
+          timeoutSeconds: 30
+        lifecycle:
+          postStart:
+            exec:
+              command: ['sh', '-c', 'echo $(date +%s): postStart >> /timing && sleep 10 && echo $(date +%s): end postStart >> /timing']
+          preStop:
+            exec:
+              command: ['sh', '-c', 'echo $(date +%s): preStop >> /timing && sleep 10']
+
+
+quand on lance on obtient plusieurs etats : 
+
+-> notre init container se lance : 
+NAME                         READY   STATUS     RESTARTS   AGE
+lifecycle-86977b4c47-d7hh2   0/1     Init:0/1   0          5s
+
+-> notre second container se lance : les post et pré hook s'executent : 
+NAME                         READY   STATUS            RESTARTS   AGE
+lifecycle-86977b4c47-d7hh2   0/1     PodInitializing   0          16s
+
+NAME                         READY   STATUS    RESTARTS   AGE
+lifecycle-86977b4c47-d7hh2   0/1     Running   0          28s
+
+NAME                         READY   STATUS             RESTARTS   AGE
+lifecycle-86977b4c47-d7hh2   0/1     CrashLoopBackOff   1          4m36s
+
+NAME                         READY   STATUS    RESTARTS   AGE
+lifecycle-86977b4c47-d7hh2   0/1     Running   2          4m55s
+
+
+jusqu'a ce que le nombre de heatlcheck ko soient arrivés au max et que le pod ne soit plus redémarré.
+
+
+
+= Secrets : 
+
+les secrets dans kube vont permettre de passer des credentials, password , data à nos pods.
+kube utilise les mêmes mecanismes pour passer des secret a l'api 
+On peut utiliser des solutions externes à kube pour passer des secrets à nos apps (vault etc ...) mais les Secrets sont la méthode native de kube.
+
+On peut utiliser les Secrets :
+-> en variable d'environment 
+-> en fichier plat : qui seront dans un volume monté par le pod et donc accessible 
+-> utilisation d'une registry pour stocker les secrets : une image contenant les secrets sera pull et utilisée par un pod ..(?)
+
+- generation de secret depuis un fichier :
+
+
+boogie$ echo -n "root" > ./username.txt                                                         [☸ minikube:default]
+ ~/Documents/learn/kubernetes/learn-devops-the-complete-kubernetes-course/kubernetes-course (master*) [11:11:13]
+boogie$ echo -n "password" > ./password.tx
+boogie$ kubectl create secret generic db-user-pass --from-file=./username.txt --from-file=./password.txt
+secret/db-user-pass created
+
+- generation d'un secret depuis un cle ssh  , un cert tls : 
+
+boogie$ kubectl create secret generic ssl-certificate --from-file=ssh-privatekey=~/.ssh/id_rsa  --ssl-cert=mysslcert.c (KO)
+
+
+- Generation depuis un yaml :
+
+on va encoder nos credentials via base64 
+
+boogie$ echo -n "root" |base64                                                                  [☸ minikube:default]
+cm9vdA==
+boogie$ echo -n "password" |base64                                                              [☸ minikube:default]
+cGFzc3dvcmQ=
+
+secret-data.yaml
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: app-secret
+data: 
+   password: cGFzc3dvcmQ=
+   username: cm9vdA==
+
+Une fois qu'on a créer nos secret on va pouvoir les utiliser 
+
+On va pouvoir les utiliser de différentes manieres 
+
+- variables d'env :
+on defini l'appel dans notre pod : 
+
+...
+ env:
+   - name: SECRET USERNAME   
+     ValueFrom:            <<<<<<<<  on va donc maintenant rattacher les valeurs definis dans notre secret au pod
+      - secretRef:
+        name: app-secret
+        key: username 
+
+- on defini un volume:
+
+boogie$ cat deployment/helloworld-secrets-volumes.yml                                           [☸ minikube:default]
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: helloworld-deployment
+spec:
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: helloworld
+    spec:
+      containers:
+      - name: k8s-demo
+        image: wardviaene/k8s-demo
+        ports:
+        - name: nodejs-port
+          containerPort: 3000
+        volumeMounts:
+        - name: cred-volume
+          mountPath: /etc/creds
+          readOnly: true
+      volumes:
+      - name: cred-volume
+        secret: 
+          secretName: db-secrets
+
+
+
+
+On peut voir quand on crée nos ressources , en examinant un pod que notre fichier secret est défini :
+
+
+kubectl describe pod helloworld-deployment-6b6585d49c-d6748                             [☸ minikube:default]
+Name:           helloworld-deployment-6b6585d49c-d6748
+..
+    Mounts:
+      /etc/creds from cred-volume (ro)   <<<< c'est le point de montage 
+      /var/run/secrets/kubernetes.io/serviceaccount from default-token-wfc8r (ro)
+
+On va examiner depuis notre pod et voir que les secrets sont présents dans le point de montage défini : 
+
+boogie$ kubectl exec -it helloworld-deployment-6b6585d49c-d6748 -- bash                         [☸ minikube:default]
+root@helloworld-deployment-6b6585d49c-d6748:/app# ls
+Dockerfile  docker-compose.yml	index-db.js  index.js  misc  node_modules  package.json
+passwordroot@helloworld-deployment-6b6585d49c-d6748:/app# ls /etc/creds/          
+password  username
 
 
 

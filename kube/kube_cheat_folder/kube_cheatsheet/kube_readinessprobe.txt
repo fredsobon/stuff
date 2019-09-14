@@ -1,0 +1,53 @@
+= notes readiness probe : =
+
+On a vu que le healtcheck va servir a verifier l'etat du pod : si celui ci est ko alors kube en redemarre un
+Une readiness probe va nous assurer que le pod est bien pret a servir les requettes . Si le test est ko alors le pod
+n'est pas redémarré et son ip est supprimée de la liste des ip des pods du service.
+Au demarrage de notre object ( pod ,deployment ..) : l'object pourra être running mais pas ready : tant que la sonde
+de readiness ne sera pas passé et aura considérer le pod ok puis que répondant aux requettes.
+On va mettre conjointement readiness et healtcheck dans la def de nos objects :
+boogie$ cat deployment/helloworld-liveness-readiness.yml                                        [☸ minikube:default]
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: helloworld-readiness
+spec:
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: helloworld
+    spec:
+      containers:
+      - name: k8s-demo
+        image: wardviaene/k8s-demo
+        ports:
+        - name: nodejs-port
+          containerPort: 3000
+        livenessProbe:
+          httpGet:
+            path: /
+            port: nodejs-port
+          initialDelaySeconds: 15
+          timeoutSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /
+            port: nodejs-port
+          initialDelaySeconds: 15
+          timeoutSeconds: 30
+
+ NAME                                  READY   STATUS    RESTARTS   AGE
+helloworld-readiness-dc8fc5bc-d9phj   0/1     Running   0          11s
+helloworld-readiness-dc8fc5bc-gm6kx   0/1     Running   0          11s
+helloworld-readiness-dc8fc5bc-tcwbx   0/1     Running   0          11s
+
+
+puis ...
+NAME                                  READY   STATUS    RESTARTS   AGE
+helloworld-readiness-dc8fc5bc-d9phj   1/1     Running   0          33s
+helloworld-readiness-dc8fc5bc-gm6kx   1/1     Running   0          33s
+helloworld-readiness-dc8fc5bc-tcwbx   1/1     Running   0          33s
+
+
+

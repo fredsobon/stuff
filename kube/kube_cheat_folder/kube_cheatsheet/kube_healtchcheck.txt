@@ -1,0 +1,53 @@
+== notes healthcheck : 
+
+On peut avoir un pod démarré mais qui ne répond pas vraiment : l'appli est donc ko. Il faut pouvoir nous assurer que l
+e pod est bien  fonctionnel.
+
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: helloworld-deployment
+spec:
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: helloworld
+    spec:
+      containers:
+      - name: k8s-demo
+        image: wardviaene/k8s-demo
+        ports:
+        - name: nodejs-port
+          containerPort: 3000
+        livenessProbe:    <<< definition de la section du healthcheck
+          httpGet:        <<<< check http
+            path: /       <<<<  on fait un get sur /
+            port: nodejs-port  <<< sur le port nodejs-port defini dans la section de notre notre pod
+          initialDelaySeconds: 15  <<<< on attend 15 secondes avant le premier check
+          timeoutSeconds: 30    <<<< on considere que le pod est ko apres 30 secondes sans réponse.
+
+
+On voit la description du pod apres le deployment la section de la sonde :
+
+..
+    Liveness:       http-get http://:nodejs-port/ delay=15s timeout=30s period=10s #success=1 #failure=3
+
+Quand on edite le déployment poussé dans kube on voit le detail que kube ajoute pour les healtchcheck
+
+    spec:
+        containers:
+>>      - image: wardviaene/k8s-demo
+          imagePullPolicy: Always
+          livenessProbe:
+            failureThreshold: 3   <<< nombre d'occurence de fail conisdérer en critical : le pod sera détruit et unn
+ouveau lancé
+            httpGet:
+              path: /
+              port: nodejs-port
+              scheme: HTTP
+            initialDelaySeconds: 15
+            periodSeconds: 10  <<<< frequence de check
+            successThreshold: 1   <<< nombre de fois ou le check est considérer comme ok
+            timeoutSeconds: 30
+

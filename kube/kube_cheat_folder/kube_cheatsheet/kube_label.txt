@@ -1,0 +1,42 @@
+=== notes labels kube ===
+
+
+on peut ajouter un ou des labels
+on peut ajouter un ou des labels a un node 
+Le filtrage se fera en utilisant des selector ou des nodeSelector dans le cas d'un pod devant être déployé sur un node particulier 
+On peut filtrer la seclection de notre object via des selector en utilisant des regexp 
+
+
+- label : 
+on peut le setter en cli : 
+boogie$ kubectl label node minikube environment=lab                                                                                                                                                                   
+node/minikube labeled
+
+On va selectionner notre node ensuite dans la def de notre object :
+On peut verifier que notre label est bien posé :
+
+boogie$ kubectl get nodes --show-labels                                                                                                                                                                                  [☸ minikube:default]
+NAME       STATUS   ROLES    AGE   VERSION   LABELS
+minikube   Ready    master   39d   v1.15.0   beta.kubernetes.io/arch=amd64,beta.kubernetes.io/os=linux,environment=lab,kubernetes.io/arch=amd64,kubernetes.io/hostname=minikube,kubernetes.io/os=linux,node-role.kubernetes.io/master=
+
+
+  ---
+  apiVersion: v1
+  kind: Pod
+  metadata:
+    name: nodehelloworld.example.com
+    labels:
+      app: helloworld
+  spec:
+    containers:
+   - name: k8s-demo
+      image: wardviaene/k8s-demo
+      ports:
+   - name: nodejs-port
+        containerPort: 3000
+   nodeSelector:
+      environment: lab
+
+
+Tant qu'un node avec le tag environment: lab n'existe pas alors notre object ne peut pas démarré.
+
