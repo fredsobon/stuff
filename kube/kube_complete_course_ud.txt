@@ -58,12 +58,7 @@ npm info start myapp@0.0.1
 Example app listening at http://:::3000
 
 
-
-
-
-
 - premiers manifests :
-
 
 pod :
 boogie$ cat first-app/helloworld.yml                                                                                                               [☸ minikube:default]
@@ -108,7 +103,7 @@ kubeproxy > va s'occuper du routage des pods : permettre a tous les pods d'être
 
 = replication controller : 
 
-pour un appli stateless ( qui n'ecrit dans aucun fichier local ) pas d'etat : on va facilement pouvoir scaler.
+pour une appli stateless ( qui n'ecrit dans aucun fichier local ) pas d'etat : on va facilement pouvoir scaler.
 La plupart des applis web sont stateless contrairement aux dbs qui sont stateful 
 Attention pour les infrmations de sessions users web doivent être stockées hors containers.
 Aucun fichier ne doit être sauvegarder dans un pod qui de part leur nature sont ephémeres.
@@ -159,6 +154,7 @@ helloworld-controller-ndlrd   1/1     Running   1          11h
 on peut scale en live le nombre de réplicat :
 
 ->on peut passer le fichier de replica en argumant en specifiant le nombre de pod désiré avant : 
+
 boogie$ kubectl scale --replicas=3 -f helloworld-repl-controller.yml                                                                               [☸ minikube:default]
 replicationcontroller/helloworld-controller scaled
  ~/Documents/learn/kubernetes/learn-devops-the-complete-kubernetes-course/kubernetes-course/replication-controller (master) [10:00:37]
@@ -176,10 +172,10 @@ boogie$ kubectl get rc                                                          
 NAME                    DESIRED   CURRENT   READY   AGE
 helloworld-controller   3         3         3       11h
 
-
 boogie$ kubectl scale --replicas=1 rc/helloworld-controller                                                                                        [☸ minikube:default]
 replicationcontroller/helloworld-controller scaled
  ~ [10:19:40]
+
 boogie$ kubectl get pod                                                                                                                            [☸ minikube:default]
 NAME                          READY   STATUS             RESTARTS   AGE
 debian-pod                    1/1     Running            10         36d
@@ -189,12 +185,12 @@ NAME                    DESIRED   CURRENT   READY   AGE
 helloworld-controller   1         1         0       11h
 
 Biensur nous scallons de maniere horizontale notre appli c'est qu'elle est stateless 
-
 on peut delete notre replicationcontroller facilement :
 
 boogie$ kubectl delete rc helloworld-controller                                                                                                    [☸ minikube:default]
 replicationcontroller "helloworld-controller" deleted
  ~ [10:22:41]
+
 boogie$ kubectl get rc                                                                                                                             [☸ minikube:default]
 No resources found.
  ~ [10:22:43]
@@ -362,7 +358,7 @@ Events:
 
 on a donc notre nouvelle appli déployée.
 
-- Eamen de l'historique des versions déployés :
+- Examen de l'historique des versions déployés :
 
 boogie$ kubectl rollout history  deployment/helloworld-deployment                                                                                  [☸ minikube:default]
 deployment.extensions/helloworld-deployment
@@ -371,10 +367,12 @@ REVISION  CHANGE-CAUSE
 2         <none>
 
 on va pouvoir rollback et revenir a notre version précédente : 
+
 boogie$ kubectl rollout undo  deployment/helloworld-deployment                                                                                     [☸ minikube:default]
 deployment.extensions/helloworld-deployment rolled back
 
 le rollback se passe bien ; 
+
 boogie$ kubectl rollout status  deployment/helloworld-deployment                                                                                   [☸ minikube:default]
 Waiting for deployment "helloworld-deployment" rollout to finish: 2 of 3 updated replicas are available...
 deployment "helloworld-deployment" successfully rolled out
@@ -402,10 +400,10 @@ avec le param revisionHistoryLimit: XX que l'on set dans notre déployment :
       matchLabels:
         app: helloworld
 
-on peut rollnack 
+on peut rollback : 
 boogie$ kubectl rollout undo  deployment/helloworld-deployment                                                                                     [☸ minikube:default]
 deployment.extensions/helloworld-deployment rolled back
- ~/Documents/learn/kubernetes/learn-devops-the-complete-kubernetes-course/kubernetes-course (master) [04:42:17]
+
 boogie$ kubectl rollout history deployment                                                                                                         [☸ minikube:default]
 deployment.extensions/helloworld-deployment 
 REVISION  CHANGE-CAUSE
@@ -415,7 +413,6 @@ REVISION  CHANGE-CAUSE
 boogie$ kubectl set image deployment/helloworld-deployment k8s-demo=wardviaene/k8s-demo:1                                                          [☸ minikube:default]
 deployment.extensions/helloworld-deployment image updated
 
-~/Documents/learn/kubernetes/learn-devops-the-complete-kubernetes-course/kubernetes-course (master) [04:48:45]
 boogie$ kubectl rollout status  deployment/helloworld-deployment                                                                                   [☸ minikube:default]
 Waiting for deployment "helloworld-deployment" rollout to finish: 2 out of 3 new replicas have been updated...
 
@@ -429,6 +426,7 @@ REVISION  CHANGE-CAUSE
 7         <none>
 
 on peut donc forcer le rollback dans une version particulière : 
+
 boogie$ kubectl rollout undo  deployment/helloworld-deployment --to-revision=5                                                                     [☸ minikube:default]
 deployment.extensions/helloworld-deployment rolled back
 
@@ -452,7 +450,7 @@ ex : service discovery pour le dns.
 
 -  service demo : 
 
-oogie$ cat first-app/helloworld.yml                                                                                                               [☸ minikube:default]
+boogie$ cat first-app/helloworld.yml                                                                                                               [☸ minikube:default]
 apiVersion: v1
 kind: Pod
 metadata:
@@ -606,7 +604,7 @@ Quand on edite le déployment poussé dans kube on voit le detail que kube ajout
 >>      - image: wardviaene/k8s-demo
           imagePullPolicy: Always
           livenessProbe:
-            failureThreshold: 3   <<< nombre d'occurence de fail conisdérer en critical : le pod sera détruit et unn ouveau lancé
+            failureThreshold: 3   <<< nombre d'occurence de fail conisdérer en critical : le pod sera redémarré
             httpGet:
               path: /
               port: nodejs-port
@@ -793,6 +791,7 @@ On peut utiliser les Secrets :
 boogie$ echo -n "root" > ./username.txt                                                         [☸ minikube:default]
  ~/Documents/learn/kubernetes/learn-devops-the-complete-kubernetes-course/kubernetes-course (master*) [11:11:13]
 boogie$ echo -n "password" > ./password.tx
+
 boogie$ kubectl create secret generic db-user-pass --from-file=./username.txt --from-file=./password.txt
 secret/db-user-pass created
 
@@ -821,7 +820,6 @@ data:
    username: cm9vdA==
 
 Une fois qu'on a créer nos secret on va pouvoir les utiliser 
-
 On va pouvoir les utiliser de différentes manieres 
 
 - variables d'env :
@@ -865,10 +863,7 @@ spec:
           secretName: db-secrets
 
 
-
-
 On peut voir quand on crée nos ressources , en examinant un pod que notre fichier secret est défini :
-
 
 kubectl describe pod helloworld-deployment-6b6585d49c-d6748                             [☸ minikube:default]
 Name:           helloworld-deployment-6b6585d49c-d6748
@@ -884,6 +879,365 @@ root@helloworld-deployment-6b6585d49c-d6748:/app# ls
 Dockerfile  docker-compose.yml	index-db.js  index.js  misc  node_modules  package.json
 passwordroot@helloworld-deployment-6b6585d49c-d6748:/app# ls /etc/creds/          
 password  username
+
+- Cas pratique : set up wordpress en stateless ( perte de données des que notre pod est ko )
+
+
+ ~/Documents/learn/kubernetes/learn-devops-the-complete-kubernetes-course/kubernetes-course (master*) [10:05:49]
+boogie$ cat wordpress/wordpress-secrets.yml                                                     [☸ minikube:default]
+apiVersion: v1
+kind: Secret
+metadata:
+  name: wordpress-secrets
+type: Opaque
+data:
+  db-password: cGFzc3dvcmQ=
+ ~/Documents/learn/kubernetes/learn-devops-the-complete-kubernetes-course/kubernetes-course (master*) [10:06:03]
+boogie$ cat wordpress/wordpress-single-deployment-no-volumes.yml                                [☸ minikube:default]
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: wordpress-deployment
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: wordpress
+    spec:
+      containers:
+      - name: wordpress
+        image: wordpress:4-php7.0
+        ports:
+        - name: http-port
+          containerPort: 80
+        env:
+          - name: WORDPRESS_DB_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: wordpress-secrets
+                key: db-password
+          - name: WORDPRESS_DB_HOST
+            value: 127.0.0.1
+      - name: mysql
+        image: mysql:5.7
+        ports:
+        - name: mysql-port
+          containerPort: 3306
+        env:
+          - name: MYSQL_ROOT_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: wordpress-secrets
+                key: db-password
+
+
+boogie$ kubectl create -f  wordpress/wordpress-single-deployment-no-volumes.yml
+
+boogie$ kubectl get pod                                                                         [☸ minikube:default]
+NAME                                    READY   STATUS              RESTARTS   AGE
+wordpress-deployment-58cd589c6c-bncrs   0/2     ContainerCreating   0          9s
+ ~/Documents/learn/kubernetes/learn-devops-the-complete-kubernetes-course/kubernetes-course (master*) [10:07:38]
+boogie$ kubectl describe pod wordpress-deployment-58cd589c6c-bncrs                              [☸ minikube:default]
+Name:           wordpress-deployment-58cd589c6c-bncrs
+Namespace:      default
+Priority:       0
+Node:           minikube/10.0.2.15
+Start Time:     Sun, 15 Sep 2019 10:07:29 +0200
+Labels:         app=wordpress
+                pod-template-hash=58cd589c6c
+Annotations:    <none>
+Status:         Pending
+IP:
+Controlled By:  ReplicaSet/wordpress-deployment-58cd589c6c
+Containers:
+  wordpress:
+    Container ID:
+    Image:          wordpress:4-php7.0
+    Image ID:
+    Port:           80/TCP
+    Host Port:      0/TCP
+    State:          Waiting
+      Reason:       ContainerCreating
+    Ready:          False
+    Restart Count:  0
+    Environment:
+      WORDPRESS_DB_PASSWORD:  <set to the key 'db-password' in secret 'wordpress-secrets'>  Optional: false
+      WORDPRESS_DB_HOST:      127.0.0.1
+    Mounts:
+      /var/run/secrets/kubernetes.io/serviceaccount from default-token-wfc8r (ro)
+  mysql:
+    Container ID:
+    Image:          mysql:5.7
+    Image ID:
+    Port:           3306/TCP
+    Host Port:      0/TCP
+    State:          Waiting
+      Reason:       ContainerCreating
+    Ready:          False
+    Restart Count:  0
+    Environment:
+      MYSQL_ROOT_PASSWORD:  <set to the key 'db-password' in secret 'wordpress-secrets'>  Optional: false
+    Mounts:
+      /var/run/secrets/kubernetes.io/serviceaccount from default-token-wfc8r (ro)
+Conditions:
+  Type              Status
+  Initialized       True
+  Ready             False
+  ContainersReady   False
+  PodScheduled      True
+Volumes:
+  default-token-wfc8r:
+    Type:        Secret (a volume populated by a Secret)
+    SecretName:  default-token-wfc8r
+    Optional:    false
+QoS Class:       BestEffort
+Node-Selectors:  <none>
+Tolerations:     node.kubernetes.io/not-ready:NoExecute for 300s
+                 node.kubernetes.io/unreachable:NoExecute for 300s
+Events:
+  Type    Reason     Age   From               Message
+  ----    ------     ----  ----               -------
+  Normal  Scheduled  21s   default-scheduler  Successfully assigned default/wordpress-deployment-58cd589c6c-bncrs to minikube
+  Normal  Pulling    20s   kubelet, minikube  Pulling image "wordpress:4-php7.0"
+
+on va créer un service qui va nous permettre d'atteindre notre appli :
+
+boogie$ cat wordpress/wordpress-service.yml                                                     [☸ minikube:default]
+apiVersion: v1
+kind: Service
+metadata:
+  name: wordpress-service
+spec:
+  ports:
+  - port: 31001
+    nodePort: 31001
+    targetPort: http-port
+    protocol: TCP
+  selector:
+    app: wordpress
+  type: NodePort
+
+on a donc un nodeport et le port 31001 de notre host va rediriger vers le port http-port de notre pod :
+
+boogie$ kubectl create -f wordpress/wordpress-service.yml                                       [☸ minikube:default]
+service/wordpress-service created
+boogie$ kubectl get svc                                                                         [☸ minikube:default]
+NAME                TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)           AGE
+kubernetes          ClusterIP   10.96.0.1        <none>        443/TCP           40d
+wordpress-service   NodePort    10.103.144.132   <none>        31001:31001/TCP   12s
+
+boogie$ minikube service wordpress-service --url                                                [☸ minikube:default]
+http://192.168.99.100:31001
+
+on va remplir les infos essentielles au set up de wordpress via le browser :
+
+Informations nécessaires
+Veuillez renseigner les informations suivantes. Ne vous inquiétez pas, vous pourrez les modifier plus tard.
+ex:
+Titre du site ￼: boogie-blog
+Identifiant ￼: boogie
+Mot de passe XXXX
+Votre adresse de messagerie ￼boogie@localhost.net
+
+...si le pod est ko ..alors on devra de nouveau refaire notre setup puisqu'on a pas défini de volume pour préserver nos data.
+
+= webui : 
+
+on a la possibilité de faier des actions sur notre cluster kube via un dashboard 
+il faut d'abord l'installer :
+
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/v2.0.0-beta4/aio/deploy/recommended.yaml
+
+si un passowrd est demandé on peut le recupérer avec un 
+kubectl config view
+
+avec minikube : 
+minikube dashboard
+pour recupérer l'url du dashboard : 
+minikube dashboard --url
+
+- mode op setting dashboard : 
+
+boogie$ cat dashboard/README.md                                                                                                                                                                                          
+# Setting up the dashboard / Start dashboard
+
+Create dashboard:
+```
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/master/src/deploy/recommended/kubernetes-dashboard.yaml
+```
+
+
+boogie$ kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/v2.0.0-beta4/aio/deploy/recommended.yaml
+namespace/kubernetes-dashboard created
+serviceaccount/kubernetes-dashboard created
+service/kubernetes-dashboard created
+secret/kubernetes-dashboard-certs created
+secret/kubernetes-dashboard-csrf created
+secret/kubernetes-dashboard-key-holder created
+configmap/kubernetes-dashboard-settings created
+role.rbac.authorization.k8s.io/kubernetes-dashboard created
+clusterrole.rbac.authorization.k8s.io/kubernetes-dashboard created
+rolebinding.rbac.authorization.k8s.io/kubernetes-dashboard created
+clusterrolebinding.rbac.authorization.k8s.io/kubernetes-dashboard created
+deployment.apps/kubernetes-dashboard created
+service/dashboard-metrics-scraper created
+deployment.apps/dashboard-metrics-scraper created
+
+
+## Create user
+
+Create sample user (if using RBAC - on by default on new installs with kops / kubeadm):
+
+cat dashboard/sample-user.yaml                                                          [☸ minikube:default]
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: admin-user
+  namespace: kube-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: admin-user
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: admin-user
+  namespace: kube-system
+
+```
+kubectl create -f sample-user.yaml
+serviceaccount/admin-user created
+clusterrolebinding.rbac.authorization.k8s.io/admin-user created
+
+```
+
+## Get login token:
+```
+boogie$ kubectl -n kube-system get secret | grep admin-user                                     [☸ minikube:default]
+admin-user-token-8fck6                           kubernetes.io/service-account-token   3      4m15s
+
+boogie$ kubectl -n kube-system describe secret admin-user-token-8fck6                           [☸ minikube:default]
+Name:         admin-user-token-8fck6
+Namespace:    kube-system
+Labels:       <none>
+Annotations:  kubernetes.io/service-account.name: admin-user
+              kubernetes.io/service-account.uid: ba7e8fe6-6bec-44ac-98eb-3439ce74a5cb
+
+Type:  kubernetes.io/service-account-token
+
+Data
+====
+ca.crt:     1066 bytes
+namespace:  11 bytes
+token:      eyJhbGciOiJSUzI1NiIsImtpZCI6IiJ9.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJrdWJlLXN5c3RlbSIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VjcmV0Lm5hbWUiOiJhZG1pbi11c2VyLXRva2VuLThmY2s2Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZXJ2aWNlLWFjY291bnQubmFtZSI6ImFkbWluLXVzZXIiLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC51aWQiOiJiYTdlOGZlNi02YmVjLTQ0YWMtOThlYi0zNDM5Y2U3NGE1Y2IiLCJzdWIiOiJzeXN0ZW06c2VydmljZWFjY291bnQ6a3ViZS1zeXN0ZW06YWRtaW4tdXNlciJ9.h2TjbQkVFk5-wlyow2CIRhjO2R5cxSlPEHg0vPSK1cB446Jmnb8bNnPOe9QOfLLpSkYzpCEEZdJq_B-A3Uy165G6pGIveEBHeEYIbdTXhJGKkwG6pBQF1dZc69irZfbP5_WtwCCpVFtl5C2iRUcBj0JMn0-c6EY065j41b8vMsnBnZNpUcraNomu_oazD0ZN_YNMrpsOmVZ2YMI3mSOqHJq-uzokOlO90Dmc0cJwfDZrfPnigN78WPGxRWfky_49yXQdOcDBDVED-5NHvloOb_HkCnVCoG2L1REejdVTEzktFouYwdHmGoamqHmBlyf733PPNJ-6el0oXiwbTuAk6Q
+```
+
+## Login to dashboard
+Go to http://api.yourdomain.com:8001/api/v1/namespaces/kube-system/services/https:kubernetes-dashboard:/proxy/#!/login
+
+Login: admin
+Password: the password that is listed in ~/.kube/config (open file in editor and look for "password: ..."
+
+Choose for login token and enter the login token from the previous step
+
+
+- minikube : 
+
+ minikube dashboard --url                                                                [☸ minikube:default]
+🤔  Verifying dashboard health ...
+🚀  Launching proxy ...
+🤔  Verifying proxy health ...
+http://127.0.0.1:34313/api/v1/namespaces/kube-system/services/http:kubernetes-dashboard:/proxy/
+
+
+
+
+== chapitre 3 :
+
+= service discovery : 
+
+dns est un service builtin lancé par le addons managers, qu'on peut voir sur un node master dans :
+le service dns va être utilisé par les pods pour trouver des services tournant sur le même cluster.
+Les containers au sein d'un pod n'utilsient pas le dns puisqu'ils communiquent en ip:port
+
+ex: 
+
+pod1
+container1
+service app1 / 10.0.0.1
+
+pod2
+container2
+service app2 / 10.0.0.2
+
+
+dans pod1 pour contacter le service app1 on fait :
+
+host app1-service
+app1-service has adress 10.0.0.1
+
+dans pod1 pour contacter le service app2 on fait :
+host app2-service
+app2-service has adress 10.0.0.2
+
+de base comme cela on interroge que les services dans le même namespace. On peut definir le namespace de recherche :
+de base on est dans le namespace default : 
+
+host app1-service.default
+app1-service.default has adress 10.0.0.1
+
+dans pod1 pour contacter le service app2 on fait :
+host app2-service.default
+app2-service.default has adress 10.0.0.2
+
+Si on veut interroger via le fqdn global du cluster on utilisera :
+
+dans pod1 pour contacter le service app2 on fait :
+host app2-service.default.svc.cluster.local
+app2-service.default.svc.local.cluster has adress 10.0.0.2
+
+on peut mieux comprendre en examinant le fichier resolv.conf sur un pod :
+
+boogie$ kubectl exec wordpress-deployment-58cd589c6c-bncrs -it -- bash                          [☸ minikube:default]
+Defaulting container name to wordpress.
+Use 'kubectl describe pod/wordpress-deployment-58cd589c6c-bncrs -n default' to see all of the containers in this pod.
+root@wordpress-deployment-58cd589c6c-bncrs:/var/www/html# cat /etc/resolv.conf
+nameserver 10.96.0.10
+search default.svc.cluster.local svc.cluster.local cluster.local
+options ndots:5
+
+on voit que notre resolveur est 10.96.0.10 
+le domain de recherche  default.svc.cluster.local   svc.cluster.local cluster.local
+on voit que cette ip correspond au service dns qui est exposé dans notre cluster kube dans le namespace kube-system :
+
+boogie$ kubectl get svc -n kube-system                                                          [☸ minikube:default]
+NAME                   TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)                  AGE
+..
+kube-dns               ClusterIP   10.96.0.10      <none>        53/UDP,53/TCP,9153/TCP   40d
+..
+
+Les services crées sont publiés dans le dns. On pourra donc dans notre cluster interroger les différents services : il faudra biensur préciser le namespace de celui ci s'il est situé en dehors du namespace de notre pod /appli :
+
+boogie$ kubectl exec wordpress-deployment-58cd589c6c-bncrs -it -- bash                          [☸ minikube:default]
+Defaulting container name to wordpress.
+Use 'kubectl describe pod/wordpress-deployment-58cd589c6c-bncrs -n default' to see all of the containers in this pod.
+root@wordpress-deployment-58cd589c6c-bncrs:/var/www/html# host tiller-deploy
+Host tiller-deploy not found: 3(NXDOMAIN)
+root@wordpress-deployment-58cd589c6c-bncrs:/var/www/html# host tiller-deploy.kube-system
+tiller-deploy.kube-system.svc.cluster.local has address 10.105.162.15
+
+
+boogie$ kubectl get svc -n kube-system                                                          [☸ minikube:default]
+NAME                   TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)                  AGE
+default-http-backend   NodePort    10.101.219.90   <none>        80:30001/TCP             40d
+kube-dns               ClusterIP   10.96.0.10      <none>        53/UDP,53/TCP,9153/TCP   40d
+kubernetes-dashboard   ClusterIP   10.98.41.81     <none>        80/TCP                   40d
+tiller-deploy          ClusterIP   10.105.162.15   <none>        44134/TCP                40d
 
 
 

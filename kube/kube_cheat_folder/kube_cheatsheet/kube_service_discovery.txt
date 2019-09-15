@@ -1,0 +1,31 @@
+== notes service discovery : ==
+
+- dns : le service dns va être utilisé par les pods pour trouver des services tournant sur le même cluster.
+
+dans pod1 pour contacter le service app1 on fait :
+
+host app1-service
+app1-service has adress 10.0.0.1
+host app1-service.default
+app1-service.default has adress 10.0.0.1
+Si on veut interroger via le fqdn global du cluster on utilisera :
+host app1-service.default.svc.cluster.local
+app1-service.default.svc.local.cluster has adress 10.0.0.1
+
+on peut mieux comprendre en examinant le fichier resolv.conf sur un pod :
+boogie$ kubectl exec wordpress-deployment-58cd589c6c-bncrs -it -- bash                          [☸ minikube:default]
+..
+root@wordpress-deployment-58cd589c6c-bncrs:/var/www/html# cat /etc/resolv.conf
+nameserver 10.96.0.10
+search default.svc.cluster.local svc.cluster.local cluster.local
+options ndots:5
+
+on voit que notre resolveur est 10.96.0.10
+le domain de recherche  default.svc.cluster.local   svc.cluster.local cluster.local
+on voit que cette ip correspond au service dns qui est exposé dans notre cluster kube dans le namespace kube-system :
+
+boogie$ kubectl get svc -n kube-system                                                          [☸ minikube:default]
+NAME                   TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)                  AGE
+..
+kube-dns               ClusterIP   10.96.0.10      <none>        53/UDP,53/TCP,9153/TCP   40d
+

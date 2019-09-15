@@ -1,0 +1,167 @@
+=== notes sur le build d'un wordpress : app + db dans kube : ===
+
+
+== stateless :
+on va d'abord lancer un wordpress sans volume : on est en stateless : on va tout perdre des la fin de notre pod :
+
+
+ ~/Documents/learn/kubernetes/learn-devops-the-complete-kubernetes-course/kubernetes-course (master*) [10:05:49]
+boogie$ cat wordpress/wordpress-secrets.yml                                                     [☸ minikube:default]
+apiVersion: v1
+kind: Secret
+metadata:
+  name: wordpress-secrets
+type: Opaque
+data:
+  db-password: cGFzc3dvcmQ=
+ ~/Documents/learn/kubernetes/learn-devops-the-complete-kubernetes-course/kubernetes-course (master*) [10:06:03]
+boogie$ cat wordpress/wordpress-single-deployment-no-volumes.yml                                [☸ minikube:default]
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: wordpress-deployment
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: wordpress
+    spec:
+      containers:
+      - name: wordpress
+        image: wordpress:4-php7.0
+        ports:
+        - name: http-port
+          containerPort: 80
+        env:
+          - name: WORDPRESS_DB_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: wordpress-secrets
+                key: db-password
+          - name: WORDPRESS_DB_HOST
+            value: 127.0.0.1
+      - name: mysql
+        image: mysql:5.7
+        ports:
+        - name: mysql-port
+          containerPort: 3306
+        env:
+          - name: MYSQL_ROOT_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: wordpress-secrets
+                key: db-password
+
+
+boogie$ kubectl create -f  wordpress/wordpress-single-deployment-no-volumes.yml
+
+boogie$ kubectl get pod                                                                         [☸ minikube:default]
+NAME                                    READY   STATUS              RESTARTS   AGE
+wordpress-deployment-58cd589c6c-bncrs   0/2     ContainerCreating   0          9s
+ ~/Documents/learn/kubernetes/learn-devops-the-complete-kubernetes-course/kubernetes-course (master*) [10:07:38]
+boogie$ kubectl describe pod wordpress-deployment-58cd589c6c-bncrs                              [☸ minikube:default]
+Name:           wordpress-deployment-58cd589c6c-bncrs
+Namespace:      default
+Priority:       0
+Node:           minikube/10.0.2.15
+Start Time:     Sun, 15 Sep 2019 10:07:29 +0200
+Labels:         app=wordpress
+                pod-template-hash=58cd589c6c
+Annotations:    <none>
+Status:         Pending
+IP:
+Controlled By:  ReplicaSet/wordpress-deployment-58cd589c6c
+Containers:
+  wordpress:
+    Container ID:
+    Image:          wordpress:4-php7.0
+    Image ID:
+    Port:           80/TCP
+    Host Port:      0/TCP
+    State:          Waiting
+      Reason:       ContainerCreating
+    Ready:          False
+    Restart Count:  0
+    Environment:
+      WORDPRESS_DB_PASSWORD:  <set to the key 'db-password' in secret 'wordpress-secrets'>  Optional: false
+      WORDPRESS_DB_HOST:      127.0.0.1
+    Mounts:
+      /var/run/secrets/kubernetes.io/serviceaccount from default-token-wfc8r (ro)
+  mysql:
+    Container ID:
+    Image:          mysql:5.7
+    Image ID:
+    Port:           3306/TCP
+    Host Port:      0/TCP
+    State:          Waiting
+      Reason:       ContainerCreating
+    Ready:          False
+    Restart Count:  0
+    Environment:
+      MYSQL_ROOT_PASSWORD:  <set to the key 'db-password' in secret 'wordpress-secrets'>  Optional: false
+    Mounts:
+      /var/run/secrets/kubernetes.io/serviceaccount from default-token-wfc8r (ro)
+Conditions:
+  Type              Status
+  Initialized       True
+  Ready             False
+  ContainersReady   False
+  PodScheduled      True
+Volumes:
+  default-token-wfc8r:
+    Type:        Secret (a volume populated by a Secret)
+    SecretName:  default-token-wfc8r
+    Optional:    false
+QoS Class:       BestEffort
+Node-Selectors:  <none>
+Tolerations:     node.kubernetes.io/not-ready:NoExecute for 300s
+                 node.kubernetes.io/unreachable:NoExecute for 300s
+Events:
+  Type    Reason     Age   From               Message
+  ----    ------     ----  ----               -------
+  Normal  Scheduled  21s   default-scheduler  Successfully assigned default/wordpress-deployment-58cd589c6c-bncrs to minikube
+  Normal  Pulling    20s   kubelet, minikube  Pulling image "wordpress:4-php7.0"
+
+on va créer un service qui va nous permettre d'atteindre notre appli :
+
+boogie$ cat wordpress/wordpress-service.yml                                                     [☸ minikube:default]
+apiVersion: v1
+kind: Service
+metadata:
+  name: wordpress-service
+spec:
+  ports:
+  - port: 31001
+    nodePort: 31001
+    targetPort: http-port
+    protocol: TCP
+  selector:
+    app: wordpress
+  type: NodePort
+
+on a donc un nodeport et le port 31001 de notre host va rediriger vers le port http-port de notre pod :
+
+boogie$ kubectl create -f wordpress/wordpress-service.yml                                       [☸ minikube:default]
+service/wordpress-service created
+boogie$ kubectl get svc                                                                         [☸ minikube:default]
+NAME                TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)           AGE
+kubernetes          ClusterIP   10.96.0.1        <none>        443/TCP           40d
+wordpress-service   NodePort    10.103.144.132   <none>        31001:31001/TCP   12s
+
+boogie$ minikube service wordpress-service --url                                                [☸ minikube:default]
+http://192.168.99.100:3100
+
+on va remplir les infos essentielles au set up de wordpress via le browser :
+
+Informations nécessaires
+Veuillez renseigner les informations suivantes. Ne vous inquiétez pas, vous pourrez les modifier plus tard.
+ex: 
+Titre du site	￼: boogie-blog
+Identifiant	￼: boogie
+Mot de passe XXXX
+Votre adresse de messagerie	￼boogie@localhost.net
+
+...si le pod est ko ..alors on devra de nouveau refaire notre setup puisqu'on a pas défini de volume pour préserver n
+os data.
+
