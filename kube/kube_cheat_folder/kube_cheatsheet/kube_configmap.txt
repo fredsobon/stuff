@@ -1,0 +1,165 @@
+== notes configmap: ==
+
+Un configmap peut contenir un fichier complet de conf d'une appli : ex : une conf de vhost nginx
+On va pouvoir monter le volume dans un container : dans ce volume on aura la conf de notre appli. On en touche pas à
+la conf du container pour autant.
+
+Ex: on a une appli qui ecoute  sur le port 3000 : on va créer une conf de reverse proxy qui va forward les appels sur
+ le port 80 à notre appli sur le port 3000. Cette conf va être notre configmap :
+
+boogie$ cat configmap/reverseproxy.conf                                                         [☸ minikube:default]
+server {
+    listen       80;
+    server_name  localhost;
+
+    location / {
+        proxy_bind 127.0.0.1;
+        proxy_pass http://127.0.0.1:3000; <<< on redirige vers l'appli locale sur le port 3000
+    }
+
+    error_page   500 502 503 504  /50x.html;
+    location = /50x.html {
+        root   /usr/share/nginx/html;
+    }
+}
+
+boogie$ kubectl create configmap nginx-config --from-file=configmap/reverseproxy.conf           [☸ minikube:default]
+configmap/nginx-config created
+On va check la creation :
+boogie$ kubectl get configmaps                                                                  [☸ minikube:default]
+NAME           DATA   AGE
+nginx-config   1      49s
+
+boogie$ kubectl get configmaps -o yaml                                                          [☸ minikube:default]
+apiVersion: v1
+items:
+- apiVersion: v1
+  data:
+    reverseproxy.conf: |
+      server {
+          listen       80;
+          server_name  localhost;
+
+          location / {
+              proxy_bind 127.0.0.1;
+              proxy_pass http://127.0.0.1:3000;
+          }
+
+          error_page   500 502 503 504  /50x.html;
+          location = /50x.html {
+              root   /usr/share/nginx/html;
+          }
+      }
+  kind: ConfigMap
+  metadata:
+    creationTimestamp: "2019-09-15T19:35:16Z"
+    name: nginx-config
+    namespace: default
+    resourceVersion: "206154"
+    selfLink: /api/v1/namespaces/default/configmaps/nginx-config
+    uid: 7218c74c-ba1d-4757-93dc-71d0cff77356
+kind: List
+metadata:
+  resourceVersion: ""
+  selfLink: ""
+
+On va setter l'appel à notre configmap dans notre pod / deployment :
+celui ci aura deux container : nginx et l'autre contenant notre appli servant les requettes sur le port 3000
+
+boogie$ cat configmap/nginx.yml                                                                 [☸ minikube:default]
+apiVersion: v1
+kind: Pod
+metadata:
+  name: helloworld-nginx
+  labels:
+    app: helloworld-nginx
+spec:
+  containers:
+  - name: nginx
+    image: nginx:1.11
+    ports:
+    - containerPort: 80
+    volumeMounts:
+    - name: config-volume   <<<< ici on defini le nom du volume
+      mountPath: /etc/nginx/conf.d  <<< le path du volume contenant les data
+  - name: k8s-demo
+    image: wardviaene/k8s-demo
+    ports:
+    - containerPort: 3000
+  volumes:
+    - name: config-volume  <<<< on retrouve la définition du volume : même nom que la ressource pour le pod nginx
+      configMap:
+        name: nginx-config   <<<< c'est le nom du configmap dans kube
+        items:
+        - key: reverseproxy.conf  <<<< ici on retrouve le nom de la clé du configmap dans kube qui contient notre conf
+          path: reverseproxy.conf
+
+
+On cree un service de type nodeport pour l'exposer :
+
+boogie$ cat configmap/nginx-service.yml                                                         [☸ minikube:default]
+apiVersion: v1
+kind: Service
+metadata:
+  name: helloworld-nginx-service
+spec:
+  ports:
+  - port: 80
+    protocol: TCP
+  selector:
+    app: helloworld-nginx
+  type: NodePort
+boogie$ kubectl create -f configmap/nginx-service.yml                                           [☸ minikube:default]
+service/helloworld-nginx-service created
+
+On va tester et vérifier que notre conf de reverse fonctionne correctement :
+
+
+minikube service helloworld-nginx-service --url
+
+http://192.168.99.100:31983
+
+
+On voit bien qu'on a nginx qui nous repond : notre reverse proxy fait bien le travail.
+
+boogie$ curl -vvv http://192.168.99.100:31983                                                   [☸ minikube:default]
+*   Trying 192.168.99.100:31983...
+* TCP_NODELAY set
+* Connected to 192.168.99.100 (192.168.99.100) port 31983 (#0)
+> GET / HTTP/1.1
+> Host: 192.168.99.100:31983
+> User-Agent: curl/7.65.1
+> Accept: */*
+>
+* Mark bundle as not supporting multiuse
+< HTTP/1.1 200 OK
+< Server: nginx/1.11.13
+< Date: Sun, 15 Sep 2019 19:48:26 GMT
+< Content-Type: text/html; charset=utf-8
+< Content-Length: 12
+< Connection: keep-alive
+< X-Powered-By: Express
+< ETag: W/"c-7Qdih1MuhjZehB6Sv8UNjA"
+<
+* Connection #0 to host 192.168.99.100 left intact
+Hello World!%
+
+on peut verifier la conf de notre reverse en nous connectant dans le container nginx de notre pod :
+
+boogie$ kubectl exec -it helloworld-nginx -c nginx -- bash                                      [☸ minikube:default]
+root@helloworld-nginx:/# cat /etc/nginx/conf.d/reverseproxy.conf
+server {
+    listen       80;
+    server_name  localhost;
+
+    location / {
+        proxy_bind 127.0.0.1;
+        proxy_pass http://127.0.0.1:3000;
+    }
+
+    error_page   500 502 503 504  /50x.html;
+    location = /50x.html {
+        root   /usr/share/nginx/html;
+    }
+}
+
