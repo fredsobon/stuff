@@ -1415,5 +1415,115 @@ ch2v52
 
 = ingress : 
 
+ingress est une solution pour les connexions externes a notre cluster , c'est une alternative aux external loadbalancer et nodeports.
+Ingress permet d'exposer facilement les services devant etre accessible depuis l'exterrieur du cluster.
+
+basiquement on va ce type de flux :
+
+  www / 80/443
+      |
+      ingress controller 
+
+      | ingress rules ->  host.exemple1.net -> pod1
+                          host.exemple2.net -> pod2
+                           host.exemple3.net/api/v2  -> pod3
+
+   |             |           |
+pod1             pod2        pod3
 
 
+
+on peut utilsier different ingress-controller ( ex: ngin-ingress controller )
+on a diffentes section dont des args qu'on peut passer a nginx
+: on voit ici qu'on peut mettre en place un default backend  qui va recupérer les requettes qui ne matcheront aucune regles :
+
+
+        - name: nginx-ingress-controller
+          image: quay.io/kubernetes-ingress-controller/nginx-ingress-controller:0.17.1
+          args:
+            - /nginx-ingress-controller
+            - --default-backend-service=$(POD_NAMESPACE)/echoheaders-default
+            - --configmap=$(POD_NAMESPACE)/nginx-configuration
+            - --tcp-services-configmap=$(POD_NAMESPACE)/tcp-services
+            - --udp-services-configmap=$(POD_NAMESPACE)/udp-services
+            - --publish-service=$(POD_NAMESPACE)/ingress-nginx
+            - --annotations-prefix=nginx.ingress.kubernetes.io
+
+on peut definir le echo service qui va servir de fallback si nos rules ne matchent pas : 
+apiVersion: v1
+kind: Service
+metadata:
+  name: echoheaders-default
+  labels:
+    app: echoheaders
+spec:
+  type: NodePort
+  ports:
+  - port: 80
+    nodePort: 30302
+    targetPort: 8080
+    protocol: TCP
+    name: http
+  selector:
+    app: echoheaders
+
+
+
+on va ensuite définir des rules por rediriger nos flux en fonctions des requettes entrantes :
+ex: 
+boogie$ cat ingress/ingress.yml                               [☸ minikube:default]
+# An Ingress with 2 hosts and 3 endpoints
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: helloworld-rules
+spec:
+  rules:
+  - host: helloworld-v1.example.com
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: helloworld-v1
+          servicePort: 80
+  - host: helloworld-v2.example.com
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: helloworld-v2
+          servicePort: 80
+
+
+
+on va creer nos objects : 
+
+boogie$ kubectl create -f  ingress/nginx-ingress-controller.yml
+boogie$ kubectl create -f  ingress/ingress.yml
+kubectl create -f  ingress/echoservice.yml
+boogie$ kubectl create -f  ingress/helloworld-v1.yml  
+boogie$ kubectl create -f  ingress/helloworld-v2.yml          [☸ minikube:default]
+
+
+si on test sans preciser de host : on va tomber sur notre default backend :
+
+
+boogie$ curl http://192.168.99.100                            [☸ minikube:default]
+default backend - 404%
+
+
+si on test on forgeant un host header : 
+
+boogie$ curl -H "Host: helloworld-v1.example.com" http://192.168.99.100
+<html>
+<head><title>503 Service Temporarily Unavailable</title></head>
+<body>
+<center><h1>503 Service Temporarily Unavailable</h1></center>
+<hr><center>nginx/1.15.9</center>
+</body>
+</html>
+
+boogie$ curl -H "Host: helloworld-v2.example.com" http://192.168.99.100
+Hello World v2!%
+
+                          
