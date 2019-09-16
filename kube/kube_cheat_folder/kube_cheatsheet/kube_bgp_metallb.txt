@@ -1,0 +1,463 @@
+===   notes metallb : ===
+
+
+https://www.objectif-libre.com/fr/blog/2019/06/11/metallb/
+https://www.objectif-libre.com/fr/blog/2018/01/08/kubernetes-et-les-ips-externes-services-et-metallb/
+https://metallb.universe.tf/
+
+MetalLB est une implémentation de Load Balancer pour les clusters Kubernetes Bare Metal, utilisant des protocoles de routage standard.
+
+L'objectif 
+
+on va pouvoir faire un lab en utilisant notre pc comme "routeur" et minikube comme node pour que les deux publient et echangent les infos bgp.
+
+L'idée va être de publier des services kube dans un routeur qui annoncera aux nodes les routes a prendre pour atteindre les services hébergés dans kube.
+
+On va definir un range d'ip dédié aux services 
+
+- 1 / setup sur notre pc le pacquet qui va permettre de forward les routes et montrer les routes à annoncer 
+
+- install du protocole de routage : 
+apt install frr 
+
+2/ intall de gobgp qui va permettre d'annoncer le sessions bgp via gobgpd le daemon et gobgp le binaire qui va permettre d'interroger les infos 
+
+- install du binaire :  gobgp : 
+https://github.com/osrg/gobgp/releases
+on va utiliser la derniere version :
+on copie les 2 binaires une fois decompressés :
+gobgp / gobgpd > dans /usr/local/bin 
+
+on va definir une conf pour le bgp 
+- config  de bgp : 
+
+cat gobgp.conf
+[global.config]
+  as = 65001     <<<< on defini ici notre AS : autonomous system le range 65000 est considéré comme privé 
+  router-id = "192.168.99.1"   <<<<< en routeur id on va mettre l'ip de notre vbox net monté sur notre pc 
+  local-address-list = ["192.168.99.1"]
+[zebra]
+  [zebra.config]
+        enabled = true
+        url = "unix:/var/run/frr/zserv.api"   <<< le point d'entrée de l'api 
+        redistribute-route-type-list = ["connect"]
+        version = 2  # version used in Quagga on Ubuntu 16.04
+[[neighbors]]
+  [neighbors.config]
+    neighbor-address = "192.168.99.100"   <<<<< ici on defini la conf de notre minikube qui est le node de notre cluster 
+    peer-as = 65002  <<<< on defini un autre as 
+  [neighbors.transport.config]
+    local-address = "192.168.99.1"  
+
+sur notre poste on a le vbox net de créer et une iface :
+
+9: vboxnet3: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
+    link/ether 0a:00:27:00:00:03 brd ff:ff:ff:ff:ff:ff
+    inet 192.168.99.1/24 brd 192.168.99.255 scope global vboxnet3
+       valid_lft forever preferred_lft forever
+    inet6 fe80::800:27ff:fe00:3/64 scope link
+       valid_lft forever preferred_lft forever
+
+notre minikube a l'ip 192.168.99.100
+
+
+
+3/ setup de metallb dans kube : 
+
+
+ curl https://raw.githubusercontent.com/google/metallb/v0.8.1/manifests/metallb.yaml > metallb.yaml
+
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    app: metallb
+  name: metallb-system
+---
+apiVersion: policy/v1beta1
+kind: PodSecurityPolicy
+metadata:
+  labels:
+    app: metallb
+  name: speaker
+  namespace: metallb-system
+spec:
+  allowPrivilegeEscalation: false
+  allowedCapabilities:
+  - NET_ADMIN
+  - NET_RAW
+  - SYS_ADMIN
+  fsGroup:
+    rule: RunAsAny
+  hostNetwork: true
+  hostPorts:
+  - max: 7472
+    min: 7472
+  privileged: true
+  runAsUser:
+    rule: RunAsAny
+  seLinux:
+    rule: RunAsAny
+  supplementalGroups:
+    rule: RunAsAny
+  volumes:
+  - '*'
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app: metallb
+  name: controller
+  namespace: metallb-system
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app: metallb
+  name: speaker
+  namespace: metallb-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app: metallb
+  name: metallb-system:controller
+rules:
+- apiGroups:
+  - ''
+  resources:
+  - services
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+- apiGroups:
+  - ''
+  resources:
+  - services/status
+  verbs:
+  - update
+- apiGroups:
+  - ''
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app: metallb
+  name: metallb-system:speaker
+rules:
+- apiGroups:
+  - ''
+  resources:
+  - services
+  - endpoints
+  - nodes
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ''
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+- apiGroups:
+  - extensions
+  resourceNames:
+  - speaker
+  resources:
+  - podsecuritypolicies
+  verbs:
+  - use
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  labels:
+    app: metallb
+  name: config-watcher
+  namespace: metallb-system
+rules:
+- apiGroups:
+  - ''
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app: metallb
+  name: metallb-system:controller
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: metallb-system:controller
+subjects:
+- kind: ServiceAccount
+  name: controller
+  namespace: metallb-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app: metallb
+  name: metallb-system:speaker
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: metallb-system:speaker
+subjects:
+- kind: ServiceAccount
+  name: speaker
+  namespace: metallb-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    app: metallb
+  name: config-watcher
+  namespace: metallb-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: config-watcher
+subjects:
+- kind: ServiceAccount
+  name: controller
+- kind: ServiceAccount
+  name: speaker
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  labels:
+    app: metallb
+    component: speaker
+  name: speaker
+  namespace: metallb-system
+spec:
+  selector:
+    matchLabels:
+      app: metallb
+      component: speaker
+  template:
+    metadata:
+      annotations:
+        prometheus.io/port: '7472'
+        prometheus.io/scrape: 'true'
+      labels:
+        app: metallb
+        component: speaker
+    spec:
+      containers:
+      - args:
+        - --port=7472
+        - --config=config
+        env:
+        - name: METALLB_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: METALLB_HOST
+          valueFrom:
+            fieldRef:
+              fieldPath: status.hostIP
+        image: metallb/speaker:v0.8.1
+        imagePullPolicy: IfNotPresent
+        name: speaker
+        ports:
+        - containerPort: 7472
+          name: monitoring
+        resources:
+          limits:
+            cpu: 100m
+            memory: 100Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            add:
+            - NET_ADMIN
+            - NET_RAW
+            - SYS_ADMIN
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+      hostNetwork: true
+      nodeSelector:
+        beta.kubernetes.io/os: linux
+      serviceAccountName: speaker
+      terminationGracePeriodSeconds: 0
+      tolerations:
+      - effect: NoSchedule
+        key: node-role.kubernetes.io/master
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: metallb
+    component: controller
+  name: controller
+  namespace: metallb-system
+spec:
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: metallb
+      component: controller
+  template:
+    metadata:
+      annotations:
+        prometheus.io/port: '7472'
+        prometheus.io/scrape: 'true'
+      labels:
+        app: metallb
+        component: controller
+    spec:
+      containers:
+      - args:
+        - --port=7472
+        - --config=config
+        image: metallb/controller:v0.8.1
+        imagePullPolicy: IfNotPresent
+        name: controller
+        ports:
+        - containerPort: 7472
+          name: monitoring
+        resources:
+          limits:
+            cpu: 100m
+            memory: 100Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - all
+          readOnlyRootFilesystem: true
+      nodeSelector:
+        beta.kubernetes.io/os: linux
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+      serviceAccountName: controller
+
+
+
+
+- maintenant on défini  la configmap qui va contenir notre conf : 
+
+
+boogie$ cat config-metallb.yml                                                                  [☸ minikube:default]
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: metallb-system
+  name: config
+data:
+  config: |
+    peers:
+    - my-asn: 65002
+      peer-asn: 65001
+      peer-address: 192.168.99.1   <<<< ip de notre routeur / dans notre cas minikube 
+    address-pools:
+    - name: net-svc-infra     <<<< nom du pool de service que l'on va exposer dans metallb 
+      protocol: bgp
+      addresses:
+      - 10.126.0.0/16          <<<<< range des ip de service : ces ips ne sont pas pingables
+      terminationGracePeriodSeconds: 0
+
+
+ kubectl apply -f config-metallb.yml
+
+
+
+
+ - Test :
+
+
+on va déployer 3 pod nginx , créer un service : ce service va être publier dans metallb , puis la route bgp a prendre pour atteindre se service sera envoyée à tous nos nodes 
+On defini un service de type LoadBalancer 
+
+kubectl run nginx --image=nginx --port=80 --replicas=3
+kubectl expose deployment nginx --type LoadBalancer
+
+
+on va sur notre pc lancer le daemon bgp 
+sudo /usr/local/bin/gobgpd -f /etc/gobgp.conf
+
+
+on peut controller que les sessions sont bien actives 
+gobgp ne
+gobgp monitor global
+
+On va desormais pouvoir depuis notre host atteindre un service de notre cluster 
+curl 10.126.0.0
+
+
+Il suffit maintenant d'utilsier un externalDns pour publier notre enregistrement dns et permettre de l'atteindre facilement 
+
+
+ sudo /usr/local/bin/gobgp
+ sudo cp gobgpd /usr/local/bin
+ sudo /usr/local/bin/gobgpd
+ sudo /usr/local/bin/gobgpd -f /etc/gobgp.conf
+ ip a
+ minikube status
+ kubectl run nginx --image=nginx --port=80 --replicas=3
+ kubectl get pod
+ kubectl get pod -o wide
+ vi metallb.yaml
+ kubectl create -f metallb.yaml
+ kubectl get pod -o wide
+ vi metallb.yaml
+ kubectl get all --all-namespaces
+ cat metallb.yaml >> notes.bgp
+ gobgp ne
+ gobgp monitor
+ gobgp monitor global
+ gobgp monitor global rib
+ vi config-metallb.yml
+ kubectl create -f config-metallb.yml
+ vi config-metallb.yml
+ kubectl create -f config-metallb.yml
+ gobgp ne
+ kubectl get pod
+ kubectl get deployments.
+ gobgp ne
+ vi config-metallb.yml
+ kubectl apply -f config-metallb.yml
+ kubectl patch -f config-metallb.yml
+ kubectl delete configmaps config
+ kubectl delete configmaps config -n metallb-system
+ kubectl apply -f config-metallb.yml
+ gobgp ne
+ ip r
+ kubectl expose deployment nginx --type LoadBalancer
+ ip r
+ curl 192.168.99.100
+ kubectl get svc
+ curl 10.126.0.0
+ hist
+
+
