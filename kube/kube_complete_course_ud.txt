@@ -1520,6 +1520,9 @@ Hello World v2!%
                           
 = external Dns :
 
+https://github.com/kubernetes-incubator/external-dns
+
+
 on va pouvoir utiliser un lb externe et rediriger le traffic vers un ingress controller pour les flux nécéssitant un fitrage ou redirect : ex typique pour les flux http / https
 
 on va pouvoir utiliser un externaldns pour configurer les entrées dns des services que l'on va publier dans notre loadbalancer externe
@@ -1614,10 +1617,105 @@ spec:
         - --txt-owner-id=kubernetes.newtech.academy
 
 
-ch2v56
-
 = volumes : 
 
+on va utiliser les volumes pour stocker des données en dehors des containers : puisqu'un container qui s'arrête perd ses données.
+Les volumes persistents de kube vont permettre d'attacher un volume a un container même si celui-ci s'arrête dans ce cas le volume contenant les data pourra être rattaché à un nouveau container.
+Les volumes peuvent être attachés via des volumes plugins (local, aws, gcp, ceph, nfs ...)
+En utilisant des volumes on peut deployer des applications statefull : ces applis doivent pouvoir lire et ecrire sur le filesystem local qui doit être persistant dans le temps.
+On peut donc faire tourner un mysql en utilisant un stockage persistent . Attention la gestion des volumes est encore récente dans kube.
+
+1/ 
+On va d'abord devoir créer un volume (on choisi en fonction du plugin manager que l'on veut utiliser) 
+ex : 
+## Create Volume in AWS
+
+```
+aws ec2 create-volume --size 10 --region your-region --availability-zone your-zone --volume-type gp2 --tag-specifications 'ResourceType=volume, Tags=[{Key= KubernetesCluster, Value=kubernetes.domain.tld}]'
+
+2/ on va créer notre déploiment en précisant le point de montage du volume, on précise le volume , le plugin utilsié et l'id du volume (dans notre cas c'est de l'aws) :
+
+boogie$ cat volumes/helloworld-with-volume.yml                                                  [☸ minikube:default]
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: helloworld-deployment
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: helloworld
+    spec:
+      containers:
+      - name: k8s-demo
+        image: wardviaene/k8s-demo
+        ports:
+        - name: nodejs-port
+          containerPort: 3000
+        volumeMounts:
+        - mountPath: /myvol
+          name: myvolume
+      volumes:
+      - name: myvolume
+        awsElasticBlockStore:
+          volumeID: # insert AWS EBS volumeID here
 
 
+- volume provisionning 
+on va pouvoir créer nos volumes en fonction de nos volumes plugins avant de les allouer aux pods concernés.
+
+on va declarer un volume :
+ex: 
+
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: standard
+provisioner: kubernetes.io/aws-ebs
+parameters:
+  type: gp2
+  zone: us-east-1
+
+
+on va maintenant associer ce volume a la physical volume claim : requete / demande de volume physique nécéssaire à notre pod :
+
+# pvc.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: myclaim
+  namespace: test
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 100Gi
+
+
+cat first-app/helloworld.yml                                                            [☸ minikube:default]
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nodehelloworld.example.com
+  labels:
+    app: myapp
+spec:
+  containers:
+  - name: k8s-demo
+    image: wardviaene/k8s-demo
+    ports:
+    - name: nodejs-port
+      containerPort: 3000
+    volumeMount: 
+    - mountPath: "/var/www/html"
+      name: mypvc
+  volumes:
+  - name: mypvc
+    persistentVolumeClaim:
+      claimName: myclaim   <<<<< on reference ici le nom du volume claim qu'on a déclarer dans le PersistentVolumeClaim
+  nodeSelector:
+    environment: lab
 
