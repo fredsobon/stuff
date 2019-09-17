@@ -1,0 +1,69 @@
+= pod presets : 
+
+on va pouvoir injecter de la config dans nos containers au runtime.
+on va pouvoir factoriser des data qu'on va mettre dans un pod preset afin de deployer ces ressources sur tous les pods comportant un label particulier : plutôt que dupliquer des conf similaires dans plusieurs manifests de pod /deployment.
+
+ex: 
+
+on defini un pod-preset qui contient des données qui s'appliqueront aux pods comportant le label matchant dans le pod preset :
+
+boogie$ cat pod-presets/pod-presets.yaml                      [☸ minikube:default]
+apiVersion: settings.k8s.io/v1alpha1   # you might have to change this after PodPresets become stable
+kind: PodPreset
+metadata:
+  name: share-credential
+spec:
+  selector:
+    matchLabels:
+      app: myapp    <<<<<< tous les pods comportants ce label hériteront des conf suivantes : variable d'env, volume ....
+  env:
+    - name: MY_SECRET
+      value: "123456"
+  volumeMounts:
+    - mountPath: /share
+      name: share-volume
+  volumes:
+    - name: share-volume
+      emptyDir: {}
+
+par exemple le deploiment suivant verra ses pods hériter des data du pod preset :
+boogie$ cat pod-presets/deployments.yaml                      [☸ minikube:default]
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: deployment-1
+spec:
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: myapp
+    spec:
+      containers:
+      - name: k8s-demo
+        image: wardviaene/k8s-demo
+        ports:
+        - name: nodejs-port
+          containerPort: 3000
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: deployment-2
+spec:
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: myapp
+    spec:
+      containers:
+      - name: k8s-demo
+        image: wardviaene/k8s-demo
+        ports:
+        - name: nodejs-port
+          containerPort: 3000
+
+
+en examinant les pods issus de ces déployment on verra les points de montage ..qui sont injectés via les pods preset ..
+
