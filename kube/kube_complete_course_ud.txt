@@ -2029,17 +2029,88 @@ kubectl top node / pods ....
 
 kube peut automatiquement grace aux data des metrics autoscaller des ressources ( deployment, replicaset ..)
 
+
+HorizontalPodAutoscaler est un object kube 
+
 Le cluster doit être démarré avec la variable d'environnemnent : 
 ENABLE_CUSTOM_METRICS définie à  true ( à verifier : doc ancienne )
 
-l'autoscaling va examiner toutes les 30secondes (de base mais la frequence est paramétrable ) les metrics afin de voir la situation
+l'autoscaling va examiner toutes les 30secondes (de base mais la frequence est paramétrable : en changeant la valeur du param de horizontal-pod-autoscaler-sync-periodmais cela se fait au bootstrap du cluster ) les metrics afin de voir la situation
 
 ex : on va definir un pod ayant besoin de resource ex
 200m = 200milicpu = 0.2 = 20% d'un cpu de core sur notre node.
 Si le node a deux core c'est toujours 20% d'un core .
+on introduit l'autoscalling pour une valeur de 50% d'occupation cpu
+-> 100m / 10%cpu core 
+
+ex: 
+
+boogie$ cat autoscaling/hpa-example.yml                                [☸ N/A:N/A]
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: hpa-example
+spec:
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: hpa-example
+    spec:
+      containers:
+      - name: hpa-example
+        image: gcr.io/google_containers/hpa-example
+        ports:
+        - name: http-port
+          containerPort: 80
+        resources:
+          requests:    <<< ici on va definir les ressources nécéssaires à notre pod on definit qu'il doit disposer de 200m de cpu ( il ne pourra pas avoir plus )
+            cpu: 200m
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hpa-example
+spec:
+  ports:
+  - port: 31001
+    nodePort: 31001
+    targetPort: http-port
+    protocol: TCP
+  selector:
+    app: hpa-example
+  type: NodePort
+---
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: hpa-example-autoscaler
+spec:
+  scaleTargetRef:
+    apiVersion: extensions/v1beta1
+    kind: Deployment
+    name: hpa-example
+  minReplicas: 1               <<<< ici on va avoir les spec du nombre mini de replicat pour notre deployment
+  maxReplicas: 10             <<<< ici le nombre max de replica qu'on aura pour assurer que les 50% de cpu sont bien respectés.
+  targetCPUUtilizationPercentage: 50
 
 
-ch3v68
+si on execute ce manifest on va avoir plusieurs objects crées :
+
+hpa (horizontal pod austoscaler) / pod / service ..
+
+on va pouvoir recupérer les infos du service , lancer un container pour loader notre service ...on va pouvoir faire des get en continu sur le service depuis un pod , cela va générer de la charge ( on peut la voir evoluer via un kubectl get hpa ..)
+
+ex: kubectl run -i -tty load-generator --image=busybox /bin/bash
+
+# wget http://hpa-example.svc.cluster.local:31001/
+# while  true; do wget http://hpa-example.svc.cluster.local:31001/; done 
+
+des que  la charge global atteind les 50% de cpu : kube crée des nouveaux pods 
+( max 10 comme on voit dans le manifest) 
+
+des que la charge repasse sous les 50% kube detruit les pods en trop, jusqu'a un miimum defini dans notre manifest.
+
 
 
 
