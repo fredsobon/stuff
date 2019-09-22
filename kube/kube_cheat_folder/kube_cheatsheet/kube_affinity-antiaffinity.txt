@@ -1,0 +1,222 @@
+= affinity /anti affinity : 
+
+
+affinity /anti affinity vont nous permettre de mettre en place des regles de déployments plus complexes qu'en utilisant juste un node selector. On va aussi pouvoir appliquer ces regles sur les pods.
+On va pouvoir etablir des regles de préferences qui vont être plus souples : ex on peut definir un profile préféré ce qui implique que le scheduleur pourra quand même déploye les pods si les regles ne sont pas trouvées.
+On va pouvoir mettre en place des regles qui vont se baser sur les labels situés sur d'autre pods.
+ex: on peut s'assurer que deux pods ne sont pas présents sur le même node.
+
+kube peut faire : node affinity et pod affinity / anti-affinity
+
+-> node affinity : 
+c'est similaire à du nodeselector
+
+-> pod affinity/ antiaffinity : 
+on va pouvoir etablir des regles de schedule tenant compte des labels présents su des pods runnings
+
+Ces regles ne sont applicables qu'au moment du scheduling.
+Si les pods sont deja actifs ils faut les recréer pour que les regles soient prises en compte.
+
+A / node affinity :
+
+2 types de regles :
+
+1/ RequireduringSchedulingIgnoreddDuringExecution
+
+Regle hard / comme le node selector : cette regle doit être matchée avant le scheduling
+
+2/ preferredDuringSchedulingIgnoreddDuringExecution
+
+Regle soft : si on a la capacité d'appliquer la regle car on trouve les ressource c'est parfait sinon on schedule quand même.
+
+
+Les regles se présentes de la maniere suivante : 
+
+
+boogie$ cat affinity/node-affinity.yaml                                                         [☸ minikube:default]
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: node-affinity
+spec:
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: node-affinity
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:       <<<<<< on voit ici que le pod va etre schedule sur un node comportant le label env: dev 
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: env
+                operator: In
+                values:
+                - dev
+          preferredDuringSchedulingIgnoredDuringExecution:       
+          - weight: 1                                           <<<<< ici on etabli un poids pour notre régle
+            preference:
+              matchExpressions:
+              - key: team
+                operator: In
+                values:
+                - engineering-project1
+      containers:
+      - name: k8s-demo
+        image: wardviaene/k8s-demo
+        ports:
+        - name: nodejs-port
+          containerPort: 3000
+
+
+Quand des poids sont donnée dans les affinity / anti affinity : kube va schedule les pods sur les nodes ayant les combinaisons les plus élevées
+
+si un deployment donne un poids de 1 a certaines regles et qu'un second déploiment donne 2 regle de 4 et 2 alors les pods de se deployment seront schedule sur le node ayant le plus de poids.
+
+En plus des labels que nous créons, kube va lui même avoir des "pre-populated" labels définis que l'on va pouvoir utiliser.
+ex : kubernetes.io/hostname kubernetes.io/os=linux
+
+on pourra par exemple forcer le schedule sur un node , une zone géographique .
+ex: 
+si on lance notre déployment les pods ne seront pas schedulent tant qu'aucun node ne portera la label obligatoire env= dev 
+
+on va pouvoir tester en créant des labels sur un cluster 
+
+kubectl label node node1 env=dev
+kubectl label node node2 env=dev
+kubectl label node node3 env=dev
+
+maintenant qu'un node ayant le label mandatory est présent : les pods du deploiement sont scheduled dessus 
+
+On voit que le label soft n'est donc pas pri en compte.
+
+Si maintenant un met un label de type team=engineering-project1 sur un second node 
+
+kubectl label node node2 team=engineering-project1
+
+si on delete un pod présent sur le node 2 , et le node 3 , et qu'on le recrée alors il sera automatiquement crée sur le node 2 qui possede le hard label et le soft label en plus.
+
+Les pods seront donc en priorité schedule sur le node2 qui posséde maintenant les meilleurs prérequis grace aux labels définis.
+
+B/ interpod affinity / antiaffinity : 
+
+ces mecanismes vont pouvoir influer sur le déployments des pods running dans le cluster.
+Les pods appartiennent à des namespaces : nos règles vont s'appliquer dans ces namespaces. Si rien n'est préciser alors on sera dans le namespace default.
+
+Comme pour les nodes ont a les rules : 
+
+
+1/ RequireduringSchedulingIgnoreddDuringExecution
+
+Regle hard : cette regle doit être matchée avant le scheduling
+
+2/ preferredDuringSchedulingIgnoreddDuringExecution
+
+Regle soft : si on a la capacité d'appliquer la regle car on trouve les ressource c'est parfait sinon on schedule quand même.
+
+Un des bons use case pour le pod affinity est le co-located pods : on va vouloir que deux pods soient sur le même node.
+ex: un serveur cache de type redis devra être hébergé sur le node qui host le pod de l'appli utilisant ce cache.
+Idem pour la gestion geographique : certains pods doivent être dans une même zone.
+
+Quand on defini des pod affinity /antiaffinity on doit definir des topology domain : topologyKey
+qui fait reference à un node label.
+
+Si une rule d'affinity match alors le nouveau pod sera schedule sur le node ayant la meme topologyKey que le pod running
+
+ex : si on a notre redis a deployer et qu'on a trois node dans notre cluster : 
+
+nos regles vont indiquer que le deployment devra se faire sur un ou des nodes particulier répondant aux normes :
+> ce / ces nodes doivent héberger le pod ayant le label app=pod-affinity-1 et un node ayant un label kub interne de type topologyKey: "kubernetes.io/hostname" 
+
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: pod-affinity-2
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: pod-affinity-2
+    spec:
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: "app"
+                    operator: In
+                    values:
+                    - pod-affinity-1
+              topologyKey: "kubernetes.io/hostname"
+      containers:
+      - name: redis
+        image: redis
+        ports:
+        - name: redis-port
+          containerPort: 6379
+
+
+- anti-affinity : 
+
+on va pouvoir utiliser ces antiaffinity pour nous assurer par exemple que notre pod n'est déployé qu'une seule fois sur un node.
+ex : 3 nodes et 2 pods
+on va pouvoir définir que notre nouveau pod ne sera pas déployer sur un node comportant un pod matchant avaec un certain label.
+
+ex :  on va vouloir déployer un pod sur un node qui ne contient pas app=pod-affinity-1 ou app=pod-affinity-3 
+
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: "app"
+                    operator: In
+                    values:
+                    - pod-affinity-1
+                    - pod-affinity-3
+              topologyKey: "kubernetes.io/hostname"
+
+biensur si on a un cluster de 2 nodes alors on aura un pb, il sera possible de mettre une regle soft pour assurer quand même le déployment sur un node même si celui ci contient un pod ayant un label app: pod-affinity-1 ou app: pod-affinity-3
+cat affinity/pod-anti-affinity-5.yaml                                                   [☸ minikube:default]
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: pod-affinity-5
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: pod-affinity-5
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                  - key: "app"
+                    operator: In
+                    values:
+                    - pod-affinity-1
+                    - pod-affinity-3
+              topologyKey: "kubernetes.io/hostname"
+      containers:
+      - name: k8s-demo
+        image: wardviaene/k8s-demo
+        ports:
+        - name: nodejs-port
+          containerPort: 3000
+
+
+- Ecriture des rules :
+
+on peut utiliser :
+In / NotIn
+Exists / DoesNotExist
+
+/!\ Attention les affinity / antiaffinity demande beaucoup de ressources. Il faut bien sizer le cluster en conséquence
