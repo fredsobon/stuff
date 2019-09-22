@@ -1,3 +1,81 @@
 = taints - tolerations =
 
+Contrairement aux affinity / antiaffinity les tolerations vont empecher le schedule sur un node
+les taints vont creer des regles qui seront affectées sur le node. Les tolerations vont empecher le schedule de pod sur un node.
+
+- taints :
+
+un des use case standart est de s'assurer que quand on crée des pods ils ne soient pas schedule sur le master.
+la master a un taint : node-role.kubernetes.io/master:NoSchedule
+ex : en examinant un master on va avoir classiquement ce taint de flaggué : 
+  taints:
+  - effect: NoSchedule
+    key: node-role.kubernetes.io/master
+
+
+
+kubectl taint node1 key=value:NoSchedule
+
+Dans ce cas aucun pod ne pourra etre schedule sur le node1 tant qu'une toleration ne soit settée.
+
+on pourra donc bypasser le no schedule en définissant un toleration dans notre deployment /pod .. 
+
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: tolerations-2
+    spec:
+      tolerations:
+      - key: "type"
+        operator: "Equal"
+        value: "specialnode"
+        effect: "NoSchedule"
+
+on peut avoir des operateurs :
+Equal :  key + value
+Exists : s'assure que la clé doit exister
+
+
+Comme pour les affinity on peut avoir des taints qu sont hard ou soft 
+
+Noschedule est hard : et aucun pod ne pourra etre schédule sauf si une toleration est posée
+PreferedNoschedule: kube va essayer de ne pas scheduel de pod sur le node mais ce n'est n'est pas exclusif.
+
+Si un taint est posé et que des pods sont déja running : ils ne seront pas ejectés sauf si la clé :
+NoExecute: evict est posé : les pods qui n'auront pas de tolération posé seront ejecter du node.
+
+Quand on utilise un taint NoExecute , il est possible de definir dans notre tolération la durée pendant laquelle le pod pourra tourner avant d'être ejecté.
+
+    spec:
+      tolerations:
+      - key: "type"
+        operator: "Equal"
+        value: "specialnode"
+        effect: "NoSchedule"
+        tolerationSeconds: 3600
+
+Si le flag tolerationSeconds n'est pas sette alors le pod n'a pas de limite de temps.       
+
+on va avoir des cas ou biensur on ne veut pas schedule :
+le node pouvant avoir différents etats :
+not ready, memory pressure, network pb, espace disque full etc ....
+
+
+# Taint a node
+```
+kubectl taint nodes NODE-NAME type=specialnode:NoSchedule
+```
+
+# Taint a node with NoExecute
+```
+kubectl taint nodes NODE-NAME testkey=testvalue:NoExecute
+
+
+
+pour supprimer un taint d'un node : on place un "-" apres le nom de notre type  
+
+kubectl taint nodes NODE-NAME type-
+kubectl taint nodes NODE-NAME testkey-
+
 
