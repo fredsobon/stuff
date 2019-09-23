@@ -1,0 +1,43 @@
+= quota / ressources : =
+
+
+il va être important de  gérer les ressources de notre cluster , et de bien gérer celles qui sont liées à différentes ressources, équipes.
+
+on va classiquement separer notre cluster en différents namespace au sein desquels nous allons definir des quotas.
+
+Nous avons des ressources kube dédiées pour cela : Ressourcequota et Objectquota
+
+- Ressourcequota :
+chaque container va specifier ses requests capacity et capacity limits
+
+-> request capacity : va être en quelque sorte le minimum de ressource dont le pod a besoin pour tourner
+le scheduler va se servir de ses indications pour dipatcher le pod a créer sur le node disposant des ressources nécéssaires.
+
+-> ressource limit : le pod ne pourra pas obtenir plus de ressource que ce qui est défini ici .
+
+
+Attention : si l'admin kube a defini des quotas sur le cluster alors chaque definition de pod, deployment devra comporter des ressource dans le manifest.
+Si on en defini pas alors on a une erreur.
+
+ceci est valable pour les ressources et limits quotat.
+
+Si une demande de ressource depassant celle autorisée est faite alors kube renvoi une 403 et kubectl renvoi lui une erreur.
+
+l'admin kube peut definir un set de quota pour les namespaces :
+requests.cpu  : somme des toutes les valeurs dispos pour tous les pods en cpu
+requests.mem  : idem en mem
+requets.storage : idem en storage
+limits.cpu : limit sur notre cluster en cpu allouable
+limits.mem : idem en memory
+
+on va aussi pour voir definir des limits sur les objets kube suivant :
+configmap
+secret
+persistantvolumeclaim
+pod : ex 10 pod max par nodes
+replicationcontroller
+ressourcequota
+services
+services.loadbalancer
+services.nodeports
+

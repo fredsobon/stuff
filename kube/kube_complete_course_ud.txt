@@ -2444,4 +2444,171 @@ https://github.com/CrunchyData/crunchy-containers
 
 == Administration ==
 
+= quotat / ressources :
+
+il va être important de  gérer les ressources de notre cluster , et de bien gérer celles qui sont liées à différentes ressources, équipes.
+
+on va classiquement separer notre cluster en différents namespace au sein desquels nous allons definir des quotas.
+
+Nous avons des ressources kube dédiées pour cela : Ressourcequota et Objectquota
+
+- Ressourcequota :
+chaque container va specifier ses requests capacity et capacity limits 
+
+-> request capacity : va être en quelque sorte le minimum de ressource dont le pod a besoin pour tourner 
+le scheduler va se servir de ses indications pour dipatcher le pod a créer sur le node disposant des ressources nécéssaires.
+
+-> ressource limit : le pod ne pourra pas obtenir plus de ressource que ce qui est défini ici . 
+
+
+Attention : si l'admin kube a defini des quotas sur le cluster alors chaque definition de pod, deployment devra comporter des ressource dans le manifest.
+Si on en defini pas alors on a une erreur.
+
+ceci est valable pour les ressources et limits quotat.
+
+Si une demande de ressource depassant celle autorisée est faite alors kube renvoi une 403 et kubectl renvoi lui une erreur.
+
+l'admin kube peut definir un set de quota pour les namespaces :
+requests.cpu  : somme des toutes les valeurs dispos pour tous les pods en cpu 
+requests.mem  : idem en mem 
+requets.storage : idem en storage
+limits.cpu : limit sur notre cluster en cpu allouable
+limits.mem : idem en memory 
+
+on va aussi pour voir definir des limits sur les objets kube suivant :
+configmap
+secret
+persistantvolumeclaim
+pod : ex 10 pod max par nodes
+replicationcontroller
+ressourcequota
+services
+services.loadbalancer
+services.nodeports
+
+= namespaces : 
+
+le namespace va nous permettre de créer un cluster virtual dans notre cluster kube.
+on va s'en servir pour separer les ressources de maniere logique dans notre cluster
+
+si on ne specifie rien on est de base dans le namespace default
+plusieurs namespaces existent de base : default, kube-system.
+Le nom des ressources doivent être unique au sein de notre namespace mais pas forcement au sein de tous les namespaces.
+
+on va pouvoir definir des limites par namespaces :
+ex : marketing aura le droit max a : 
+10Gb de memoire, 2 lb, 2 core cpu
+
+- creation de namepace :
+kubectl create namespace my_ns
+
+- liste des ns ( namespaces )
+kubectl get ns
+
+- definition de notre namespace par default :
+1/ on recupere le ns actuel
+
+export CONTEXT=$(kubectl config view |awk '/current-context/ {print $2 }')
+
+2/ on defini comme context notre context :
+
+kubectl config set-context $CONTEXT --namespace=my_ns
+
+
+On va pouvoir definir nos limites par namespaces :
+
+boogie$ cat resourcequotas/resourcequota.yml                           [☸ N/A:N/A]
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: myspace            <<<<<< on defini les namespaces.
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: compute-quota
+  namespace: myspace
+spec:
+  hard:                    <<<<< on defini des limites hard sur des ressources system
+    requests.cpu: "1"      <<<<< 1 core cpu 
+    requests.memory: 1Gi
+    limits.cpu: "2"
+    limits.memory: 2Gi
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: object-quota
+  namespace: myspace
+spec:
+  hard:                     <<<<< ici on defini des limites hard sur des objects kube 
+    configmaps: "10"
+    persistentvolumeclaims: "4"
+    replicationcontrollers: "20"
+    secrets: "10"
+    services: "10"
+    services.loadbalancers: "2"
+
+
+= users :=
+
+
+on a deux types de users :
+
+-> normal : qui accede au cluster de l'exterrieur via l'api kube.
+ex kubectl 
+
+ce user n'est pas managé via des objects
+
+-> user system : 
+managés en temps qu'object kube.
+ce type d'utilisateur est utilisé pour s'authentifier au sein du cluster kube.
+ex : pods, services 
+
+ces users sont managés comme les secrets.
+
+- Users normaux :
+
+pour accéder au cluster ces users vont utiliser : 
+
+-> clients certificates
+-> tokens bearers
+-> proxy auth
+-> http basic auth
+-> openid
+-> webhooks
+
+Les users normaux ont de plus des specificité :
+
+username ( user123 , user@bob.com ..)
+uid 
+groups
+extra fields 
+
+- services users :
+utilisent des tokens de services account
+Ils sont stockés en credentials en temps que secret 
+ces secrets sont montés dans les pods pour autoriser les communications entre les services.
+Ces services users sont spécifiquess aux namespaces.
+
+Ils sont crées via l'api ou manuellement en utilisant des objets.
+Les calls d'api non authentifiés sont considérés effectués en tant qu'anonymous.
+
+
+
+Quand un user nomal est authentifié, il peut acceder à tout
+pour limiter les acces il faut definir des authorizations.
+
+Alwaysallow / Alwaysdeny
+ABAC ( attribute base access control)
+RBAC ( role base access control)
+webhook ( authorization par service remote)
+
+Les RBAC sont les methodes à privilégier.
+
+ch4v85
+
+
+
+
 

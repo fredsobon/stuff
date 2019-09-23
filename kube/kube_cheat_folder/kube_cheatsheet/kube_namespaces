@@ -1,0 +1,65 @@
+== namespaces : ==
+
+
+le namespace va nous permettre de créer un cluster virtual dans notre cluster kube.
+on va s'en servir pour separer les ressources de maniere logique dans notre cluster
+
+si on ne specifie rien on est de base dans le namespace default
+plusieurs namespaces existent de base : default, kube-system.
+Le nom des ressources doivent être unique au sein de notre namespace mais pas forcement au sein de tous les namespaces.
+
+on va pouvoir definir des limites par namespaces :
+ex : marketing aura le droit max a :
+10Gb de memoire, 2 lb, 2 core cpu
+
+- creation de namepace :
+kubectl create namespace my_ns
+
+- liste des ns ( namespaces )
+kubectl get ns
+
+- definition de notre namespace par default :
+1/ on recupere le ns actuel
+
+export CONTEXT=$(kubectl config view |awk '/current-context/ {print $2 }')
+
+2/ on defini comme context notre context :
+
+kubectl config set-context $CONTEXT --namespace=my_ns
+
+On va pouvoir definir nos limites par namespaces :
+
+boogie$ cat resourcequotas/resourcequota.yml                           [☸ N/A:N/A]
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: myspace            <<<<<< on defini les namespaces.
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: compute-quota
+  namespace: myspace
+spec:
+  hard:                    <<<<< on defini des limites hard sur des ressources system
+    requests.cpu: "1"      <<<<< 1 core cpu 
+    requests.memory: 1Gi
+    limits.cpu: "2"
+    limits.memory: 2Gi
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: object-quota
+  namespace: myspace
+spec:
+  hard:                     <<<<< ici on defini des limites hard sur des objects kube 
+    configmaps: "10"
+    persistentvolumeclaims: "4"
+    replicationcontrollers: "20"
+    secrets: "10"
+    services: "10"
+    services.loadbalancers: "2"
+
+
+
