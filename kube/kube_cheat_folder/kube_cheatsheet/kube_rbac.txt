@@ -1,0 +1,76 @@
+=== rbac ===
+
+= rbac : 
+
+apres l'authentification, on va devoir décider ce que notre user a le droit de faire.
+les authorisations se font au niveau de l'api.
+ex: quand on fait un kubectl get node : l'api va vérifier si le user qui execute cette commande a le droit de le faire.
+
+rbac : role base access controle va permettre de 
+reguler les acces via des roles
+administrer dynamiquement les ressources.
+
+webhook : on va envoyer des requette d'authorisation un une api rest
+si on veut gérer un server d'authorization : on peut parser le payload en json et repondre si l'acces est granté ou pas.
+
+Les vielles versions de kube nécéssitait de demarrer le cluster en precisant le mode d'authorisation rbac
+
+--authorisation-mode=RBAC 
+
+pour minikube invoquer en cli au boot :
+minikube start --extra-config=apiserver.Authorization.Mode=RBAC 
+
+on peut biensur definir nos rbac dans un fichier :
+1/ on defini un role
+2/ on associe un user / group a ce role 
+on peut créer des roles limités a un namespace : RoleBinding 
+ou alors valable pour tous les namespaces : ClusterRoleBinding
+
+ex : role limité a un namespace :
+
+boogie@boogie-stuff:~/Documents/learn/kube/learn-devops-the-complete-kubernetes-course/kubernetes-course$ cat users/user.yaml 
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  namespace: default
+  name: pod-reader
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "watch", "list", "create", "update", "patch", "delete"]
+- apiGroups: ["extensions", "apps"]
+  resources: ["deployments"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: read-pods
+  namespace: default
+subjects:
+- kind: User
+  name: boogie
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: Role
+  name: pod-reader
+  apiGroup: rbac.authorization.k8s.io
+
+
+maintenant cluster wide : on ne precise pas de namespace car c'est pour notre cluster entier 
+
+boogie@boogie-stuff:~/Documents/learn/kube/learn-devops-the-complete-kubernetes-course/kubernetes-course$ cat users/admin-user.yaml 
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: admin-user
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: User
+  name: "boogie"
+  apiGroup: rbac.authorization.k8s.io
+
+

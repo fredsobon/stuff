@@ -2606,9 +2606,184 @@ webhook ( authorization par service remote)
 
 Les RBAC sont les methodes à privilégier.
 
-ch4v85
+ex: on va créer un user qui pourra se connecter à l'api kube en utilisant un cert qui aura ete signé par la ca du cluster : 
+
+minikube ssh 
+
+-> on cree notre clé priv : 
+$ openssl genrsa -out boogie.pem 2048
+Generating RSA private key, 2048 bit long modulus
+......................................+++
+...+++
+e is 65537 (0x10001)
+$ ls
+boogie.pem
+
+-> on crée notre demande de certificat 
+$ openssl req -new -key boogie.pem -out boogie-csr.pem -subj "/CN=boogie/O=boogie-team/"
+$ ls
+boogie-csr.pem	boogie.pem
+
+-> on signe notre certificat avec la clé de le ca de notre kube :
+$ sudo openssl x509 -req -in boogie-csr.pem -CA /var/lib/minikube/certs/ca.crt -CAkey /var/lib/minikube/certs/ca.key -CAcreateserial -out boogie.crt -days 1000000
+Signature ok
+subject=/CN=boogie/O=boogie-team
+Getting CA Private Key
+$ ls
+boogie-csr.pem	boogie.crt  boogie.pem
+
+on a notre certificat :
+$ cat boogie.crt 
+-----BEGIN CERTIFICATE-----
+MIICujCCAaICCQD3S4/laQkyFDANBgkqhkiG9w0BAQUFADAVMRMwEQYDVQQDEwpt
+aW5pa3ViZUNBMCAXDTE5MDkyNzE3MTg0MloYDzQ3NTcwODI0MTcxODQyWjAnMQ8w
+DQYDVQQDDAZib29naWUxFDASBgNVBAoMC2Jvb2dpZS10ZWFtMIIBIjANBgkqhkiG
+9w0BAQEFAAOCAQ8AMIIBCgKCAQEAnhdNjL6Qj/ITKe7viaEBRoUqWKxSki31I/ax
+VgnvBklYvGkxsyD6+WvDObtzJ003somx7GfG1KNyqSMKFiOI6ibmja8aMHJCQqVT
+oe1OxzOPgOFH5btVC2cgWO9bOrzWwWYNHMUaSJUbDwo57rwDov75/CkWZGe+zD/H
+afEHxDuXJRyT2NF7mNzi+fXMUYgK7G0VawZGjTEnuN9fOpky0sqfrReDPoAHw+YU
+K/VKFijWFLNr488CmcFeSgjwFeCT5/4v/nC1KMGoGUT1FUuZdNOHT4SHgmStV7iH
+w5xT+AONzroYRPZBcGXuDJ7+7CtNW72rMyS6znR2nhN43yORZQIDAQABMA0GCSqG
+SIb3DQEBBQUAA4IBAQAcs2ubafGrkBu1wzuxfsGC24cFhYS20GtLItkdHFhm4uWQ
+N00fkvWuFNx2ZrXSvquQJJp1iBjQL88DfX5Fuo9H7NfOMmyRlyjsozkrxwQh5rjd
+89hpzIae+L6t+oYHf9MMy1J4GccDPz8u65E1zq3DJHxEXeybuZAbZVno9vZvcbG6
+mvdkS0WecQgTYM7SPTVv8B0HGf2GoPrLF9wXiY5ElKKp//wZKO0e3RkV+Pa4URoS
+szCYXzb+Ou5CG2xHlhEPycKBLiSIJDiD6XX0BwoBAculrTUdq4WFKA6LeFA0L9Vv
+IP1qftdJZ/oSovhbo3W921oreV+ykxYP3/tE4dxT
+-----END CERTIFICATE-----
+
+notre clé :
+$ cat boogie.pem 
+-----BEGIN RSA PRIVATE KEY-----
+MIIEowIBAAKCAQEAnhdNjL6Qj/ITKe7viaEBRoUqWKxSki31I/axVgnvBklYvGkx
+syD6+WvDObtzJ003somx7GfG1KNyqSMKFiOI6ibmja8aMHJCQqVToe1OxzOPgOFH
+5btVC2cgWO9bOrzWwWYNHMUaSJUbDwo57rwDov75/CkWZGe+zD/HafEHxDuXJRyT
+2NF7mNzi+fXMUYgK7G0VawZGjTEnuN9fOpky0sqfrReDPoAHw+YUK/VKFijWFLNr
+488CmcFeSgjwFeCT5/4v/nC1KMGoGUT1FUuZdNOHT4SHgmStV7iHw5xT+AONzroY
+RPZBcGXuDJ7+7CtNW72rMyS6znR2nhN43yORZQIDAQABAoIBAGV1dyO4uXZoWbwz
+yC9/0R29IOw/y85dCFLIZA9f2LMkJ3rj2C2qIOgqLOTEVKcIe5JtpG6gO48ERvYd
+sr96lsgPpy+PDTPCYJv9Fqt5bXGSuapw6n+Ztn7W9H+fPeF4iCsen5OzO6cRaohA
+e+WnbH4TPcSDageOPXlABW8MbXuV8Hm2G8Ux0LlOTl4C/LiAH53LEtcqvK0DMzKJ
++hIpQdhJ+38t2oUEAPBZd1ndn471SYuP1CuuzonMESwjjk8A3mO2l/0Xryo1eUZH
+hshi8J/Um5s4lGpLXqPCmpdn43fcTEHZqHX/AHKCOR4i1rVX97A0okjiKwyvYXq7
+RQcIHIECgYEA0fJFVzQcClYMcP2HOVUbsEW0Bphnb8SzLkIVSxmxHLRHoxrwMasc
+JQ3Lly99igOSZYrhRSXz9Kqpx/hXihidpkDkBauepk2A8Vt68vMnisvS2+TUUyAN
+groGgzvHjZtcnwPGIId6rD08HdeNX37/OvCzJVZStbZeqeAq8aMT/akCgYEAwMUM
+U63ab9qxCmpe+doKlERZFNjRsviywXUNu6EeHEswHRDkPA+EFWwZzvCCBATsnzqp
+wz3l/ybzZATHarJm50t7SLWeijs4tQOoYTrj8pi1IHlkas4AJcbCgpU02gkAA8Qf
+2Y2Sn68RsENPxf1btgw19zWI+1aXYZsWtuPx810CgYAc0/6PfdlH1g75SObTiYs2
+xit1KGIzp7fO50YTPODkByE7FUzcFRnVQLKu/NdpJxpoFQzfuNlpxDFyAvjKPp0P
+IiPtX2Z2gXfuLFiSma7ZUSmQBjjdfS49wBt606+QE0BBmXwQJWpD0li55EpGTaLw
+TfLbcqICz5rqCpz69yCcmQKBgFiKqYzN7+Usl+Dm1tUAN5e+hQQ0Sq1f2gtNzo7+
+BCyOxHy1Q3/qyIpmarxIcA+Ui3LfqRYKmlfF9klcgJQbeXSHkQrmkPmBFhzenzp5
+qDXHuno+B8ee8yZm0vTTv8DeHWmdbdupUU2TRhal9EBGjRdjKG5x4oc/UKz+ZUKA
+DDDDDDAoGBAMubU7nxPuc9ugzn1BAzes6osQRetTzkQZcQBCc44IlHMSALxaeqH+9r
+3J8oFUx4bmCT3Mty7ya5ibOgSKpZt1ArEo0oyha/vWrLt5BSWaD/fne08C+ZwZNY
+0ZnTPmBRUfcaMCXcDoCpueICyEKYyIIhvNfHmVdhENjHEQ44E1gY
+-----END RSA PRIVATE KEY-----
+
+on va pouvoir renseigner ce datas dans notre kube config apres avoir mis les fichiers dans le path de notre minikube et on pourra tenter de se connecter au kube avec ce couple cert /clé.
+
+boogie@boogie-stuff:~$ ls .minikube/
+addons         boogie.crt  ca.key    client.crt  key.pem   proxy-client-ca.crt
+apiserver.crt  boogie.key  ca.pem    client.key  logs      proxy-client-ca.key
+apiserver.key  cache       cert.pem  config      machines  proxy-client.crt
+bin            ca.crt      certs     files       profiles  proxy-client.key
+
+apiVersion: v1
+clusters:
+- cluster:
+    certificate-authority: /home/boogie/.minikube/ca.crt
+    server: https://192.168.39.8:8443
+  name: minikube
+contexts:
+- context:
+    cluster: minikube
+    user: minikube
+  name: minikube
+current-context: minikube
+kind: Config
+preferences: {}
+users:
+- name: minikube
+  user:
+    client-certificate: /home/boogie/.minikube/boogie.crt
+    client-key: /home/boogie/.minikube/boogie.key
 
 
+Attention cette phase n'a pas fonctionné qu'une fois notre user créer et les rbac setté correctement voir tout de suite apres.
 
+= rbac : 
+
+apres l'authentification, on va devoir décider ce que notre user a le droit de faire.
+les authorisations se font au niveau de l'api.
+ex: quand on fait un kubectl get node : l'api va vérifier si le user qui execute cette commande a le droit de le faire.
+
+rbac : role base access controle va permettre de 
+reguler les acces via des roles
+administrer dynamiquement les ressources.
+
+webhook : on va envoyer des requette d'authorisation un une api rest
+si on veut gérer un server d'authorization : on peut parser le payload en json et repondre si l'acces est granté ou pas.
+
+Les vielles versions de kube nécéssitait de demarrer le cluster en precisant le mode d'authorisation rbac
+
+--authorisation-mode=RBAC 
+
+pour minikube invoquer en cli au boot :
+minikube start --extra-config=apiserver.Authorization.Mode=RBAC 
+
+on peut biensur definir nos rbac dans un fichier :
+1/ on defini un role
+2/ on associe un user / group a ce role 
+on peut créer des roles limités a un namespace : RoleBinding 
+ou alors valable pour tous les namespaces : ClusterRoleBinding
+
+ex : role limité a un namespace :
+
+boogie@boogie-stuff:~/Documents/learn/kube/learn-devops-the-complete-kubernetes-course/kubernetes-course$ cat users/user.yaml 
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  namespace: default
+  name: pod-reader
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "watch", "list", "create", "update", "patch", "delete"]
+- apiGroups: ["extensions", "apps"]
+  resources: ["deployments"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: read-pods
+  namespace: default
+subjects:
+- kind: User
+  name: boogie
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: Role
+  name: pod-reader
+  apiGroup: rbac.authorization.k8s.io
+
+
+maintenant cluster wide : on ne precise pas de namespace car c'est pour notre cluster entier 
+
+boogie@boogie-stuff:~/Documents/learn/kube/learn-devops-the-complete-kubernetes-course/kubernetes-course$ cat users/admin-user.yaml 
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: admin-user
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: User
+  name: "boogie"
+  apiGroup: rbac.authorization.k8s.io
 
 
