@@ -2736,10 +2736,15 @@ minikube start --extra-config=apiserver.Authorization.Mode=RBAC
 on peut biensur definir nos rbac dans un fichier :
 1/ on defini un role
 2/ on associe un user / group a ce role 
-on peut créer des roles limités a un namespace : RoleBinding 
-ou alors valable pour tous les namespaces : ClusterRoleBinding
+on peut créer des roles limités a un namespace : Role
+ou alors valable pour tous les namespaces : ClusterRole
+
+on associera donc ensuite ces role / user avec des RoleBinding ( limité à un namespace ) ou alors ClusterRole Binding : pas de limite de namespace 
+
 
 ex : role limité a un namespace :
+
+on crée un role qui permet de lire, examiner les pods et secrets : 
 
 boogie@boogie-stuff:~/Documents/learn/kube/learn-devops-the-complete-kubernetes-course/kubernetes-course$ cat users/user.yaml 
 kind: Role
@@ -2749,11 +2754,10 @@ metadata:
   name: pod-reader
 rules:
 - apiGroups: [""]
-  resources: ["pods"]
-  verbs: ["get", "watch", "list", "create", "update", "patch", "delete"]
-- apiGroups: ["extensions", "apps"]
-  resources: ["deployments"]
-  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  resources: ["pods", "secrets"]
+  verbs: ["get", "watch", "list"]
+
+Maintenant on va faire matcher ce role à un user créer au prealable : 
 ---
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1beta1
@@ -2762,15 +2766,41 @@ metadata:
   namespace: default
 subjects:
 - kind: User
-  name: boogie
+  name: boogie     <<< notre user        
   apiGroup: rbac.authorization.k8s.io
 roleRef:
   kind: Role
-  name: pod-reader
+  name: pod-reader  <<<<<          on accroche le role défini auparavant 
   apiGroup: rbac.authorization.k8s.io
 
 
 maintenant cluster wide : on ne precise pas de namespace car c'est pour notre cluster entier 
+
+
+boogie@boogie-stuff:~/Documents/learn/kube/learn-devops-the-complete-kubernetes-course/kubernetes-course$ cat users/user.yaml 
+kind: ClusterRole           <<<<< on defini ici l'objet ClusterRole 
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: pod-reader-clusterwide  <<< on ne precise pasde namespace : puisqu'ils sont tous accessibles mais on donne un nom explicite.
+rules:
+- apiGroups: [""]
+  resources: ["pods", "secrets"]
+  verbs: ["get", "watch", "list"]
+
+Maintenant on va faire matcher ce role à un user créee au prealable : 
+---
+kind: ClusterRoleBinding   <<<< on défini un clusterolbinding
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: read-pods
+subjects:
+- kind: User
+  name: bob     <<< notre user        
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: Role
+  name: pod-reader-clusterwide  <<<<<          on accroche le role défini auparavant 
+  apiGroup: rbac.authorization.k8s.io
 
 boogie@boogie-stuff:~/Documents/learn/kube/learn-devops-the-complete-kubernetes-course/kubernetes-course$ cat users/admin-user.yaml 
 apiVersion: rbac.authorization.k8s.io/v1
