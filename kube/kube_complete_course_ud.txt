@@ -2817,3 +2817,77 @@ subjects:
   apiGroup: rbac.authorization.k8s.io
 
 
+ex: on va créer un user puis on pourr tester ses acces en fonctions des rbac définis pour ce user :
+
+- creation de users :
+
+on va pouvoir créer un user de plusieurs manieres .
+Il faudra qu'il s'authentifie au cluster kube
+
+## Create new user
+
+on va créer un nouveau user , donc générer a l'aide d'openssl une nouvelle clé :
+sudo apt install openssl
+openssl genrsa -out bob.pem 2048
+
+on va générer une demande de signature de cert (cert sign request) csr  :
+
+openssl req -new -key bob.pem -out bob-csr.pem -subj "/CN=bob/O=myteam/"
+
+on signe ensuite la demande csr avec la clé et le cert de notre CA :
+openssl x509 -req -in bob-csr.pem -CA ca.crt -CAkey ca.key -CAcreateserial -out bob.crt -days 10000
+```
+
+On va maintenant pouvoir ajouter notre user à notre conf kube :
+## add new context
+```
+kubectl config set-credentials bob --client-certificate=bob.crt --client-key=bob.pem
+kubectl config set-context bob --cluster=kubernetes-prod --user bob
+
+on verra en fonction des droits que le user ne pourra pas lister les nodes, les pods en dehors de son namespace via les rolebinding , ou pourra au contraire lister les pods de tous les namespaces avec un clusterrolebinding.
+
+== network : ==
+
+dans kube les pods sont routables : pod to pod communication : les pods doivent tous pouvoir communiquer indépendamment des nodes sur lesquels ils se trouvent.
+Chaque pod a son ip 
+
+Pour la gestion de kube dans le cloud les providers (aws, gcp, azure ) fournissent la couche reseau 
+ex: aws : kubenet networking ( dans kops ) les pods ont une ip utilisant un VPC (pour amazon : aws private network ) 
+kube fourni un /24 pour tous les nodes.
+Mais attention on est limité a 50 nodes : aprss souci de perf 
+
+On a sinon la possibilité d'utiliser un CNI : container network interface ex : calico / weave  
+ou un network overlay : flannel 
+
+Flannel par exemple va servir de gateway entre les nodes : 
+une ip 10.3.x.x sera donné par flannel aux pods sur un node . pour communiquer sur un pod d'au autre node : l'ip du pod initial et destination seront encapsulée et transmise a l'iface du premier node ( celui qui a le pod client) . Le node envoit la paquet au node hébergeant le pod destination : le paquet recu est désencapsuler et le flannel du node destination l'envoi au pod de destination.
+
+= node maintenance : =
+
+le node controller va etre responsable de la gestion des objects du node
+il va aussi monitorer la santé du node.
+Quand on ajoute un nouveau node kubelet va essayer de l'enregistrer lui même  :self-registration
+
+cela permet de gérer sans intervention manuelle dans l'api . Un objet node sera créer avec les metadata (ip, hstname) des labels ( region , taille d'instance ..) 
+Un node a aussi un status de condition : running, outofdisk  ...
+
+Quand on veut sortir un node on va donc s'assurer qu'on reparti les pods sur d'autre noeud pour cela on drain le node
+
+kubectl drain node_name 
+on peut ajouter un delai 
+kubectl drain node_name --grace-period=600s
+
+si notre node héberge des pod non gérés par le controller on peut forcés :
+kubectl drain node_name --force
+
+on peut voir que le node a un status de schedulingdisable quand les pods sont ejectés et qu"il passe en maintenance.
+
+=  kube high availability : =
+
+quand on veut assurer une ha o, doit assurer au minimum :
+3 noeuds etcd 
+l'api kube repliquée avec un lb 
+avoir plusieurs instance de controller et scheduler . Un seul sera master les autres en stand-by
+
+
+

@@ -1,0 +1,20 @@
+= nodes maintenance : =
+= node maintenance : =
+
+le node controller va etre responsable de la gestion des objects du node
+il va aussi monitorer la santé du node.
+Quand on ajoute un nouveau node kubelet va essayer de l'enregistrer lui même  :self-registration
+
+cela permet de gérer sans intervention manuelle dans l'api . Un objet node sera créer avec les metadata (ip, hstname) des labels ( region , taille d'instance ..)
+Un node a aussi un status de condition : running, outofdisk  ...
+
+Quand on veut sortir un node on va donc s'assurer qu'on reparti les pods sur d'autre noeud pour cela on drain le node
+
+kubectl drain node_name
+on peut ajouter un delai
+kubectl drain node_name --grace-period=600s
+
+si notre node héberge des pod non gérés par le controller on peut forcés :
+kubectl drain node_name --force
+
+on peut voir que le node a un status de schedulingdisable quand les pods sont ejectés et qu"il passe en maintenance.

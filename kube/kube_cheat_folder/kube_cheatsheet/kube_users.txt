@@ -1,3 +1,30 @@
  === user managment : ===
 
+- creation de users :
+
+on va pouvoir créer un user de plusieurs manieres . 
+Il faudra qu'il s'authentifie au cluster kube
+
+## Create new user
+
+on va créer un nouveau user , donc générer a l'aide d'openssl une nouvelle clé : 
+sudo apt install openssl
+openssl genrsa -out bob.pem 2048
+
+on va générer une demande de signature de cert (cert sign request) csr  : 
+
+openssl req -new -key bob.pem -out bob-csr.pem -subj "/CN=bob/O=myteam/"
+
+on signe ensuite la demande csr avec la clé et le cert de notre CA : 
+openssl x509 -req -in bob-csr.pem -CA ca.crt -CAkey ca.key -CAcreateserial -out bob.crt -days 10000
+```
+
+On va maintenant pouvoir ajouter notre user à notre conf kube : 
+## add new context
+```
+kubectl config set-credentials bob --client-certificate=bob.crt --client-key=bob.pem
+kubectl config set-context bob --cluster=kubernetes-prod --user bob
+
+
+
 
