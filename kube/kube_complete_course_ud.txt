@@ -2891,3 +2891,70 @@ avoir plusieurs instance de controller et scheduler . Un seul sera master les au
 
 
 
+== chapitre 5 : software install / package - deploy : ==
+
+= helm : =
+
+helm est la meilleure solution pour rezchercher et installer des applis pour kube.
+c'est un paquet manager pour kube : il va nous aider a paquager des applis . Ce projet est maintenu par la cncf ( container native cloud foundation) 
+
+- helm install :
+on va recupérer le binaire helm ( voir helm.sh) : puis lancer un 
+helm init 
+> cela va installer tiller sur le cluster kube qui est le server de helm
+le binaire helm est le client de tiller
+
+On doit pour installer tiller setter des regles de RBAC et un service account 
+
+helm utilise un format de packge appellé charts.
+un chart est une collection de ressource qui decrivent des ressources kube.
+un simple fichier peut installer une app, une db ....
+on peut avoir des dépendance un chart wordpress peut dependre d'un chart mysql ...
+on peut biensur ecrire nos propres charts pour ecrire notre application.
+
+Les charts utilisent des templates développés par des packages maintainers
+ils vont générés des fichiers yaml que kube  comprend.
+
+ces templates vont contenir de la logique et des variables : 
+on va biensur pouvoir overrider les valeurs de ces variables pour quelles matchent nos besoin 
+ex :
+boogie$ cat service.yaml                                                                                                                             [☸ kube-infra:fso]
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "demo-chart.fullname" . }}
+  labels:
+    app: {{ template "demo-chart.name" . }}
+    chart: {{ template "demo-chart.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}                <<<<< exemple ici on va overrider les valeurs de notre port 
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    app: {{ template "demo-chart.name" . }}
+    release: {{ .Release.Name }}
+
+
+
+- commandes :
+
+helm init 
+helm reset ( desintalle tiller )
+helm install une app
+helm search pour chercher une app
+helm list pour lister les charts installés
+helm upgrade ( pour upgrader une release )
+helm rollback  pour rollback notre release
+
+ch5 v96
+
+
+
+
+
+
