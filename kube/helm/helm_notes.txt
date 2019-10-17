@@ -1,0 +1,52 @@
+==== helm notes ==
+
+install de plugin pour examiner les diffs apres une modif  
+helm plugin install https://github.com/databus23/helm-diff --version master
+
+1/ creation d'un skel chart helm : 
+
+helm create cerebro
+L'arbo suivante est créee.
+
+On va eviter au maximum de modifier les templates.
+On peut avoir des clés / valeurs qui seront ensuite overridées pour nos besoins dans le fichier values.yaml (par defaut)
+Biensur on peut créer une arbo dédiée par stage / environment et recupérer des valeurs dédiées 
+ex : hiera_vars
+     dev
+       values.yaml
+     prod
+       values.yaml 
+
+└── cerebro
+    ├── charts
+    ├── Chart.yaml   <<<<<< num de version de notre appi
+    ├── templates
+    │   ├── deployment.yaml
+    │   ├── _helpers.tpl
+    │   ├── ingress.yaml
+    │   ├── NOTES.txt
+    │   ├── service.yaml
+    │   └── tests
+    │       └── test-connection.yaml
+    └── values.yaml   <<<<<<<  ici sont prises les valeurs par default :  
+
+on va créer un nom pour notre déployment -n "notre nom"
+
+commandes utiles :
+- on va examiner la génération de notre template : 
+helm template . -n cerebro-helm --namespace bob
+
+- dry run d'install : 
+helm install --dry-run . -n cerebro-helm --namespace bob
+
+- install du chart 
+helm install  . -n cerebro-helm --namespace bob
+
+- examen du diff entre notre version de chart modifiée et l'originale 
+helm diff upgrade  cerebro-helm .
+
+- upgrade de notre chart apres la modif 
+helm upgrade  cerebro-helm .
+
+
+
