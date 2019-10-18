@@ -1,0 +1,70 @@
+== git merge / rebase : ==
+
+Un dernier point qui surprend lorsqu’on débute avec Git est l’historique qui apparait très peu lisible. En effet, avec 10 développeurs travaillant sur la branche master et synchronisant sur un dépôt centralisé, l’historique finit par difficile à lire. 
+Lorsqu’on utilise git pull, la stratégie par défaut est de merger la branche distante dans la branche locale. Git considère donc qu’il s’agit de 2 branches différentes alors qu’en réalité, nous voulons considérer qu’il s’agit d’une seule et même branche comme nous le faisions avec Subversion. L’historique reflète donc autant de branches qu’il y a de développeurs et Git cré des commits de merge lors d’un git pull qui intègre des commits distants et locaux.
+
+Git permet cependant de travailler avec une logique plus proche de celle de Subversion. Au lieu d’effectuer un merge, il est possible de réaliser un « rebase » lors d’un git pull. Le principe du rebase est de revenir en arrière dans l’historique en mettant de côté les commits qui n’ont pas encore été pushés, d’appliquer les commits de la branche distante sur la branche locale, puis d’appliquer les commits mis de côté à la suite. L’historique est alors linéaire et ne laisse plus de traces de branche ou de commits de merge.
+
+- merge :
+
+on se met dans notre branche de travail et on veut recupérer les commits de le branche production dans cette branche  on merge  :
+git merge production
+
+En cas de conflit : 
+
+
+merge
+Lorsqu’on effectue un git merge (ou git pull) et qu’un conflit apparait, Git ne commit pas automatiquement. Les fichiers sans conflit seront alors déjà ajoutés à l’index, alors que les fichiers en conflits apparaîtront comme tel lors d’un git status :
+
+$ git status
+# On branch master
+# Changes to be committed:
+#
+#       modified:   test3
+#
+# Unmerged paths:
+#   (use "git add/rm < file >..." as appropriate to mark resolution)
+#
+#       both modified:      test
+#
+
+Pour résoudre le conflit, 2 possibilités :
+
+git mergetool exécutera un outil de merge sur tous les fichiers en conflit,
+les fichiers en conflit contiennent les 2 versions des lignes en conflit comme c’est le cas avec Subversion. Il est donc possible de résoudre manuellement le conflit en éditant ces fichiers. Une fois les conflits résolus, il est nécessaire d’appliquer un git stage sur ces fichiers.
+Enfin, un git commit terminera l’opération de merge.
+
+Pour revenir à l’état du dépôt avant la tentative de merge (au lieu du git commit) :
+
+$ git reset --hard HEAD
+
+
+- rebase : 
+En utilisant git pull --rebase (ou git rebase origin/master), les commits qui n’existaient que sur la branche master (E et F) sont supprimés et réappliqués à la suite des commits de la branche origin/master. Ce sont de nouveaux commits (E’ et F’), c’est pour cela qu’il ne faut pas faire un rebase sur des commits qui sont déjà présents sur un dépôt partagé.
+
+git rebase ou git pull --rebase
+
+
+En cas de conflit :
+
+
+Une opération de rebase (git rebase ou git pull --rebase) n’échappe pas aux conflits. La résolution des conflits peut cependant être nécessaire plusieurs fois lors d’un seul rebase. En effet, les commits étant appliqués 1 par 1, un conflit peut apparaître à chaque fois qu’un commit est rejoué.
+La procédure est la même que pour le merge (ie. git mergetool ou édition manuelle des fichiers en conflit suivit d’un git stage) sauf que le dernier git commit sera remplacé par un git rebase --continue pour que Git continue d’appliquer les commits suivants.
+
+$ git pull --rebase
+...
+## conflit
+$ git status
+# Unmerged paths:
+#   (use "git add/rm < file >..." as appropriate to mark resolution)
+#
+#       both modified:      test
+#
+$ git mergetool
+...
+$ git rebase --continue
+Pour revenir à l’état du dépôt avant la tentative de rebase (au lieu du git rebase --continue) :
+
+$ git rebase --abort
+
+
