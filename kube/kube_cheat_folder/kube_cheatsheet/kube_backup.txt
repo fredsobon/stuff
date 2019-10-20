@@ -1,0 +1,66 @@
+=== kube backup : ===
+= Backup and restore =
+
+que doit on backuper ?
+
+les configurations de nos ressources
+
+on peut stocker tout nos fichiers de définition d'objects dans un repertoire dédié.
+il nous faut donc une copie de sauvegarde de ces fichiers. --> on va habituellement les stocker dans un cvs : git / gitlab /github.
+on peut pour s'assurer que toutes les ressources sont bien backupées intérroger l'apiserver et stocker l'intégralité de nos ressources dans un fichier de backup.
+
+kubectl get all --all-namespaces -o yaml > all-deployed-services.yaml
+
+certains outils dédiés existent.
+
+
+Etcd stocke les états du cluster : les infos du cluster y sont stockées.
+
+On va pouvoir backuper les data etcd
+
+>> on défini le datadir de etcd : l'endroit ou sont stockées les data.
+
+Un outil de snap est fourni avec etcd :
+
+Attention il faut préfixer avec l'api V3 de etcd
+ETCDCTL_API=3 etcdctl snapshot save snapshot.db
+>>> ici on backup dans le repertoire courant nos data dans un fichier appellé snapshot.db
+on peut biensur backupé ou on veut en précisant le path :
+
+ETCDCTL_API=3 etcdctl snapshot save /home/boogie/backup/etcd_bck.db
+
+On peut voir l'état de notre snap :
+
+ETCDCTL_API=3 etcdctl snapshot status snapshot.db
+
+Pour restaurer un backup :
+
+1/ stopper le kubeapiserver : car on va devroir arreter le service etcd
+
+service kube-apiserver stop
+
+2/ restauration du snap sur l'intégralité des nodes du cluster etcd :
+ETCDCTL_API=3 etcdctl snapshot restore snapshot.db \
+  --data-dir /var/lib/etcd-for_backup \
+  --initial-cluster etcd01=https://etcd01.boogie.net:2380,etcd02=https://etcd02.boogie.net:2380 \
+  --initial-cluster-token etcd-cluster-1 \
+  --initial-advertise-peer-urls https://${internal_ip}:2380
+
+!! /!\ Etcd restore les data depuis le backup et instancie une NOUVELLE configuration de cluster
+et configure les membres comme des nouveaux membres d'un nouveau cluster !!
+C'est fait par prévention pour empecher un nouveau membre de s'integrer dans un cluster déja existant.
+a ce moment la un nouveau datadir est créer dans notre exemple : /var/lib/etcd-from-backup
+
+On va maintenant configurer notre service etcd pour qu'il prenne en compte notre nouveau data dir domain et notre nouveau token
+
+une fois notre service modifier on reload le service daemon et etcd :
+
+systemctl daemon-reload
+service etcd restart
+
+3/ on démarre le kubeapserver service :
+
+service kube-apiserver start
+
+Attention pour le tls on doit indiquer a etcd les endpoint; ca; crt et key
+

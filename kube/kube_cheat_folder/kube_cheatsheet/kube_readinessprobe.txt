@@ -51,3 +51,42 @@ helloworld-readiness-dc8fc5bc-tcwbx   1/1     Running   0          33s
 
 
 
+on a plusieurs type de sondes :
+
+
+    readinessProbe:   <<<<<< check http
+      httpGet:
+        path: /api/ready
+        port: 8080
+
+
+    readinessProbe:   <<<< check tcp
+      tcpSocket:
+        port: 3306
+    readinessProbe:   <<< execution de script
+      exec:
+        command:
+          - cat
+          - /app/is_ready
+
+on peut définir d'autres options :
+
+initialDelaySeconds -> nombre de secondes nécéssaire à l'appli pour être up
+periodSeconds -> nombre d'attente entre chaque sonde
+
+readinessProbe:   <<<<<< check http
+  httpGet:
+    path: /api/ready
+    port: 8080
+  initialDelaySeconds: 10
+  periodSeconds: 5
+
+par défault trois tests seront fait pour assurer que l'appli est up et donc la passer en running mais on peut modifier ce nombre :
+avec le param failureThreshold qui va permettre d'indique le nombre de test qui seront fait avant que le status ne passe soit en running soit en failure.
+  failureThreshold: 8
+Il existe beaucoup de params : consulter la doc.
+
+Les  readiness probes vont être très utiles dans un set up de multipods :
+
+ex : une appli a deux pods exposant un service par lesquels se connectent les users : si on met un troisieme pod et qu'on l'injecte sans test de vie alors le traffic sera envoyer sur tous les pods même celui qui n'est pas pret ..on aura donc des failures coté users ...si on met une sonde readiness alors on pourra correctement mettre en prod le pod quand il sera vraiment pret.
+
