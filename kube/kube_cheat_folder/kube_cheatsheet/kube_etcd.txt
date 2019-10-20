@@ -1,0 +1,15 @@
+
+
+= verif santé du cluster etcd via kubectl : =
+il va nous falloir fournir le /les endpoints et les paths des cert ca, du server et la clé priv en trouvant ce chemin en local sur le serveur hebergeant notre conf master :
+
+ex: 
+root@k-master01:/etc/kubernetes/pki/etcd# ls
+ca.crt	ca.key	healthcheck-client.crt	healthcheck-client.key	peer.crt  peer.key  server.crt	server.key
+
+boogie@k-master01:~$ kubectl exec etcd-k-master01 -n kube-system -- etcdctl --endpoints https://127.0.0.1:2379 --ca-file=/etc/kubernetes/pki/etcd/ca.crt --cert-file=/etc/kubernetes/pki/etcd/server.crt --key-file=/etc/kubernetes/pki/etcd/server.key --debug cluster-health 
+Cluster-Endpoints: https://127.0.0.1:2379
+cURL Command: curl -X GET https://127.0.0.1:2379/v2/members
+member cd518fdbf5754ed2 is healthy: got healthy result from https://192.168.0.80:2379
+cluster is healthy
+
