@@ -172,3 +172,40 @@ server {
     }
 }
 
+
+Les configmap peuvent aussi ne pas se présenter sous forme de volume montés dans les pods ...
+
+on peut aussi  utiliser des declaration specifique qui ne vont pas etre sous forme de volume monté mais d'"env" :
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+data:  <<<< a la place de spec que l'on trouve dans les objects kube habituels  ici on a la definition data
+  APP_COLOR: blue
+  APP_MODE: prod
+
+on utilise dans notre pod une structure du genre : 
+envFrom:
+  configMapRef:
+    name: notre_config_map
+
+ex: 
+apiVersion: v1
+kind: Pod
+metadata:
+  name: webapp-green
+  labels:
+      name: webapp-green
+spec:
+  containers:
+  - name: simple-webapp
+    image: kodekloud/webapp-color
+    ports:
+      - containerport: 8080
+    command: ["watch -n2 "]
+    envFrom:            <<<<<<<<  on va donc maintenant rattacher les valeurs definis dans notre configmap au pod
+      - configMapRef:
+          name: app-config
+
+
