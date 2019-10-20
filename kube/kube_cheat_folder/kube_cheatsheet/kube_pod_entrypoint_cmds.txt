@@ -1,0 +1,197 @@
+=== kube pod comman entrypoint /args : ===
+
+- commands et arguments dans kube :
+
+- memo sur les commandes et arguments dans docker :
+
+quand on lance un container simplement avec docker :
+docker run ubuntu
+et qu'on liste les container up
+docker container ls
+
+il n'y a pas de process actif : le container s'est lancé puis s'est arrêté.
+avec un docker ps -a : on peut voir que le container est en status exited.
+les containers sont fait pour faire tourner une tache ou un process . contrairement a une vm qui fait tourner un os.
+un container est up uniquement tant que le process a l'interrieur de celui ci est up.
+ex : si un server web crash alors le container qui l'héberge se ferme.
+On peut facilement voir la commande qui est executée dans notre container : en editant le Dockerfile de celui-ci on voit le param :
+ex : pour un container nginx :
+# default command :
+CMD ["nginx"]
+
+ex: pour un container hébergeant mysql :
+#default command :
+CMD ["mysqld"]
+
+Quand on lance un container faisant tourner ubuntu on peut voir que la commande est :
+
+CMD ["bash"]
+la commande bash n'est pas comme un serveur web.
+Bash attend une commande sur un terminal ..s'il ne trouve pas de terminal alors il se ferme.
+par defaut docker n'attache pas de terminal a un container quand il est lancé.
+donc bash ne trouve pas de terminal ..il se ferme donc
+
+On peut ajouter une commande qui va overrider  la commande spécifiée dans le dockerfile.
+
+ex :
+docker run ubuntu sleep 5 <<<< dans ce cas  la commande sleep sera prise en compte la commande bash sera remplacée et le container sera up pendant 5 secondes.
+On peut overrider en ligne de commande mais biensur on peut rendre se changement permanent :
+
+on peut modifier la commande bash et la remplacer par sleep dans le dockerfile.
+
+CMD sleep 5
+2 formes sont possibles :
+- forme simple :CMD command, param1 -> CMD sleep 5
+- format json CMD ["command", "param1"]  -> CMD ["sleep","5"]
+
+attention dans le format json le premier element doit etre un executable et tous les élements doivent etre séparés dans la liste :
+CMD ["sleep 5"] --<< ne fonctionne PAS
+
+on peut maintenant builder notre nouvelle image :
+docker build -t ubuntu-sleeper .
+docker run ubuntu-sleeper
+
+pour augmenter le delai passer de 5 à 10 secondes on peut modifier en cli : docker run ubuntu-sleeper sleep 10 mais comme son nom l'indique ubuntu-sleeper doit sleep ..;donc rajouter la commande en argumant n'est pas génial .
+
+on voudrait juste passer en argument le nbr de secondes pendant lequel le container sleep :
+docker run ubuntu-sleeper 10
+
+pour cela on va utiliser la directive "entrypoint"
+cette instruction ENTRYPOINT est commande CMD on va donc pouvoir juste saisir notre nombre de secondes.
+CMD ENTRYPOINT ["sleep"]
+docker run ubuntu-sleeper 10
+CMD peut être completement overrider par les parametres passés en cli
+ENTRYPOINT les arguments de la ligne de commande sont ajoutés à l'entrypoint
+
+si on lance le container avec l'entrypoint sleep sans argumant on a une erreur :
+c'est normal car sleep a besoin d'argument.
+
+On va donc pouvoir donner une valeur par default pour se faire on va cumuler les deux directives :
+
+
+FROM ubuntu
+...
+...
+ENTRYPOINT ["sleep"]
+CMD ["5"]
+dans se cas si on lance la commande docker run ubuntu-sleeper sans argumant par defaut le container prendra 5 secondes comme valeur
+si on passe un argument alors celui-ci ovverridera la valeur contenu dans la directive CMD
+
+ex : docker run ubuntu-sleeper 10
+
+Il est cependant si besoin possible d'overrider l'entrypoint en cli en utilisant l'argumant --entrypoint
+
+docker run ubuntu-sleeper --entrypoint sleep.2 5
+
+
+on a vu qu'on pouvait créer avec docker un container qui se lancerait et pendant 5 secondes ne ferait rien
+docker run --name ubuntu-sleeper ubuntu-sleeper
+on a vu qu'on pouvait overrider les commandes et arguments pour le lancer 10 secondes :
+docker run --name ubuntu-sleeper ubuntu-sleeper 10
+
+on va pouvoir créer un pod ayant le même comportement :
+et on va pouvoir passer les argumants overridant le comportement par defaut du pod dans la section args de notre container :
+pod-def.yaml
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ubuntu-sleeper-pod
+specs:
+  containers:
+    - name: ubuntu-sleeper
+      image: ubuntu-sleeper
+      args: ["10"]
+
+kubectl create -f pod-def.yaml
+
+ c'est comme si on overridait la partie CMD dans le dockerfile :
+
+ From ubuntu
+ ..
+ ENTRYPOINT ["sleep"]
+ CMD ["5"]
+
+ Comment faire si on veut overrider l'entrypoint ?
+ dans ce cas on va renseigner le champ command dans la def de notre pod:
+
+
+
+pod-def.yaml
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ubuntu-sleeper-pod
+specs:
+  containers:
+    - name: ubuntu-sleeper
+      image: ubuntu-sleeper
+      command: ["sleepv2"]
+      args: ["10"]
+Attention donc on a
+
+on a donc en equivalence : Dockerfile = pod definition :
+
+ENTRYPOINT : docker -> command: kubernetes
+CMD: docker         -> args: kubernetes
+
+
+master $ cat ubuntu-sleeper-2.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ubuntu-sleeper-2
+spec:
+  containers:
+  - name: ubuntu
+    image: ubuntu
+    command: ["sleep"]
+    args: ["5000"]
+
+Il est possible de passer plusieurs commandes à la suite sous forme de tableau dans la directive commandes :
+
+master $ cat ubuntu-sleeper-3.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ubuntu-sleeper-3
+spec:
+  containers:
+  - name: ubuntu
+    image: ubuntu
+    command:
+      - "sleep"
+      - "1200"
+ici on voit que la commande qui sera executé au demarrage du container sera:  "--color","green" : car la valeur déclarée dans le pod va ovverider ce qui est defini dans le dockerfile.
+
+- dockerfile :
+master $ cat /root/webapp-color-2/Dockerfile2
+FROM python:3.6-alpine
+
+RUN pip install flask
+
+COPY . /opt/
+
+EXPOSE 8080
+
+WORKDIR /opt
+
+ENTRYPOINT ["python", "app.py"]
+
+CMD ["--color", "red"]
+
+-pod :
+master $ cat /root/webapp-color-2/webapp-color-pod.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: webapp-green
+  labels:
+      name: webapp-green
+spec:
+  containers:
+  - name: simple-webapp
+    image: kodekloud/webapp-color
+    command: ["--color","green"]
+
