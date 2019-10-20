@@ -1,0 +1,489 @@
+== kube network concepts : ==
+
+= docker networking =
+
+- bases :
+
+
+pc 1 a une iface connectée au lan : 192.168.0.1
+
+- docker network options :
+on a la possibilité de configurer nos containers avec plusieurs options
+
+- none :
+
+notre container n'est rattaché à aucune iface :
+docker run --network none nginx
+
+le container ne peut contacter aucun réseaux ni ne peut être contacté par l'exterrieur
+on peut créer autant de container que l'on veut il seront tous indépendant.
+
+- host :
+
+avec cette conf notre container est attaché directement à l'iface de notre host.
+si on héberge une webapp dans notre container elle sera accessible directement depuis l'ip de notre host sur le port 80 sans avoir besoin de rebinder les ports.
+
+docker run --network host nginx
+
+- bridge :
+
+dans ce cas une interface bridge virtuelle est créee et attachée à l'iface du host
+un reseau privé virtuel est créee
+ex : 172.17.0.0 - 192.168.0.1 (iface host )
+par defaut les containers crées auront une ip dans le reseau virtuel :
+
+ex : container1 : 172.17.0.2
+     container2 : 172.17.0.3
+
+c'est biensur le mode de fonctionnement qui nous iteresse le plus
+
+- fonctionnement du bridge  docker :
+
+a la création de notre container :
+
+docker crée un reseau virtuel privé en bridge
+on peut le voir avec :
+
+docker network ls
+
+docker network ls
+NETWORK ID          NAME                DRIVER              SCOPE
+60259b840d53        bridge              bridge              local
+8db544f00b99        host                host                local
+c228dc1811b9        none                null                local
+110f911da12d        work31              bridge              local
+9f7e0265b97b        workshop4_default   bridge              local
+sur le host une iface docker0 est créee :
+ip link |grep docker
+4: docker0: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc noqueue state DOWN mode DEFAULT group default
+
+on voit que l'iface / network est down
+
+on a donc clairement eu une manip auto faite par docker de type
+ip link add docker0 type bridge
+
+ce bridge a une ip assignée automatiquement :
+
+ip a |grep docker
+4: docker0: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc noqueue state DOWN group default
+    inet 172.17.0.1/16 brd 172.17.255.255 scope global docker0
+
+dès qu'on crée un container : un namespace est créee egalement :
+docker run -it --rm -d nginx
+
+
+docker va accrocher le  namespace à l'interface du bridge
+docker va créer un cable virtuel entre le container et le bridge  :
+
+on peut voir en faisant un ip link une interface monter sur le bridge :
+
+ip link |grep docker |grep veth
+8: vethdfafb28@if7: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue master docker0 state UP mode DEFAULT group default
+    link/ether e6:69:75:4d:61:0a brd ff:ff:ff:ff:ff:ff link-netnsid 0
+
+si on examine le lien de l'autre coté : donc depuis le namespace de notre container on verra le bridge :
+
+ip -n <namespace> link
+
+ethO@if8  ....
+on peut examiner l'ip donné par docker au container :
+
+ip -n <namespace> addr
+
+
+-> a chaque container crée docker fait la même chose :
+
+-> creation d'un namespace
+-> crée deux interfaces :
+en attache une au bridge
+attache l'autre au container
+
+les interfaces peuvent être identifiées par leur nombre
+if11 et if12 forme une paire , if7 et if8 une autre etc ..
+
+tous les containers peuvent donc communiquer entre eux.
+
+
+- port mapping :
+
+quand on lance un container nginx :
+un container va ecouter sur le port 80
+on pourra donc se connecter au serveur web en utilisant l'ip du container depuis un container ou notre host :
+
+curl http://172.17.0.4:80
+Welcome to nginx!
+On ne pourra pas contacter le server web depuis une autre machine , ou reseau
+
+pour permettre cela on va utiliser une fonctionalité de docker pour faire du mapping de port
+on va dire a docker de mapper le port 8080 sur notre host avec le port 80 de notre container.
+
+Tous les users qui utiliseront le mapping pour se connecter au server web du container.
+
+curl http://http://192.168.0.2:8080
+Welcome to nginx!
+
+On va donc forward le traffic arrivant sur un port vers un autre port.
+
+on va se servir d'iptables :
+
+iptables -t nat -A prerouting -j DNAT --dport 8080 --to-destination 80
+
+ici on a une regle de type  :
+
+
+iptables -t nat -A DOCKER  -j DNAT --dport 8080 --to-destination 172.17.0.4:80
+
+on peut voir les regles créees pour docker dans iptables :
+
+iptables -nvL -t nat
+
+= cni : container network interfaces =
+
+precedemment on a vu comment :
+
+- creer un namespace
+- creer une interface reseau de type bridge
+- creer un cable virtuel de type veth
+- attacher ce cable a un namespace
+- attacher l'autre extremité au bridge
+- assigner des ip
+- les monter
+- activer le nat et le masquerade pour les comm externes.
+
+on a vu que docker utilisait la même approche pour effectuer ses taches.
+d'autres solutions de containers existent et utilisent les mêmes concepts : rkt, mesos ...
+
+pourquoi ne pas utiliser une maniere unique de faire ces taches independamment des containers ?
+
+->  on va donc utiliser une methode standart que tout le monde peut suivre!
+
+c'est la que le cni intervient : il correspond a un standart permettant de régler les conf réseaux pour un runtime de container
+on va donc utiliser un plugin cni pour permettre au container runtime d'avoir les conf réseaux et savoir comment créer cette conf
+le runtime de container doit remplir des conditiions :
+
+des normes sont faites pour le cni ( qui sont livré sous forme d'app qu'on appelle des plugins et la maniere dont le runtime du container utilise le cni )
+
+- normes pour le runtime de container :
+
+-> creer un namespace pour le reseau des containers
+-> identifier le reseau sur lequel attacher le container.
+-> il doit invoquer un plugin reseau ( bridge ) quand le container est ajouté : utilisation de la commande ADD
+-> il doit invoquer un plugin reseau ( bridge ) quand le container est detruit : utilisation de la commande DEL
+-> utiliser un format json de configuration.
+
+- normes du plugin :
+-> il doit supporter les  commandes ADD/DEL/CHECK
+-> il doit accepter des parametres comme les namespaces, container id ....
+-> il doit gérer l'adressage ip des pods ainsi que les routes associées pour permettre la comm ente les pods.
+-> le resultat doit être retourné dans un format specifique
+
+n'importe quel runtime doit pouvoir fonctionner avec n'importe quel plugin.
+le cni embarque nativement plusieurs plugins : ( bridge, vlan, macvlan ...)
+d'autre plugin sont dispos : calico, flannel, weave
+
+tout ces plugins donctionne
+
+Docker ne fait pas parti des cni car il n'est pas exactement adapté au format cni
+
+on peut cependant configurer docker pour fonctionner avec un plugin cni :
+
+ex :
+on va lancer un docker sans interface puis ajouter un iface de type bridge a notre container
+
+docker run --network=none nginx
+bridge add 2erertdee34 /var/run/netns/2erertdee34
+
+quand kube setup un container docker , il va d'abord le monter sans conf réseau puis charger le plugin cni de la conf reseau du container créee
+
+
+== network cluster configuration ==
+
+
+pour resumer :
+
+chaque node a un hostname et une ip
+pour les controllers :
+kube-apiserver : port 6443
+kubelet : port 10250 ( pas obligatoire sur les controllers)
+kube-scheduler : port 10251
+kube-controler-manager : port 10252
+etcd server : 2379
+etcd client : 2380
+
+pour les workers:
+kubelet : port 10250
+services: ports range 30000 / 32767
+prendre en ref la doc officielle de kube qui reference les confs nécéssaires.
+
+== pod networking concepts : ==
+
+comment les pods communiquent entre eux a travers differents nodes, et vers l'exterrieur ?
+chaque pod doit avoir une ip et doit pouvoir contacter n'importe quel autre pod du cluster.
+
+les concepts ont été vus et tout par des namespaces.
+
+ex:
+3 nodes
+192.168.1.11
+ip link add v-net-0 type bridge
+192.168.1.12
+ip link add v-net-0 type bridge
+192.168.1.13
+ip link add v-net-0 type bridge
+
+on ajoute sur chacun des nodes un iface  de type bridge :
+
+ip link add v-net-0 type bridge
+on monte l'interface
+ip link set dev v-net-0 up
+on assigne une ip on va decider que chaque sous reseau de pod sera dans un reseau global
+
+on va devoir répéter toutes les operatiosn a chasue creation de containers.
+ceci peur donc se scripter simplement :
+
+on va definir sur chacun des nodes le sous reseau de nos containers
+
+souslan node1 : 10.244.1.0/24
+gw 10.244.1.1
+souslan node2 : 10.244.2.0/24
+gw 10.244.2.1
+souslan node3 : 10.244.3.0/24
+gw 10.244.3.1
+
+net.sh
+
+#on cree un cable virtuel :
+ip link add ..
+# on attache un coté du cable à l'interface virtuelle et la seconde au bridge
+ip link set ...
+
+# on assigne une ip et une route vers la gateway par defaut
+ip -n namespace addr add ...
+ip -n namspace route add ...
+
+# on demarre ensuite l'interface du container :
+ip -n namespace link set ...
+
+on doit repeter les opérations sur chacun des nodes
+- communication des containers :
+
+si 10.244.1.2 (container1 sur node1  veut contacter 10.244.2.2 container2 sur node 2 : de base ce n'est pas possible : ce sont deux reseaux distincts sur deux nodes différents
+
+le container va envoyer sont traffic sur sa gateway : 10.244.1.1
+puis on va devoir definir une route sur notre node 1 pour router le traffic vers le container 2 du node 2 :
+
+node1 # ip route add 10.244.2.2 via 192.168.1.12
+
+on peut maintenant permettre aux containers de différents sous reseaux à communiquer entre eux même s'ils sont sur des nodes différents.
+il faut biensur répeter toutes les opérations  pour tous les containers et nodes ....
+pour faciliter les operations on va pouvoir inserer un router sur notre infra et permettre simplement de créer un grand reseau  global pour tout nos containers
+on va definir le reseau de nos containers
+ex:
+Lan : 10.244.0.0/16
+
+et on va juste indiquer a chaque sous reseau de coontainer la gw a prendre ( donc du node ) pour joindre un autre sous reau de container.
+
+10.244.1.0/24 gw 192.168.1.11
+10.244.2.0/24 gw 192.168.1.12
+10.244.3.0/24 gw 192.168.1.13
+
+Comment faire lorqu'on a plusieurs containers qui se créent et se detruisent par minutes ?
+C'est la que le cni intervient pour que kube soit capable d'utiliser notre plugin cni : il faut que celui-ci respecte les standarts :
+
+on doit avoir dans notre script :
+
+des sections sont mandatory
+
+ADD )
+create veth pair
+attach veth pair
+assign address bring up iface
+
+DEL )
+delete veth pair
+kubelet est responsable de la creation des container : il va donc charger le plugin cni ( on peut le voir en argument de la command line )
+
+--cni-conf-dir=/etc/cni/net.d
+
+on doit pouvoir créer notre container en utilisant le script qui doit prendre des params conformes aux standards cni )
+ex :
+./net.sh add <container> <namespace>
+
+on va pouvoir utiliser des solutions existantes pour permettre la configuration reseau de nos containers.
+== CNI : container network interface : ==
+
+cni defini les responsabilité du runtime container
+le plugin cni doit être correctement invoqué par le composant de kube gerant les containers : kubelet  après la création du container.
+on peut voir les entrées relatives au cni dans le conf de kubelet :
+
+--network-plugin=cni
+--cni-bin-dir=/opt/cni/bin
+--cni-conf-dir=/etc/cni/net.d
+
+on peut voir les mêmes informations quand on examine le process kubelet lancé avec un ps fauxw
+
+le repertoire /opt/cni/bin contient tous les plugins cni :
+[root@knode01 ~]# ls /opt/cni/bin/
+bridge  dhcp  flannel  host-device  host-local  ipvlan  loopback  macvlan  portmap  ptp  sample  tuning  vlan
+
+le repertoire /etc/cni/net.d lui va contenir les config des  cni a utiliser
+
+[root@knode01 ~]# ls /etc/cni/net.d/
+10-flannel.conflist
+
+si plusieurs conf sont dispo il va choisir par ordre alphabetique
+ex conf flannel :
+[root@knode01 ~]# cat /etc/cni/net.d/10-flannel.conflist
+{
+  "name": "cbr0",
+  "plugins": [
+    {
+      "type": "flannel",
+      "delegate": {
+        "hairpinMode": true,
+        "isDefaultGateway": true
+      }
+    },
+    {
+      "type": "portmap",
+      "capabilities": {
+        "portMappings": true
+      }
+    }
+  ]
+}
+
+= cni exemple avec weave works : =
+
+on a pu voir comment un script maison peut servir de cni plugin.
+On peut forcement avoir des soucis avec le nombre de resources augmentant
+
+ex  si on a des nodes et pods repartis dans le monde ..les tables de routages deviennent tres compliquées à maintenir
+on va devoir trouver une solution pour gérer tout cela
+
+ex avec weave
+-> on place un system sur chaque node. tous les agents ont connaissance des autres agent répartis sur les nodes
+
+un node en greece
+pod bureau1
+weave
+un node en france
+pod bureau 2
+weave
+un node en uk
+pod bureau3
+weave
+un node a bali
+pod bureau4
+weave
+
+quand le pod bureau1 veut envoyer un message a pod bureau4
+l'agent weave de greece intercepte le message et examine la destination : il injecte le message dans un propre message qu'il ecrit et envoi au node de bali pour le pod bureau4
+le node de bali recoit le message , l'agent weave examine le contenu et le transfere au pod bureau4
+chaque peer weave a la topologie exacte du setup du cluster
+weave crée un bridge  (ex 10.244.1.0/24° sur chaque node et y assigne une ip ( 10.244.1.1)
+on sait qu'un pod peut atteindre plusieurs reseau : weave s'assure que la route correct pour joindre un autre agent weave est correcte.
+
+weave et weave peer peuvent être deployés en service ou en pod
+
+il est simple de deployer weave en pod : le manifest qu'on peut appliquer configure weave en deamonset et on aura donc un agent par node de déployé.
+
+
+on peut troubleshooter en examinant les logs
+
+ex :
+kubectl logs weave-cdgsgdsgd -n kube-system
+
+= ipam CNI =
+
+ip adress managment
+
+comment les sous reseaux et les ip de pods sont attibuées ?
+comment s'assurer qu'il n'y a pas de duplicate ip ? qui assigne les ip ?
+
+les standardss cni imposent au plugin cni ces taches.
+
+une mecanique interne permet de s'assurer que les ip ne sont assignées qu'une fois.
+c'est le role de  host-local
+
+on peut avoir la conf de l'ipam, le sous reseau et la route par defaut definie dans notre conf cni si on developpe notre script nous même :
+..
+.."ipam"
+    "type": "host-local",
+    "subnet": "10.244.0.0/16",
+    "routes": [
+          { "dest": "0.0.0.0" }
+    ]
+
+weave de base distribue un reseau : 10.32.0.0/12 ce qui permet :
+10.32.0.2 -> 10.47.255.254 en adressage
+plus d'un million d'ip pour nos pods.
+
+les peers vont décider de s'attribuer  des ranges
+
+ex :
+node1
+10.32.0.1
+node2
+10.38.0.0
+....
+
+= service networking =
+
+on a vu que les pods pouvaient communiquer entre eux a travers un grand reseaux privés.
+Pour les services : un pod disposant d'un service : va adresser une ip a ce service : ainsi un autre pod accedra a ce service via l'ip fournie .
+ceci est possible quelque soit le noeud du cluster sur lequel se trouve le pod voulant joindre le service.
+Attention ce service ne sera accessible qu'au sein du cluster.
+on utilisera pour cela une conf de service ClusterIp
+
+on peut egalement faire un service qui sera accessible depuis le cluster mais aussi depuis l'exterrieur du cluster en expansant un port pour notre service : ceci se fait via une conf en NodePort
+
+Comment sont gérer les services ?
+kube proxy installé sur tous les nodes : va communiquer avec l'api server et surveiller chaque changement dans la definition des services .
+C'est lui qui gère les services  : qui ne sont pas associé à un node mais on une portée globale sur le cluster.
+
+Les services sont des objects virtuels dans kube.
+
+Quand on crée un service dans kube celui ci se voit attribuer une ip issue d'un reseau pré-défini.
+kubeproxy va ensuite créer des regles de forwarding sur chacun des nodes
+
+chaque appel à l'ip de notre service sera forwardé vers l'ip du pod portant le service . Le pod portant le service est lui accessible partout dasn le cluster.
+
+en fait il y a aussi la notion de port qui rentre en ligne de compte.
+
+kubeproxy a des possibilité de travailler avec  de namespaces, iptables , ipvs
+
+- iptables :
+
+ex:
+
+ip:port          forwardto:
+10.99.1.13:80    10.244.0.1
+
+
+quand on cree un service on peut voir avec kubectl
+kubectl get service
+
+name         type            clusterip    port      age
+db-service   clusterip       10.103.10.5  3306/tcp  2H
+
+
+on peut voir que le range utilisé est :
+kube-api-server --service-cluster-ip-range ipNet (default: 10.0.0.0/24)
+
+
+on doit bien faire attention a ce que le range de nos services ne chevauche pas le range de notre reseau de pod
+
+on peut voir les rules crées :
+iptables -L -t nat  |grep db-service
+
+10.103.10.5  -> 10.244.0.5:3306
+
+quand on crée un service de type Nodeport les flux vont pouvoir transiter vers / depuis l'exterrieur
+
+on peut voir les logs du proxy dans :
+/var/log/kube-proxy.log
+
+
+
+

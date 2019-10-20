@@ -1,0 +1,47 @@
+=  kube secu : =
+
+on peut en lancant un container passer des arguments pour la secu ( definir le user, les capabilities )
+docker run --user=1001 ubuntu sleep 100
+docker run --cap-add MAC_ADMIN ubuntu
+
+on peut biensur le faire dans kuberentes :
+on peut setter notre secu au niveau :
+-> container
+ou
+-> pod
+si on configure au niveau pod tous les containers au sein du pod seront affectés par les regles de secu.
+Les settings fait au niveau du container overrident ceux au niveau du pod.
+
+ex:
+on peut rajouter la conf secu au niveau du pod en rajoutant la section securityContext dans le pod
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name : nginx-pod
+spec:
+  securityContext:
+    runAsUser: 1001
+
+  - containers:
+    - name: nginx
+      image: private-registry.io/apps/nginx
+      command: ["sleep", "3600"]
+
+on peut rajouter la conf secu au niveau du container en rajoutant la section securityContext dans le pod
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name : nginx-pod
+spec:
+
+  - containers:
+    - name: nginx
+      image: private-registry.io/apps/nginx
+      command: ["sleep", "3600"]
+      securityContext:
+        runAsUser: 1001
+        capabilities:
+          add: ["MAC_ADMIN"]
+

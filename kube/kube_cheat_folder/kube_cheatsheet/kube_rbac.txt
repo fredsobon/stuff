@@ -101,3 +101,63 @@ subjects:
   name: "boogie"
   apiGroup: rbac.authorization.k8s.io
 
+
+Pour examiner les droits qu'un user dispose :
+
+kubectl auth can-i create deployements
+yes
+
+
+kubectl auth can-i delete nodes
+no
+
+
+on peut en tant qu'admin examiner les droits d'un user :
+
+
+kubectl auth can-i create deployements --as dev-user
+no
+
+kubectl auth can-i create pods --as dev-user
+yes
+
+on peut definir les perms sur un namespace aussi :
+
+kubectl auth can-i create deployements --as dev-user --namespace test
+no
+
+Il va être possible de définir des droits specifiques a certaines ressources : ex acces uniquement a certains pods :
+
+
+
+cat developer-role.yaml
+apiversion: rbac.authorization.k8s.io/v1
+kind: role
+metadata:
+  name: developer
+rules:
+- apiGroups: [""]
+  ressources: ["pods"]
+  verbs: ["list", "get", "create", "update", "delete"]
+  ressourcesNames: ["app-web1", "app-vcs2"]
+
+on a vu que les roles et rolesbinding sont associés à un namespace donné.
+
+Comment peut on faire pour les nodes ? Ce type de ressource n'est pas associée à un namespace : on est dans ce cas dans le domaine du cluster.
+
+Les ressources sont donc catégorisées en 2 :
+
+-> namespaced : pods, replicatset, jobs, services ....
+-> cluster scoped : nodes, cluster roles, clusters roles binding , namespaced, certificate signing requests
+
+
+on peut examiner les différents type de ressources avec :
+
+kubectl api-resources --namespaced=true --> on va voir ici toutes les ressources du scope 'namespace'
+kubectl api-resources --namespaced=false --> on va voir ici toutes les ressources du scope 'cluster'
+
+Comment donner le droits a des users de gérer certaines parties du cluster ???
+avec les  cluster roles et les clusterroles binding
+
+
+

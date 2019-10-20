@@ -1,0 +1,46 @@
+iquand un nouveau user arrive ..il va falloir faire toute la chaine pour qu'elle ait un cert valide ....biensur cela devient tres fastidieux avec un nombre conséquent de user ...
+kube a une api build in pour gérer les certs
+-> le user crée sa clé  :
+openssl genrsa -out user.key 2048
+
+-> on genere un object de type csr
+openssl req -new-key user.key -subj "CN=user" -out user.csr
+
+on va par contre encoder en base 64 le csr avant de l'injecter dans notre objet kube :
+un type kube dédié existe :
+
+usr-csr.yaml
+
+apiVersion ..
+kind: CertificatSigningRequest
+
+
+on va par contre encoder en base 64 le csr avant de l'injecter dans notre objet kube :
+
+cat user.csr |base64
+on ajoute ensuite la sortie dans le champ request de l'objet yaml kube
+
+
+-> on exam les requests ..
+kubectl get csr
+
+-> on approuve le cert
+kubectl certificate approve  user
+user approved!
+
+-> on deploy le cert
+on peur exam le cert :
+
+kubectl get csr user -o yaml
+
+on va devoir pour exm le cert le decoder :
+
+cette fois :
+echo "le texte de notre cert" |base64 --decode
+
+
+dans kube c'est le controller manager qui est en charge des operations sur les certifs :
+il a des composants internes :
+csr-approving
+csr-signing
+

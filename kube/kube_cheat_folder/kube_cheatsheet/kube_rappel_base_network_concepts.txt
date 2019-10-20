@@ -1,0 +1,284 @@
+== networking : ==
+
+= linux basic network /routing =
+
+- switching :
+
+pour permette la connex d'un pc1 a un pc2 on va connecter une interface de ces pc a un switch.
+
+on va voir les ifaces avec la commande  : ip link
+
+ip link
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN mode DEFAULT group default qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+2: enp0s31f6: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc pfifo_fast state DOWN mode DEFAULT group default qlen 1000
+    link/ether 18:db:f2:3a:2c:4a brd ff:ff:ff:ff:ff:ff
+
+pour setter une ip on peut utiliser ip addr
+sudo ip addr add 192.168.0.10/24 dev enp0s31f6
+
+on va voir l'ip :
+
+ ip a show enp0s31f6
+2: enp0s31f6: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc pfifo_fast state DOWN group default qlen 1000
+    link/ether 18:db:f2:3a:2c:4a brd ff:ff:ff:ff:ff:ff
+    inet 192.168.0.10/24 scope global enp0s31f6
+       valid_lft forever preferred_lft forever
+
+une fois qu'on a fait l'opération sur les deux pc ..ceux ci peuvent communiquer ensemble via le switch
+Celui ci peut delivrer les packets des hosts au sein d'un même network
+
+si on a deux reseau :
+
+192.168.0.1/24 et 192.168.0.2/24 comment faire pour leur permettre de communiquer ?
+
+on va dans ce cas devoir ajouter un router dont un des jobs est de permettre à différents réseau de communiquer entre eux.
+
+Pour relier deux reseaux differents le routeur doit donc avoir deux interfaces diférentes.
+pc1 : 192.168.1.10
+pc2 : 192.168.1.20
+
+swich1 : 192.168.1.0/24
+
+
+routeur:if1: 192.168.1.1
+routeur:if2: 192.168.2.1
+
+pc3 : 192.168.2.10
+pc1 : 192.168.2.10
+
+swich2 : 192.168.0.2/24
+comment pc2 sait communiquer avec pc3 ?
+on va communiquer via une gateway.
+
+Le reseau est une piece et la gateway est une porte permettant l'acces au monde exterrieur.
+on va devoir emprumpter une route pour communiquer ...
+
+la commande route permet de montrer les differentes routes
+
+ sudo route
+Table de routage IP du noyau
+Destination     Passerelle      Genmask         Indic Metric Ref    Use Iface
+link-local      0.0.0.0         255.255.0.0     U     1000   0        0 br-110f911da12d
+172.17.0.0      0.0.0.0         255.255.0.0     U     0      0        0 docker0
+172.18.0.0      0.0.0.0         255.255.0.0     U     0      0        0 br-110f911da12d
+172.19.0.0      0.0.0.0         255.255.0.0     U     0      0        0 br-9f7e0265b97b
+192.168.0.0     0.0.0.0         255.255.255.0   U     0      0        0 enp0s31f6
+
+pour permettre aux deux reseaux de communiquer on va configurer notre route disant au reseau 1 qu'il peut contacter le reseau2 en passant par l'interface 192.168.1.1 qui est l'inerface de notre routeur
+
+ip route add 192.168.2.0/24 via 192.168.1.1
+biensur il faut le faire sur tous les systemes : pc3 doit pouvoir communiquer avec pc2
+
+ip route add 192.168.1.0/24 via 192.168.2.1
+pour que nos pc sur 192.168.1.0/24 puissent acceder a internet (admettons une ip publique en 172.217.194.0 que l'on veut joindre pour google : on va rajouter une route de la meme maniere
+(il faut que notre routeur soit connecter a la sortie internet )
+
+ip route add 172.217.194.0 via 192.168.1.1
+
+biensur il n'est pas possible de rajouter toutes les routes pour tous les sites .
+
+On va donc rajouter une route par defaut qui permettra de se connecter à tous les réseaux en passant par une interface
+
+ip route add default via 192.168.1.1
+on peut definir à la place de default le 0.0.0.0 qui signifie toutes les destinations.
+
+- comment definir un host linux en router :
+si on a trois pc
+
+a  192.168.1.2
+b  192.168.1.7 / 192.168.3.7 -> on doit avoir un host avec 2 interfaces
+c  192.168.3.2
+
+sur a :
+ip route add 192.168.3.0/24 via 192.168.1.7
+
+
+sur b :
+ip route add 192.168.1.0/24 via 192.168.3.7
+de base les paquets sur linux ne sont pas forwarder d'une interface à une autre : par raison de securité.
+on est sur un reseau privé donc pas de souci :
+
+pour transformer notre pc en router on va définir a 1 le contenu du fichier :
+
+echo 1 > /proc/sys/net/ipv4_forward
+
+il faut modifier l'entree dans le fichier /etc/sysctl.conf pour garder la valeur :
+
+net.ipv4_forward = 1
+
+
+== network namespaces ==
+
+ils sont utilisés pour la separation / isolation des containers.
+On peut dans une maison par analogie les representer par les chambres d'une maison appartenant chacune par exemple à un enfant  de la famille.
+Chaque personne ne peut voir que ce qu'il y a dans sa chambre quand elle y est.
+En tant que parent on a la visibilité sur toutes les chambres et si on veut on peut permettre la communication entre deux chambres.
+
+quand on crée un container on veut s'assurer qu'il soit parfaitement isolé.
+on a pour cela un process namespace qui permet au container de ne voir que celui ci et donc penser qu'il est isolé sur son propre host.
+on a depuis le container la vision que le pid 1 est le process init comme sur un host.
+depuis le host on voit le process init du container comme n'importe quel autre process avec forcement un autre pid.
+
+- network namespace :
+
+chaque host a une iface connecté au lan.
+chaque host dispose de sa table de routage et arp
+quand on crée un container  celui ci n'a aucune visibilité sur les informations de reseaux du host . Le container dispose de sa propre virtual iface ainsi que se propre table de routage et arp .
+
+Pour créee un nouveau network namespace sous linux :
+
+ip netns add notre_namespace
+
+sudo ip netns  add blue
+sudo ip netns  add red
+sudo ip netns  list
+red
+blue
+
+pour voir l'interface créee dans notre namespace :
+ip netns exec notre_ns link
+ou
+
+ip -n notre_namespace link
+
+
+sudo ip netns exec red ip link
+1: lo: <LOOPBACK> mtu 65536 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+sudo ip -n red link
+1: lo: <LOOPBACK> mtu 65536 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+
+on a donc une isolation dans notre namespace : aucune visibilité de l'iface du host.
+
+- tables routage et  arp :
+
+c'est le même principe pour les tables de roitages et de cache mac address :
+
+sudo ip netns exec red route
+Table de routage IP du noyau
+Destination     Passerelle      Genmask         Indic Metric Ref    Use Iface
+sudo ip netns exec red arp
+- connexion de deux namespaces réseaux ensemble :
+
+on va pouvoir raccorder plusieurs ns ensemble via un "cable virtuel"
+
+- creation du cable  virtuel :
+sudo ip link add veth-red type veth peer name veth-blue
+
+- on attache maintenant ce cable aux namespaces dédiés :
+
+ip link set veth-red netns red
+ip link set veth-blue netns blue
+
+- on va maintenant pouvoir assigner une ip à nos interfaces :
+sudo ip -n red addr add 192.168.15.2 dev veth-red
+sudo ip -n blue addr add 192.168.15.3 dev veth-blue
+sudo ip -n red link set veth-red up
+sudo ip -n blue link set veth-blue up
+
+
+- on peut passer des commandes depuis notre namespace :
+
+sudo ip netns exec red ping 192.168.15.3
+sudo ip netns  exec blue arp
+sudo ip netns  exec blue route -n
+
+
+Quand on a plusieurs machinnes cela devient compliqué a gérer : on va docn créer un virtual switch
+on a plusieurs solutions qui s'offrent à nous : linux bridge, openvswitch  ....
+
+- linux bridge :
+on va ajouter une nouvelle iface de type bridge pour gérer notre réseau 192.168.15.0/24
+
+sudo ip link add v-net-0 type bridge
+
+sudo ip link |grep v-net-0
+9: v-net-0: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN mode DEFAULT group default qlen 1000
+
+ on l'active :
+
+sudo ip link set dev v-net-0 up
+sudo ip link |grep v-net-0
+9: v-net-0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UNKNOWN mode DEFAULT group default qlen 1000
+
+on va donc maintenant vouloir connecter tout nos namespaces sur notre switch :
+
+on va delete le link entre les namespace que l'on a créée précédemment :
+
+sudo ip -n red link del veth-red
+
+il suffit de delete une extremité dans ce cas l'autre est delete automatiquement :
+sudo ip -n red link del veth-red
+
+il suffit de delete une extremité dans ce cas l'autre est delete automatiquement :
+
+udo ip -n blue link del veth-blue
+Cannot find device "veth-blue"
+
+on va maintenant créee des ifaces virtuelles qui vont pointer sur des ifaces virtuelles de birdge :
+sudo ip link add veth-red type veth peer name veth-red-br
+sudo ip link add veth-blue type veth peer name veth-blue-br
+
+
+on va maintenant raccorder notre namespace à l'iface puis
+l'interface virt bridge au bridge :
+sudo ip link set veth-red netns red
+sudo ip link set veth-red-br master v-net-0
+sudo ip link set veth-blue netns blue
+sudo ip link set veth-blue-br master v-net-0
+
+on va maintenant setter une ip et permette au deux ns de communiquer :
+
+sudo ip -n red addr add 192.168.15.2 dev veth-red
+sudo ip -n blue addr add 192.168.15.3 dev veth-blue
+sudo ip -n red link set veth-red up
+sudo ip -n blue link set veth-blue up
+
+sudo ip netns exec red ping 192.168.15.3
+
+
+sur notre host on rajoute une ip dans le reseau virtuel :
+
+sudo ip addr add 192.168.15.5/24 dev v-net-0
+et on peut donc joindre notre reseau virtuel depuis notre host :
+
+ping 192.168.15.3
+
+Il faut bien noter que ce réseau est entierement situé sur le host et restreint à son périmètre.
+La seule porte d'acces au reste du monde est l'iface sur notre host.
+
+Comment permettre donc l'acces au net et aux autres réseaux depuis nos namespaces ?
+
+si on veut pinger une ip 192.168.1 depuis un namespace blue en 192.168.15 on y arrive pas .. il n'y a pas d'information dans la table de routage.
+Il va falloir ajouter une gateway permettant aux ns de communiquer avec le réseau voulu.
+
+LA seule iface qui est dans plusieurs reseaux est la virtuelle iface : v-net-0 192.168.15.5 qui comunique avec l'ip 192.168.1.2 de eth0 sur notre host
+
+ip net exec blue ip route add 192.168.1.0/24 via 192.168.15.5
+
+On ne pourra cependant toujours pas contacter l'exterrieur : il va falloir 'nater' nos flux : en transformant les ip 192.168.15.0/24 de nos namespaces qui vont sortir et chercher à communiquer avec d'autre réseaux . pour cela on utilise  iptables le nat et le masquerading
+
+iptables -t nat -A POSTROUTING -s 192.168.15.0/24  -j MASQUERADE
+
+> tous les flux des ns sortiront avec l'ip de notre gateway et les réseaux destinations n'auront en aucun cas connaissance de la source des ns initiaux.
+
+Pour s'assurer que tous nos namespaces pourront communiquer avec le net et pas uniquement le réseau 192.168.1.0/24 on va rajouter une gateway par defaut :
+
+ip netns blue exec ip route add default via 192.168.15.5
+
+cette fois le net est accessible.
+
+
+Comment maintenant permettre aux autres réseaux de se connecter aux namespaces internes puisque les ip ne sont pas connues ?
+admettons que  dans notre ns blue on ait une appli web comment faire pour l'atteindre depuis un host de notre lan ?
+
+on a deux choix ajouter une route pour dire que tout le réseau 192.168.15.0/24 sera joignable via la 192.168.1.2
+ou alors affiner notre filtrage : c'est ce qu'on privilégie
+on va s'assurer que les requettes sur le port 80 seront bien envoyées sur le container/ appli de l'ip 192.168.15.2 ecoutant sur le port 80 , en natant ce flux.
+
+iptables -t nat -A PREROUTING --dport 80 --to-destination 192.168.15.2:80 -J DNAT
+
+
+
