@@ -1,0 +1,108 @@
+=== notes upgrade kube version avec kubeadm : ===
+
+
+A - upgrade de version mineure de notre cluster kube 
+
+1/ sur notre master ( ou un premier master du cluster ) vérifier les versions candidates :
+
+-kubeadm upgrade plan
+
+ici on voit que pour upgrader notre version actuelle 1.15.2 en version finale (1.16.2 ..il va falloir faire un upgrade progressif en 1.15.5 
+remote version is much newer: v1.16.2; falling back to: stable-1.15
+[upgrade/versions] Latest stable version: v1.15.5
+[upgrade/versions] Latest version in the v1.15 series: v1.15.5
+
+Components that must be upgraded manually after you have upgraded the control plane with 'kubeadm upgrade apply':
+COMPONENT   CURRENT       AVAILABLE
+Kubelet     3 x v1.15.2   v1.15.5
+
+Upgrade to the latest version in the v1.15 series:
+
+COMPONENT            CURRENT   AVAILABLE
+API Server           v1.15.2   v1.15.5
+Controller Manager   v1.15.2   v1.15.5
+Scheduler            v1.15.2   v1.15.5
+Kube Proxy           v1.15.2   v1.15.5
+CoreDNS              1.3.1     1.3.1
+Etcd                 3.3.10    3.3.10
+
+You can now apply the upgrade by executing the following command:
+
+	kubeadm upgrade apply v1.15.5
+
+on va donc installer des version intermediaires :
+
+apt-get install kubeadm=1.15.5-00
+apt-get install kubelet=1.15.5-00
+apt-get install kubctl=1.15.5-00
+
+kubeadm upgrade apply v1.15.5
+
+..
+[upgrade/successful] SUCCESS! Your cluster was upgraded to "v1.15.5". Enjoy!
+[upgrade/kubelet] Now that your control plane is upgraded, please proceed with upgrading your kubelets if you haven't already done so.
+
+
+on met donc à jour nos kubelet sur les workers :
+root@k-node01:~# apt-get install kubelet=1.15.5-00
+..
+on voit ensuite via kubectl que notre cluster est bien passé en 1.15.5 :
+
+boogie@k-master01:~$ kubectl get nodes
+NAME         STATUS   ROLES    AGE   VERSION
+k-master01   Ready    master   64d   v1.15.5
+k-node01     Ready    <none>   64d   v1.15.5
+k-node02     Ready    <none>   64d   v1.15.5
+
+
+B - Upgrade version majeure : 
+on peut upgrader si on veut sauter de version majeure : 
+
+on va examiner la presence des paquets dédiés au nos os ( controller et worker )
+root@k-master01:~# apt-cache policy kubeadm |more
+kubeadm:
+  Installé : 1.15.5-00
+  Candidat : 1.16.2-00
+ Table de version :
+ *** 1.16.2-00 500
+        500 http://apt.kubernetes.io kubernetes-xenial/main amd64 Packages
+
+on installe la version kubeadm /kubelet et kubectl de la version qu'on veut sur notre cluster : 
+
+apt-get install kubeadm=1.16.2-00 
+apt-get install kubelet=1.16.2-00 
+apt-get install kubectl=1.16.2-00 
+
+on check sur notre cluster la version candidate effective 
+kubeadm upgrade plan
+..
+et on lance l'upgrade :
+kubeadm upgrade apply v1.16.2
+
+on upgrade la version de kubelet sur nos nodes :
+root@k-node01:~# apt-get install kubelet=1.16.2-00
+root@k-node02:~# apt-get install kubelet=1.16.2-00
+
+une verif via kubectl nous montre qu'on est uptodate :
+boogie@k-master01:~$ kubectl get nodes
+NAME         STATUS   ROLES    AGE   VERSION
+k-master01   Ready    master   64d   v1.16.2
+k-node01     Ready    <none>   64d   v1.16.2
+k-node02     Ready    <none>   64d   v1.16.2
+
+si on verifie une seconde fois avec un upgrade plan on voit qu'on est a jour :
+
+root@k-master01:~# kubeadm upgrade plan
+[upgrade/config] Making sure the configuration is correct:
+[upgrade/config] Reading configuration from the cluster...
+[upgrade/config] FYI: You can look at this config file with 'kubectl -n kube-system get cm kubeadm-config -oyaml'
+[preflight] Running pre-flight checks.
+[upgrade] Making sure the cluster is healthy:
+[upgrade] Fetching available versions to upgrade to
+[upgrade/versions] Cluster version: v1.16.2
+[upgrade/versions] kubeadm version: v1.16.2
+[upgrade/versions] Latest stable version: v1.16.2
+[upgrade/versions] Latest version in the v1.16 series: v1.16.2
+
+Awesome, you're up-to-date! Enjoy!
+
