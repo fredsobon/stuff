@@ -1,0 +1,640 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN"><html><head>
+  <meta http-equiv="CONTENT-TYPE" content="text/html; charset=us-ascii">
+  <title>Platform Monitoring and Management Using JMX</title>
+  <link rel="stylesheet" href="doc.css" type="text/css"></head><body>
+
+<h1>Monitoring and Management Using JMX</h1>
+
+<p>The Java virtual machine (JVM) has built-in instrumentation that enables 
+you to monitor and manage it using JMX.&nbsp; You can also monitor
+instrumented applications with JMX.</p>
+
+<ul>
+<li><a href="#sysprops">Setting System Properties for JMX</a></li>
+<li><a href="#jmxagent">Enabling the JMX Agent</a>
+    <ul>
+    <li><a href="#local">Local Monitoring and Management</a></li>
+    <li><a href="#remote">Remote Monitoring and Management</a></li>
+    </ul>
+</li>
+<li><a href="#connecting">Connecting to the JMX Agent Programmatically</a></li>
+<li><a href="#PasswordAccessFiles">Using Password and Access
+Files</a></li>
+<li><a href="#properties">JMX Management and Monitoring Properties</a></li>
+</ul>
+<h2><a name="sysprops" id="sysprops"></a>Setting System Properties</h2>
+
+<p>To enable the JMX agent and configure its operation, you must set certain
+system properties when you start the Java virtual machine (JVM).&nbsp; 
+You set a system property on the command-line as follows:</p>
+
+<pre>java -D<i>property</i>=<i>value</i> ...<br></pre>
+
+<p>You can set any number of system properties in this way.  If you
+do not specify a value, then the property is set with its default
+value.  The full set of JMX management properties is described in
+<a href="#mmprops_table">Table 1</a>.  You may also set system
+properties in a configuration file, as described in <a href="#properties">JMX Management and Monitoring Properties</a>.</p>
+
+<p><b>Note</b>: To run <code>java</code> (the Java VM) from the
+command line, you must add <code><i>JRE_HOME</i>/bin</code> to your
+path, where <i><code>JRE_HOME</code></i> is the directory
+containing the Java Runtime Environment (JRE).  Alternatively, you
+can enter the full path when you type the command.</p>
+
+<p>The following documents describe the syntax and full set of
+command-line options supported by the Java HotSpot VMs:</p>
+
+<ul>
+<li><a href="../../tooldocs/windows/java.html">Java application
+launcher for Microsoft Windows</a></li>
+<li><a href="../../tooldocs/solaris/java.html">Java application
+launcher for Solaris Operating Environment</a></li>
+<li><a href="../../tooldocs/linux/java.html">Java application
+launcher for Linux</a></li>
+</ul>
+
+<h2><a name="jmxagent" id="jmxremote"></a>Enabling the JMX Agent</h2>
+
+<p>To monitor a Java platform with JMX:</p>
+
+<ol>
+<li>Enable the JMX agent (the MBean server) when you start the JVM.
+You can enable the JMX agent for:
+<ul>
+<li><a href="#local">Local monitoring</a>, for a client management application
+running on the local system.</li>
+<li><a href="#remote">Remote monitoring</a>, for a client management application
+running on a remote system.</li>
+</ul>
+</li>
+<li>Monitor the JVM with a JMX-compliant tool such as
+<code>jconsole</code>. See <a href="jconsole.html">Using
+jconsole</a> for more information.</li>
+</ol>
+
+<h3><a name="local" id="enablingjmxagent"></a>Local Monitoring and Management</h3>
+
+<p>To enable the JMX agent for local access, set this system
+property when you start the JVM or Java application:</p>
+
+<pre>com.sun.management.jmxremote</pre>
+
+<p>Setting this property registers the JVM instrumentation MBeans
+and publishes the RMI connector via a private interface to allow
+JMX client applications to monitor a local Java platform, that is,
+a JVM running on the same machine.</p>
+
+<p>For example, to enable the JMX agent for the J2SE sample
+application <i>Notepad</i>:</p>
+
+<pre>cd <i>JDK_HOME</i>/demo/jfc/Notepad
+java -Dcom.sun.management.jmxremote -jar Notepad.jar</pre>
+
+<p>where <i>JDK_HOME</i> is the directory where the JDK is
+installed.</p>
+
+<P>
+<b>Limitation</b>:  On Windows, for security reasons, local monitoring and management is only supported
+if your default Windows temporary directory is on a file system that supports persistent access
+control lists (for example, on an NTFS file system).   It is not supported on a FAT file system that
+provide insufficient access controls.
+</P>
+
+<h4>Using jconsole</h4>
+
+<p>Local monitoring with <code>jconsole</code> is useful for development
+and prototyping. Using <code>jconsole</code> locally is not recommended for production environments,
+because <code>jconsole</code> itself consumes significant system
+resources.  Rather, use jconsole on a remote system to isolate it from the platform being
+monitored.</p>
+
+<p>Start jconsole by typing <code>jconsole</code> in a command shell. When
+you start jconsole withouth any arguments, it will automatically detect
+all local Java applications, and display a dialog box that enables you
+to select the application you want to monitor.&nbsp; Both <code>jconsole</code> and the application must by executed
+by the same user name, since the monitoring and monitoring system uses
+the operating system's file permissions.</p>
+
+<p><b>Note</b>: To run <code>jconsole</code> from the command line,
+you must add <code><i>JAVA_HOME</i>/bin</code> to your path, where
+<i><code>JAVA_HOME</code></i> is the directory containing the JDK. 
+Alternatively, you can enter the full path when you type the
+command.</p>
+
+<p>For more information on using jconsole, see <a href="jconsole.html">Using
+jconsole</a>.</p>
+
+<h3><a name="remote" id="remote"></a>Remote Monitoring and Management</h3>
+
+<p>To enable monitoring and management from remote systems, set this system property when you start the JVM:
+</p>
+<pre>com.sun.management.jmxremote.port=<i>portNum</i></pre>
+
+<p>where <i>portNum </i>is the port number through which you want to
+enable JMX/RMI connections.&nbsp; Be sure to specify an unused port
+number.&nbsp; In addition to publishing a RMI connector for local
+access,
+setting this property publishes an additional RMI connector in a
+private read-only registry at the specified port using a well known
+name, "jmxrmi".
+</p>
+
+<p><b>Note</b>: You must set the above system property in addition to any properties you set for security,
+described below.
+</p>
+
+<p>Remote monitoring and management requires security, to ensure
+that unauthorized persons cannot control or monitor your
+application.  Password authentication over SSL (secure sockets layer) is enabled by default.
+You may separately disable password authentication and SSL, as described in the following sections:
+</p>
+
+<ul>
+<li><a href="#auth">Using password authentication</a></li>
+<li><a href="#auth_disabled">Disabling password authentication</a></li>
+<li><a href="#SSL_enabled">Using SSL</a></li>
+<li><a href="#client_ssl">Using client SSL authentication</a></li>
+<li><a href="#SSL_disabled">Disabling SSL</a></li>
+<li><a href="#no_security">Disabling security</a></li>
+</ul>
+
+<p>After you have enabled the JMX agent for remote use, you can
+monitor your application using jconsole, as described in
+<a href="#jconsole_remote">Remote Monitoring with jconsole</a>.</p>
+
+<h4><a name="auth" id="auth"></a>Using Password Authentication</h4>
+
+<p>By default, when you enable the JMX agent for remote monitoring,
+it uses password authentication.  However, the way you set it up
+depends on whether you are in a single-user environment or a
+multi-user environment.
+</p>
+
+<p>Since passwords are stored in clear-text in
+the password file, it is not advisable to use your regular user
+name and password for monitoring. Instead, use the user names
+specified in the password file such as <code>monitorRole</code> and <code>controlRole</code>.
+For more information, see <a href="#PasswordAccessFiles">Using Password and Access Files</a>.</p>
+
+<p><b>Single User Environment</b>: set up the password file in the
+<code><i>JRE_HOME</i>/lib/management</code> directory as
+follows:</p>
+
+<ol>
+<li>Copy the password template file,
+<code>jmxremote.password.template</code>,  to
+<code>management.jmxremote.password</code>.</li>
+<li>Set file permissions so that only the owner can read and write
+the password file.</li>
+<li>Add passwords for roles such as <code>monitorRole</code> and <code>controlRole</code>.</li>
+</ol>
+
+<p><b>Multi-user Environment</b>: set up the password file in the
+<code><i>JRE_HOME</i>/lib/</code><code>management</code> directory
+as follows:</p>
+
+<ol>
+<li>Copy the password template file,
+<code>jmxremote.password.template</code>,  to your home
+directory.</li>
+<li>Set file permissions so that only you can read and write the
+password file.</li>
+<li>Add passwords for the roles such as <code>monitorRole</code> and <code>controlRole</code>.</li>
+<li>Set this system property when you start the JVM:
+<pre>com.sun.management.jmxremote.password.file=<i>pwFilePath</i></pre>
+where <i>pwFilePath</i> is the path to the password file.</li>
+</ol>
+<a name="security_warning"></a>
+<table align="center" cellpadding="4" cellspacing="2" border="0" width="605" bgcolor="#dddddd" height="32">
+  <tbody>
+    <tr>
+      <td valign="top">
+<b>WARNING:</b> A potential security issue has been identified with password authentication
+for JMX remote connectors when the client obtains the remote connector from an insecure RMI registry (the default).
+If an attacker starts a bogus RMI registry on the
+target server before the legitmate one is started, then the attacker can steal clients' passwords.
+This scenario includes the case where you launch a JVM with remote management enabled, using the
+system property <code>com.sun.management.jmxremote.port=<i>portNum</i></code>, even when SSL is enabled.
+Although such attacks are likely to be noticed, it is nevertheless a vulnerability.
+<BR><BR>
+To avoid this problem, use SSL client certificates for authentication
+instead of passwords, or ensure that the client obtains the remote
+connector object securely, for example through a secure LDAP server or a
+file in a shared secure filesystem.
+<br><br>
+A future release will fix this problem.
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+
+<h4><a name="auth_disabled" id="auth_disabled"></a>Disabling password authentication</h4>
+<p>
+Password authentication for remote monitoring is enabled by default.
+To disable it, set the following system property when you start the JVM:
+</p>
+<pre>com.sun.management.jmxremote.authenticate=false</pre>
+
+<p>where <i>portNum</i> is the port number to use. Be sure to
+specify an unused port number.
+</p>
+
+<p>When you disable password authentication, you can also disable SSL, as described in
+<a href="#no_security">Disabling Security</a>.
+You may also want to disable passwords, but use SSL client
+authentication, as described in Enabling Client SSL
+Authentication.&nbsp;
+</p>
+
+<p>
+<b>Warning</b>: This configuration is insecure: any remote user who knows (or guesses) your JMX port number
+and host name will be able monitor and control your Java application and platform.
+While it may be acceptable for development, it is not recommended for production systems.
+</p>
+
+<h4><a name="SSL_enabled" id="SSL_enabled"></a>Using SSL</h4>
+
+<p>Secure sockets layer (SSL) is enabled by default when you enable remote monitoring and management.
+To use SSL, you need to set up a digital
+certificate on the system where the JMX agent (MBean server) is running and then configure SSL properly.
+You use the command-line utility <code>keytool</code> to work with certificates.
+The general procedure is:
+</p>
+
+<ol>
+  <li>If you don't already have a keypair and certificate set up on the server:
+  <ol>
+  <li type="a">Generate a key pair with the <code>keytool -genkey</code> command. </li>
+  <li type="a">Request a signed certificate from a certificate authority (CA) with the <code>keytool -certreq</code> command. </li>
+  <li type="a">Import the certificate into your keystore with the <code>keytool -import</code> command.
+  See <a href="../../tooldocs/solaris/keytool.html#ImportCertificate">Importing Certificates</a>
+  <br>For more information and examples, see keytool - Key and Certificate Management Tool
+  <a href="../../tooldocs/solaris/keytool.html#EXAMPLES">(Solaris and Linux)</a>
+  <a href="../../tooldocs/windows/keytool.html#EXAMPLES">(Windows)</a>.
+
+  </li>
+  </ol>
+  </li>
+  <li>Configure SSL on the server system.
+  A full explanation of configuring and customizing SSL is beyond the scope of this document, but you generally need
+  to set the <a href="#sysprops">system properties</a> described in the following table.
+  For more information, see
+  <a href="../security/jsse/JSSERefGuide.html#CustomizingStores">Customizing the Default Key and Trust Stores, Store Types, and Store Passwords</a>
+  in the JSSE Guide. </li>
+</ol><p>
+</p>
+
+<table border="0" width="70%" cellpadding="2" cellspacing="2" align="center" height="212">
+<caption>System Properties for SSL Configuration</caption>
+
+<tbody>
+<tr><th>System Property</th><th>Description</th></tr>
+<tr><td><code>javax.net.ssl.keyStore</code> </td><td>Keystore location.</td></tr>
+<tr><td><code>javax.net.ssl.trustStore</code> </td><td>Truststore location.</td></tr>
+<tr><td><code>javax.net.ssl.keyStoreType</code> </td><td>Default keystore type. <code></code></td></tr>
+<tr><td><code>javax.net.ssl.keyStorePassword</code> </td><td>Default keystore password.</td></tr>
+<tr><td><code>javax.net.ssl.trustStoreType</code> </td><td>Default truststore type.</td></tr>
+<tr><td><code>javax.net.ssl.trustStorePassword</code> </td><td>Default truststore password.</td></tr>
+</tbody>
+</table>
+
+<p>For more information, see
+keytool - Key and Certificate Management Tool <a href="../../tooldocs/solaris/keytool.html#EXAMPLES">(Solaris and Linux)</a>
+<a href="../../tooldocs/windows/keytool.html#EXAMPLES">(Windows)</a>,
+and the <a href="../security/jsse/JSSERefGuide.html">JSSE Guide.</a>
+</p>
+
+<h4><a name="client_ssl"></a>Enabling Client SSL Authentication</h4>
+
+<p>To enable client SSL authentication, set this
+system property when you start the JVM: </p>
+
+<pre>com.sun.management.jmxremote.ssl.need.client.auth=true</pre>
+
+<p>
+SSL must be enabled (the default), to use client SSL authentication.
+</p>
+
+<p>This configuration requires the client system to have a valid
+digital certificate.&nbsp; You must install a certificate and configure
+SSL on the client system, as described in <a href="#SSL_enabled">Using SSL</a>.
+</p>
+<h4><a name="SSL_disabled" id="SSL_disabled"></a>Disabling SSL</h4>
+
+<p>To disable SSL for remote monitoring, set this
+system property when you start the JVM:</p>
+
+<pre>com.sun.management.jmxremote.ssl=false</pre>
+
+<p>
+Password authentication will still be required unless you disable it,
+as specified in <a href="" #auth_disabled="">Disabling password authentication</a>.
+</p>
+
+<h4><a name="no_security" id="no_security"></a>Disabling Security</h4>
+
+<p>To disable both password authentication and SSL (no security), set these
+system properties when you start the JVM:</p>
+
+<pre>com.sun.management.jmxremote.authenticate=false
+com.sun.management.jmxremote.ssl=false</pre>
+
+<p><b>Warning</b>: This configuration is insecure: any remote user
+who knows (or guesses) your JMX port number and host name will be
+able to monitor and control your Java application and platform. While it may be acceptable for development, it is
+not recommended for production systems.</p>
+
+<h4><a name="jconsole_remote" id="jconsole_remote"></a>Remote
+Monitoring with jconsole</h4>
+
+<p>To monitor a remote application, start <code>jconsole</code> as
+follows:</p>
+
+<pre>jconsole <i>hostName</i>:<i>portNum</i></pre>
+
+<p>where <i>hostName</i> is the name of the system running the
+application and <i>portNum</i> is the port number you specified
+when you started the JVM.&nbsp;&nbsp; You can also omit the host name and port number, and enter them in the dialog box that <code>jconsole </code>provides.
+</p>
+
+<p><b>Note</b>: To run <code>jconsole</code> from the command line,
+you must add <code><i>JAVA_HOME</i>/bin</code> to your path, where <i><code>JAVA_HOME</code></i> is the directory containing the JDK. 
+Alternatively, you can enter the full path when you type the
+command.</p>
+
+<p>For more information on using jconsole, see
+<a href="jconsole.html">Using jconsole</a>.</p>
+
+<h2><a name="connecting" id="connecting"></a>Connecting to the JMX
+Agent Programmatically</h2>
+
+<p>Once you have enabled the JMX agent, a client can use the
+following URL to access the service:</p>
+
+<pre>service:jmx:rmi:///jndi/rmi://<i>hostName</i>:<i>portNum</i>/jmxrmi</pre>
+
+<p>where <i>hostName</i> is the host name and <i>portNum</i> is the
+port number specified when the JMX agent was enabled.</p>
+
+<p>A client can create a connector to the agent by instantiating an
+<code>javax.management.remote.JMXServiceURL</code> object using the URL, and then creating a connection using the
+<code>JMXConnectorFactory.connect</code> method as follows:</p>
+
+<pre>JMXServiceURL u = new JMXServiceURL(
+  "service:jmx:rmi:///jndi/rmi:// &#8220; + hostName + ":" + portNum +  "/jmxrmi");
+  JMXConnector c = JMXConnectorFactory.connect(u); </pre>
+
+<h2><a name="PasswordAccessFiles" id="PasswordAccessFiles"></a>Using Password and Access Files</h2>
+
+<p>The password and access files control security for remote
+monitoring and management. These files are located by default in
+<code><i>JRE_HOME</i>/lib/management</code> and are in
+the standard Java properties file format. For more information on
+the format, see the API reference for <a href="../../api/java/util/Properties.html"><code>java.util.properties</code></a>.</p>
+
+<h3>Password File</h3>
+
+<p>The password file defines the different roles and their
+passwords.  The access control file (jmxremote.access by default)
+defines the allowed access for each role.  To be functional, a role
+must have an entry in both the password and the access
+files.</p>
+
+<p>The JRE contains a password file template named
+<code>jmxremote.password.template</code> . Copy this file to
+<code><i>JRE_HOME</i>/lib/management/jmxremote.password</code>
+or to your home directory, and add the passwords for the roles
+defined in the access file.</p>
+
+<p>Ensure that only the owner has read and write permissions on
+this file, since it contains the passwords in clear text. For
+security reasons, the system checks that the file is only readable
+or writeable by the owner and exits with an error if not. Thus in a
+multi-user environment, store the password file in private location
+such as your home directory.</p>
+
+<p>Property names are roles, and the associated value is the role's
+password.</p>
+
+<p>For example, the following are sample entries in the password
+file:</p>
+
+<pre># The "monitorRole" role has password "QED".
+# The "controlRole" role has password "R&amp;D".
+monitorRole QED
+controlRole R&amp;D</pre>
+
+<h3>Access File</h3>
+
+<p>By default, the access file is named
+<code>jmxremote.access</code>.  Property names are identities from
+the same space as the password file. The associated value must be
+either "readonly" or "readwrite".</p>
+
+<p>The access file defines roles and their access levels. By default, the
+access file defines two primary roles:</p>
+
+<ul>
+<li><code>monitorRole</code>, which grants read-only access for monitoring</li>
+<li><code>controlRole</code>, which grants read-write access for monitoring and
+management.</li>
+</ul>
+
+<p>An access control entry consists of a role name and an
+associated access level. The role name cannot contain spaces or
+tabs and must correspond to an entry in the password file. The
+access level is either:</p>
+
+<ul>
+
+<li><b>readonly</b>: grants access to read attributes of MBeans.
+For monitoring, this means that a remote client in this role can
+read measurements but cannot perform any action that changes the
+environment of the running program.</li>
+<li><b>readwrite</b>: grants access to read and write attributes of
+MBeans, to invoke operations on them, and to create or remove them.
+This access should be granted to only trusted clients, since they
+can potentially interfere with the operation of an
+application.</li>
+</ul>
+
+<p>A role should have only one entry in the access file. If a role
+has no entry, it has no access. If a role has multiple entries,
+then the last entry takes precedence.</p>
+
+<p>Typical pre-defined roles in the access file:</p>
+
+
+<pre># The "monitorRole" role has readonly access.
+# The "controlRole" role has readwrite access.
+monitorRole readonly
+controlRole readwrite</pre>
+
+<h2><a name="properties" id="properties"></a>JMX Management
+and Monitoring Properties</h2>
+
+<p>You can set management and monitoring properties in a
+configuration file or on the command line. Properties specified on
+the command line override properties in a configuration file. The
+default location for the configuration file is <code><i>JRE_HOME</i>/lib/management/management.properties</code>,
+where <i>JRE_HOME</i> is the directory where the Java runtime environment is installed.
+The JVM reads this file if either of the command-line properties
+<code>com.sun.management.jmxremote</code> or
+<code>com.sun.management.jmxremote.port</code> are set. SNMP
+management uses the same configuration file; for more information, see <a href="SNMP.html">SNMP Monitoring and Management</a>.
+</p>
+
+<p>You can specify a different location for the configuration file
+with the command-line option:</p>
+
+<pre>com.sun.management.config.file=<i>ConfigFilePath</i></pre>
+
+<p>where <i>ConfigFilePath</i> is the path to the configuration
+file.</p>
+
+<p>
+The following table describes all the JMX monitoring and management properties.</p>
+
+<table border="1" cellpadding="2" cellspacing="2" summary="JMX Management and Monitoring Properties">
+<caption><a name="mmprops_table" id="mmprops_table"></a>
+Table 1. JMX Management and Monitoring Properties</caption>
+<tbody>
+<tr>
+<th>Property Name</th>
+<th>Description</th>
+<th>Values</th>
+</tr>
+<tr>
+<td><code>com.sun.management.jmxremote</code></td>
+<td>Enables the JMX remote agent and local monitoring via JMX
+connector published on a private interface used by
+<code>jconsole</code>. The jconsole tool can use this connector if it is executed by the same
+user ID as the user ID that started the agent. No password or access files are
+checked for requests coming via this connector.</td>
+<td valign="top">true / false.
+Default is true.</td>
+</tr>
+<tr>
+<td><code>com.sun.management.jmxremote.
+port</code></td>
+<td>Enables the JMX remote agent and creates a remote JMX connector
+to listen through the specified port. By default, SSL, password,
+and access files properties are used for this connector. Also
+enables local monitoring as described for the
+<code>com.sun.management.jmxremote</code> property.</td>
+<td valign="top">Port number.
+No default.</td>
+</tr>
+<tr>
+<td><code>com.sun.management.jmxremote.<br>
+ssl</code></td>
+<td>Enables secure monitoring via SSL. If false, then SSL is not
+used.</td>
+<td>true / false.
+Default is true.</td>
+</tr>
+<tr>
+<td><code>com.sun.management.jmxremote.<br>
+ssl.enabled.protocols</code></td>
+<td>Comma-delimited list of SSL/TLS protocol versions to enable.
+Used in conjunction with
+<code>com.sun.management.jmxremote.ssl</code></td>
+<td valign="top">Default SSL/TLS protocol version.</td>
+</tr>
+<tr>
+<td><code>com.sun.management.jmxremote.<br>
+ssl.enabled.cipher.suites</code></td>
+<td>A comma-delimited list of SSL/TLS cipher suites to enable. Used
+in conjunction with
+<code>com.sun.management.jmxremote.ssl</code>.</td>
+<td valign="top">Default SSL/TLS cipher suites.</td>
+</tr>
+<tr>
+<td><code>com.sun.management.jmxremote.<br>
+ssl.need.client.auth</code></td>
+<td>If this property is true and the property
+<code>com.sun.management.jmxremote.ssl</code> is true, then client
+authentication will be performed.</td>
+<td valign="top">true / false.
+Default is false</td>
+</tr>
+<tr>
+<td><code>com.sun.management.jmxremote.<br>
+authenticate</code></td>
+<td>If this property is false then JMX does not use passwords or
+access files: all users are allowed all access.</td>
+<td valign="top">true / false.<br>
+Default is true.</td>
+</tr>
+<tr>
+<td><code>com.sun.management.jmxremote.<br>
+password.file</code></td>
+<td>Specifies location for password file. If
+<code>com.sun.management.jmxremote.password</code> is false, then
+this property and the password and access files are ignored.
+Otherwise, the password file must exist and be in valid format. If
+the password file is empty or non-existent, then no access is
+allowed.</td>
+<td valign="top"><code><i>JRE_HOME</i>/lib/management/<br>
+jmxremote.password</code></td>
+</tr>
+<tr>
+<td><code>com.sun.management.jmxremote.<br>
+access.file</code></td>
+<td>Specifies location for the access file. If
+<code>com.sun.management.jmxremote.password</code> is false, then
+this property and the password and access files are ignored.
+Otherwise, the access file must exist and be in the valid format.
+If the access file is empty or non-existent, then no access is
+allowed.</td>
+<td valign="top"><code><i>JRE_HOME</i>/lib/management/<br>
+jmxremote.access</code></td>
+</tr>
+
+<tr>
+<td><code>com.sun.management.jmxremote.<br>
+login.config</code></td>
+<td>
+Specifies the name of a JAAS login configuration entry
+to use when authenticating users of RMI monitoring.
+
+When using this property to override the default login configuration,
+the named configuration entry must be in a file that gets loaded
+by JAAS. In addition, the login modules specified in the configuration
+should use the name and password callbacks to acquire the user's
+credentials.
+For more information, see <a href="../../api/javax/security/auth/callback/NameCallback.html"><code>javax.security.auth.callback.NameCallback</code></a> and
+<a href="../../api/javax/security/auth/callback/PasswordCallback.html"><code>javax.security.auth.callback.PasswordCallback</code></a>.
+
+
+<br><br>
+If <code>com.sun.management.jmxremote.authenticate</code> is
+false, then this property and the password and access files are ignored.
+</td>
+
+<td valign="top">
+Default login configuration is a file-based password authentication.
+</td>
+</tr>
+</tbody>
+</table>
+
+<h3>Configuration Errors</h3>
+
+<p>If any errors occur during start up of the MBean server, the RMI
+registry, or the connector, the JVM will throw an
+exception and exit. Configuration errors include:</p>
+
+<ul>
+<li>Failure to bind to the port number</li>
+<li>Invalid password file</li>
+<li>Invalid access file</li>
+<li>Password file is readable by anyone other than the owner. </li>
+</ul>
+
+<p>If your application runs a security manager, then additional
+permissions are required in the security permissions file.</p>
+
+</body></html>
