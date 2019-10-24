@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="profile" href="http://gmpg.org/xfn/11">
+<link rel="pingback" href="https://thesaitech.wordpress.com/xmlrpc.php">
+
+<title>Monitoring your JAVA process using collectd &#8211; Sai&#039;s Blog</title>
+<link rel='dns-prefetch' href='//s2.wp.com' />
+<link rel='dns-prefetch' href='//s1.wp.com' />
+<link rel='dns-prefetch' href='//s0.wp.com' />
+<link rel='dns-prefetch' href='//widgets.wp.com' />
+<link rel='dns-prefetch' href='//wordpress.com' />
+<link rel='dns-prefetch' href='//fonts.googleapis.com' />
+<link rel='dns-prefetch' href='//s.pubmine.com' />
+<link rel='dns-prefetch' href='//x.bidswitch.net' />
+<link rel='dns-prefetch' href='//static.criteo.net' />
+<link rel='dns-prefetch' href='//ib.adnxs.com' />
+<link rel='dns-prefetch' href='//aax.amazon-adsystem.com' />
+<link rel='dns-prefetch' href='//bidder.criteo.com' />
+<link rel='dns-prefetch' href='//cas.criteo.com' />
+<link rel='dns-prefetch' href='//gum.criteo.com' />
+<link rel='dns-prefetch' href='//ads.pubmatic.com' />
+<link rel='dns-prefetch' href='//gads.pubmatic.com' />
+<link rel='dns-prefetch' href='//tpc.googlesyndication.com' />
+<link rel='dns-prefetch' href='//ad.doubleclick.net' />
+<link rel='dns-prefetch' href='//googleads.g.doubleclick.net' />
+<link rel='dns-prefetch' href='//www.googletagservices.com' />
+<link rel='dns-prefetch' href='//cdn.switchadhub.com' />
+<link rel='dns-prefetch' href='//delivery.g.switchadhub.com' />
+<link rel='dns-prefetch' href='//delivery.swid.switchadhub.com' />
+<link rel="alternate" type="application/rss+xml" title="Sai&#039;s Blog &raquo; Feed" href="https://thesaitech.wordpress.com/feed/" />
+<link rel="alternate" type="application/rss+xml" title="Sai&#039;s Blog &raquo; Comments Feed" href="https://thesaitech.wordpress.com/comments/feed/" />
+<link rel="alternate" type="application/rss+xml" title="Sai&#039;s Blog &raquo; Monitoring your JAVA process using&nbsp;collectd Comments Feed" href="https://thesaitech.wordpress.com/2017/09/07/monitoring-you-java-process-using-collectd/feed/" />
+	<script type="text/javascript">
+		/* <![CDATA[ */
+		function addLoadEvent(func) {
+			var oldonload = window.onload;
+			if (typeof window.onload != 'function') {
+				window.onload = func;
+			} else {
+				window.onload = function () {
+					oldonload();
+					func();
+				}
+			}
+		}
+		/* ]]> */
+	</script>
+			<script type="text/javascript">
+			window._wpemojiSettings = {"baseUrl":"https:\/\/s0.wp.com\/wp-content\/mu-plugins\/wpcom-smileys\/twemoji\/2\/72x72\/","ext":".png","svgUrl":"https:\/\/s0.wp.com\/wp-content\/mu-plugins\/wpcom-smileys\/twemoji\/2\/svg\/","svgExt":".svg","source":{"concatemoji":"https:\/\/s1.wp.com\/wp-includes\/js\/wp-emoji-release.min.js?m=1556893897h&ver=5.3-beta2-46376"}};
+			!function(a,b,c){function d(a,b){var c=String.fromCharCode;l.clearRect(0,0,k.width,k.height),l.fillText(c.apply(this,a),0,0);var d=k.toDataURL();l.clearRect(0,0,k.width,k.height),l.fillText(c.apply(this,b),0,0);var e=k.toDataURL();return d===e}function e(a){var b;if(!l||!l.fillText)return!1;switch(l.textBaseline="top",l.font="600 32px Arial",a){case"flag":return!(b=d([55356,56826,55356,56819],[55356,56826,8203,55356,56819]))&&(b=d([55356,57332,56128,56423,56128,56418,56128,56421,56128,56430,56128,56423,56128,56447],[55356,57332,8203,56128,56423,8203,56128,56418,8203,56128,56421,8203,56128,56430,8203,56128,56423,8203,56128,56447]),!b);case"emoji":return b=d([55357,56424,55356,57342,8205,55358,56605,8205,55357,56424,55356,57340],[55357,56424,55356,57342,8203,55358,56605,8203,55357,56424,55356,57340]),!b}return!1}function f(a){var c=b.createElement("script");c.src=a,c.defer=c.type="text/javascript",b.getElementsByTagName("head")[0].appendChild(c)}var g,h,i,j,k=b.createElement("canvas"),l=k.getContext&&k.getContext("2d");for(j=Array("flag","emoji"),c.supports={everything:!0,everythingExceptFlag:!0},i=0;i<j.length;i++)c.supports[j[i]]=e(j[i]),c.supports.everything=c.supports.everything&&c.supports[j[i]],"flag"!==j[i]&&(c.supports.everythingExceptFlag=c.supports.everythingExceptFlag&&c.supports[j[i]]);c.supports.everythingExceptFlag=c.supports.everythingExceptFlag&&!c.supports.flag,c.DOMReady=!1,c.readyCallback=function(){c.DOMReady=!0},c.supports.everything||(h=function(){c.readyCallback()},b.addEventListener?(b.addEventListener("DOMContentLoaded",h,!1),a.addEventListener("load",h,!1)):(a.attachEvent("onload",h),b.attachEvent("onreadystatechange",function(){"complete"===b.readyState&&c.readyCallback()})),g=c.source||{},g.concatemoji?f(g.concatemoji):g.wpemoji&&g.twemoji&&(f(g.twemoji),f(g.wpemoji)))}(window,document,window._wpemojiSettings);
+		</script>
+		<style type="text/css">
+img.wp-smiley,
+img.emoji {
+	display: inline !important;
+	border: none !important;
+	box-shadow: none !important;
+	height: 1em !important;
+	width: 1em !important;
+	margin: 0 .07em !important;
+	vertical-align: -0.1em !important;
+	background: none !important;
+	padding: 0 !important;
+}
+</style>
+	<link rel='stylesheet' id='all-css-0-1' href='https://s0.wp.com/_static/??-eJyNkdFuwyAMRX9oQNKqy9O0b4HgpbQmIGxU5e9HSKJWqRbtBemae2xzUY8o+jAyjKx8FhHz4EZSj9gHL8g7hGmnZE/0oV4wg2F4giFZbUkNGIzGN+/LiASoGayIgXinjjB0dyB1A466v4uq3uybd8hFGkhDuUmgPmUnG2WyQzsvXXGTdJoU8YTwjzaV2vJYxTHbh9XWyvZSpltHvAwnuZB1nz/5n4woyDEIsI7duCWtGtmeVE2rvIJ42WZpv68exTkHU+o+ap4dvkzRgOCL7QhbEzAxAZEop3fZC74WsH7Ht/9qL13bdc3p3Nx+ASi45Lk=?cssminify=yes' type='text/css' media='all' />
+<link rel='stylesheet' id='wpcom-block-editor-styles-css'  href='//widgets.wp.com/wpcom-block-editor/common.min.css?ver=20190930180734' type='text/css' media='all' />
+<link rel='stylesheet' id='all-css-2-1' href='https://s1.wp.com/_static/??/wp-content/mu-plugins/comment-likes/css/comment-likes.css,/i/noticons/noticons.css?m=1436783281j&cssminify=yes' type='text/css' media='all' />
+<link rel='stylesheet' id='sapor-fonts-css'  href='https://fonts.googleapis.com/css?family=PT+Sans%3A400%2C700%2C400italic%2C700italic%7CPT+Serif%3A400%2C700%2C400italic%2C700italic&#038;subset=latin%2Clatin-ext' type='text/css' media='all' />
+<link rel='stylesheet' id='all-css-4-1' href='https://s2.wp.com/_static/??-eJyNTksOwiAQvZA4qda6Mp6F4ojowBBmSOPtRTdqGht37+V9YcrGcVJMCnrBiAK5jiA2cwHRO+HaiazgwxaryVR9SAIeE5bQhB9wlp1NNEPTHcelmSmcPKoA1qbyLaAhO4FizGS11f3xkw2xsxo4fRFzJhvKUrTgSOwb9K+vb/oMHeOh2232w7bv+uH6ADjBfIo=?cssminify=yes' type='text/css' media='all' />
+<link rel='stylesheet' id='print-css-5-1' href='https://s2.wp.com/wp-content/mu-plugins/global-print/global-print.css?m=1465851035h&cssminify=yes' type='text/css' media='print' />
+<link rel='stylesheet' id='all-css-6-1' href='https://s0.wp.com/_static/??-eJx9i0EKAjEMRS9kjYUZBhfiWTKltpE0KU0Grz+4EBHF1X8f3oNHD0nFszi0LXTeCokBJieVFcebjsnsAL/1rubhxkgDrOIgKa/9V5kmQg6sRT/PV+Q1t2xQJyisK/JTuLZLnJfTEs/zFO87xWJJtA==?cssminify=yes' type='text/css' media='all' />
+<script type='text/javascript'>
+/* <![CDATA[ */
+var related_posts_js_options = {"post_heading":"h4"};
+/* ]]> */
+</script>
+<script type='text/javascript' src='https://s1.wp.com/_static/??-eJyFj+EKAiEQhF8oT+Lw6E/0LOZtsqarudpRT59C/eg4ChaWYT9mZuWSBJLxdQaWrs2tQn681+B4J38BIqDNusAQkD6wiVSASmdT5BKAWVvYuIZ4Rg+iMuQGUGkxl7jmQhXJV4vEMoNvUbPoriu14f79CNIdYfmLOShJm6vIwPjsnU/huFfqMKppUqN7ATNIcHo='></script>
+<link rel='stylesheet' id='all-css-0-2' href='https://s0.wp.com/wp-content/mu-plugins/highlander-comments/style.css?m=1530132353h&cssminify=yes' type='text/css' media='all' />
+<!--[if lt IE 8]>
+<link rel='stylesheet' id='highlander-comments-ie7-css'  href='https://s2.wp.com/wp-content/mu-plugins/highlander-comments/style-ie7.css?m=1351637563h&#038;ver=20110606' type='text/css' media='all' />
+<![endif]-->
+<link rel="EditURI" type="application/rsd+xml" title="RSD" href="https://thesaitech.wordpress.com/xmlrpc.php?rsd" />
+<link rel="wlwmanifest" type="application/wlwmanifest+xml" href="https://s1.wp.com/wp-includes/wlwmanifest.xml" /> 
+<link rel='prev' title='Leveraging the Power of Elasticsearch in the Performance&nbsp;World' href='https://thesaitech.wordpress.com/2016/08/15/leveraging-the-power-of-elasticsearch-in-the-performance-world/' />
+<link rel='next' title='How to get heap dump of a running JAVA&nbsp;Process' href='https://thesaitech.wordpress.com/2017/09/08/how-to-get-heap-dump-of-a-running-java-process/' />
+<meta name="generator" content="WordPress.com" />
+<link rel="canonical" href="https://thesaitech.wordpress.com/2017/09/07/monitoring-you-java-process-using-collectd/" />
+<link rel='shortlink' href='https://wp.me/p99Mum-j' />
+<link rel="alternate" type="application/json+oembed" href="https://public-api.wordpress.com/oembed/?format=json&amp;url=https%3A%2F%2Fthesaitech.wordpress.com%2F2017%2F09%2F07%2Fmonitoring-you-java-process-using-collectd%2F&amp;for=wpcom-auto-discovery" /><link rel="alternate" type="application/xml+oembed" href="https://public-api.wordpress.com/oembed/?format=xml&amp;url=https%3A%2F%2Fthesaitech.wordpress.com%2F2017%2F09%2F07%2Fmonitoring-you-java-process-using-collectd%2F&amp;for=wpcom-auto-discovery" />
+<!-- Jetpack Open Graph Tags -->
+<meta property="og:type" content="article" />
+<meta property="og:title" content="Monitoring your JAVA process using collectd" />
+<meta property="og:url" content="https://thesaitech.wordpress.com/2017/09/07/monitoring-you-java-process-using-collectd/" />
+<meta property="og:description" content="Need for Monitoring The USE Methodology and drill-down analysis are two of the most effective methods to quickly identify, triage and analyze performance and capacity issues. I use them all the tim…" />
+<meta property="article:published_time" content="2017-09-07T18:38:37+00:00" />
+<meta property="article:modified_time" content="2017-09-25T12:36:38+00:00" />
+<meta property="og:site_name" content="Sai&#039;s Blog" />
+<meta property="og:image" content="https://thesaitech.files.wordpress.com/2017/09/odl-collectd-1.png?w=1200" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="420" />
+<meta property="og:locale" content="en_US" />
+<meta name="twitter:site" content="@wordpressdotcom" />
+<meta name="twitter:text:title" content="Monitoring your JAVA process using&nbsp;collectd" />
+<meta name="twitter:image" content="https://thesaitech.files.wordpress.com/2017/09/odl-collectd-1.png?w=640" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta property="fb:app_id" content="249643311490" />
+<meta property="article:publisher" content="https://www.facebook.com/WordPresscom" />
+
+<!-- End Jetpack Open Graph Tags -->
+<link rel="shortcut icon" type="image/x-icon" href="https://s1.wp.com/i/favicon.ico" sizes="16x16 24x24 32x32 48x48" />
+<link rel="icon" type="image/x-icon" href="https://s1.wp.com/i/favicon.ico" sizes="16x16 24x24 32x32 48x48" />
+<link rel="apple-touch-icon-precomposed" href="https://s2.wp.com/i/webclip.png" />
+<link rel="search" type="application/opensearchdescription+xml" href="https://thesaitech.wordpress.com/osd.xml" title="Sai&#039;s Blog" />
+<link rel="search" type="application/opensearchdescription+xml" href="https://s1.wp.com/opensearch.xml" title="WordPress.com" />
+<meta name="theme-color" content="#ffffff" />
+<meta name="application-name" content="Sai&#039;s Blog" /><meta name="msapplication-window" content="width=device-width;height=device-height" /><meta name="msapplication-tooltip" content="Random rumblings of a Software Engineer" /><meta name="msapplication-task" content="name=Subscribe;action-uri=https://thesaitech.wordpress.com/feed/;icon-uri=https://s1.wp.com/i/favicon.ico" /><meta name="msapplication-task" content="name=Sign up for a free blog;action-uri=http://wordpress.com/signup/;icon-uri=https://s1.wp.com/i/favicon.ico" /><meta name="msapplication-task" content="name=WordPress.com Support;action-uri=http://support.wordpress.com/;icon-uri=https://s1.wp.com/i/favicon.ico" /><meta name="msapplication-task" content="name=WordPress.com Forums;action-uri=http://forums.wordpress.com/;icon-uri=https://s1.wp.com/i/favicon.ico" /><meta name="description" content="Need for Monitoring The USE Methodology and drill-down analysis are two of the most effective methods to quickly identify, triage and analyze performance and capacity issues. I use them all the time at work. USE methodology involves looking at the following: Utilization Saturation Errors By looking at the above factors for all resources, one can&hellip;" />
+		<script type="text/javascript">
+		function __ATA_CC() {var v = document.cookie.match('(^|;) ?personalized-ads-consent=([^;]*)(;|$)');return v ? 1 : 0;}
+		var __ATA_PP = { pt: 1, ht: 0, tn: 'sapor', amp: false, siteid: 8982, blogid: 135318370, consent: __ATA_CC() };
+		var __ATA = __ATA || {};
+		__ATA.cmd = __ATA.cmd || [];
+		__ATA.criteo = __ATA.criteo || {};
+		__ATA.criteo.cmd = __ATA.criteo.cmd || [];
+		</script>
+		<script type="text/javascript">
+		(function(){function g(a,c){a:{for(var b=a.length,d="string"==typeof a?a.split(""):a,e=0;e<b;e++)if(e in d&&c.call(void 0,d[e],e,a)){c=e;break a}c=-1}return 0>c?null:"string"==typeof a?a.charAt(c):a[c]};function h(a,c,b){b=null!=b?"="+encodeURIComponent(String(b)):"";if(c+=b){b=a.indexOf("#");0>b&&(b=a.length);var d=a.indexOf("?");if(0>d||d>b){d=b;var e=""}else e=a.substring(d+1,b);a=[a.substr(0,d),e,a.substr(b)];b=a[1];a[1]=c?b?b+"&"+c:c:b;a=a[0]+(a[1]?"?"+a[1]:"")+a[2]}return a};var k=0;function l(a,c){var b=document.createElement("script");b.src=a;b.onload=function(){c&&c(void 0)};b.onerror=function(){c("error")};a=document.getElementsByTagName("head");var d;a&&0!==a.length?d=a[0]:d=document.documentElement;d.appendChild(b)}function m(a){return"string"==typeof a&&0<a.length}
+		function p(a,c,b){c=void 0===c?"":c;b=void 0===b?".":b;var d=[];Object.keys(a).forEach(function(e){var f=a[e],n=typeof f;"object"==n&&null!=f||"function"==n?d.push(p(f,c+e+b)):null!==f&&void 0!==f&&(e=encodeURIComponent(c+e),d.push(e+"="+encodeURIComponent(f)))});return d.filter(m).join("&")}function q(){return window.__ATA||{}}function r(a,c){a||(q().config=c.c,l(c.url))}var t=Math.floor(1E13*Math.random());q().rid=t;
+		var u=q().pageParams,v="//"+(q().serverDomain||"s.pubmine.com")+"/conf",w=window.top===window,x;try{var y=JSON.parse(document.getElementById("oil-configuration").innerText);if("boolean"!==typeof y.gdpr_applies)throw Error("Config doesn't contain gdpr_applies");x=y.gdpr_applies?1:0}catch(a){x=null}
+		var z=x,A=window.__ATA_PP||u||null,B=w?document.referrer?document.referrer:null:null,C=w?null:document.referrer?document.referrer:null,D=function(){var a=void 0===a?document.cookie:a;return(a=g(a.split("; "),function(c){return-1!=c.indexOf("__ATA_tuuid=")}))?a.split("=")[1]:""}(),E=p({gdpr:z,pp:A,rid:t,src:B,ref:C,tuuid:D?D:null,vp:window.innerWidth+"x"+window.innerHeight},"",".");
+		(function(a){var c;k++;var b="callback__"+Date.now().toString(36)+"_"+k.toString(36);a=h(a,void 0===c?"cb":c,b);window[b]=function(d){r(void 0,d)};l(a,function(d){d&&r(d)})})(v+"?"+E);}).call(this);
+		</script><link rel="amphtml" href="https://thesaitech.wordpress.com/2017/09/07/monitoring-you-java-process-using-collectd/amp/"><script type="text/javascript">
+	window.google_analytics_uacct = "UA-52447-2";
+</script>
+
+<script type="text/javascript">
+	var _gaq = _gaq || [];
+	_gaq.push(['_setAccount', 'UA-52447-2']);
+	_gaq.push(['_gat._anonymizeIp']);
+	_gaq.push(['_setDomainName', 'wordpress.com']);
+	_gaq.push(['_initData']);
+	_gaq.push(['_trackPageview']);
+
+	(function() {
+		var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+		ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+		(document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(ga);
+	})();
+</script>
+</head>
+
+<body class="post-template-default single single-post postid-19 single-format-standard customizer-styles-applied onesidebar highlander-enabled highlander-light">
+
+<div id="small-devices" class="device-bar">
+	<button class="menu-toggle" aria-expanded="false" ><span class="screen-reader-text">Show</span><span class="action-text">Show</span></button>
+</div>
+<div id="page" class="hfeed site">
+	<a class="skip-link screen-reader-text" href="#content">Skip to content</a>
+
+	<header id="masthead" class="site-header" role="banner">
+
+					<div class="site-branding">
+				<h1 class="site-title"><a href="https://thesaitech.wordpress.com/" rel="home">Sai&#039;s Blog</a></h1>
+				<h2 class="site-description">Random rumblings of a Software Engineer</h2>
+			</div><!-- .site-branding -->
+			</header><!-- #masthead -->
+
+
+	<div id="content" class="site-content">
+
+	<div id="primary" class="content-area">
+		<main id="main" class="site-main" role="main">
+
+		
+			
+<article id="post-19" class="post-19 post type-post status-publish format-standard has-post-thumbnail hentry category-performance-engineering tag-collectd tag-grafana tag-graphite tag-monitoring">
+	<div class="entry-wrapper">
+		
+	<div class="featured-image">
+		<img width="900" height="315" src="https://thesaitech.files.wordpress.com/2017/09/odl-collectd-1.png?w=900" class="attachment-sapor-featured-image size-sapor-featured-image wp-post-image" alt="" srcset="https://thesaitech.files.wordpress.com/2017/09/odl-collectd-1.png?w=900 900w, https://thesaitech.files.wordpress.com/2017/09/odl-collectd-1.png?w=1800 1800w, https://thesaitech.files.wordpress.com/2017/09/odl-collectd-1.png?w=150 150w, https://thesaitech.files.wordpress.com/2017/09/odl-collectd-1.png?w=300 300w, https://thesaitech.files.wordpress.com/2017/09/odl-collectd-1.png?w=768 768w, https://thesaitech.files.wordpress.com/2017/09/odl-collectd-1.png?w=1024 1024w" sizes="(max-width: 900px) 100vw, 900px" data-attachment-id="34" data-permalink="https://thesaitech.wordpress.com/2017/09/07/monitoring-you-java-process-using-collectd/odl-collectd-1/" data-orig-file="https://thesaitech.files.wordpress.com/2017/09/odl-collectd-1.png" data-orig-size="1890,662" data-comments-opened="1" data-image-meta="{&quot;aperture&quot;:&quot;0&quot;,&quot;credit&quot;:&quot;&quot;,&quot;camera&quot;:&quot;&quot;,&quot;caption&quot;:&quot;&quot;,&quot;created_timestamp&quot;:&quot;0&quot;,&quot;copyright&quot;:&quot;&quot;,&quot;focal_length&quot;:&quot;0&quot;,&quot;iso&quot;:&quot;0&quot;,&quot;shutter_speed&quot;:&quot;0&quot;,&quot;title&quot;:&quot;&quot;,&quot;orientation&quot;:&quot;0&quot;}" data-image-title="odl-collectd-1" data-image-description="" data-medium-file="https://thesaitech.files.wordpress.com/2017/09/odl-collectd-1.png?w=300" data-large-file="https://thesaitech.files.wordpress.com/2017/09/odl-collectd-1.png?w=730" />	</div><!-- .post-thumbnail -->
+
+			<header class="entry-header">
+			<h2 class="entry-title"><a href="https://thesaitech.wordpress.com/2017/09/07/monitoring-you-java-process-using-collectd/" rel="bookmark">Monitoring your JAVA process using&nbsp;collectd</a></h2>		</header><!-- .entry-header -->
+
+		<div class="entry-meta">
+			<span class="posted-on"><a href="https://thesaitech.wordpress.com/2017/09/07/monitoring-you-java-process-using-collectd/" rel="bookmark"><time class="entry-date published" datetime="2017-09-07T18:38:37+00:00">September 7, 2017</time><time class="updated" datetime="2017-09-25T12:36:38+00:00">September 25, 2017</time></a></span>			<span class="cat-links">Posted in <a href="https://thesaitech.wordpress.com/category/performance-engineering/" rel="category tag">performance engineering</a></span>		</div><!-- .entry-meta -->
+
+		<div class="entry-content">
+			<h1><b>Need for Monitoring</b></h1>
+<p>The USE Methodology and drill-down analysis are two of the most effective methods to quickly identify, triage and analyze performance and capacity issues. I use them all the time at work.</p>
+<p>USE methodology involves looking at the following:</p>
+<ul>
+<li>Utilization</li>
+<li>Saturation</li>
+<li>Errors</li>
+</ul>
+<p>By looking at the above factors for all resources, one can employ a tried, tested and trusted methodology to identify performance issues.</p>
+<p>Drill-Down Analysis involves the following three steps done in that order:</p>
+<ol>
+<li>Monitor the systems of interest</li>
+<li>Identify specific areas of interest for the problem and look for bottlenecks</li>
+<li>Analyze the above areas further using techniques such as profiling</li>
+</ol>
+<p>The two methodologies we discussed above are from Brenden Gregg&#8217;s book Systems Performance. Brenden also maintains an amazing <a href="http://www.brendangregg.com/blog/">blog</a> filled with interesting stories revolving around performance and capacity problems in the enterprise and cloud. I highly recommend checking it out.</p>
+<p>Going back to our discussion, there is one fundamental thing that we need to follow these two methodologies: we need a tool, cli or otherwise to monitor the utilization and saturation of various resources of interest. Traditionally it had been done via tools such as top, ps, iostat, mpstat etc but the downside is that these tools output results to the terminal and one is left wishing if there was a an easy way to graphically represent these values. Also, you might want to store these results to be able to look at the utilization at a particular point in time. Collectd solves this exact problem.</p>
+<p>&nbsp;</p>
+<h1><b>Collectd Basics</b></h1>
+<p>Collectd is a light weight daemon that you can install on the host/vm you want to monitor and it gathers metrics from the system/application and can send them over  the network to a time-series database (TSDB) such as graphite in real time. This time-series data in Graphite can be visualized using a front-end tool such as Grafana, thereby enabling the systems administrator/performance engineer to not only actively monitor the environment but also look at system resource utilization at any point in time. I skimmed over a lot of minute details here but they will become more familiar once you start using the Collectd/Graphite/Grafana stack more often. It is worth noting that although I am going to talk about sending the metrics collected by Collectd over the network to Graphite, it is very much possible to use any other backend such as InfluxDB or infact store the metrics as RRD files to be graphed by the RRDtool.</p>
+<p>Collectd is written in C and has a plugin based architecture. These two reasons are why collectd is one of the most popular system metrics gathering daemons used in the enterprise. The plugin based architecture means that there is a collectd plugin for everything: to send data to Graphite, to collect per process metrics, to collect cpu metrics, to collect memory utilization and you can even write your own plugin in python/java and then collectd does the heavy lifting of collecting your custom metrics every collection interval (default is 10s) and sending them over to the TSDB you configured. Everything is a plugin in collectd, in fact you have to use the &#8220;logfile&#8221; plugin to even get collected to log to a file. All these plugins are configured in the collectd configuration file at /etc/collectd.conf (you could even use other custom configuration files and have collectd consume them).</p>
+<p>In this blog post, we are going to see how to get collectd to monitor a java process, send those metrics over to Graphite and display them using Grafana. Setting up and configuring a Graphite/Grafana server is beyond the scope of this post.</p>
+<p>To begin with, you would need the following packages:</p>
+<ul>
+<li>collectd</li>
+<li>collectd-java</li>
+<li>collectd-generic-jmx</li>
+</ul>
+<p>If you are using a Red Hat based Linux distro, you can simply yum/dnf install them after enabling the <i>epe</i>l repo.</p>
+<p>The GenericJMX plugin provided by the collectd-generic-jmx package is the one that helps us monitor the JAVA process. It gives us valuable metrics about heap memory, garbage collection etc. that are lacking in the metrics gathered by the &#8220;processes&#8221; plugin ( which gathers CPU utilization and RSS/Virtual Memory information primarily). The GenericJMX plugin queries memory, threads and other  metrics from the Java Monitoring Extensions (JMX) of the JVM . Since the GenericJMX plugin is a JAVA based collectd plugin, we also need the &#8220;java&#8221; plugin provided by the collectd-java package.</p>
+<p>We&#8217;ve been talking quite a bit about the tooling, but have you wondered what JAVA process we are going to monitor for the purposes of this discussion? We are going to monitor OpenDaylight, an SDN controller for network virtualization. OpenDaylight runs inside of Apache Karaf, so it turns out that we would be monitoring the &#8220;karaf&#8221; process.</p>
+<p>The collected configuration used is below. It is also available <a href="https://gist.githubusercontent.com/smalleni/a53789003f71e4816695c4cac657761b/raw/b210ebf28035ca6160921df92c571f399ee7e617/collectd.conf">here</a> as a gist for quick download.</p>
+<p>&nbsp;</p>
+<pre class="brush: plain; title: ; notranslate" title="">&lt;/pre&gt;
+# Interval default is 10s
+Interval 10
+
+# Hostname for this machine, if not defined, use gethostname(2) system call
+Hostname &quot;overcloud-controller-0&quot;
+
+# Loaded Plugins:
+LoadPlugin &quot;logfile&quot;
+&lt;Plugin &quot;logfile&quot;&gt;
+File &quot;/var/log/collectd.log&quot;
+LogLevel &quot;info&quot;
+PrintSeverity true
+Timestamp true
+&lt;/Plugin&gt;
+
+LoadPlugin write_graphite
+LoadPlugin unixsock
+LoadPlugin java
+# Open unix domain socket for collectdctl
+&lt;Plugin unixsock&gt;
+SocketFile &quot;/var/run/collectd-unixsock&quot;
+SocketGroup &quot;collectd&quot;
+SocketPerms &quot;0770&quot;
+DeleteSocket true
+&lt;/Plugin&gt;
+# Graphite Host Configuration
+&lt;Plugin write_graphite&gt;
+&lt;Carbon&gt;
+Host &quot;10.12.21.1&quot;
+Port &quot;2003&quot;
+Prefix &quot;odl-osp12-non-containerized.&quot;
+Protocol &quot;tcp&quot;
+LogSendErrors true
+StoreRates true
+AlwaysAppendDS false
+EscapeCharacter &quot;_&quot;
+&lt;/Carbon&gt;
+&lt;/Plugin&gt;
+&lt;Plugin &quot;java&quot;&gt;
+JVMArg &quot;-Djava.class.path=/usr/share/collectd/java/collectd-api.jar:/usr/share/collectd/java/generic-jmx.jar&quot;
+LoadPlugin &quot;org.collectd.java.GenericJMX&quot;
+&lt;Plugin &quot;GenericJMX&quot;&gt;
+&lt;MBean &quot;gc-count&quot;&gt;
+ObjectName &quot;java.lang:type=GarbageCollector,*&quot;
+InstancePrefix &quot;gc-&quot;
+InstanceFrom &quot;name&quot;
+&lt;Value&gt;
+Type &quot;derive&quot;
+Table false
+Attribute &quot;CollectionCount&quot;
+InstancePrefix &quot;count&quot;
+&lt;/Value&gt;
+&lt;/MBean&gt;
+&lt;MBean &quot;gc-time&quot;&gt;
+ObjectName &quot;java.lang:type=GarbageCollector,*&quot;
+InstancePrefix &quot;gc-&quot;
+InstanceFrom &quot;name&quot;
+&lt;Value&gt;
+Type &quot;derive&quot;
+Table false
+Attribute &quot;CollectionTime&quot;
+InstancePrefix &quot;time&quot;
+&lt;/Value&gt;
+&lt;/MBean&gt;
+&lt;MBean &quot;memory_pool&quot;&gt;
+ObjectName &quot;java.lang:type=MemoryPool,*&quot;
+InstancePrefix &quot;memory_pool-&quot;
+InstanceFrom &quot;name&quot;
+&lt;Value&gt;
+Type &quot;memory&quot;
+Table true
+Attribute &quot;Usage&quot;
+&lt;/Value&gt;
+&lt;/MBean&gt;
+&lt;MBean &quot;memory-heap&quot;&gt;
+ObjectName &quot;java.lang:type=Memory&quot;
+InstancePrefix &quot;memory-heap&quot;
+&lt;Value&gt;
+Type &quot;memory&quot;
+Table true
+Attribute &quot;HeapMemoryUsage&quot;
+&lt;/Value&gt;
+&lt;/MBean&gt;
+&lt;MBean &quot;memory-nonheap&quot;&gt;
+ObjectName &quot;java.lang:type=Memory&quot;
+InstancePrefix &quot;memory-nonheap&quot;
+&lt;Value&gt;
+Type &quot;memory&quot;
+Table true
+Attribute &quot;NonHeapMemoryUsage&quot;
+&lt;/Value&gt;
+&lt;/MBean&gt;
+&lt;MBean &quot;thread&quot;&gt;
+ObjectName &quot;java.lang:type=Threading&quot;
+InstancePrefix &quot;threading&quot;
+&lt;Value&gt;
+Type &quot;gauge&quot;
+Table false
+Attribute &quot;ThreadCount&quot;
+InstancePrefix &quot;count&quot;
+&lt;/Value&gt;
+&lt;/MBean&gt;
+&lt;MBean &quot;thread-daemon&quot;&gt;
+ObjectName &quot;java.lang:type=Threading&quot;
+InstancePrefix &quot;threading&quot;
+&lt;Value&gt;
+Type &quot;gauge&quot;
+Table false
+Attribute &quot;DaemonThreadCount&quot;
+InstancePrefix &quot;count-daemon&quot;
+&lt;/Value&gt;
+&lt;/MBean&gt;
+&lt;Connection&gt;
+ServiceURL &quot;service:jmx:rmi:///jndi/rmi://localhost:1099/karaf-root&quot;
+Collect &quot;memory_pool&quot;
+Collect &quot;memory-heap&quot;
+Collect &quot;memory-nonheap&quot;
+Collect &quot;gc-count&quot;
+Collect &quot;gc-time&quot;
+Collect &quot;thread&quot;
+Collect &quot;thread-daemon&quot;
+User &quot;karaf&quot;
+Password &quot;karaf&quot;
+&lt;/Connection&gt;
+&lt;/Plugin&gt;
+&lt;/Plugin&gt;
+# Include other collectd configuration files
+Include &quot;/etc/collectd.d&quot; </pre>
+<p>&nbsp;</p>
+<p>You will see that we have not only loaded the java and<i> genericjmx</i> plugins but also <i>logfile</i>, <i>write_graphite</i> and <i>unixsock</i>. The <i>logfile</i> plugin is used to log collectd stdout and stderr to a log file which can help us debug in case our collectd plugins don&#8217;t work, the <i>write_graphite</i> plugin is what transports the metrics collected by collectd to Graphite over the network and the <i>unixsock</i> plugin helps us see the values collectd is collecting on the host via a collectdctl command (helpful to debug if there is a problem with collectd collecting the metrics or collectd sending the metrics over the network).</p>
+<p>Everything under  &lt;Plugin &#8220;java&#8221;&gt; is the actual configuration for our plugin that queries JAVA specific metrics using JMX. Our configuration enables the collection of several heap/non-heap memory, thread and garbage collection metrics.  In the  &lt;Connection&gt; block, the  ServiceURL, User and Password are important for collectd to be able to talk to JMX. For karaf, the default User and Password are &#8220;karaf&#8221; and &#8220;karaf&#8221; respectively. The service URL for Karaf JMX can be obtained from the karaf <a href="https://karaf.apache.org/manual/latest-3.0.x/monitoring">documentation</a>. You can pretty much use the exact collectd configuration in this post to monitor your JAVA process by changing these 3 parameters.</p>
+<p>After editing the collected configuration and restarting the collectd service (via systemd) we would expect the GenericJMX metrics to be collected however, we can see errors in the collected logs</p>
+<pre class="brush: plain; title: ; notranslate" title="">[2017-09-02 22:34:41] [error] lt_dlopen (&quot;/usr/lib64/&lt;span class=&quot;il&quot;&gt;collectd&lt;/span&gt;/java.so&quot;&lt;wbr /&gt;) failed: file not found. The most common cause for this problem is missing dependencies. Use ldd(1) to check the dependencies of the plugin / shared object.
+[2017-09-02 22:34:41] [error] plugin_load: Load plugin &quot;java&quot; failed with status 1.
+[2017-09-02 22:34:41] [warning] Found a configuration for the `java' plugin, but the plugin isn't loaded or didn't register a configuration callback.
+[2017-09-02 22:34:41] [warning] Found a configuration for the `java' plugin, but the plugin isn't loaded or didn't register a configuration callback.
+[2017-09-02 22:34:41] [warning] There is a `Plugin' block within the configuration for the java plugin. The plugin either only expects &quot;simple&quot; configuration statements or wasn't loaded using `LoadPlugin'. Please check your configuration. </pre>
+<p>To fix this we do</p>
+<pre class="brush: plain; title: ; notranslate" title="">
+[root@overcloud-controller-0 heat-admin]# ldd /usr/lib64/&lt;span class=&quot;il&quot;&gt;collectd&lt;/span&gt;/java.so
+linux-vdso.so.1 =&gt;  (0x00007fff605cb000)
+libjvm.so =&gt; not found
+libdl.so.2 =&gt; /lib64/libdl.so.2 (0x00007f94c9e2f000)
+libc.so.6 =&gt; /lib64/libc.so.6 (0x00007f94c9a6c000)
+/lib64/ld-linux-x86-64.so.2 (0x0000559875586000)</pre>
+<p>to create a symlink from the libjvm.so file installed by OpenJDK to /usr/lib64/libjvm.so which is basically the location where collectd expects to find the file.</p>
+<p>We can verify that collectd is collecting our metrics using the below command</p>
+<pre class="brush: plain; title: ; notranslate" title="">
+[root@overcloud-controller-0 heat-admin]# collectdctl listval
+overcloud-controller-0/&lt;wbr /&gt;GenericJMX-gc-PS MarkSweep/derive-count
+overcloud-controller-0/&lt;wbr /&gt;GenericJMX-gc-PS MarkSweep/derive-time
+overcloud-controller-0/&lt;wbr /&gt;GenericJMX-gc-PS Scavenge/derive-count
+overcloud-controller-0/&lt;wbr /&gt;GenericJMX-gc-PS Scavenge/derive-time
+overcloud-controller-0/&lt;wbr /&gt;GenericJMX-memory-heap/memory-&lt;wbr /&gt;committed
+overcloud-controller-0/&lt;wbr /&gt;GenericJMX-memory-heap/memory-&lt;wbr /&gt;init
+overcloud-controller-0/&lt;wbr /&gt;GenericJMX-memory-heap/memory-&lt;wbr /&gt;max
+overcloud-controller-0/&lt;wbr /&gt;GenericJMX-memory-heap/memory-&lt;wbr /&gt;used
+overcloud-controller-0/&lt;wbr /&gt;GenericJMX-memory-nonheap/&lt;wbr /&gt;memory-committed
+overcloud-controller-0/&lt;wbr /&gt;GenericJMX-memory-nonheap/&lt;wbr /&gt;memory-init
+overcloud-controller-0/&lt;wbr /&gt;GenericJMX-memory-nonheap/&lt;wbr /&gt;memory-max
+overcloud-controller-0/&lt;wbr /&gt;GenericJMX-memory-nonheap/&lt;wbr /&gt;memory-used
+overcloud-controller-0/&lt;wbr /&gt;GenericJMX-memory_pool-Code Cache/memory-committed
+overcloud-controller-0/&lt;wbr /&gt;GenericJMX-memory_pool-Code Cache/memory-init
+overcloud-controller-0/&lt;wbr /&gt;GenericJMX-memory_pool-Code Cache/memory-max
+overcloud-controller-0/&lt;wbr /&gt;GenericJMX-memory_pool-Code Cache/memory-used
+overcloud-controller-0/&lt;wbr /&gt;GenericJMX-memory_pool-&lt;wbr /&gt;Compressed Class Space/memory-committed
+overcloud-controller-0/&lt;wbr /&gt;GenericJMX-memory_pool-&lt;wbr /&gt;Compressed Class Space/memory-init
+overcloud-controller-0/&lt;wbr /&gt;GenericJMX-memory_pool-&lt;wbr /&gt;Compressed Class Space/memory-max
+overcloud-controller-0/&lt;wbr /&gt;GenericJMX-memory_pool-&lt;wbr /&gt;Compressed Class Space/memory-used
+overcloud-controller-0/&lt;wbr /&gt;GenericJMX-memory_pool-&lt;wbr /&gt;Metaspace/memory-committed
+overcloud-controller-0/&lt;wbr /&gt;GenericJMX-memory_pool-&lt;wbr /&gt;Metaspace/memory-init
+overcloud-controller-0/&lt;wbr /&gt;GenericJMX-memory_pool-&lt;wbr /&gt;Metaspace/memory-max
+overcloud-controller-0/&lt;wbr /&gt;GenericJMX-memory_pool-&lt;wbr /&gt;Metaspace/memory-used
+overcloud-controller-0/&lt;wbr /&gt;GenericJMX-memory_pool-PS Eden Space/memory-committed
+overcloud-controller-0/&lt;wbr /&gt;GenericJMX-memory_pool-PS Eden Space/memory-init
+overcloud-controller-0/&lt;wbr /&gt;GenericJMX-memory_pool-PS Eden Space/memory-max
+overcloud-controller-0/&lt;wbr /&gt;GenericJMX-memory_pool-PS Eden Space/memory-used
+overcloud-controller-0/&lt;wbr /&gt;GenericJMX-memory_pool-PS Old Gen/memory-committed
+overcloud-controller-0/&lt;wbr /&gt;GenericJMX-memory_pool-PS Old Gen/memory-init
+overcloud-controller-0/&lt;wbr /&gt;GenericJMX-memory_pool-PS Old Gen/memory-max
+overcloud-controller-0/&lt;wbr /&gt;GenericJMX-memory_pool-PS Old Gen/memory-used
+overcloud-controller-0/&lt;wbr /&gt;GenericJMX-memory_pool-PS Survivor Space/memory-committed
+overcloud-controller-0/&lt;wbr /&gt;GenericJMX-memory_pool-PS Survivor Space/memory-init
+overcloud-controller-0/&lt;wbr /&gt;GenericJMX-memory_pool-PS Survivor Space/memory-max
+overcloud-controller-0/&lt;wbr /&gt;GenericJMX-memory_pool-PS Survivor Space/memory-used
+overcloud-controller-0/&lt;wbr /&gt;GenericJMX-threading/gauge-&lt;wbr /&gt;count
+overcloud-controller-0/&lt;wbr /&gt;GenericJMX-threading/gauge-&lt;wbr /&gt;count-daemon
+
+</pre>
+<h1><b>Graphing with Grafana</b></h1>
+<p>We will now see how to configure an example graph in Grafana. We are going to configure a graph that plots the JAVA heap for this process. Several other graphs can also be plotted from the metrics collectd is collecting such as threads, garbage collection etc.</p>
+<p>Login to your Grafana instance (the Graphite server housing the collected data must have already been setup as the <i>Data Source</i> for this Grafana instance as documented<a href="http://docs.grafana.org/features/datasources/graphite/"> here</a>) and hit the &#8220;Grafana&#8221; icon on the top left, select &#8220;Dashboards&#8221; from the drop down and then select &#8220;New&#8221;. You will then be presented with a screen as below</p>
+<p><img data-attachment-id="31" data-permalink="https://thesaitech.wordpress.com/2017/09/07/monitoring-you-java-process-using-collectd/selection_221/" data-orig-file="https://thesaitech.files.wordpress.com/2017/09/selection_221-e1504809417752.png" data-orig-size="1918,738" data-comments-opened="1" data-image-meta="{&quot;aperture&quot;:&quot;0&quot;,&quot;credit&quot;:&quot;&quot;,&quot;camera&quot;:&quot;&quot;,&quot;caption&quot;:&quot;&quot;,&quot;created_timestamp&quot;:&quot;0&quot;,&quot;copyright&quot;:&quot;&quot;,&quot;focal_length&quot;:&quot;0&quot;,&quot;iso&quot;:&quot;0&quot;,&quot;shutter_speed&quot;:&quot;0&quot;,&quot;title&quot;:&quot;&quot;,&quot;orientation&quot;:&quot;0&quot;}" data-image-title="Selection_221" data-image-description="" data-medium-file="https://thesaitech.files.wordpress.com/2017/09/selection_221-e1504809417752.png?w=300" data-large-file="https://thesaitech.files.wordpress.com/2017/09/selection_221-e1504809417752.png?w=730" class="alignnone size-full wp-image-31" src="https://thesaitech.files.wordpress.com/2017/09/selection_221-e1504809417752.png?w=730" alt="Selection_221" srcset="https://thesaitech.files.wordpress.com/2017/09/selection_221-e1504809417752.png?w=730 730w, https://thesaitech.files.wordpress.com/2017/09/selection_221-e1504809417752.png?w=1460 1460w, https://thesaitech.files.wordpress.com/2017/09/selection_221-e1504809417752.png?w=150 150w, https://thesaitech.files.wordpress.com/2017/09/selection_221-e1504809417752.png?w=300 300w, https://thesaitech.files.wordpress.com/2017/09/selection_221-e1504809417752.png?w=768 768w, https://thesaitech.files.wordpress.com/2017/09/selection_221-e1504809417752.png?w=1024 1024w" sizes="(max-width: 730px) 100vw, 730px"   /></p>
+<p>Then click on the &#8220;Graph&#8221; icon and then you will be presented a screen as below</p>
+<p><img data-attachment-id="32" data-permalink="https://thesaitech.wordpress.com/2017/09/07/monitoring-you-java-process-using-collectd/selection_222/" data-orig-file="https://thesaitech.files.wordpress.com/2017/09/selection_222.png" data-orig-size="1913,651" data-comments-opened="1" data-image-meta="{&quot;aperture&quot;:&quot;0&quot;,&quot;credit&quot;:&quot;&quot;,&quot;camera&quot;:&quot;&quot;,&quot;caption&quot;:&quot;&quot;,&quot;created_timestamp&quot;:&quot;0&quot;,&quot;copyright&quot;:&quot;&quot;,&quot;focal_length&quot;:&quot;0&quot;,&quot;iso&quot;:&quot;0&quot;,&quot;shutter_speed&quot;:&quot;0&quot;,&quot;title&quot;:&quot;&quot;,&quot;orientation&quot;:&quot;0&quot;}" data-image-title="Selection_222" data-image-description="" data-medium-file="https://thesaitech.files.wordpress.com/2017/09/selection_222.png?w=300" data-large-file="https://thesaitech.files.wordpress.com/2017/09/selection_222.png?w=730" class="alignnone size-full wp-image-32" src="https://thesaitech.files.wordpress.com/2017/09/selection_222.png?w=730" alt="Selection_222" srcset="https://thesaitech.files.wordpress.com/2017/09/selection_222.png?w=730 730w, https://thesaitech.files.wordpress.com/2017/09/selection_222.png?w=1458 1458w, https://thesaitech.files.wordpress.com/2017/09/selection_222.png?w=150 150w, https://thesaitech.files.wordpress.com/2017/09/selection_222.png?w=300 300w, https://thesaitech.files.wordpress.com/2017/09/selection_222.png?w=768 768w, https://thesaitech.files.wordpress.com/2017/09/selection_222.png?w=1024 1024w" sizes="(max-width: 730px) 100vw, 730px"   /></p>
+<p>Hit on the &#8220;Panel Title&#8221; and then select edit.</p>
+<p>You can then configure the query under the &#8220;Metrics&#8221; tab in the following format: &lt;prefix&gt; &lt;hostname&gt; &lt;metric&gt;.  The prefix could be any arbitrary name you choose in Graphite, and it can be seen in the collectd configuration of the <i>write_graphite</i> plugin.</p>
+<p>&nbsp;</p>
+<p><img data-attachment-id="34" data-permalink="https://thesaitech.wordpress.com/2017/09/07/monitoring-you-java-process-using-collectd/odl-collectd-1/" data-orig-file="https://thesaitech.files.wordpress.com/2017/09/odl-collectd-1.png" data-orig-size="1890,662" data-comments-opened="1" data-image-meta="{&quot;aperture&quot;:&quot;0&quot;,&quot;credit&quot;:&quot;&quot;,&quot;camera&quot;:&quot;&quot;,&quot;caption&quot;:&quot;&quot;,&quot;created_timestamp&quot;:&quot;0&quot;,&quot;copyright&quot;:&quot;&quot;,&quot;focal_length&quot;:&quot;0&quot;,&quot;iso&quot;:&quot;0&quot;,&quot;shutter_speed&quot;:&quot;0&quot;,&quot;title&quot;:&quot;&quot;,&quot;orientation&quot;:&quot;0&quot;}" data-image-title="odl-collectd-1" data-image-description="" data-medium-file="https://thesaitech.files.wordpress.com/2017/09/odl-collectd-1.png?w=300" data-large-file="https://thesaitech.files.wordpress.com/2017/09/odl-collectd-1.png?w=730" class="alignnone size-full wp-image-34" src="https://thesaitech.files.wordpress.com/2017/09/odl-collectd-1.png?w=730" alt="odl-collectd-1" srcset="https://thesaitech.files.wordpress.com/2017/09/odl-collectd-1.png?w=730 730w, https://thesaitech.files.wordpress.com/2017/09/odl-collectd-1.png?w=1460 1460w, https://thesaitech.files.wordpress.com/2017/09/odl-collectd-1.png?w=150 150w, https://thesaitech.files.wordpress.com/2017/09/odl-collectd-1.png?w=300 300w, https://thesaitech.files.wordpress.com/2017/09/odl-collectd-1.png?w=768 768w, https://thesaitech.files.wordpress.com/2017/09/odl-collectd-1.png?w=1024 1024w" sizes="(max-width: 730px) 100vw, 730px"   /></p>
+<p>You can see the values being graphed in various colors as above.</p>
+<p>You will now need to add the Axes for this graph. The X-Axis is time obviously and the Y-Axis is bits.</p>
+<p><img data-attachment-id="33" data-permalink="https://thesaitech.wordpress.com/2017/09/07/monitoring-you-java-process-using-collectd/selection_223/" data-orig-file="https://thesaitech.files.wordpress.com/2017/09/selection_223-e1504809499120.png" data-orig-size="1914,483" data-comments-opened="1" data-image-meta="{&quot;aperture&quot;:&quot;0&quot;,&quot;credit&quot;:&quot;&quot;,&quot;camera&quot;:&quot;&quot;,&quot;caption&quot;:&quot;&quot;,&quot;created_timestamp&quot;:&quot;0&quot;,&quot;copyright&quot;:&quot;&quot;,&quot;focal_length&quot;:&quot;0&quot;,&quot;iso&quot;:&quot;0&quot;,&quot;shutter_speed&quot;:&quot;0&quot;,&quot;title&quot;:&quot;&quot;,&quot;orientation&quot;:&quot;0&quot;}" data-image-title="Selection_223" data-image-description="" data-medium-file="https://thesaitech.files.wordpress.com/2017/09/selection_223-e1504809499120.png?w=300" data-large-file="https://thesaitech.files.wordpress.com/2017/09/selection_223-e1504809499120.png?w=730" class="alignnone size-full wp-image-33" src="https://thesaitech.files.wordpress.com/2017/09/selection_223-e1504809499120.png?w=730" alt="selection_223.png" srcset="https://thesaitech.files.wordpress.com/2017/09/selection_223-e1504809499120.png?w=730 730w, https://thesaitech.files.wordpress.com/2017/09/selection_223-e1504809499120.png?w=1460 1460w, https://thesaitech.files.wordpress.com/2017/09/selection_223-e1504809499120.png?w=150 150w, https://thesaitech.files.wordpress.com/2017/09/selection_223-e1504809499120.png?w=300 300w, https://thesaitech.files.wordpress.com/2017/09/selection_223-e1504809499120.png?w=768 768w, https://thesaitech.files.wordpress.com/2017/09/selection_223-e1504809499120.png?w=1024 1024w" sizes="(max-width: 730px) 100vw, 730px"   /></p>
+<p>You can now save the dashboard and that&#8217;s all.</p>
+<p>In this blog post, we have seen how to use the Collectd/Graphite/Grafana stack to monitor JAVA specific metrics. This can turn out to be extremely useful when anaylzing JAVA performance issues due to heap memory and garbage collection.</p>
+<div id="atatags-370373-5db07ddb3e96b">
+        <script type="text/javascript">
+            __ATA.cmd.push(function() {
+                __ATA.initVideoSlot('atatags-370373-5db07ddb3e96b', {
+                    sectionId: '370373',
+                    format: 'inread'
+                });
+            });
+        </script>
+    </div>		<div class="wpcnt">
+			<div class="wpa wpmrec">
+				<span class="wpa-about">Advertisements</span>
+				<div class="u">		<div style="padding-bottom:15px;width:300px;height:250px;float:left;margin-right:5px;margin-top:0px">
+			<div id="atatags-26942-5db07ddb3e996">
+				<script type="text/javascript">
+				__ATA.cmd.push(function() {
+					__ATA.initSlot('atatags-26942-5db07ddb3e996',  {
+						collapseEmpty: 'before',
+						sectionId: '26942',
+						location: 120,
+						width: 300,
+						height: 250
+					});
+				});
+				</script>
+			</div>
+		</div>		<div style="padding-bottom:15px;width:300px;height:250px;float:left;margin-top:0px">
+			<div id="atatags-114160-5db07ddb3e99a">
+				<script type="text/javascript">
+				__ATA.cmd.push(function() {
+					__ATA.initSlot('atatags-114160-5db07ddb3e99a',  {
+						collapseEmpty: 'before',
+						sectionId: '114160',
+						location: 130,
+						width: 300,
+						height: 250
+					});
+				});
+				</script>
+			</div>
+		</div></div>
+				
+			</div>
+		</div><div id="jp-post-flair" class="sharedaddy sd-like-enabled sd-sharing-enabled"><div class="sharedaddy sd-sharing-enabled"><div class="robots-nocontent sd-block sd-social sd-social-icon-text sd-sharing"><h3 class="sd-title">Share this:</h3><div class="sd-content"><ul><li class="share-twitter"><a rel="nofollow noopener noreferrer" data-shared="sharing-twitter-19" class="share-twitter sd-button share-icon" href="https://thesaitech.wordpress.com/2017/09/07/monitoring-you-java-process-using-collectd/?share=twitter" target="_blank" title="Click to share on Twitter"><span>Twitter</span></a></li><li class="share-facebook"><a rel="nofollow noopener noreferrer" data-shared="sharing-facebook-19" class="share-facebook sd-button share-icon" href="https://thesaitech.wordpress.com/2017/09/07/monitoring-you-java-process-using-collectd/?share=facebook" target="_blank" title="Click to share on Facebook"><span>Facebook</span></a></li><li class="share-end"></li></ul></div></div></div><div class='sharedaddy sd-block sd-like jetpack-likes-widget-wrapper jetpack-likes-widget-unloaded' id='like-post-wrapper-135318370-19-5db07ddb3f81f' data-src='//widgets.wp.com/likes/index.html?ver=20190321#blog_id=135318370&amp;post_id=19&amp;origin=thesaitech.wordpress.com&amp;obj_id=135318370-19-5db07ddb3f81f' data-name='like-post-frame-135318370-19-5db07ddb3f81f'><h3 class='sd-title'>Like this:</h3><div class='likes-widget-placeholder post-likes-widget-placeholder' style='height: 55px;'><span class='button'><span>Like</span></span> <span class="loading">Loading...</span></div><span class='sd-text-color'></span><a class='sd-link-color'></a></div>
+<div id='jp-relatedposts' class='jp-relatedposts' >
+	<h3 class="jp-relatedposts-headline"><em>Related</em></h3>
+</div></div>					</div><!-- .entry-content -->
+
+		<footer class="entry-footer">
+			<div class="footer-tags"><span class="tags-links"><a href="https://thesaitech.wordpress.com/tag/collectd/" rel="tag">collectd</a><a href="https://thesaitech.wordpress.com/tag/grafana/" rel="tag">grafana</a><a href="https://thesaitech.wordpress.com/tag/graphite/" rel="tag">graphite</a><a href="https://thesaitech.wordpress.com/tag/monitoring/" rel="tag">monitoring</a></span></div>		</footer><!-- .entry-footer -->
+
+			<div class="entry-author author-avatar-show">
+				<div class="author-avatar">
+			<img alt='' src='https://0.gravatar.com/avatar/64a5d987f08c05c37730185f12012f98?s=50&#038;d=identicon&#038;r=G' class='avatar avatar-50' height='50' width='50' />		</div><!-- .author-avatar -->
+		
+		<div class="author-heading">
+			<h2 class="author-title">Published by <span class="author-name">smalleni</span></h2>
+		</div><!-- .author-heading -->
+
+		<p class="author-bio">
+			Software Engineer working on OpenStack Performance and Scale.			<a class="author-link" href="https://thesaitech.wordpress.com/author/smalleni/" rel="author">
+				View all posts by smalleni			</a>
+		</p><!-- .author-bio -->
+	</div><!-- .entry-auhtor -->
+	</div><!-- .entry-wrapper -->
+</article><!-- #post-## -->
+
+				<nav class="navigation post-navigation" role="navigation">
+		<h2 class="screen-reader-text">Post navigation</h2>
+		<div class="nav-links">
+			<div class="nav-previous"><a href="https://thesaitech.wordpress.com/2016/08/15/leveraging-the-power-of-elasticsearch-in-the-performance-world/" rel="prev"><span class="post-nav" aria-hidden="true">Previous: </span> <span class="screen-reader-text">Previous post:</span> <span class="post-title">Leveraging the Power of Elasticsearch in the Performance&nbsp;World</span></a></div><div class="nav-next"><a href="https://thesaitech.wordpress.com/2017/09/08/how-to-get-heap-dump-of-a-running-java-process/" rel="next"><span class="post-nav" aria-hidden="true">Next: </span> <span class="screen-reader-text">Next post:</span> <span class="post-title">How to get heap dump of a running JAVA&nbsp;Process</span></a></div>		</div><!-- .nav-links -->
+	</nav><!-- .navigation -->
+	
+			
+<div id="comments" class="comments-area">
+
+	
+			<h2 class="comments-title">
+			One thought on &ldquo;<span>Monitoring your JAVA process using&nbsp;collectd</span>&rdquo;		</h2>
+
+		
+		<ol class="comment-list">
+					<li id="comment-1" class="pingback even thread-even depth-1 highlander-comment">
+			<div class="comment-body">
+				Pingback: <a href='https://thesaitech.wordpress.com/2017/09/08/how-to-get-heap-dump-of-a-running-java-process/' rel='external nofollow' class='url'>How to get heap dump of a running JAVA Process &#8211; Sai&#039;s Blog</a> 			</div>
+		</li><!-- #comment-## -->
+		</ol><!-- .comment-list -->
+
+		
+	
+	
+		<div id="respond" class="comment-respond">
+		<h3 id="reply-title" class="comment-reply-title">Leave a Reply <small><a rel="nofollow" id="cancel-comment-reply-link" href="/2017/09/07/monitoring-you-java-process-using-collectd/#respond" style="display:none;">Cancel reply</a></small></h3>			<form action="https://thesaitech.wordpress.com/wp-comments-post.php" method="post" id="commentform" class="comment-form" novalidate>
+				<input type="hidden" id="highlander_comment_nonce" name="highlander_comment_nonce" value="ff35c06f98" /><input type="hidden" name="_wp_http_referer" value="/2017/09/07/monitoring-you-java-process-using-collectd/" />
+<input type="hidden" name="hc_post_as" id="hc_post_as" value="guest" />
+
+<div class="comment-form-field comment-textarea">
+	<label for="comment">Enter your comment here...</label>
+	<div id="comment-form-comment"><textarea id="comment" name="comment" title="Enter your comment here..."></textarea></div>
+</div>
+
+<div id="comment-form-identity">
+	<div id="comment-form-nascar">
+		<p>Fill in your details below or click an icon to log in:</p>
+		<ul>
+			<li class="selected" style="display:none;">
+				<a href="#comment-form-guest" id="postas-guest" class="nascar-signin-link"
+                   title="Login via Guest">
+									</a>
+			</li>
+			<li>
+				<a href="#comment-form-load-service:WordPress.com" id="postas-wordpress" class="nascar-signin-link"
+                   title="Login via WordPress.com">
+					<svg xmlns="http://www.w3.org/2000/svg" role="presentation" viewBox="0 0 24 24" ><rect x="0" fill="none" width="24" height="24"/><g><path fill="#0087be" d="M12.158 12.786l-2.698 7.84c.806.236 1.657.365 2.54.365 1.047 0 2.05-.18 2.986-.51-.024-.037-.046-.078-.065-.123l-2.762-7.57zM3.008 12c0 3.56 2.07 6.634 5.068 8.092L3.788 8.342c-.5 1.117-.78 2.354-.78 3.658zm15.06-.454c0-1.112-.398-1.88-.74-2.48-.456-.74-.883-1.368-.883-2.11 0-.825.627-1.595 1.51-1.595.04 0 .078.006.116.008-1.598-1.464-3.73-2.36-6.07-2.36-3.14 0-5.904 1.613-7.512 4.053.21.008.41.012.58.012.94 0 2.395-.114 2.395-.114.484-.028.54.684.057.74 0 0-.487.058-1.03.086l3.275 9.74 1.968-5.902-1.4-3.838c-.485-.028-.944-.085-.944-.085-.486-.03-.43-.77.056-.742 0 0 1.484.114 2.368.114.94 0 2.397-.114 2.397-.114.486-.028.543.684.058.74 0 0-.488.058-1.03.086l3.25 9.665.897-2.997c.456-1.17.684-2.137.684-2.907zm1.82-3.86c.04.286.06.593.06.924 0 .912-.17 1.938-.683 3.22l-2.746 7.94c2.672-1.558 4.47-4.454 4.47-7.77 0-1.564-.4-3.033-1.1-4.314zM12 22C6.486 22 2 17.514 2 12S6.486 2 12 2s10 4.486 10 10-4.486 10-10 10z"/></g></svg>				</a>
+			</li>
+			<li>
+			<iframe id="googleplus-sign-in" name="googleplus-sign-in" src="https://public-api.wordpress.com/connect/?googleplus-sign-in=https%3A%2F%2Fthesaitech.wordpress.com&#038;color_scheme=light" width="24" height="24" scrolling="no" allowtransparency="true" seamless="seamless" frameborder="0"></iframe>
+			</li>
+			<li>
+				<a href="#comment-form-load-service:Twitter" id="postas-twitter" class="nascar-signin-link"
+                   title="Login via Twitter">
+					<svg xmlns="http://www.w3.org/2000/svg" role="presentation" viewBox="0 0 24 24" ><rect x="0" fill="none" width="24" height="24"/><g><path fill="#1DA1F2" d="M22.23 5.924c-.736.326-1.527.547-2.357.646.847-.508 1.498-1.312 1.804-2.27-.793.47-1.67.812-2.606.996C18.325 4.498 17.258 4 16.078 4c-2.266 0-4.103 1.837-4.103 4.103 0 .322.036.635.106.935-3.41-.17-6.433-1.804-8.457-4.287-.353.607-.556 1.312-.556 2.064 0 1.424.724 2.68 1.825 3.415-.673-.022-1.305-.207-1.86-.514v.052c0 1.988 1.415 3.647 3.293 4.023-.344.095-.707.145-1.08.145-.265 0-.522-.026-.773-.074.522 1.63 2.038 2.817 3.833 2.85-1.404 1.1-3.174 1.757-5.096 1.757-.332 0-.66-.02-.98-.057 1.816 1.164 3.973 1.843 6.29 1.843 7.547 0 11.675-6.252 11.675-11.675 0-.178-.004-.355-.012-.53.802-.578 1.497-1.3 2.047-2.124z"/></g></svg>				</a>
+			</li>
+			<li>
+				<a href="#comment-form-load-service:Facebook" id="postas-facebook" class="nascar-signin-link"
+                   title="Login via Facebook">
+					<svg xmlns="http://www.w3.org/2000/svg" role="presentation" viewBox="0 0 24 24" ><rect x="0" fill="none" width="24" height="24"/><g><path fill="#3B5998" d="M20.007 3H3.993C3.445 3 3 3.445 3 3.993v16.013c0 .55.445.994.993.994h8.62v-6.97H10.27V11.31h2.346V9.31c0-2.325 1.42-3.59 3.494-3.59.993 0 1.847.073 2.096.106v2.43h-1.438c-1.128 0-1.346.537-1.346 1.324v1.734h2.69l-.35 2.717h-2.34V21h4.587c.548 0 .993-.445.993-.993V3.993c0-.548-.445-.993-.993-.993z"/></g></svg>				</a>
+			</li>
+		</ul>
+	</div>
+
+	<div id="comment-form-guest" class="comment-form-service selected">
+		<div class="comment-form-padder">
+			<div class="comment-form-avatar">
+<a href="https://gravatar.com/site/signup/" target="_blank">				<img src="https://1.gravatar.com/avatar/ad516503a11cd5ca435acc9bb6523536?s=25&amp;d=identicon&amp;forcedefault=y&amp;r=G" alt="Gravatar" width="25" class="no-grav" />
+</a>			</div>
+
+				<div class="comment-form-fields">
+				<div class="comment-form-field comment-form-email">
+					<label for="email">Email <span class="required">(required)</span> <span class="nopublish">(Address never made public)</span></label>
+					<div class="comment-form-input"><input id="email" name="email" type="email" value="" /></div>
+				</div>
+				<div class="comment-form-field comment-form-author">
+					<label for="author">Name <span class="required">(required)</span></label>
+					<div class="comment-form-input"><input id="author" name="author" type="text" value="" /></div>
+				</div>
+				<div class="comment-form-field comment-form-url">
+					<label for="url">Website</label>
+					<div class="comment-form-input"><input id="url" name="url" type="url" value="" /></div>
+				</div>
+			</div>
+			
+		</div>
+	</div>
+
+	<div id="comment-form-wordpress" class="comment-form-service">
+		<div class="comment-form-padder">
+			<div class="comment-form-avatar">
+				<img src="https://1.gravatar.com/avatar/ad516503a11cd5ca435acc9bb6523536?s=25&amp;d=identicon&amp;forcedefault=y&amp;r=G" alt="WordPress.com Logo" width="25" class="no-grav" />
+			</div>
+
+				<div class="comment-form-fields">
+				<input type="hidden" name="wp_avatar" id="wordpress-avatar" class="comment-meta-wordpress" value="" />
+				<input type="hidden" name="wp_user_id" id="wordpress-user_id" class="comment-meta-wordpress" value="" />
+				<input type="hidden" name="wp_access_token" id="wordpress-access_token" class="comment-meta-wordpress" value="" />
+						<p class="comment-form-posting-as pa-wordpress">
+			<strong></strong>
+			You are commenting using your WordPress.com account.			<span class="comment-form-log-out">
+				(&nbsp;<a href="javascript:HighlanderComments.doExternalLogout( 'wordpress' );">Log&nbsp;Out</a>&nbsp;/&nbsp;
+				<a href="#" onclick="javascript:HighlanderComments.switchAccount();return false;">Change</a>&nbsp;)
+			</span>
+			<span class="pa-icon"><svg xmlns="http://www.w3.org/2000/svg" role="presentation" viewBox="0 0 24 24" ><rect x="0" fill="none" width="24" height="24"/><g><path fill="#0087be" d="M12.158 12.786l-2.698 7.84c.806.236 1.657.365 2.54.365 1.047 0 2.05-.18 2.986-.51-.024-.037-.046-.078-.065-.123l-2.762-7.57zM3.008 12c0 3.56 2.07 6.634 5.068 8.092L3.788 8.342c-.5 1.117-.78 2.354-.78 3.658zm15.06-.454c0-1.112-.398-1.88-.74-2.48-.456-.74-.883-1.368-.883-2.11 0-.825.627-1.595 1.51-1.595.04 0 .078.006.116.008-1.598-1.464-3.73-2.36-6.07-2.36-3.14 0-5.904 1.613-7.512 4.053.21.008.41.012.58.012.94 0 2.395-.114 2.395-.114.484-.028.54.684.057.74 0 0-.487.058-1.03.086l3.275 9.74 1.968-5.902-1.4-3.838c-.485-.028-.944-.085-.944-.085-.486-.03-.43-.77.056-.742 0 0 1.484.114 2.368.114.94 0 2.397-.114 2.397-.114.486-.028.543.684.058.74 0 0-.488.058-1.03.086l3.25 9.665.897-2.997c.456-1.17.684-2.137.684-2.907zm1.82-3.86c.04.286.06.593.06.924 0 .912-.17 1.938-.683 3.22l-2.746 7.94c2.672-1.558 4.47-4.454 4.47-7.77 0-1.564-.4-3.033-1.1-4.314zM12 22C6.486 22 2 17.514 2 12S6.486 2 12 2s10 4.486 10 10-4.486 10-10 10z"/></g></svg></span>
+		</p>
+					</div>
+	
+		</div>
+	</div>
+
+	<div id="comment-form-googleplus" class="comment-form-service">
+		<div class="comment-form-padder">
+			<div class="comment-form-avatar">
+				<img src="https://1.gravatar.com/avatar/ad516503a11cd5ca435acc9bb6523536?s=25&amp;d=identicon&amp;forcedefault=y&amp;r=G" alt="Google photo" width="25" class="no-grav" />
+			</div>
+
+				<div class="comment-form-fields">
+				<input type="hidden" name="googleplus_avatar" id="googleplus-avatar" class="comment-meta-googleplus" value="" />
+				<input type="hidden" name="googleplus_user_id" id="googleplus-user_id" class="comment-meta-googleplus" value="" />
+				<input type="hidden" name="googleplus_access_token" id="googleplus-access_token" class="comment-meta-googleplus" value="" />
+						<p class="comment-form-posting-as pa-googleplus">
+			<strong></strong>
+			You are commenting using your Google account.			<span class="comment-form-log-out">
+				(&nbsp;<a href="javascript:HighlanderComments.doExternalLogout( 'googleplus' );">Log&nbsp;Out</a>&nbsp;/&nbsp;
+				<a href="#" onclick="javascript:HighlanderComments.switchAccount();return false;">Change</a>&nbsp;)
+			</span>
+			<span class="pa-icon"><svg xmlns="http://www.w3.org/2000/svg" role="presentation" x="0px" y="0px" viewBox="0 0 60 60" ><path fill="#519bf7" d="M56.3,30c0,-1.6 -0.2,-3.4 -0.6,-5h-3.1H42.2H30v10.6h14.8C44,39.3 42,42 39.1,43.9l8.8,6.8C53,46 56.3,39 56.3,30z" /><path fill="#3db366" d="M30,57.5c6.7,0 13.1,-2.4 17.9,-6.8l-8.8,-6.8c-2.5,1.6 -5.6,2.4 -9.1,2.4c-7.2,0 -13.3,-4.7 -15.4,-11.2l-9.3,7.1C9.8,51.3 19.1,57.5 30,57.5z" /><path fill="#fdc600" d="M5.3,42.2l9.3,-7.1c-0.5,-1.6 -0.8,-3.3 -0.8,-5.1s0.3,-3.5 0.8,-5.1l-9.3,-7.1C3.5,21.5 2.5,25.6 2.5,30S3.5,38.5 5.3,42.2z" /><path fill="#f15b44" d="M40.1,17.4l8,-8C43.3,5.1 37,2.5 30,2.5C19.1,2.5 9.8,8.7 5.3,17.8l9.3,7.1c2.1,-6.5 8.2,-11.1 15.4,-11.1C33.9,13.7 37.4,15.1 40.1,17.4z" /></svg></span>
+		</p>
+					</div>
+	
+		</div>
+	</div>
+
+	<div id="comment-form-twitter" class="comment-form-service">
+		<div class="comment-form-padder">
+			<div class="comment-form-avatar">
+				<img src="https://1.gravatar.com/avatar/ad516503a11cd5ca435acc9bb6523536?s=25&amp;d=identicon&amp;forcedefault=y&amp;r=G" alt="Twitter picture" width="25" class="no-grav" />
+			</div>
+
+				<div class="comment-form-fields">
+				<input type="hidden" name="twitter_avatar" id="twitter-avatar" class="comment-meta-twitter" value="" />
+				<input type="hidden" name="twitter_user_id" id="twitter-user_id" class="comment-meta-twitter" value="" />
+				<input type="hidden" name="twitter_access_token" id="twitter-access_token" class="comment-meta-twitter" value="" />
+						<p class="comment-form-posting-as pa-twitter">
+			<strong></strong>
+			You are commenting using your Twitter account.			<span class="comment-form-log-out">
+				(&nbsp;<a href="javascript:HighlanderComments.doExternalLogout( 'twitter' );">Log&nbsp;Out</a>&nbsp;/&nbsp;
+				<a href="#" onclick="javascript:HighlanderComments.switchAccount();return false;">Change</a>&nbsp;)
+			</span>
+			<span class="pa-icon"><svg xmlns="http://www.w3.org/2000/svg" role="presentation" viewBox="0 0 24 24" ><rect x="0" fill="none" width="24" height="24"/><g><path fill="#1DA1F2" d="M22.23 5.924c-.736.326-1.527.547-2.357.646.847-.508 1.498-1.312 1.804-2.27-.793.47-1.67.812-2.606.996C18.325 4.498 17.258 4 16.078 4c-2.266 0-4.103 1.837-4.103 4.103 0 .322.036.635.106.935-3.41-.17-6.433-1.804-8.457-4.287-.353.607-.556 1.312-.556 2.064 0 1.424.724 2.68 1.825 3.415-.673-.022-1.305-.207-1.86-.514v.052c0 1.988 1.415 3.647 3.293 4.023-.344.095-.707.145-1.08.145-.265 0-.522-.026-.773-.074.522 1.63 2.038 2.817 3.833 2.85-1.404 1.1-3.174 1.757-5.096 1.757-.332 0-.66-.02-.98-.057 1.816 1.164 3.973 1.843 6.29 1.843 7.547 0 11.675-6.252 11.675-11.675 0-.178-.004-.355-.012-.53.802-.578 1.497-1.3 2.047-2.124z"/></g></svg></span>
+		</p>
+					</div>
+	
+		</div>
+	</div>
+
+	<div id="comment-form-facebook" class="comment-form-service">
+		<div class="comment-form-padder">
+			<div class="comment-form-avatar">
+				<img src="https://1.gravatar.com/avatar/ad516503a11cd5ca435acc9bb6523536?s=25&amp;d=identicon&amp;forcedefault=y&amp;r=G" alt="Facebook photo" width="25" class="no-grav" />
+			</div>
+
+				<div class="comment-form-fields">
+				<input type="hidden" name="fb_avatar" id="facebook-avatar" class="comment-meta-facebook" value="" />
+				<input type="hidden" name="fb_user_id" id="facebook-user_id" class="comment-meta-facebook" value="" />
+				<input type="hidden" name="fb_access_token" id="facebook-access_token" class="comment-meta-facebook" value="" />
+						<p class="comment-form-posting-as pa-facebook">
+			<strong></strong>
+			You are commenting using your Facebook account.			<span class="comment-form-log-out">
+				(&nbsp;<a href="javascript:HighlanderComments.doExternalLogout( 'facebook' );">Log&nbsp;Out</a>&nbsp;/&nbsp;
+				<a href="#" onclick="javascript:HighlanderComments.switchAccount();return false;">Change</a>&nbsp;)
+			</span>
+			<span class="pa-icon"><svg xmlns="http://www.w3.org/2000/svg" role="presentation" viewBox="0 0 24 24" ><rect x="0" fill="none" width="24" height="24"/><g><path fill="#3B5998" d="M20.007 3H3.993C3.445 3 3 3.445 3 3.993v16.013c0 .55.445.994.993.994h8.62v-6.97H10.27V11.31h2.346V9.31c0-2.325 1.42-3.59 3.494-3.59.993 0 1.847.073 2.096.106v2.43h-1.438c-1.128 0-1.346.537-1.346 1.324v1.734h2.69l-.35 2.717h-2.34V21h4.587c.548 0 .993-.445.993-.993V3.993c0-.548-.445-.993-.993-.993z"/></g></svg></span>
+		</p>
+					</div>
+	
+		</div>
+	</div>
+
+
+	<div id="comment-form-load-service" class="comment-form-service">
+		<div class="comment-form-posting-as-cancel"><a href="javascript:HighlanderComments.cancelExternalWindow();">Cancel</a></div>
+		<p>Connecting to %s</p>
+	</div>
+
+</div>
+
+<script type="text/javascript">
+var highlander_expando_javascript = function(){
+	var input = document.createElement( 'input' ),
+	    comment = jQuery( '#comment' );
+
+	if ( 'placeholder' in input ) {
+		comment.attr( 'placeholder', jQuery( '.comment-textarea label' ).remove().text() );
+	}
+
+	// Expando Mode: start small, then auto-resize on first click + text length
+	jQuery( '#comment-form-identity' ).hide();
+	jQuery( '#comment-form-subscribe' ).hide();
+	jQuery( '#commentform .form-submit' ).hide();
+
+	comment.css( { 'height':'10px' } ).one( 'focus', function() {
+		var timer = setInterval( HighlanderComments.resizeCallback, 10 )
+		jQuery( this ).animate( { 'height': HighlanderComments.initialHeight } ).delay( 100 ).queue( function(n) { clearInterval( timer ); HighlanderComments.resizeCallback(); n(); } );
+		jQuery( '#comment-form-identity' ).slideDown();
+		jQuery( '#comment-form-subscribe' ).slideDown();
+		jQuery( '#commentform .form-submit' ).slideDown();
+	});
+}
+jQuery(document).ready( highlander_expando_javascript );
+</script>
+
+<div id="comment-form-subscribe">
+	<p class="comment-subscription-form"><input type="checkbox" name="subscribe" id="subscribe" value="subscribe" style="width: auto;"/> <label class="subscribe-label" id="subscribe-label" for="subscribe" style="display: inline;">Notify me of new comments via email.</label></p><p class="post-subscription-form"><input type="checkbox" name="subscribe_blog" id="subscribe_blog" value="subscribe" style="width: auto;"/> <label class="subscribe-label" id="subscribe-blog-label" for="subscribe_blog"  style="display: inline;">Notify me of new posts via email.</label></p></div>
+
+
+
+
+<p class="form-submit"><input name="submit" type="submit" id="comment-submit" class="submit" value="Post Comment" /> <input type='hidden' name='comment_post_ID' value='19' id='comment_post_ID' />
+<input type='hidden' name='comment_parent' id='comment_parent' value='0' />
+</p><p style="display: none;"><input type="hidden" id="akismet_comment_nonce" name="akismet_comment_nonce" value="92cf1fd116" /></p>
+<input type="hidden" name="genseq" value="1571847643" />
+<p style="display: none;"><input type="hidden" id="ak_js" name="ak_js" value="233"/></p>			</form>
+			</div><!-- #respond -->
+	<div style="clear: both"></div>
+</div><!-- #comments -->
+
+		
+		</main><!-- #main -->
+	</div><!-- #primary -->
+
+	<div id="secondary" class="sidebar" role="complementary">
+							<div class="social-links"><ul id="menu-social-media" class="menu"><li id="menu-item-11" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-11"><a href="http://www.facebook.com"><span class="screen-reader-text">Facebook</span></a></li>
+<li id="menu-item-12" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-12"><a href="http://www.linkedin.com"><span class="screen-reader-text">LinkedIn</span></a></li>
+<li id="menu-item-13" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-13"><a href="http://www.twitter.com"><span class="screen-reader-text">Twitter</span></a></li>
+<li id="menu-item-14" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-14"><a href="http://www.instagram.com"><span class="screen-reader-text">Instagram</span></a></li>
+</ul></div>		
+					<nav id="site-navigation" class="main-navigation" role="navigation">
+				<div class="menu-primary-container"><ul id="menu-primary" class="menu"><li id="menu-item-8" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-8"><a href="/">Home</a></li>
+<li id="menu-item-9" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-9"><a href="https://thesaitech.wordpress.com/about/">About</a></li>
+<li id="menu-item-10" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-10"><a href="https://thesaitech.wordpress.com/contact/">Contact</a></li>
+</ul></div>			</nav><!-- #site-navigation -->
+		
+					<div class="widget-area">
+				<aside id="search-1" class="widget widget_search"><h2 class="widget-title">Search</h2><form role="search" method="get" class="search-form" action="https://thesaitech.wordpress.com/">
+				<label>
+					<span class="screen-reader-text">Search for:</span>
+					<input type="search" class="search-field" placeholder="Search &hellip;" value="" name="s" />
+				</label>
+				<input type="submit" class="search-submit screen-reader-text" value="Search" />
+			</form></aside>			</div><!-- #secondary -->
+			</div>
+
+	</div><!-- #content -->
+	<footer id="colophon" class="site-footer" role="contentinfo">
+		<div class="site-info">
+			<a href="https://wordpress.com/?ref=footer_website" rel="nofollow">Create a free website or blog at WordPress.com.</a>
+			
+						
+			<span class="footer-name"><a href="https://thesaitech.wordpress.com/" rel="home">Sai&#039;s Blog</a></span>
+		</div><!-- .site-info -->
+	</footer><!-- #colophon -->
+</div><!-- #page -->
+
+<!--  -->
+<script type='text/javascript' src='//0.gravatar.com/js/gprofiles.js?ver=201943y'></script>
+<script type='text/javascript'>
+/* <![CDATA[ */
+var WPGroHo = {"my_hash":""};
+/* ]]> */
+</script>
+<script type='text/javascript' src='https://s1.wp.com/wp-content/mu-plugins/gravatar-hovercards/wpgroho.js?m=1380573781h'></script>
+
+	<script>
+		//initialize and attach hovercards to all gravatars
+		jQuery( document ).ready( function( $ ) {
+
+			if (typeof Gravatar === "undefined"){
+				return;
+			}
+
+			if ( typeof Gravatar.init !== "function" ) {
+				return;
+			}			
+
+			Gravatar.profile_cb = function( hash, id ) {
+				WPGroHo.syncProfileData( hash, id );
+			};
+			Gravatar.my_hash = WPGroHo.my_hash;
+			Gravatar.init( 'body', '#wp-admin-bar-my-account' );
+		});
+	</script>
+
+		<div style="display:none">
+	<div class="grofile-hash-map-64a5d987f08c05c37730185f12012f98">
+	</div>
+	</div>
+<script type='text/javascript'>
+/* <![CDATA[ */
+var HighlanderComments = {"loggingInText":"Logging In\u2026","submittingText":"Posting Comment\u2026","postCommentText":"Post Comment","connectingToText":"Connecting to %s","commentingAsText":"%1$s: You are commenting using your %2$s account.","logoutText":"Log Out","loginText":"Log In","connectURL":"https:\/\/thesaitech.wordpress.com\/public.api\/connect\/?action=request","logoutURL":"https:\/\/thesaitech.wordpress.com\/wp-login.php?action=logout&_wpnonce=b1abd6c434","homeURL":"https:\/\/thesaitech.wordpress.com\/","postID":"19","gravDefault":"identicon","enterACommentError":"Please enter a comment","enterEmailError":"Please enter your email address here","invalidEmailError":"Invalid email address","enterAuthorError":"Please enter your name here","gravatarFromEmail":"This picture will show whenever you leave a comment. Click to customize it.","logInToExternalAccount":"Log in to use details from one of these accounts.","change":"Change","changeAccount":"Change Account","comment_registration":"0","userIsLoggedIn":"","isJetpack":"","text_direction":"ltr"};
+/* ]]> */
+</script>
+<script type='text/javascript' src='https://s2.wp.com/_static/??/wp-content/js/jquery/jquery.autoresize.js,/wp-content/mu-plugins/highlander-comments/script.js?m=1551752381j'></script>
+
+	<div id="carousel-reblog-box">
+		<form action="#" name="carousel-reblog">
+			<textarea id="carousel-reblog-content" name="carousel-reblog-content" placeholder="Add your thoughts here... (optional)"></textarea>
+			<label for="carousel-reblog-to-blog-id" id="carousel-reblog-lblogid">Post to</label>
+			<select name="carousel-reblog-to-blog-id" id="carousel-reblog-to-blog-id">
+						</select>
+
+			<div class="submit">
+				<span class="canceltext"><a href="#" class="cancel">Cancel</a></span>
+				<input type="submit" name="carousel-reblog-submit" class="button" id="carousel-reblog-submit" value="Reblog Post" />
+				<input type="hidden" id="carousel-reblog-blog-id" value="135318370" />
+				<input type="hidden" id="carousel-reblog-blog-url" value="https://thesaitech.wordpress.com" />
+				<input type="hidden" id="carousel-reblog-blog-title" value="Sai&#039;s Blog" />
+				<input type="hidden" id="carousel-reblog-post-url" value="" />
+				<input type="hidden" id="carousel-reblog-post-title" value="" />
+			</div>
+
+			<input type="hidden" id="_wpnonce" name="_wpnonce" value="61a24ed8b8" /><input type="hidden" name="_wp_http_referer" value="/2017/09/07/monitoring-you-java-process-using-collectd/" />		</form>
+
+		<div class="arrow"></div>
+	</div>
+
+	<script type="text/javascript">
+		window.WPCOM_sharing_counts = {"https:\/\/thesaitech.wordpress.com\/2017\/09\/07\/monitoring-you-java-process-using-collectd\/":19};
+	</script>
+				<div class="widget widget_eu_cookie_law_widget"><div
+	class="hide-on-button ads-active"
+	data-hide-timeout="30"
+	data-consent-expiration="180"
+	id="eu-cookie-law"
+>
+	<form method="post">
+		<input type="submit" value="Close and accept" class="accept" />
+
+		Privacy &amp; Cookies: This site uses cookies. By continuing to use this website, you agree to their use. <br />
+To find out more, including how to control cookies, see here:
+		<a href="https://automattic.com/cookies" >
+			Cookie Policy		</a>
+ </form>
+</div>
+</div><script type='text/javascript' src='https://s1.wp.com/_static/??-eJzTLy/QTc7PK0nNK9EvyClNz8wr1i+uzCtJrMjITM/IAeKS1CJMEWP94uSizIISoOIM5/yiVL2sYh19yo1yKiotzgjISczMAxpon2traGpuYGRgYmlhmgUAFLxAeg=='></script>
+<script type='text/javascript'>
+	(function(){
+		var corecss = document.createElement('link');
+		var themecss = document.createElement('link');
+		var corecssurl = "https://s1.wp.com/wp-content/plugins/syntaxhighlighter/syntaxhighlighter3/styles/shCore.css?ver=3.0.9b";
+		if ( corecss.setAttribute ) {
+				corecss.setAttribute( "rel", "stylesheet" );
+				corecss.setAttribute( "type", "text/css" );
+				corecss.setAttribute( "href", corecssurl );
+		} else {
+				corecss.rel = "stylesheet";
+				corecss.href = corecssurl;
+		}
+		document.head.appendChild( corecss );
+		var themecssurl = "https://s2.wp.com/wp-content/plugins/syntaxhighlighter/syntaxhighlighter3/styles/shThemeDefault.css?m=1363304414h&amp;ver=3.0.9b";
+		if ( themecss.setAttribute ) {
+				themecss.setAttribute( "rel", "stylesheet" );
+				themecss.setAttribute( "type", "text/css" );
+				themecss.setAttribute( "href", themecssurl );
+		} else {
+				themecss.rel = "stylesheet";
+				themecss.href = themecssurl;
+		}
+		document.head.appendChild( themecss );
+	})();
+	SyntaxHighlighter.config.strings.expandSource = '+ expand source';
+	SyntaxHighlighter.config.strings.help = '?';
+	SyntaxHighlighter.config.strings.alert = 'SyntaxHighlighter\n\n';
+	SyntaxHighlighter.config.strings.noBrush = 'Can\'t find brush for: ';
+	SyntaxHighlighter.config.strings.brushNotHtmlScript = 'Brush wasn\'t configured for html-script option: ';
+	SyntaxHighlighter.defaults['pad-line-numbers'] = false;
+	SyntaxHighlighter.defaults['toolbar'] = false;
+	SyntaxHighlighter.all();
+
+	// Infinite scroll support
+	if ( typeof( jQuery ) !== 'undefined' ) {
+		jQuery( function( $ ) {
+			$( document.body ).on( 'post-load', function() {
+				SyntaxHighlighter.highlight();
+			} );
+		} );
+	}
+</script>
+<link rel='stylesheet' id='all-css-0-3' href='https://s0.wp.com/wp-content/mu-plugins/carousel/jetpack-carousel.css?m=1563361695h&cssminify=yes' type='text/css' media='all' />
+<script type='text/javascript'>
+/* <![CDATA[ */
+var comment_like_text = {"loading":"Loading..."};
+/* ]]> */
+</script>
+<script type='text/javascript'>
+/* <![CDATA[ */
+var actionbardata = {"siteID":"135318370","siteName":"Sai's Blog","siteURL":"http:\/\/thesaitech.wordpress.com","icon":"<img alt='' src='https:\/\/s2.wp.com\/i\/logo\/wpcom-gray-white.png' class='avatar avatar-50' height='50' width='50' \/>","canManageOptions":"","canCustomizeSite":"","isFollowing":"","themeSlug":"pub\/sapor","signupURL":"https:\/\/wordpress.com\/start\/","loginURL":"https:\/\/wordpress.com\/log-in?redirect_to=https%3A%2F%2Fthesaitech.wordpress.com%2F2017%2F09%2F07%2Fmonitoring-you-java-process-using-collectd%2F&signup_flow=account","themeURL":"https:\/\/wordpress.com\/theme\/sapor\/","xhrURL":"https:\/\/thesaitech.wordpress.com\/wp-admin\/admin-ajax.php","nonce":"5240e8893c","isSingular":"1","isFolded":"","isLoggedIn":"","isMobile":"","subscribeNonce":"<input type=\"hidden\" id=\"_wpnonce\" name=\"_wpnonce\" value=\"8f298e0391\" \/>","referer":"https:\/\/thesaitech.wordpress.com\/2017\/09\/07\/monitoring-you-java-process-using-collectd\/","canFollow":"1","feedID":"72152115","statusMessage":"","customizeLink":"https:\/\/thesaitech.wordpress.com\/wp-admin\/customize.php?url=https%3A%2F%2Fthesaitech.wordpress.com%2F2017%2F09%2F07%2Fmonitoring-you-java-process-using-collectd%2F","postID":"19","shortlink":"https:\/\/wp.me\/p99Mum-j","canEditPost":"","editLink":"https:\/\/wordpress.com\/post\/thesaitech.wordpress.com\/19","statsLink":"https:\/\/wordpress.com\/stats\/post\/19\/thesaitech.wordpress.com","i18n":{"view":"View site","follow":"Follow","following":"Following","edit":"Edit","login":"Log in","signup":"Sign up","customize":"Customize","report":"Report this content","themeInfo":"Get theme: Sapor","shortlink":"Copy shortlink","copied":"Copied","followedText":"New posts from this site will now appear in your <a href=\"https:\/\/wordpress.com\/\">Reader<\/a>","foldBar":"Collapse this bar","unfoldBar":"Expand this bar","editSubs":"Manage subscriptions","viewReader":"View site in Reader","viewReadPost":"View post in Reader","subscribe":"Sign me up","enterEmail":"Enter your email address","followers":"","alreadyUser":"Already have a WordPress.com account? <a href=\"https:\/\/wordpress.com\/log-in?redirect_to=https%3A%2F%2Fthesaitech.wordpress.com%2F2017%2F09%2F07%2Fmonitoring-you-java-process-using-collectd%2F&signup_flow=account\">Log in now.<\/a>","stats":"Stats"}};
+/* ]]> */
+</script>
+<script type='text/javascript'>
+/* <![CDATA[ */
+var jetpackCarouselStrings = {"widths":[370,700,1000,1200,1400,2000],"is_logged_in":"","lang":"en","ajaxurl":"https:\/\/thesaitech.wordpress.com\/wp-admin\/admin-ajax.php","nonce":"aa40e4b53e","display_exif":"1","display_geo":"1","single_image_gallery":"1","single_image_gallery_media_file":"","background_color":"black","comment":"Comment","post_comment":"Post Comment","write_comment":"Write a Comment...","loading_comments":"Loading Comments...","download_original":"View full size <span class=\"photo-size\">{0}<span class=\"photo-size-times\">\u00d7<\/span>{1}<\/span>","no_comment_text":"Please be sure to submit some text with your comment.","no_comment_email":"Please provide an email address to comment.","no_comment_author":"Please provide your name to comment.","comment_post_error":"Sorry, but there was an error posting your comment. Please try again later.","comment_approved":"Your comment was approved.","comment_unapproved":"Your comment is in moderation.","camera":"Camera","aperture":"Aperture","shutter_speed":"Shutter Speed","focal_length":"Focal Length","copyright":"Copyright","comment_registration":"0","require_name_email":"1","login_url":"https:\/\/thesaitech.wordpress.com\/wp-login.php?redirect_to=https%3A%2F%2Fthesaitech.wordpress.com%2F2017%2F09%2F07%2Fmonitoring-you-java-process-using-collectd%2F","blog_id":"135318370","meta_data":["camera","aperture","shutter_speed","focal_length","copyright"],"local_comments_commenting_as":"<fieldset><label for=\"email\">Email (Required)<\/label> <input type=\"text\" name=\"email\" class=\"jp-carousel-comment-form-field jp-carousel-comment-form-text-field\" id=\"jp-carousel-comment-form-email-field\" \/><\/fieldset><fieldset><label for=\"author\">Name (Required)<\/label> <input type=\"text\" name=\"author\" class=\"jp-carousel-comment-form-field jp-carousel-comment-form-text-field\" id=\"jp-carousel-comment-form-author-field\" \/><\/fieldset><fieldset><label for=\"url\">Website<\/label> <input type=\"text\" name=\"url\" class=\"jp-carousel-comment-form-field jp-carousel-comment-form-text-field\" id=\"jp-carousel-comment-form-url-field\" \/><\/fieldset>","reblog":"Reblog","reblogged":"Reblogged","reblog_add_thoughts":"Add your thoughts here... (optional)","reblogging":"Reblogging...","post_reblog":"Post Reblog","stats_query_args":"blog=135318370&v=wpcom&tz=0&user_id=0&subd=thesaitech","is_public":"1","reblog_enabled":""};
+/* ]]> */
+</script>
+<script type='text/javascript'>
+/* <![CDATA[ */
+var sharing_js_options = {"lang":"en","counts":"1","is_stats_active":"1"};
+/* ]]> */
+</script>
+<script type='text/javascript' src='https://s0.wp.com/_static/??-eJyVUltuwzAMu9ActyuGfg07yuA4SqrEr0l2095+CtZ06QMB+iWZFkWasB6TsjFkCFn3rBs4ooV0qnp+04srX1RypcPA2uEArH8KFDiY0DiglWEbvRdI/ZH6iV1rHjHBK6Qb4J44s7oixxqoU7WLdmCZEd58uBQ4TntsLCE3cQz3u/IBvEimIiZNijSJ84BJlMOg2mgLqxYf0nlKm5p5EIN1pbl9DEFy58rjg4lFEiM2HWSxXeQ2DgjKmVFn8MmZDHf4yh7TiI6qDWlvOANJp+IRiHAydcVe3JDJSKZrJJsxhol07Z4lwuk/hCXeyyej86VUy6lnn8ZQLAxO95CT+FIzsOZvQPaQ1a7a6G9R1m0kvzKfImfVOoOk+WAIQzdXIX35z+3Hfrvfb953m/4XOzxA5Q=='></script>
+<script type='text/javascript'>
+var windowOpen;
+			jQuery( document.body ).on( 'click', 'a.share-twitter', function() {
+				// If there's another sharing window open, close it.
+				if ( 'undefined' !== typeof windowOpen ) {
+					windowOpen.close();
+				}
+				windowOpen = window.open( jQuery( this ).attr( 'href' ), 'wpcomtwitter', 'menubar=1,resizable=1,width=600,height=350' );
+				return false;
+			});
+var windowOpen;
+			jQuery( document.body ).on( 'click', 'a.share-facebook', function() {
+				// If there's another sharing window open, close it.
+				if ( 'undefined' !== typeof windowOpen ) {
+					windowOpen.close();
+				}
+				windowOpen = window.open( jQuery( this ).attr( 'href' ), 'wpcomfacebook', 'menubar=1,resizable=1,width=600,height=400' );
+				return false;
+			});
+</script>
+<script type="text/javascript">
+// <![CDATA[
+(function() {
+try{
+  if ( window.external &&'msIsSiteMode' in window.external) {
+    if (window.external.msIsSiteMode()) {
+      var jl = document.createElement('script');
+      jl.type='text/javascript';
+      jl.async=true;
+      jl.src='/wp-content/plugins/ie-sitemode/custom-jumplist.php';
+      var s = document.getElementsByTagName('script')[0];
+      s.parentNode.insertBefore(jl, s);
+    }
+  }
+}catch(e){}
+})();
+// ]]>
+</script>		<iframe src='https://widgets.wp.com/likes/master.html?ver=20190321#ver=20190321' scrolling='no' id='likes-master' name='likes-master' style='display:none;'></iframe>
+		<div id='likes-other-gravatars'><div class="likes-text"><span>%d</span> bloggers like this:</div><ul class="wpl-avatars sd-like-gravatars"></ul></div>
+<script src="//stats.wp.com/w.js?60" type="text/javascript" async defer></script>
+<script type="text/javascript">
+_tkq = window._tkq || [];
+_stq = window._stq || [];
+_tkq.push(['storeContext', {'blog_id':'135318370','blog_tz':'0','user_lang':'en','blog_lang':'en','user_id':'0'}]);
+_stq.push(['view', {'blog':'135318370','v':'wpcom','tz':'0','user_id':'0','post':'19','subd':'thesaitech'}]);
+_stq.push(['extra', {'crypt':'UE5XaGUuOTlwaD85flAmcm1mcmZsaDhkV11YdWFnNncxc1tjZG9XVXhRZS03JixXRU5XS21xUSZBcF9UflNJMjZ0eHdlME4vVGFaMFBEdi1jMi9KRDhMbjksW1hZTC1US1lxU04sZk1NOCtMUkVncnJMdCxUVE4wbDIyOTA2NUVKSCtkTT11ek89fEQrZ1k/ZHVCR3JnJUxsZnBjTiZFOVNOLTFaYV1fWU4uZktvaGFTbk0sQ3U3flNuK1ltWzVqSDBZal1hZU15Ymc2RnRCTjFjZX5SNzNvcT0sfnpsQVdLQ1IueD9UblMza2dRMHg4ZlQrXTR1bEJmMTMyTyxPMV96N3d6RT8='}]);
+_stq.push([ 'clickTrackerInit', '135318370', '19' ]);
+	</script>
+<noscript><img src="https://pixel.wp.com/b.gif?v=noscript" style="height:0px;width:0px;overflow:hidden" alt="" /></noscript>
+<script>
+if ( 'object' === typeof wpcom_mobile_user_agent_info ) {
+
+	wpcom_mobile_user_agent_info.init();
+	var mobileStatsQueryString = "";
+	
+	if( false !== wpcom_mobile_user_agent_info.matchedPlatformName )
+		mobileStatsQueryString += "&x_" + 'mobile_platforms' + '=' + wpcom_mobile_user_agent_info.matchedPlatformName;
+	
+	if( false !== wpcom_mobile_user_agent_info.matchedUserAgentName )
+		mobileStatsQueryString += "&x_" + 'mobile_devices' + '=' + wpcom_mobile_user_agent_info.matchedUserAgentName;
+	
+	if( wpcom_mobile_user_agent_info.isIPad() )
+		mobileStatsQueryString += "&x_" + 'ipad_views' + '=' + 'views';
+
+	if( "" != mobileStatsQueryString ) {
+		new Image().src = document.location.protocol + '//pixel.wp.com/g.gif?v=wpcom-no-pv' + mobileStatsQueryString + '&baba=' + Math.random();
+	}
+	
+}
+</script>
+</body>
+</html>

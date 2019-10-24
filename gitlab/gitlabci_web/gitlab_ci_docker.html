@@ -1,0 +1,1783 @@
+<!DOCTYPE HTML>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en-US" lang="en-US" prefix="og: http://ogp.me/ns#">
+<head>
+<meta charset="utf-8">
+
+  <title>The Docker executor | GitLab</title>
+
+
+  <meta name="description" content="Documentation for GitLab Community Edition, GitLab Enterprise Edition, Omnibus GitLab, and GitLab Runner.">
+
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+
+<!--https://community.algolia.com/docsearch/required-configuration.html#introduces-global-information-as-meta-tags-->
+<meta name="docsearch:language" content="en" />
+
+<meta name="docsearch:version" content="master" />
+
+<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+<link rel="stylesheet" href="/assets/stylesheets/stylesheet-v64.css">
+<link rel="stylesheet" href="/assets/stylesheets/highlight-v7.css">
+<link rel="stylesheet" href="/assets/stylesheets/footer-v4.css">
+<link rel="stylesheet" href="/assets/stylesheets/toc-v7.css">
+<link rel="stylesheet" href="/assets/stylesheets/comments-v4.css">
+<!-- new fontawesome version 4 - via CDN -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+<!-- end of fontawesome -->
+<!-- Docsearch https://community.algolia.com/docsearch/ - via CDN -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/docsearch.js@2/dist/cdn/docsearch.min.css">
+<!-- end of docsearch -->
+
+  
+  <!-- add cookie consent  -->
+  <script id="Cookiebot" src="https://consent.cookiebot.com/uc.js" data-cbid="36a06ac5-ddb4-4f91-8337-067ad19ad8d5" type="text/javascript"></script>
+
+  <!-- Google Tag Manager -->
+  <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+  new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+  j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+  'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+  })(window,document,'script','dataLayer','GTM-WZCXKT5');</script>
+  <!-- End Google Tag Manager -->
+
+  <!-- Google webmasters verification -->
+  <meta name="google-site-verification" content="6eFQOFLxYAer08ROqc3I-SAi44F9NmvH7PrUUBR3oCI" />
+
+
+<script async src="/assets/javascripts/classlist-polyfill-v1.js"></script>
+<script async src="/assets/javascripts/closest-polyfill-v.js"></script>
+<!-- you don't need to keep this, but it's cool for stats! -->
+<meta name="generator" content="Nanoc 4.11.12">
+<!-- Algolia Searching from the URL bar https://www.algolia.com/doc/tutorials/search-ui/ux-patterns/search-from-the-url-bar/ -->
+<link href='/opensearch.xml' rel='search' title='Search through GitLab Docs' type='application/opensearchdescription+xml'>
+
+
+
+  
+    
+      <link rel="canonical" href="https://docs.gitlab.com/runner/executors/docker.html" />
+    
+  
+
+
+</head>
+<body itemscope itemtype="http://schema.org/WebPage" data-spy="scroll" data-target="#doc-nav" data-offset="90">
+  
+  
+  <!-- Google Tag Manager (noscript) -->
+  <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-WZCXKT5"
+  height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+  <!-- End Google Tag Manager (noscript) -->
+
+
+  <div class="header">
+  <div class="flex-container align-center">
+    <a class="header-link logo-container flex-container justify-center align-center" href="/">
+      <img src="/assets/images/gitlab-logo.svg" class="logo" />
+      <p>GitLab <strong>Docs</strong></p>
+    </a>
+    
+      
+      <form id="search-form" action="/search/" method="get">
+        <input type="text" name="q" class="docsearch" placeholder="Search" required/>
+        <input type="submit" style="visibility: hidden; position:absolute;" />
+      </form>
+      
+    
+    <!-- versions dropdown-->
+<div class="choose-version">
+Choose version
+</div>
+<div class="dropdown">
+  <a role="button" class="btn btn-versions dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" id="versions" href="#">
+    <!--
+      Name the label dropdown after the release version so that you know
+      which version you're browsing. For `/archives` show 'Archives' since
+      they're supposed to be versionless.
+      If we build on master and stable branches (versions), show the following
+      name in the drodown menu:
+        - GitLab.com if master.
+        - The branch name otherwise.
+      For local development and review apps, show "Versions".
+    -->
+    
+      
+        GitLab.com
+      
+    
+    <span class="caret"></span>
+  </a>
+  <ul class="dropdown-menu versions-menu" aria-labelledby="versions">
+    <li>
+      <a class="active" href='/runner/executors/docker.html' class="versions-tooltip">GitLab.com
+        <i class="fa fa-question-circle-o" aria-hidden="true" data-toggle="tooltip" data-placement="bottom" title="Latest pre-release version of GitLab (master), with features available or about to become available on GitLab.com. For self-managed GitLab installations, select your version number as listed at your GitLab instance's /help URL."></i>
+      </a>
+    </li>
+    <li class="dropdown-divider"></li>
+    
+      <!--
+        If we are on the archives page, the link here is hardcoded to always
+        point to `/archives/`. If you visit https://docs.gitlab.com/archives/
+        and select a version from the dropdown, that version's archives page
+        will be shown. We want to always show the latest archives page as it
+        contains all current versions and offline archives.
+      -->
+      
+        <li>
+          <a href='/12.4/runner/executors/docker.html'>
+            12.4
+          </a>
+        </li>
+      
+    
+      <!--
+        If we are on the archives page, the link here is hardcoded to always
+        point to `/archives/`. If you visit https://docs.gitlab.com/archives/
+        and select a version from the dropdown, that version's archives page
+        will be shown. We want to always show the latest archives page as it
+        contains all current versions and offline archives.
+      -->
+      
+        <li>
+          <a href='/12.3/runner/executors/docker.html'>
+            12.3
+          </a>
+        </li>
+      
+    
+      <!--
+        If we are on the archives page, the link here is hardcoded to always
+        point to `/archives/`. If you visit https://docs.gitlab.com/archives/
+        and select a version from the dropdown, that version's archives page
+        will be shown. We want to always show the latest archives page as it
+        contains all current versions and offline archives.
+      -->
+      
+        <li>
+          <a href='/12.2/runner/executors/docker.html'>
+            12.2
+          </a>
+        </li>
+      
+    
+    <li class="dropdown-divider"></li>
+    <li><a href='/archives/'>Archives</a></li>
+  </ul>
+</div>
+<!-- versions dropdown-->
+
+  </div>
+  <div class="nav-container">
+    <a class="nav-toggle" id="docs-nav-toggle">
+      <i class="fa fa-bars" aria-hidden="true"></i>
+    </a>
+    <ul class="nav">
+      
+      <li class="nav-item">
+        <form id="mobile-search-form" action="/search/" method="get">
+          <input type="text" name="q" class="docsearch docsearch-mobile" placeholder="Search" required/>
+          <input type="submit" style="visibility: hidden; position:absolute;" />
+        </form>
+      </li>
+      
+      
+        
+          
+            <li class="nav-item">
+              <a href="/ee/README.html">
+                GitLab
+              </a>
+            </li>
+          
+        
+          
+            <li class="nav-item">
+              <a href="/omnibus/README.html">
+                Omnibus
+              </a>
+            </li>
+          
+        
+          
+            <li class="nav-item">
+              <a href="/runner/">
+                Runner
+              </a>
+            </li>
+          
+        
+          
+            <li class="nav-item">
+              <a href="/charts/">
+                Charts
+              </a>
+            </li>
+          
+        
+      
+    </ul>
+  </div>
+</div>
+
+  <div class="wrapper">
+    <div class="nav-wrapper active">
+      <aside id="global-nav" class="global-nav">
+      
+        
+<nav class="global-nav-content">
+  <!-- nav sections -->
+  
+    <div class="global-nav-section">
+      <span class="global-nav-block-top nav-link">
+        
+        <a class="global-nav-link level-0 " href="/runner/">
+          Runner Docs
+        </a>
+        <div class="section-title  collapsed" data-toggle="collapse" aria-expanded="false" data-target="#RunnerDocs"></div>
+      </span>
+
+      <!-- nav categories -->
+      <!-- end of if sec[:section_categories].nil? -->
+    </div><!-- end of div class="global-nav-section" -->
+  
+    <div class="global-nav-section">
+      <span class="global-nav-block-top nav-link">
+        
+        <a class="global-nav-link level-0 " href="/runner/install/">
+          Install
+        </a>
+        <div class="section-title  collapsed" data-toggle="collapse" aria-expanded="false" data-target="#Install"></div>
+      </span>
+
+      <!-- nav categories -->
+      <!-- end of if sec[:section_categories].nil? -->
+    </div><!-- end of div class="global-nav-section" -->
+  
+    <div class="global-nav-section">
+      <span class="global-nav-block-top nav-link">
+        
+        <a class="global-nav-link level-0 " href="/runner/configuration/">
+          Configure
+        </a>
+        <div class="section-title  collapsed" data-toggle="collapse" aria-expanded="false" data-target="#Configure"></div>
+      </span>
+
+      <!-- nav categories -->
+      <!-- end of if sec[:section_categories].nil? -->
+    </div><!-- end of div class="global-nav-section" -->
+  
+    <div class="global-nav-section">
+      <span class="global-nav-block-top nav-link">
+        
+        <a class="global-nav-link level-0 " href="/runner/register/">
+          Register
+        </a>
+        <div class="section-title  collapsed" data-toggle="collapse" aria-expanded="false" data-target="#Register"></div>
+      </span>
+
+      <!-- nav categories -->
+      <!-- end of if sec[:section_categories].nil? -->
+    </div><!-- end of div class="global-nav-section" -->
+  
+    <div class="global-nav-section">
+      <span class="global-nav-block-top nav-link">
+        
+        <a class="global-nav-link level-0 " href="/runner/executors/README.html">
+          Executors
+        </a>
+        <div class="section-title collapse-toggle collapsed" data-toggle="collapse" aria-expanded="false" data-target="#Executors"></div>
+      </span>
+
+      <!-- nav categories -->
+      
+      <div class="collapse " id="Executors">
+        
+          <span class="global-nav-cat nav-link">
+            
+              
+              <a class="global-nav-link level-1 " href="/runner/executors/custom.html">
+                Custom
+                <!-- end of if cat[:ee_only] -->
+              </a>
+            <!-- end of if cat[:external_url] -->
+            <div class=" collapsed" data-toggle="collapse" aria-expanded="false" data-target="#Custom"></div>
+          </span>
+
+          <!-- nav docs -->
+          <!-- end of if cat[:docs].nil? -->
+        
+          <span class="global-nav-cat nav-link">
+            
+              
+              <a class="global-nav-link level-1 active" href="/runner/executors/docker.html">
+                Docker
+                <!-- end of if cat[:ee_only] -->
+              </a>
+            <!-- end of if cat[:external_url] -->
+            <div class=" active" data-toggle="collapse" aria-expanded="false" data-target="#Docker"></div>
+          </span>
+
+          <!-- nav docs -->
+          <!-- end of if cat[:docs].nil? -->
+        
+          <span class="global-nav-cat nav-link">
+            
+              
+              <a class="global-nav-link level-1 " href="/runner/executors/docker_machine.html">
+                Docker Machine
+                <!-- end of if cat[:ee_only] -->
+              </a>
+            <!-- end of if cat[:external_url] -->
+            <div class=" collapsed" data-toggle="collapse" aria-expanded="false" data-target="#DockerMachine"></div>
+          </span>
+
+          <!-- nav docs -->
+          <!-- end of if cat[:docs].nil? -->
+        
+          <span class="global-nav-cat nav-link">
+            
+              
+              <a class="global-nav-link level-1 " href="/runner/executors/kubernetes.html">
+                Kubernetes
+                <!-- end of if cat[:ee_only] -->
+              </a>
+            <!-- end of if cat[:external_url] -->
+            <div class=" collapsed" data-toggle="collapse" aria-expanded="false" data-target="#Kubernetes"></div>
+          </span>
+
+          <!-- nav docs -->
+          <!-- end of if cat[:docs].nil? -->
+        
+          <span class="global-nav-cat nav-link">
+            
+              
+              <a class="global-nav-link level-1 " href="/runner/executors/shell.html">
+                Shell
+                <!-- end of if cat[:ee_only] -->
+              </a>
+            <!-- end of if cat[:external_url] -->
+            <div class=" collapsed" data-toggle="collapse" aria-expanded="false" data-target="#Shell"></div>
+          </span>
+
+          <!-- nav docs -->
+          <!-- end of if cat[:docs].nil? -->
+        
+          <span class="global-nav-cat nav-link">
+            
+              
+              <a class="global-nav-link level-1 " href="/runner/executors/ssh.html">
+                SSH
+                <!-- end of if cat[:ee_only] -->
+              </a>
+            <!-- end of if cat[:external_url] -->
+            <div class=" collapsed" data-toggle="collapse" aria-expanded="false" data-target="#SSH"></div>
+          </span>
+
+          <!-- nav docs -->
+          <!-- end of if cat[:docs].nil? -->
+        
+          <span class="global-nav-cat nav-link">
+            
+              
+              <a class="global-nav-link level-1 " href="/runner/executors/parallels.html">
+                Parallels
+                <!-- end of if cat[:ee_only] -->
+              </a>
+            <!-- end of if cat[:external_url] -->
+            <div class=" collapsed" data-toggle="collapse" aria-expanded="false" data-target="#Parallels"></div>
+          </span>
+
+          <!-- nav docs -->
+          <!-- end of if cat[:docs].nil? -->
+        
+          <span class="global-nav-cat nav-link">
+            
+              
+              <a class="global-nav-link level-1 " href="/runner/executors/virtualbox.html">
+                Virtual Box
+                <!-- end of if cat[:ee_only] -->
+              </a>
+            <!-- end of if cat[:external_url] -->
+            <div class=" collapsed" data-toggle="collapse" aria-expanded="false" data-target="#VirtualBox"></div>
+          </span>
+
+          <!-- nav docs -->
+          <!-- end of if cat[:docs].nil? -->
+        <!-- end of sec[:section_categories] -->
+      </div><!-- end of div class="collapse" -->
+      <!-- end of if sec[:section_categories].nil? -->
+    </div><!-- end of div class="global-nav-section" -->
+  
+    <div class="global-nav-section">
+      <span class="global-nav-block-top nav-link">
+        
+        <a class="global-nav-link level-0 " href="/runner/faq/README.html">
+          Troubleshoot
+        </a>
+        <div class="section-title  collapsed" data-toggle="collapse" aria-expanded="false" data-target="#Troubleshoot"></div>
+      </span>
+
+      <!-- nav categories -->
+      <!-- end of if sec[:section_categories].nil? -->
+    </div><!-- end of div class="global-nav-section" -->
+  
+    <div class="global-nav-section">
+      <span class="global-nav-block-top nav-link">
+        
+        <a class="global-nav-link level-0 " href="/runner/development/README.html">
+          Contribute
+        </a>
+        <div class="section-title collapse-toggle collapsed" data-toggle="collapse" aria-expanded="false" data-target="#Contribute"></div>
+      </span>
+
+      <!-- nav categories -->
+      
+      <div class="collapse " id="Contribute">
+        
+          <span class="global-nav-cat nav-link">
+            
+              <a class="global-nav-link level-1" href="https://docs.gitlab.com/ee/development/documentation/" target="_blank">
+                Documentation
+              </a>
+            <!-- end of if cat[:external_url] -->
+            <div class=" collapsed" data-toggle="collapse" aria-expanded="false" data-target="#Documentation"></div>
+          </span>
+
+          <!-- nav docs -->
+          <!-- end of if cat[:docs].nil? -->
+        <!-- end of sec[:section_categories] -->
+      </div><!-- end of div class="collapse" -->
+      <!-- end of if sec[:section_categories].nil? -->
+    </div><!-- end of div class="global-nav-section" -->
+  <!-- end of nav_items[:sections] -->
+</nav>
+
+      
+      </aside>
+      <div id="js-nav-toggle"></div>
+    </div>
+    <div class="main class js-main-wrapper">
+      
+        
+        
+          <ul class="breadcrumbs">
+            
+              <li class="breadcrumb"><a href="/runner/">GitLab Runner Docs</a></li>
+            
+              <li class="breadcrumb"><a href="/runner/executors/README.html">Executors</a></li>
+            
+            <li class="breadcrumb">The Docker executor</li>
+          </ul>
+          <div id="doc-nav" class="doc-nav">
+            <a class="toc-collapse" data-toggle="collapse" href="#markdown-toc" aria-expanded="true" aria-controls="markdown-toc"></a>
+          </div>
+        
+      
+      
+        <h1 class="article-title" itemprop="name">
+          The Docker executor
+        </h1>
+      
+      
+      <div class="article-content js-article-content" role="main" itemscope itemprop="mainContentOfPage">
+        <ul id="markdown-toc">
+  <li>
+<a href="#using-windows-containers" id="markdown-toc-using-windows-containers">Using Windows containers</a>    <ul>
+      <li><a href="#limitations" id="markdown-toc-limitations">Limitations</a></li>
+      <li><a href="#supported-windows-versions" id="markdown-toc-supported-windows-versions">Supported Windows versions</a></li>
+      <li><a href="#configuring-a-windows-docker-executor" id="markdown-toc-configuring-a-windows-docker-executor">Configuring a Windows Docker executor</a></li>
+    </ul>
+  </li>
+  <li><a href="#workflow" id="markdown-toc-workflow">Workflow</a></li>
+  <li><a href="#the-image-keyword" id="markdown-toc-the-image-keyword">The <code class="highlighter-rouge">image</code> keyword</a></li>
+  <li>
+<a href="#the-services-keyword" id="markdown-toc-the-services-keyword">The <code class="highlighter-rouge">services</code> keyword</a>    <ul>
+      <li><a href="#how-is-service-linked-to-the-build" id="markdown-toc-how-is-service-linked-to-the-build">How is service linked to the build</a></li>
+    </ul>
+  </li>
+  <li><a href="#define-image-and-services-from-gitlab-ciyml" id="markdown-toc-define-image-and-services-from-gitlab-ciyml">Define image and services from <code class="highlighter-rouge">.gitlab-ci.yml</code></a></li>
+  <li><a href="#define-image-and-services-in-configtoml" id="markdown-toc-define-image-and-services-in-configtoml">Define image and services in <code class="highlighter-rouge">config.toml</code></a></li>
+  <li><a href="#define-an-image-from-a-private-docker-registry" id="markdown-toc-define-an-image-from-a-private-docker-registry">Define an image from a private Docker registry</a></li>
+  <li><a href="#accessing-the-services" id="markdown-toc-accessing-the-services">Accessing the services</a></li>
+  <li><a href="#configuring-services" id="markdown-toc-configuring-services">Configuring services</a></li>
+  <li><a href="#mounting-a-directory-in-ram" id="markdown-toc-mounting-a-directory-in-ram">Mounting a directory in RAM</a></li>
+  <li>
+<a href="#build-directory-in-service" id="markdown-toc-build-directory-in-service">Build directory in service</a>    <ul>
+      <li><a href="#postgresql-service-example" id="markdown-toc-postgresql-service-example">PostgreSQL service example</a></li>
+      <li><a href="#mysql-service-example" id="markdown-toc-mysql-service-example">MySQL service example</a></li>
+      <li><a href="#the-services-health-check" id="markdown-toc-the-services-health-check">The services health check</a></li>
+    </ul>
+  </li>
+  <li>
+<a href="#the-builds-and-cache-storage" id="markdown-toc-the-builds-and-cache-storage">The builds and cache storage</a>    <ul>
+      <li><a href="#clearing-docker-cache" id="markdown-toc-clearing-docker-cache">Clearing Docker cache</a></li>
+    </ul>
+  </li>
+  <li>
+<a href="#the-persistent-storage" id="markdown-toc-the-persistent-storage">The persistent storage</a>    <ul>
+      <li><a href="#the-persistent-storage-for-builds" id="markdown-toc-the-persistent-storage-for-builds">The persistent storage for builds</a></li>
+    </ul>
+  </li>
+  <li>
+<a href="#the-privileged-mode" id="markdown-toc-the-privileged-mode">The privileged mode</a>    <ul>
+      <li><a href="#use-docker-in-docker-with-privileged-mode" id="markdown-toc-use-docker-in-docker-with-privileged-mode">Use docker-in-docker with privileged mode</a></li>
+    </ul>
+  </li>
+  <li><a href="#the-entrypoint" id="markdown-toc-the-entrypoint">The ENTRYPOINT</a></li>
+  <li>
+<a href="#how-pull-policies-work" id="markdown-toc-how-pull-policies-work">How pull policies work</a>    <ul>
+      <li><a href="#using-the-never-pull-policy" id="markdown-toc-using-the-never-pull-policy">Using the <code class="highlighter-rouge">never</code> pull policy</a></li>
+      <li><a href="#using-the-if-not-present-pull-policy" id="markdown-toc-using-the-if-not-present-pull-policy">Using the <code class="highlighter-rouge">if-not-present</code> pull policy</a></li>
+      <li><a href="#using-the-always-pull-policy" id="markdown-toc-using-the-always-pull-policy">Using the <code class="highlighter-rouge">always</code> pull policy</a></li>
+    </ul>
+  </li>
+  <li><a href="#docker-vs-docker-ssh-and-dockermachine-vs-docker-sshmachine" id="markdown-toc-docker-vs-docker-ssh-and-dockermachine-vs-docker-sshmachine">Docker vs Docker-SSH (and Docker+Machine vs Docker-SSH+Machine)</a></li>
+</ul>
+
+<h1 id="the-docker-executor">The Docker executor<a href="#the-docker-executor" title="Permalink" class="anchor"></a>
+</h1>
+
+<p>GitLab Runner can use Docker to run jobs on user provided images. This is
+possible with the use of <strong>Docker</strong> executor.</p>
+
+<p>The <strong>Docker</strong> executor when used with GitLab CI, connects to <a href="https://www.docker.com/products/container-runtime">Docker Engine</a>
+and runs each build in a separate and isolated container using the predefined
+image that is <a href="http://doc.gitlab.com/ce/ci/yaml/README.html">set up in <code class="highlighter-rouge">.gitlab-ci.yml</code></a> and in accordance in
+<a href="../commands/README.html#configuration-file"><code class="highlighter-rouge">config.toml</code></a>.</p>
+
+<p>That way you can have a simple and reproducible build environment that can also
+run on your workstation. The added benefit is that you can test all the
+commands that we will explore later from your shell, rather than having to test
+them on a dedicated CI server.</p>
+
+<p>The following table lists what combinations of containers, executors,
+and OS are supported.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th style="text-align: center">Container Type</th>
+      <th style="text-align: center">Executor</th>
+      <th style="text-align: center">OS Type</th>
+      <th style="text-align: center">Supported</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="text-align: center">Windows Container</td>
+      <td style="text-align: center"><code class="highlighter-rouge">docker</code></td>
+      <td style="text-align: center">Windows</td>
+      <td style="text-align: center">✗</td>
+    </tr>
+    <tr>
+      <td style="text-align: center">Windows Container</td>
+      <td style="text-align: center"><code class="highlighter-rouge">docker</code></td>
+      <td style="text-align: center">Linux</td>
+      <td style="text-align: center">✗</td>
+    </tr>
+    <tr>
+      <td style="text-align: center">Windows Container</td>
+      <td style="text-align: center"><code class="highlighter-rouge">docker-windows</code></td>
+      <td style="text-align: center">Windows</td>
+      <td style="text-align: center">✓</td>
+    </tr>
+    <tr>
+      <td style="text-align: center">Windows Container</td>
+      <td style="text-align: center"><code class="highlighter-rouge">docker-windows</code></td>
+      <td style="text-align: center">Linux</td>
+      <td style="text-align: center">✗</td>
+    </tr>
+    <tr>
+      <td style="text-align: center">Linux Containers</td>
+      <td style="text-align: center"><code class="highlighter-rouge">docker</code></td>
+      <td style="text-align: center">Linux</td>
+      <td style="text-align: center">✓</td>
+    </tr>
+    <tr>
+      <td style="text-align: center">Linux Containers</td>
+      <td style="text-align: center"><code class="highlighter-rouge">docker</code></td>
+      <td style="text-align: center">Windows</td>
+      <td style="text-align: center">✓</td>
+    </tr>
+    <tr>
+      <td style="text-align: center">Linux Containers</td>
+      <td style="text-align: center"><code class="highlighter-rouge">docker-windows</code></td>
+      <td style="text-align: center">Linux</td>
+      <td style="text-align: center">✗</td>
+    </tr>
+    <tr>
+      <td style="text-align: center">Linux Containers</td>
+      <td style="text-align: center"><code class="highlighter-rouge">docker-windows</code></td>
+      <td style="text-align: center">Windows</td>
+      <td style="text-align: center">✗</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="admonition-wrapper note"><div class="admonition alert alert-info">
+<i class="fa fa-info-circle fa-fw" aria-hidden="true"></i><strong>Note:</strong>
+GitLab Runner uses Docker Engine API
+<a href="https://docs.docker.com/engine/api/v1.25/">v1.25</a> to talk to the Docker
+Engine. This means means the
+<a href="https://docs.docker.com/develop/sdk/#api-version-matrix">minimum supported version</a>
+of Docker is <code class="highlighter-rouge">1.13.0</code>.</div></div>
+
+<h2 id="using-windows-containers">Using Windows containers<a href="#using-windows-containers" title="Permalink" class="anchor"></a>
+</h2>
+
+<blockquote>
+  <p><a href="https://gitlab.com/groups/gitlab-org/-/epics/535">Introduced</a> in 11.11.</p>
+</blockquote>
+
+<p>To use Windows containers with the Docker executor, note the following
+information about limitations, supported Windows versions, and
+configuring a Windows Docker executor.</p>
+
+<h3 id="limitations">Limitations<a href="#limitations" title="Permalink" class="anchor"></a>
+</h3>
+
+<p>The following are some limitations of using Windows containers with
+Docker executor:</p>
+
+<ul>
+  <li>Services do not fully work (see
+<a href="https://gitlab.com/gitlab-org/gitlab-runner/issues/4186">#4186</a>).</li>
+  <li>Nanoserver cannot be used because it requires PowerShell 6 but GitLab
+requires PowerShell 5 (see
+<a href="https://gitlab.com/gitlab-org/gitlab-runner/issues/3291">#3291</a>). See
+also the list of <a href="#supported-windows-versions">supported Windows
+versions</a>.</li>
+  <li>Docker-in-Docker is not supported, since it’s <a href="https://github.com/docker-library/docker/issues/49">not
+supported</a> by
+Docker itself.</li>
+  <li>Interactive web terminals are not supported.</li>
+  <li>Host device mounting not supported.</li>
+  <li>When mounting a volume directory it has to exist, or Docker will fail
+to start the container, see
+<a href="https://gitlab.com/gitlab-org/gitlab-runner/issues/3754">#3754</a> for
+additional detail.</li>
+  <li>
+<code class="highlighter-rouge">docker-windows</code> executor can be run only using GitLab Runner running
+on Windows.</li>
+  <li>
+<a href="https://docs.microsoft.com/en-us/virtualization/windowscontainers/deploy-containers/linux-containers">Linux containers on
+Windows</a>
+are not supported, since they are still experimental. Read <a href="https://gitlab.com/gitlab-org/gitlab-runner/issues/4373">the
+relevant
+issue</a> for
+more details.</li>
+  <li>
+    <p>Because of a <a href="https://github.com/MicrosoftDocs/Virtualization-Documentation/issues/334">limitation in
+Docker</a>,
+if the destination path drive letter is not <code class="highlighter-rouge">c:</code>, paths are not supported for:</p>
+
+    <ul>
+      <li><a href="../configuration/advanced-configuration.html#the-runners-section"><code class="highlighter-rouge">builds_dir</code></a></li>
+      <li><a href="../configuration/advanced-configuration.html#the-runners-section"><code class="highlighter-rouge">cache_dir</code></a></li>
+      <li><a href="../configuration/advanced-configuration.html#volumes-in-the-runnersdocker-section"><code class="highlighter-rouge">volumes</code></a></li>
+    </ul>
+
+    <p>This means values such as <code class="highlighter-rouge">f:\\cache_dir</code> are not supported, but <code class="highlighter-rouge">f:</code> is supported.
+However, if the destination path is on the <code class="highlighter-rouge">c:</code> drive, paths are also supported
+(for example <code class="highlighter-rouge">c:\\cache_dir</code>).</p>
+  </li>
+</ul>
+
+<h3 id="supported-windows-versions">Supported Windows versions<a href="#supported-windows-versions" title="Permalink" class="anchor"></a>
+</h3>
+
+<p>GitLab Runner only supports the following versions of Windows:</p>
+
+<ul>
+  <li>Windows Server 1809.</li>
+  <li>Windows Server 1803.</li>
+</ul>
+
+<p>You can only run containers based on the same OS version that the Docker
+daemon is running on. For example, the following <a href="https://hub.docker.com/_/microsoft-windows-servercore"><code class="highlighter-rouge">Windows Server
+Core</code></a> images can
+be used:</p>
+
+<ul>
+  <li>mcr.microsoft.com/windows/servercore:1809</li>
+  <li>mcr.microsoft.com/windows/servercore:1809-amd64</li>
+  <li>mcr.microsoft.com/windows/servercore:ltsc2019</li>
+  <li>mcr.microsoft.com/windows/servercore:1803</li>
+</ul>
+
+<h3 id="configuring-a-windows-docker-executor">Configuring a Windows Docker executor<a href="#configuring-a-windows-docker-executor" title="Permalink" class="anchor"></a>
+</h3>
+
+<div class="admonition-wrapper note"><div class="admonition alert alert-info">
+<i class="fa fa-info-circle fa-fw" aria-hidden="true"></i><strong>Note:</strong>
+There is a known issue when a new Runner is registered with <code class="highlighter-rouge">c:\\cache</code>
+as a source directory when passing the <code class="highlighter-rouge">--docker-volumes</code> or
+<code class="highlighter-rouge">DOCKER_VOLUMES</code> envrionment variable. For more details check
+<a href="https://gitlab.com/gitlab-org/gitlab-runner/issues/4312">#4312</a>
+</div></div>
+
+<p>Below is an example of what the configuration for a simple Docker
+executor running Windows</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>[[runners]]
+  name = "windows-docker-2019"
+  url = "https://gitlab.com/"
+  token = "xxxxxxx"
+  executor = "docker-windows"
+  [runners.docker]
+    image = "mcr.microsoft.com/windows/servercore:1809_amd64"
+    volumes = ["c:\\cache"]
+</code></pre></div></div>
+
+<p>For other configuration options for the Docker executor, see the
+<a href="../configuration/advanced-configuration.html#the-runnersdocker-section">advanced
+configuration</a>
+section.</p>
+
+<h2 id="workflow">Workflow<a href="#workflow" title="Permalink" class="anchor"></a>
+</h2>
+
+<p>The Docker executor divides the job into multiple steps:</p>
+
+<ol>
+  <li>
+<strong>Prepare</strong>: Create and start the <a href="https://docs.gitlab.com/ee/ci/yaml/#services">services</a>.</li>
+  <li>
+<strong>Pre-job</strong>: Clone, restore <a href="https://docs.gitlab.com/ee/ci/yaml/#cache">cache</a>
+and download <a href="https://docs.gitlab.com/ee/ci/yaml/#artifacts">artifacts</a> from previous
+stages. This is run on a special Docker image.</li>
+  <li>
+<strong>Job</strong>: User build. This is run on the user-provided Docker image.</li>
+  <li>
+<strong>Post-job</strong>: Create cache, upload artifacts to GitLab. This is run on
+a special Docker Image.</li>
+</ol>
+
+<p>The special Docker image is based on <a href="https://alpinelinux.org/">Alpine Linux</a> and contains all the tools
+required to run the prepare, pre-job, and post-job steps, like the Git and the
+Runner binaries for supporting caching and artifacts. You can find the definition of
+this special image <a href="https://gitlab.com/gitlab-org/gitlab-runner/tree/master/dockerfiles/build">in the official Runner repository</a>.</p>
+
+<h2 id="the-image-keyword">The <code class="highlighter-rouge">image</code> keyword<a href="#the-image-keyword" title="Permalink" class="anchor"></a>
+</h2>
+
+<p>The <code class="highlighter-rouge">image</code> keyword is the name of the Docker image that is present in the
+local Docker Engine (list all images with <code class="highlighter-rouge">docker images</code>) or any image that
+can be found at <a href="https://hub.docker.com/">Docker Hub</a>. For more information about images and Docker
+Hub please read the <a href="https://docs.docker.com/engine/understanding-docker/">Docker Fundamentals</a> documentation.</p>
+
+<p>In short, with <code class="highlighter-rouge">image</code> we refer to the docker image, which will be used to
+create a container on which your build will run.</p>
+
+<p>If you don’t specify the namespace, Docker implies <code class="highlighter-rouge">library</code> which includes all
+<a href="https://hub.docker.com/u/library/">official images</a>. That’s why you’ll see
+many times the <code class="highlighter-rouge">library</code> part omitted in <code class="highlighter-rouge">.gitlab-ci.yml</code> and <code class="highlighter-rouge">config.toml</code>.
+For example you can define an image like <code class="highlighter-rouge">image: ruby:2.1</code>, which is a shortcut
+for <code class="highlighter-rouge">image: library/ruby:2.1</code>.</p>
+
+<p>Then, for each Docker image there are tags, denoting the version of the image.
+These are defined with a colon (<code class="highlighter-rouge">:</code>) after the image name. For example, for
+Ruby you can see the supported tags at <a href="https://hub.docker.com/_/ruby/">https://hub.docker.com/_/ruby/</a>. If you
+don’t specify a tag (like <code class="highlighter-rouge">image: ruby</code>), <code class="highlighter-rouge">latest</code> is implied.</p>
+
+<div class="admonition-wrapper note"><div class="admonition alert alert-info">
+<i class="fa fa-info-circle fa-fw" aria-hidden="true"></i><strong>Note:</strong>
+The image you choose to run your build in via <code class="highlighter-rouge">image</code> directive must have a
+working shell in its operating system <code class="highlighter-rouge">PATH</code>. Supported shells are <code class="highlighter-rouge">sh</code> or
+<code class="highlighter-rouge">bash</code> for Linux, <code class="highlighter-rouge">cmd</code> or PowerShell for Windows. GitLab Runner cannot
+execute a command using the underlying OS system calls (like <code class="highlighter-rouge">exec</code>).</div></div>
+
+<h2 id="the-services-keyword">The <code class="highlighter-rouge">services</code> keyword<a href="#the-services-keyword" title="Permalink" class="anchor"></a>
+</h2>
+
+<p>The <code class="highlighter-rouge">services</code> keyword defines just another Docker image that is run during
+your build and is linked to the Docker image that the <code class="highlighter-rouge">image</code> keyword defines.
+This allows you to access the service image during build time.</p>
+
+<p>The service image can run any application, but the most common use case is to
+run a database container, e.g., <code class="highlighter-rouge">mysql</code>. It’s easier and faster to use an
+existing image and run it as an additional container than install <code class="highlighter-rouge">mysql</code> every
+time the project is built.</p>
+
+<p>You can see some widely used services examples in the relevant documentation of
+<a href="https://gitlab.com/gitlab-org/gitlab-ce/tree/master/doc/ci/services/README.md">CI services examples</a>.</p>
+
+<h3 id="how-is-service-linked-to-the-build">How is service linked to the build<a href="#how-is-service-linked-to-the-build" title="Permalink" class="anchor"></a>
+</h3>
+
+<p>To better understand how the container linking works, read
+<a href="https://docs.docker.com/userguide/dockerlinks/">Linking containers together</a>.</p>
+
+<p>To summarize, if you add <code class="highlighter-rouge">mysql</code> as service to your application, this image
+will then be used to create a container that is linked to the build container.
+According to the <a href="#workflow">workflow</a> this is the first step that is performed
+before running the actual builds.</p>
+
+<p>The service container for MySQL will be accessible under the hostname <code class="highlighter-rouge">mysql</code>.
+So, in order to access your database service you have to connect to the host
+named <code class="highlighter-rouge">mysql</code> instead of a socket or <code class="highlighter-rouge">localhost</code>.</p>
+
+<h2 id="define-image-and-services-from-gitlab-ciyml">Define image and services from <code class="highlighter-rouge">.gitlab-ci.yml</code><a href="#define-image-and-services-from-gitlab-ciyml" title="Permalink" class="anchor"></a>
+</h2>
+
+<p>You can simply define an image that will be used for all jobs and a list of
+services that you want to use during build time.</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">image</span><span class="pi">:</span> <span class="s">ruby:2.2</span>
+
+<span class="na">services</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="s">postgres:9.3</span>
+
+<span class="na">before_script</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="s">bundle install</span>
+
+<span class="na">test</span><span class="pi">:</span>
+  <span class="na">script</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="s">bundle exec rake spec</span>
+</code></pre></div></div>
+
+<p>It is also possible to define different images and services per job:</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">before_script</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="s">bundle install</span>
+
+<span class="s">test:2.1:</span>
+  <span class="s">image</span><span class="pi">:</span> <span class="s">ruby:2.1</span>
+  <span class="s">services</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="s">postgres:9.3</span>
+  <span class="na">script</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="s">bundle exec rake spec</span>
+
+<span class="s">test:2.2:</span>
+  <span class="s">image</span><span class="pi">:</span> <span class="s">ruby:2.2</span>
+  <span class="s">services</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="s">postgres:9.4</span>
+  <span class="na">script</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="s">bundle exec rake spec</span>
+</code></pre></div></div>
+
+<h2 id="define-image-and-services-in-configtoml">Define image and services in <code class="highlighter-rouge">config.toml</code><a href="#define-image-and-services-in-configtoml" title="Permalink" class="anchor"></a>
+</h2>
+
+<p>Look for the <code class="highlighter-rouge">[runners.docker]</code> section:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>[runners.docker]
+  image = "ruby:2.1"
+  services = ["mysql:latest", "postgres:latest"]
+</code></pre></div></div>
+
+<p>The image and services defined this way will be added to all builds run by
+that Runner, so even if you don’t define an <code class="highlighter-rouge">image</code> inside <code class="highlighter-rouge">.gitlab-ci.yml</code>,
+the one defined in <code class="highlighter-rouge">config.toml</code> will be used.</p>
+
+<h2 id="define-an-image-from-a-private-docker-registry">Define an image from a private Docker registry<a href="#define-an-image-from-a-private-docker-registry" title="Permalink" class="anchor"></a>
+</h2>
+
+<p>Starting with GitLab Runner 0.6.0, you are able to define images located to
+private registries that could also require authentication.</p>
+
+<p>All you have to do is be explicit on the image definition in <code class="highlighter-rouge">.gitlab-ci.yml</code>.</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">image</span><span class="pi">:</span> <span class="s">my.registry.tld:5000/namepace/image:tag</span>
+</code></pre></div></div>
+
+<p>In the example above, GitLab Runner will look at <code class="highlighter-rouge">my.registry.tld:5000</code> for the
+image <code class="highlighter-rouge">namespace/image:tag</code>.</p>
+
+<p>If the repository is private you need to authenticate your GitLab Runner in the
+registry. Read more on <a href="../configuration/advanced-configuration.html#using-a-private-container-registry">using a private Docker registry</a>.</p>
+
+<h2 id="accessing-the-services">Accessing the services<a href="#accessing-the-services" title="Permalink" class="anchor"></a>
+</h2>
+
+<p>Let’s say that you need a Wordpress instance to test some API integration with
+your application.</p>
+
+<p>You can then use for example the <a href="https://hub.docker.com/r/tutum/wordpress/">tutum/wordpress</a> as a service image in your
+<code class="highlighter-rouge">.gitlab-ci.yml</code>:</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">services</span><span class="pi">:</span>
+<span class="pi">-</span> <span class="s">tutum/wordpress:latest</span>
+</code></pre></div></div>
+
+<p>When the build is run, <code class="highlighter-rouge">tutum/wordpress</code> will be started first and you will have
+access to it from your build container under the hostname <code class="highlighter-rouge">tutum__wordpress</code>
+and <code class="highlighter-rouge">tutum-wordpress</code>.</p>
+
+<p>The GitLab Runner creates two alias hostnames for the service that you can use
+alternatively. The aliases are taken from the image name following these rules:</p>
+
+<ol>
+  <li>Everything after <code class="highlighter-rouge">:</code> is stripped.</li>
+  <li>For the first alias, the slash (<code class="highlighter-rouge">/</code>) is replaced with double underscores (<code class="highlighter-rouge">__</code>).</li>
+  <li>For the second alias, the slash (<code class="highlighter-rouge">/</code>) is replaced with a single dash (<code class="highlighter-rouge">-</code>).</li>
+</ol>
+
+<p>Using a private service image will strip any port given and apply the rules as
+described above. A service <code class="highlighter-rouge">registry.gitlab-wp.com:4999/tutum/wordpress</code> will
+result in hostname <code class="highlighter-rouge">registry.gitlab-wp.com__tutum__wordpress</code> and
+<code class="highlighter-rouge">registry.gitlab-wp.com-tutum-wordpress</code>.</p>
+
+<h2 id="configuring-services">Configuring services<a href="#configuring-services" title="Permalink" class="anchor"></a>
+</h2>
+
+<p>Many services accept environment variables which allow you to easily change
+database names or set account names depending on the environment.</p>
+
+<p>GitLab Runner 0.5.0 and up passes all YAML-defined variables to the created
+service containers.</p>
+
+<p>For all possible configuration variables check the documentation of each image
+provided in their corresponding Docker hub page.</p>
+
+<div class="admonition-wrapper note"><div class="admonition alert alert-info">
+<i class="fa fa-info-circle fa-fw" aria-hidden="true"></i><strong>Note</strong>:
+All variables will be passed to all services containers. It’s not designed to
+distinguish which variable should go where.
+Secure variables are only passed to the build container.</div></div>
+
+<h2 id="mounting-a-directory-in-ram">Mounting a directory in RAM<a href="#mounting-a-directory-in-ram" title="Permalink" class="anchor"></a>
+</h2>
+
+<p>You can mount a path in RAM using tmpfs. This can speed up the time required to test if there is a lot of I/O related work, such as with databases.
+If you use the <code class="highlighter-rouge">tmpfs</code> and <code class="highlighter-rouge">services_tmpfs</code> options in the runner configuration, you can specify multiple paths, each with its own options. See the <a href="https://docs.docker.com/engine/reference/commandline/run/#mount-tmpfs-tmpfs">docker reference</a> for details.
+This is an example <code class="highlighter-rouge">config.toml</code> to mount the data directory for the official Mysql container in RAM.</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>[runners.docker]
+  # For the main container
+  [runners.docker.tmpfs]
+      "/var/lib/mysql" = "rw,noexec"
+
+  # For services
+  [runners.docker.services_tmpfs]
+      "/var/lib/mysql" = "rw,noexec"
+</code></pre></div></div>
+
+<h2 id="build-directory-in-service">Build directory in service<a href="#build-directory-in-service" title="Permalink" class="anchor"></a>
+</h2>
+
+<p>Since version 1.5 GitLab Runner mounts a <code class="highlighter-rouge">/builds</code> directory to all shared services.</p>
+
+<p>See an issue: <a href="https://gitlab.com/gitlab-org/gitlab-runner/issues/1520">https://gitlab.com/gitlab-org/gitlab-runner/issues/1520</a>.</p>
+
+<h3 id="postgresql-service-example">PostgreSQL service example<a href="#postgresql-service-example" title="Permalink" class="anchor"></a>
+</h3>
+
+<p>See the specific documentation for
+<a href="https://gitlab.com/gitlab-org/gitlab-ce/blob/master/doc/ci/services/postgres.md">using PostgreSQL as a service</a>.</p>
+
+<h3 id="mysql-service-example">MySQL service example<a href="#mysql-service-example" title="Permalink" class="anchor"></a>
+</h3>
+
+<p>See the specific documentation for
+<a href="https://gitlab.com/gitlab-org/gitlab-ce/blob/master/doc/ci/services/mysql.md">using MySQL as a service</a>.</p>
+
+<h3 id="the-services-health-check">The services health check<a href="#the-services-health-check" title="Permalink" class="anchor"></a>
+</h3>
+
+<p>After the service is started, GitLab Runner waits some time for the service to
+be responsive. Currently, the Docker executor tries to open a TCP connection to
+the first exposed service in the service container.</p>
+
+<p>You can see how it is implemented by checking this <a href="https://gitlab.com/gitlab-org/gitlab-runner/blob/master/commands/helpers/health_check.go">Go command</a>.</p>
+
+<h2 id="the-builds-and-cache-storage">The builds and cache storage<a href="#the-builds-and-cache-storage" title="Permalink" class="anchor"></a>
+</h2>
+
+<p>The Docker executor by default stores all builds in
+<code class="highlighter-rouge">/builds/&lt;namespace&gt;/&lt;project-name&gt;</code> and all caches in <code class="highlighter-rouge">/cache</code> (inside the
+container).
+You can overwrite the <code class="highlighter-rouge">/builds</code> and <code class="highlighter-rouge">/cache</code> directories by defining the
+<code class="highlighter-rouge">builds_dir</code> and <code class="highlighter-rouge">cache_dir</code> options under the <code class="highlighter-rouge">[[runners]]</code> section in
+<code class="highlighter-rouge">config.toml</code>. This will modify where the data are stored inside the container.</p>
+
+<p>If you modify the <code class="highlighter-rouge">/cache</code> storage path, you also need to make sure to mark this
+directory as persistent by defining it in <code class="highlighter-rouge">volumes = ["/my/cache/"]</code> under the
+<code class="highlighter-rouge">[runners.docker]</code> section in <code class="highlighter-rouge">config.toml</code>.</p>
+
+<h3 id="clearing-docker-cache">Clearing Docker cache<a href="#clearing-docker-cache" title="Permalink" class="anchor"></a>
+</h3>
+
+<p>GitLab Runner provides the <a href="https://gitlab.com/gitlab-org/gitlab-runner/blob/master/packaging/root/usr/share/gitlab-runner/clear-docker-cache"><code class="highlighter-rouge">clear-docker-cache</code></a>
+script to remove containers that can unnecessarily consume disk space.</p>
+
+<p>Run <code class="highlighter-rouge">clear-docker-cache</code> regularly (using <code class="highlighter-rouge">cron</code> once per week, for example),
+ensuring a balance is struck between:</p>
+
+<ul>
+  <li>Maintaining some recent containers in the cache for performance.</li>
+  <li>Reclaiming disk space.</li>
+</ul>
+
+<div class="admonition-wrapper note"><div class="admonition alert alert-info">
+<i class="fa fa-info-circle fa-fw" aria-hidden="true"></i><strong>Note:</strong>
+<code class="highlighter-rouge">clear-docker-cache</code> does not clean build or cache volumes.</div></div>
+
+<h2 id="the-persistent-storage">The persistent storage<a href="#the-persistent-storage" title="Permalink" class="anchor"></a>
+</h2>
+
+<p>The Docker executor can provide a persistent storage when running the containers.
+All directories defined under <code class="highlighter-rouge">volumes =</code> will be persistent between builds.</p>
+
+<p>The <code class="highlighter-rouge">volumes</code> directive supports two types of storage:</p>
+
+<ol>
+  <li>
+<code class="highlighter-rouge">&lt;path&gt;</code> - <strong>the dynamic storage</strong>. The <code class="highlighter-rouge">&lt;path&gt;</code> is persistent between subsequent
+runs of the same concurrent job for that project. The data is attached to a
+custom cache container: <code class="highlighter-rouge">runner-&lt;short-token&gt;-project-&lt;id&gt;-concurrent-&lt;job-id&gt;-cache-&lt;unique-id&gt;</code>.</li>
+  <li>
+<code class="highlighter-rouge">&lt;host-path&gt;:&lt;path&gt;[:&lt;mode&gt;]</code> - <strong>the host-bound storage</strong>. The <code class="highlighter-rouge">&lt;path&gt;</code> is
+bind to <code class="highlighter-rouge">&lt;host-path&gt;</code> on the host system. The optional <code class="highlighter-rouge">&lt;mode&gt;</code> can specify
+that this storage is read-only or read-write (default).</li>
+</ol>
+
+<h3 id="the-persistent-storage-for-builds">The persistent storage for builds<a href="#the-persistent-storage-for-builds" title="Permalink" class="anchor"></a>
+</h3>
+
+<p>If you make the <code class="highlighter-rouge">/builds</code> to be <strong>the host-bound storage</strong>, your builds will be stored in:
+<code class="highlighter-rouge">/builds/&lt;short-token&gt;/&lt;concurrent-id&gt;/&lt;namespace&gt;/&lt;project-name&gt;</code>, where:</p>
+
+<ul>
+  <li>
+<code class="highlighter-rouge">&lt;short-token&gt;</code> is a shortened version of the Runner’s token (first 8 letters)</li>
+  <li>
+<code class="highlighter-rouge">&lt;concurrent-id&gt;</code> is a unique number, identifying the local job ID on the
+particular Runner in context of the project</li>
+</ul>
+
+<h2 id="the-privileged-mode">The privileged mode<a href="#the-privileged-mode" title="Permalink" class="anchor"></a>
+</h2>
+
+<p>The Docker executor supports a number of options that allows to fine tune the
+build container. One of these options is the <a href="https://docs.docker.com/engine/reference/run/#runtime-privilege-and-linux-capabilities"><code class="highlighter-rouge">privileged</code> mode</a>.</p>
+
+<h3 id="use-docker-in-docker-with-privileged-mode">Use docker-in-docker with privileged mode<a href="#use-docker-in-docker-with-privileged-mode" title="Permalink" class="anchor"></a>
+</h3>
+
+<p>The configured <code class="highlighter-rouge">privileged</code> flag is passed to the build container and all
+services, thus allowing to easily use the docker-in-docker approach.</p>
+
+<p>First, configure your Runner (config.toml) to run in <code class="highlighter-rouge">privileged</code> mode:</p>
+
+<div class="language-toml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nn">[[runners]]</span>
+  <span class="py">executor</span> <span class="p">=</span> <span class="s">"docker"</span>
+  <span class="nn">[runners.docker]</span>
+    <span class="py">privileged</span> <span class="p">=</span> <span class="kc">true</span>
+</code></pre></div></div>
+
+<p>Then, make your build script (<code class="highlighter-rouge">.gitlab-ci.yml</code>) to use Docker-in-Docker
+container:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>image: docker:git
+services:
+- docker:dind
+
+build:
+  script:
+  - docker build <span class="nt">-t</span> my-image <span class="nb">.</span>
+  - docker push my-image
+</code></pre></div></div>
+
+<h2 id="the-entrypoint">The ENTRYPOINT<a href="#the-entrypoint" title="Permalink" class="anchor"></a>
+</h2>
+
+<p>The Docker executor doesn’t overwrite the <a href="https://docs.docker.com/engine/reference/run/#entrypoint-default-command-to-execute-at-runtime"><code class="highlighter-rouge">ENTRYPOINT</code> of a Docker image</a>.</p>
+
+<p>That means that if your image defines the <code class="highlighter-rouge">ENTRYPOINT</code> and doesn’t allow to run
+scripts with <code class="highlighter-rouge">CMD</code>, the image will not work with the Docker executor.</p>
+
+<p>With the use of <code class="highlighter-rouge">ENTRYPOINT</code> it is possible to create special Docker image that
+would run the build script in a custom environment, or in secure mode.</p>
+
+<p>You may think of creating a Docker image that uses an <code class="highlighter-rouge">ENTRYPOINT</code> that doesn’t
+execute the build script, but does execute a predefined set of commands, for
+example to build the docker image from your directory. In that case, you can
+run the build container in <a href="#the-privileged-mode">privileged mode</a>, and make
+the build environment of the Runner secure.</p>
+
+<p>Consider the following example:</p>
+
+<ol>
+  <li>
+    <p>Create a new Dockerfile:</p>
+
+    <div class="language-bash highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code>FROM docker:dind
+ADD / /entrypoint.sh
+ENTRYPOINT <span class="o">[</span><span class="s2">"/bin/sh"</span>, <span class="s2">"/entrypoint.sh"</span><span class="o">]</span>
+</code></pre></div>    </div>
+  </li>
+  <li>
+    <p>Create a bash script (<code class="highlighter-rouge">entrypoint.sh</code>) that will be used as the <code class="highlighter-rouge">ENTRYPOINT</code>:</p>
+
+    <div class="language-bash highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code><span class="c">#!/bin/sh</span>
+
+dind docker daemon
+    <span class="nt">--host</span><span class="o">=</span>unix:///var/run/docker.sock <span class="se">\</span>
+    <span class="nt">--host</span><span class="o">=</span>tcp://0.0.0.0:2375 <span class="se">\</span>
+    <span class="nt">--storage-driver</span><span class="o">=</span>vf &amp;
+
+docker build <span class="nt">-t</span> <span class="s2">"</span><span class="nv">$BUILD_IMAGE</span><span class="s2">"</span> <span class="nb">.</span>
+docker push <span class="s2">"</span><span class="nv">$BUILD_IMAGE</span><span class="s2">"</span>
+</code></pre></div>    </div>
+  </li>
+  <li>
+    <p>Push the image to the Docker registry.</p>
+  </li>
+  <li>
+    <p>Run Docker executor in <code class="highlighter-rouge">privileged</code> mode. In <code class="highlighter-rouge">config.toml</code> define:</p>
+
+    <div class="language-toml highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code><span class="nn">[[runners]]</span>
+  <span class="py">executor</span> <span class="p">=</span> <span class="s">"docker"</span>
+  <span class="nn">[runners.docker]</span>
+    <span class="py">privileged</span> <span class="p">=</span> <span class="kc">true</span>
+</code></pre></div>    </div>
+  </li>
+  <li>
+    <p>In your project use the following <code class="highlighter-rouge">.gitlab-ci.yml</code>:</p>
+
+    <div class="language-yaml highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code><span class="na">variables</span><span class="pi">:</span>
+  <span class="na">BUILD_IMAGE</span><span class="pi">:</span> <span class="s">my.image</span>
+<span class="na">build</span><span class="pi">:</span>
+  <span class="na">image</span><span class="pi">:</span> <span class="s">my/docker-build:image</span>
+  <span class="na">script</span><span class="pi">:</span>
+  <span class="pi">-</span> <span class="s">Dummy Script</span>
+</code></pre></div>    </div>
+  </li>
+</ol>
+
+<p>This is just one of the examples. With this approach the possibilities are
+limitless.</p>
+
+<h2 id="how-pull-policies-work">How pull policies work<a href="#how-pull-policies-work" title="Permalink" class="anchor"></a>
+</h2>
+
+<p>When using the <code class="highlighter-rouge">docker</code> or <code class="highlighter-rouge">docker+machine</code> executors, you can set the
+<code class="highlighter-rouge">pull_policy</code> parameter which defines how the Runner will work when pulling
+Docker images (for both <code class="highlighter-rouge">image</code> and <code class="highlighter-rouge">services</code> keywords).</p>
+
+<div class="admonition-wrapper note"><div class="admonition alert alert-info">
+<i class="fa fa-info-circle fa-fw" aria-hidden="true"></i><strong>Note:</strong>
+If you don’t set any value for the <code class="highlighter-rouge">pull_policy</code> parameter, then
+Runner will use the <code class="highlighter-rouge">always</code> pull policy as the default value.</div></div>
+
+<p>Now let’s see how these policies work.</p>
+
+<h3 id="using-the-never-pull-policy">Using the <code class="highlighter-rouge">never</code> pull policy<a href="#using-the-never-pull-policy" title="Permalink" class="anchor"></a>
+</h3>
+
+<p>The <code class="highlighter-rouge">never</code> pull policy disables images pulling completely. If you set the
+<code class="highlighter-rouge">pull_policy</code> parameter of a Runner to <code class="highlighter-rouge">never</code>, then users will be able
+to use only the images that have been manually pulled on the docker host
+the Runner runs on.</p>
+
+<p>If an image cannot be found locally, then the Runner will fail the build
+with an error similar to:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Pulling docker image local_image:latest ...
+ERROR: Build failed: Error: image local_image:latest not found
+</code></pre></div></div>
+
+<p><strong>When to use this pull policy?</strong></p>
+
+<p>This pull policy should be used if you want or need to have a full
+control on which images are used by the Runner’s users. It is a good choice
+for private Runners that are dedicated to a project where only specific images
+can be used (not publicly available on any registries).</p>
+
+<p><strong>When not to use this pull policy?</strong></p>
+
+<p>This pull policy will not work properly with most of <a href="../configuration/autoscale.html">auto-scaled</a>
+Docker executor use cases. Because of how auto-scaling works, the <code class="highlighter-rouge">never</code>
+pull policy may be usable only when using a pre-defined cloud instance
+images for chosen cloud provider. The image needs to contain installed
+Docker Engine and local copy of used images.</p>
+
+<h3 id="using-the-if-not-present-pull-policy">Using the <code class="highlighter-rouge">if-not-present</code> pull policy<a href="#using-the-if-not-present-pull-policy" title="Permalink" class="anchor"></a>
+</h3>
+
+<p>When the <code class="highlighter-rouge">if-not-present</code> pull policy is used, the Runner will first check
+if the image is present locally. If it is, then the local version of
+image will be used. Otherwise, the Runner will try to pull the image.</p>
+
+<p><strong>When to use this pull policy?</strong></p>
+
+<p>This pull policy is a good choice if you want to use images pulled from
+remote registries but you want to reduce time spent on analyzing image
+layers difference, when using heavy and rarely updated images.
+In that case, you will need once in a while to manually remove the image
+from the local Docker Engine store to force the update of the image.</p>
+
+<p>It is also the good choice if you need to use images that are built
+and available only locally, but on the other hand, also need to allow to
+pull images from remote registries.</p>
+
+<p><strong>When not to use this pull policy?</strong></p>
+
+<p>This pull policy should not be used if your builds use images that
+are updated frequently and need to be used in most recent versions.
+In such situation, the network load reduction created by this policy may
+be less worthy than the necessity of the very frequent deletion of local
+copies of images.</p>
+
+<p>This pull policy should also not be used if your Runner can be used by
+different users which should not have access to private images used
+by each other. Especially do not use this pull policy for shared Runners.</p>
+
+<p>To understand why the <code class="highlighter-rouge">if-not-present</code> pull policy creates security issues
+when used with private images, read the
+<a href="../security/index.html#usage-of-private-docker-images-with-if-not-present-pull-policy">security considerations documentation</a>.</p>
+
+<h3 id="using-the-always-pull-policy">Using the <code class="highlighter-rouge">always</code> pull policy<a href="#using-the-always-pull-policy" title="Permalink" class="anchor"></a>
+</h3>
+
+<p>The <code class="highlighter-rouge">always</code> pull policy will ensure that the image is <strong>always</strong> pulled.
+When <code class="highlighter-rouge">always</code> is used, the Runner will try to pull the image even if a local
+copy is available. If the image is not found, then the build will
+fail with an error similar to:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Pulling docker image registry.tld/my/image:latest ...
+ERROR: Build failed: Error: image registry.tld/my/image:latest not found
+</code></pre></div></div>
+
+<blockquote>
+  <p><strong>Note:</strong>
+For versions prior to <code class="highlighter-rouge">v1.8</code>, when using the <code class="highlighter-rouge">always</code> pull policy, it could
+fall back to local copy of an image and print a warning:</p>
+
+  <div class="highlighter-rouge">
+<div class="highlight"><pre class="highlight"><code>Pulling docker image registry.tld/my/image:latest ...
+WARNING: Cannot pull the latest version of image registry.tld/my/image:latest : Error: image registry.tld/my/image:latest not found
+WARNING: Locally found image will be used instead.
+</code></pre></div>  </div>
+
+  <p>That is changed in version <code class="highlighter-rouge">v1.8</code>. To understand why we changed this and
+how incorrect usage of may be revealed please look into issue
+<a href="https://gitlab.com/gitlab-org/gitlab-runner/issues/1905">#1905</a>.</p>
+</blockquote>
+
+<p><strong>When to use this pull policy?</strong></p>
+
+<p>This pull policy should be used if your Runner is publicly available
+and configured as a shared Runner in your GitLab instance. It is the
+only pull policy that can be considered as secure when the Runner will
+be used with private images.</p>
+
+<p>This is also a good choice if you want to force users to always use
+the newest images.</p>
+
+<p>Also, this will be the best solution for an <a href="../configuration/autoscale.html">auto-scaled</a>
+configuration of the Runner.</p>
+
+<p><strong>When not to use this pull policy?</strong></p>
+
+<p>This pull policy will definitely not work if you need to use locally
+stored images. In this case, the Runner will skip the local copy of the image
+and try to pull it from the remote registry. If the image was build locally
+and doesn’t exist in any public registry (and especially in the default
+Docker registry), the build will fail with:</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Pulling docker image local_image:latest ...
+ERROR: Build failed: Error: image local_image:latest not found
+</code></pre></div></div>
+
+<h2 id="docker-vs-docker-ssh-and-dockermachine-vs-docker-sshmachine">Docker vs Docker-SSH (and Docker+Machine vs Docker-SSH+Machine)<a href="#docker-vs-docker-ssh-and-dockermachine-vs-docker-sshmachine" title="Permalink" class="anchor"></a>
+</h2>
+
+<div class="admonition-wrapper note"><div class="admonition alert alert-info">
+<i class="fa fa-info-circle fa-fw" aria-hidden="true"></i><strong>Note</strong>:
+Starting with GitLab Runner 10.0, both docker-ssh and docker-ssh+machine executors
+are <strong>deprecated</strong> and will be removed in one of the upcoming releases.</div></div>
+
+<p>We provided a support for a special type of Docker executor, namely Docker-SSH
+(and the autoscaled version: Docker-SSH+Machine). Docker-SSH uses the same logic
+as the Docker executor, but instead of executing the script directly, it uses an
+SSH client to connect to the build container.</p>
+
+<p>Docker-ssh then connects to the SSH server that is running inside the container
+using its internal IP.</p>
+
+<p>This executor is no longer maintained and will be removed in the near future.</p>
+
+
+      </div>
+      
+      
+  <div class="comments">
+    <div class="comments-filter">
+      <h2 id="help-and-feedback">
+        <i class="fa fa-star-half-o" aria-hidden="true"></i>
+        Help and feedback
+        <a class="anchor" href="#help-and-feedback"></a>
+      </h2>
+      <div>
+        <!-- Nav tabs -->
+        <ul class="nav nav-tabs" role="tablist">
+          <li role="presentation"><a class="active" href="#docs-feedback" aria-controls="docs-feedback" role="tab" data-toggle="tab">
+            <i class="fa fa-file-text-o" aria-hidden="true"></i>
+             <strong>DOCS</strong> FEEDBACK</a>
+          </li>
+          <li role="presentation"><a href="#product-feedback" aria-controls="product-feedback" role="tab" data-toggle="tab">
+            <i class="fa fa-gitlab" aria-hidden="true"></i>
+            <strong>PRODUCT</strong> FEEDBACK</a>
+          </li>
+          <li role="presentation"><a href="#get-help" aria-controls="get-help" role="tab" data-toggle="tab">
+            <i class="fa fa-question-circle" aria-hidden="true"></i>
+            GET <strong>HELP</strong></a>
+          </li>
+          <li role="presentation"><a href="#get-more-features" aria-controls="get-more-features" role="tab" data-toggle="tab">
+            <i class="fa fa-line-chart" aria-hidden="true"></i>
+            GET MORE <strong>FEATURES</strong></a>
+          </li>
+        </ul>
+
+        <!-- Tab panes -->
+        <div class="tab-content">
+          <div role="tabpanel" class="tab-pane" id="product-feedback"><!-- product-feedback tab -->
+            <div class="row" id="issue-row"><!-- issue-row -->
+              <div class="col-md-8 col-sm-12">
+                <p>If there's something <strong>you don't like</strong> about <strong>this feature</strong>
+                  <i class="fa fa-arrow-right black-icon" aria-hidden="true"></i>
+                </p>
+              </div>
+              <div class="col-md-4 col-sm-12">
+                <a role="button" class="comments-holder btn btn-default" href="https://gitlab.com/gitlab-org/gitlab/issues/new?issue[title]=Docs%20-%20product%20feedback:%20Write%20your%20title&issue[description]=Describe%20what%20you%20would%20like%20to%20see%20improved.%0A%0A%3C!--%20Don%27t%20edit%20below%20this%20line%20--%3E%0A%0A%2Flabel%20~%22docs%5C-comments%22%20" target="_blank">
+                  <i class="fa fa-info-circle" aria-hidden="true"></i>
+                  CREATE AN ISSUE
+                </a>
+              </div>
+            </div> <!-- issue-row -->
+            <div class="row" id="feature-proposal-row"><!-- feature-proposal-row -->
+              <div class="col-md-8 col-sm-12">
+                <p>To propose <strong>functionality that GitLab does not yet offer</strong>
+                  <i class="fa fa-arrow-right black-icon" aria-hidden="true"></i>
+                </p>
+              </div>
+              <div class="col-md-4 col-sm-12">
+                <a role="button" class="comments-holder btn btn-default" href="https://gitlab.com/gitlab-org/gitlab/issues/new?issuable_template=Feature%20proposal&issue[title]=Docs%20feedback%20-%20feature%20proposal:%20Write%20your%20title" target="_blank">
+                  <i class="fa fa-plus-circle" aria-hidden="true"></i>
+                  SUBMIT FEATURE PROPOSAL
+                </a>
+              </div>
+            </div><!-- feature-proposal-row -->
+            <div class="row" id="feature-proposal-row"><!-- beta-testing-row -->
+              <div class="col-md-8 col-sm-12">
+                <p>To further <strong>help GitLab in shaping new features</strong>
+                  <i class="fa fa-arrow-right black-icon" aria-hidden="true"></i>
+                </p>
+              </div>
+              <div class="col-md-4 col-sm-12">
+                <a role="button" class="comments-holder btn btn-default" href="https://about.gitlab.com/community/gitlab-first-look/" target="_blank">
+                  <i class="fa fa-check-circle" aria-hidden="true"></i>
+                  JOIN BETA TESTING
+                </a>
+              </div>
+            </div><!-- beta-testing-row -->
+          </div><!-- product-feedback tab -->
+
+          <div role="tabpanel" class="tab-pane" id="get-help"><!-- get-help tab -->
+            <div class="row" id="search-row"><!-- search-row -->
+              <div class="col-md-8 col-sm-12">
+                <p>If you <strong>didn't find</strong> what you were looking for
+                  <i class="fa fa-arrow-right black-icon" aria-hidden="true"></i>
+                </p>
+              </div>
+              <div class="col-md-4 col-sm-12">
+                <a role="button" class="comments-holder btn btn-default" href="/search/" target="_blank">
+                  <i class="fa fa-search" aria-hidden="true"></i>
+                  SEARCH THE DOCS
+                </a>
+              </div>
+            </div><!-- search-row -->
+
+            <div class="row" id="forum-row"><!-- forum-row -->
+              <div class="col-md-8 col-sm-12">
+                <p>If you want help with something very <strong>specific to your use case</strong>,
+                  and can use some community support
+                  <i class="fa fa-arrow-right black-icon" aria-hidden="true"></i>
+                </p>
+              </div>
+              <div class="col-md-4 col-sm-12">
+                <p>
+                  <a role="button" class="comments-holder btn btn-default" href="https://forum.gitlab.com/" target="_blank">
+                    <i class="fa fa-users" aria-hidden="true"></i>
+                    POST ON GITLAB FORUM
+                  </a>
+                </p>
+              </div>
+            </div><!-- forum-row -->
+
+            <div class="row" id="support-row"><!-- support-row -->
+              <div class="col-md-8 col-sm-12">
+                <p>If you <strong>have problems</strong> setting up or using this feature (depending on your GitLab subscription)
+                  <i class="fa fa-arrow-right black-icon" aria-hidden="true"></i>
+                </p>
+              </div>
+              <div class="col-md-4 col-sm-12">
+                <p>
+                  <a role="button" class="comments-holder btn btn-default" href="https://about.gitlab.com/support/" target="_blank">
+                    <i class="fa fa-user-circle-o" aria-hidden="true"></i>
+                    REQUEST SUPPORT
+                  </a>
+                </p>
+              </div>
+            </div><!-- support-row -->
+          </div><!-- get-help tab -->
+
+          <div role="tabpanel" class="tab-pane" id="get-more-features"><!-- get-more-features tab -->
+            <div class="row" id="sales-row"><!-- gitlab-pricing-row -->
+              <div class="col-md-8 col-sm-12">
+                <p>To view <strong>all GitLab tiers</strong> and features or to upgrade
+                  <i class="fa fa-arrow-right black-icon" aria-hidden="true"></i>
+                </p>
+              </div>
+              <div class="col-md-4 col-sm-12">
+                <a role="button" class="comments-holder btn btn-default" href="https://about.gitlab.com/pricing/" target="_blank">
+                  <i class="fa fa-credit-card-alt" aria-hidden="true"></i>
+                  VIEW PRICING PAGE
+                </a>
+              </div>
+            </div><!-- gitlab-pricing-row -->
+
+            <div class="row" id="sales-row"><!-- gitlab-gold-row -->
+              <div class="col-md-8 col-sm-12">
+                <p>If you want to try all features available in <strong>GitLab.com</strong>
+                  <i class="fa fa-arrow-right black-icon" aria-hidden="true"></i>
+                </p>
+              </div>
+              <div class="col-md-4 col-sm-12">
+                <a role="button" class="comments-holder btn btn-default" href="https://customers.gitlab.com/trials/new?gl_com=true" target="_blank">
+                  <i class="fa fa-cloud" aria-hidden="true"></i>
+                  GITLAB GOLD FREE-TRIAL
+                </a>
+              </div>
+            </div><!-- gitlab-gold-row -->
+
+            <div class="row" id="sales-row"><!-- gitlab-ultimate-row -->
+              <div class="col-md-8 col-sm-12">
+                <p>If you want to try all features available in <strong>GitLab self-managed</strong>
+                  <i class="fa fa-arrow-right black-icon" aria-hidden="true"></i>
+                </p>
+              </div>
+              <div class="col-md-4 col-sm-12">
+                <a role="button" class="comments-holder btn btn-default" href="https://about.gitlab.com/free-trial/" target="_blank">
+                  <i class="fa fa-server" aria-hidden="true"></i>
+                  GITLAB ULTIMATE FREE-TRIAL
+                </a>
+              </div>
+            </div><!-- gitlab-ultimate-row -->
+          </div><!-- get-more-features tab -->
+
+          <div role="tabpanel" class="tab-pane active" id="docs-feedback"><!-- docs-feedback tab -->
+            <div class="row" id="edit-page-row"><!-- edit-page-row -->
+              <div class="col-md-8 col-sm-12">
+                <p>If you <strong>spot an error or a need for improvement</strong> and would like to <strong>fix it yourself</strong> in a merge request
+                  <i class="fa fa-arrow-right black-icon" aria-hidden="true"></i>
+                </p>
+              </div>
+              <div class="col-md-4 col-sm-12">
+                <p>
+                  <a role="button" class="comments-holder btn btn-default" href="https://gitlab.com/gitlab-org/gitlab-runner/blob/master/docs/executors/docker.md" target="_blank">
+                    <i class="fa fa-pencil-square-o" aria-hidden="true"></i>
+                    EDIT THIS PAGE
+                  </a>
+                </p>
+              </div>
+            </div><!-- edit-page-row -->
+
+            <div class="row" id="doc-issue-row"><!-- doc-issue-row -->
+              <div class="col-md-8 col-sm-12">
+                <p>If you would like to <strong>suggest an improvement to this doc</strong>
+                  <i class="fa fa-arrow-right black-icon" aria-hidden="true"></i>
+                </p>
+              </div>
+              <div class="col-md-4 col-sm-12">
+                <a role="button" class="comments-holder btn btn-default" href="https://gitlab.com/gitlab-org/gitlab/issues/new?issue[title]=Docs%20feedback:%20Write%20your%20title&issue[description]=Link%20the%20doc%20and%20describe%20what%20is%20wrong%20with%20it.%0A%0A%3C!--%20Don%27t%20edit%20below%20this%20line%20--%3E%0A%0A%2Flabel%20~Documentation%20~%22docs%5C-comments%22%20" target="_blank">
+                  <i class="fa fa-info-circle" aria-hidden="true"></i>
+                  CREATE AN ISSUE
+                </a>
+              </div>
+            </div><!-- doc-issue-row -->
+            
+            
+              
+                <div class="row" id="disqus-row"><!-- disqus-row-->
+                  <div class="col-md-8 col-sm-12">
+                    <p>If you want to give <strong>quick and simple feedback</strong> on this doc
+                      <i class="fa fa-arrow-right black-icon" aria-hidden="true"></i>
+                    </p>
+                  </div>
+                  <div id="disqus_thread" class="disqus-comments-gitlab col-md-4 col-sm-12">
+                    <a href="#" role="button" class="comments-holder btn btn-default" onclick="loadDisqus();return false;">
+                      <i class="fa fa-comments-o" aria-hidden="true"></i>
+                      SHOW AND POST COMMENTS
+                    </a>
+                  </div>
+                </div><!-- disqus-row-->
+              
+            
+          </div><!-- docs-feedback tab -->
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    var disqus_config = function () {
+      this.page.url = 'https://docs.gitlab.com/runner/executors/docker.html';
+      this.page.title = 'The Docker executor - GitLab Documentation';
+    
+      this.page.identifier = 'https://docs.gitlab.com/runner/executors/docker.html';
+    
+    };
+
+    var is_disqus_loaded = false;
+    function loadDisqus() {
+      if (!is_disqus_loaded){
+        is_disqus_loaded = true;
+        var disqusThread = document.getElementById('disqus_thread');
+        var d = document, s = d.createElement('script');
+        disqusThread.innerHTML = '';
+        disqusThread.className = 'col-12'; // ensure the thread stretches the entire row
+        s.src = 'https://gitlab-docs.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
+      }
+    };
+  </script>
+  <script src="/frontend/bundles/feedback.js"></script>
+  <noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript" rel="nofollow">comments powered by Disqus.</a></noscript>
+
+
+    </div>
+    <div class="clear"></div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/jquery@3.3.1/dist/jquery.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/clipboard@2/dist/clipboard.min.js"></script>
+  <script type="application/javascript" src="/assets/javascripts/clipboardjs-v1.js"></script>
+  <script type="application/javascript" src="/assets/javascripts/badges-v2.js"></script>
+  <!-- Algolia docsearch https://community.algolia.com/docsearch/ -->
+<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/docsearch.js@2/dist/cdn/docsearch.min.js"></script>
+<script type="text/javascript">
+var search = docsearch({
+  apiKey: 'ce1690e1421303458a1fcbea0cc4a927',
+  indexName: 'gitlab',
+  inputSelector: '.docsearch',
+  algoliaOptions: {
+    // Filter by tags as described in https://github.com/algolia/docsearch-configs/blob/master/configs/gitlab.json
+    'filters': "tags:gitlab<score=4> OR tags:omnibus<score=3> OR tags:runner<score=2> OR tags:charts<score=1>",
+    // Number of results shown in the search dropdown
+    'hitsPerPage': 10
+  },
+  debug: false, // Set debug to true if you want to inspect the dropdown
+  autocompleteOptions: {
+      'autoselect': false
+    }
+});
+
+var mobileSearch = docsearch({
+  apiKey: 'ce1690e1421303458a1fcbea0cc4a927',
+  indexName: 'gitlab',
+  inputSelector: '.docsearch-mobile',
+  algoliaOptions: {
+    // Filter by tags as described in https://github.com/algolia/docsearch-configs/blob/master/configs/gitlab.json
+    'filters': "tags:gitlab<score=4> OR tags:omnibus<score=3> OR tags:runner<score=2> OR tags:charts<score=1>",
+    // Number of results shown in the search dropdown
+    'hitsPerPage': 10
+  },
+  debug: false, // Set debug to true if you want to inspect the dropdown
+  autocompleteOptions: {
+      'autoselect': false
+    }
+});
+</script>
+
+  <script type="text/javascript">
+  function loadMermaidJsIfNeeded() {
+    if (document.querySelector('.mermaid') === null) {
+      return;
+     }
+
+    var element = document.createElement("script");
+    element.src = "//cdnjs.cloudflare.com/ajax/libs/mermaid/8.2.6/mermaid.min.js";
+    element.onload = function(){mermaid.init();};
+    document.body.appendChild(element);
+  }
+
+if (window.addEventListener)
+   window.addEventListener("load", loadMermaidJsIfNeeded, false);
+else if (window.attachEvent)
+   window.attachEvent("onload", loadMermaidJsIfNeeded);
+else window.onload = loadMermaidJsIfNeeded;
+</script>
+
+  
+<script type="text/javascript">
+  // Redirect to https with javascript
+  var host = "docs.gitlab.com";
+  if ((host == window.location.host) && (window.location.protocol != 'https:')) {
+    window.location = window.location.toString().replace(/^http:/, "https:");
+  }
+</script>
+
+
+  
+  
+    <!-- Facebook -->
+<script>
+  !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+  n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
+  n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
+  t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,
+  document,'script','//connect.facebook.net/en_US/fbevents.js');
+
+  fbq('init', '1689559637958103');
+  fbq('track', "PageView");
+</script>
+<noscript><img height="1" width="1" style="display:none"
+src="https://www.facebook.com/tr?id=1689559637958103&ev=PageView&noscript=1"
+/></noscript>
+
+<!-- Marketo -->
+<script type="text/javascript">
+  (function() {
+    var didInit = false;
+    function initMunchkin() {
+      if(didInit === false) {
+        didInit = true;
+        Munchkin.init('194-VVC-221');
+      }
+    }
+    var s = document.createElement('script');
+    s.type = 'text/javascript';
+    s.async = true;
+    s.src = 'https://munchkin.marketo.net/munchkin.js';
+    s.onreadystatechange = function() {
+      if (this.readyState == 'complete' || this.readyState == 'loaded') {
+        initMunchkin();
+      }
+    };
+    s.onload = initMunchkin;
+    document.getElementsByTagName('head')[0].appendChild(s);
+  })();
+</script>
+
+<!-- Bizible -->
+<script type="text/javascript" src="https://cdn.bizible.com/scripts/bizible.js" async=""></script>
+
+<!-- Global site tag (gtag.js) - Google Ads: 923339191 -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=AW-923339191"></script>
+<script>
+window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('config', 'AW-923339191');
+</script>
+
+<!-- Linkedin -->
+<script type="text/javascript">
+_linkedin_partner_id = "30694";
+window._linkedin_data_partner_ids = window._linkedin_data_partner_ids || [];
+window._linkedin_data_partner_ids.push(_linkedin_partner_id);
+</script><script type="text/javascript">
+  (function(){var s = document.getElementsByTagName("script")[0];
+    var b = document.createElement("script");
+    b.type = "text/javascript";b.async = true;
+    b.src = "https://snap.licdn.com/li.lms-analytics/insight.min.js";
+    s.parentNode.insertBefore(b, s);})();
+</script>
+<noscript>
+  <img height="1" width="1" style="display:none;" alt="" src="https://dc.ads.linkedin.com/collect/?pid=30694&fmt=gif" />
+</noscript>
+
+  
+  <footer class=footer>
+    <svg width=65 height=60 viewBox="0 0 210 194" class=footer-logo> <path d="M105.0614,193.655 L105.0614,193.655 L143.7014,74.734 L66.4214,74.734 L105.0614,193.655 L105.0614,193.655 Z" fill="#E24329" class="logo-svg-shape logo-dark-orange-shape"/> <path d="M105.0614,193.6548 L66.4214,74.7338 L12.2684,74.7338 L105.0614,193.6548 Z" fill="#FC6D26" class="logo-svg-shape logo-orange-shape"/> <path d="M12.2685,74.7341 L12.2685,74.7341 L0.5265,110.8731 C-0.5445,114.1691 0.6285,117.7801 3.4325,119.8171 L105.0615,193.6551 L12.2685,74.7341 Z" fill="#FCA326" class="logo-svg-shape logo-light-orange-shape"/> <path d="M12.2685,74.7342 L66.4215,74.7342 L43.1485,3.1092 C41.9515,-0.5768 36.7375,-0.5758 35.5405,3.1092 L12.2685,74.7342 Z" fill="#E24329" class="logo-svg-shape logo-dark-orange-shape"/> <path d="M105.0614,193.6548 L143.7014,74.7338 L197.8544,74.7338 L105.0614,193.6548 Z" fill="#FC6D26" class="logo-svg-shape logo-orange-shape"/> <path d="M197.8544,74.7341 L197.8544,74.7341 L209.5964,110.8731 C210.6674,114.1691 209.4944,117.7801 206.6904,119.8171 L105.0614,193.6551 L197.8544,74.7341 Z" fill="#FCA326" class="logo-svg-shape logo-light-orange-shape"/> <path d="M197.8544,74.7342 L143.7014,74.7342 L166.9744,3.1092 C168.1714,-0.5768 173.3854,-0.5758 174.5824,3.1092 L197.8544,74.7342 Z" fill="#E24329" class="logo-svg-shape logo-dark-orange-shape"/> </svg>
+
+  <div class='animated container'>
+    <ul class='text-center footer-social'>
+      <li> <a href="https://twitter.com/gitlab" target="_blank"><i class='fa fa-twitter'></i> <span class=sr-only>Twitter</span></a></li>
+      <li> <a href="https://www.facebook.com/gitlab" target="_blank"><i class='fa fa-facebook'></i> <span class=sr-only>Facebook</span> </a></li>
+      <li> <a href="https://www.youtube.com/channel/UCnMGQ8QHMAnVIsI3xJrihhg" target="_blank"><i class='fa fa-youtube'></i> <span class=sr-only>YouTube</span> </a></li>
+      <li> <a href="https://www.linkedin.com/company/gitlab-com" target="_blank"><i class='fa fa-linkedin'></i> <span class=sr-only>LinkedIn</span> </a></li>
+    </ul>
+    <div class="row justify-content-center">
+      <div class='col-6 col-md-3 col-lg-2 col-lg-offset-2 footer-link-holder'>
+        <h3 class=footer-link-title>Products</h3>
+        <ul class='animated footer-links'>
+          <li><a href="https://about.gitlab.com/features/" target="_blank">Features</a></li>
+          <li><a href="https://about.gitlab.com/install/" target="_blank">Installation</a></li>
+          <li><a href="https://about.gitlab.com/pricing/#gitlab-com" target="_blank">GitLab.com</a></li>
+          <li><a href="https://about.gitlab.com/pricing/" target="_blank">Pricing</a></li>
+          <li><a href="https://about.gitlab.com/releases/" target="_blank">Releases</a></li>
+        </ul>
+      </div>
+      <div class='col-6 col-md-3 col-lg-2 footer-link-holder'>
+        <h3 class=footer-link-title>Services</h3>
+        <ul class='animated footer-links'>
+          <li><a href="https://about.gitlab.com/resellers/" target="_blank">Resellers</a></li>
+          <li><a href="https://about.gitlab.com/services/" target="_blank">Services</a></li>
+        </ul>
+      </div>
+      <div class='col-6 col-md-3 col-lg-2 footer-link-holder'>
+        <h3 class=footer-link-title>Community</h3>
+        <ul class='animated footer-links'>
+          <li><a href="https://about.gitlab.com/resources/" target="_blank">Resources</a></li>
+          <li><a href="https://about.gitlab.com/events/" target="_blank">Events</a></li>
+          <li><a href="https://about.gitlab.com/community/core-team/" target="_blank">Core Team</a></li>
+          <li><a href="https://contributors.gitlab.com/" target="_blank">Contributors</a></li>
+          <li><a href="https://about.gitlab.com/events/find-a-speaker/" target="_blank">Find a Speaker</a></li>
+          <li><a href="/">Documentation</a></li>
+          <li><a href="https://about.gitlab.com/get-help/" target="_blank">Getting Help</a></li>
+          <li><a href="https://about.gitlab.com/community/contribute/" target="_blank">Contributing</a></li>
+          <li><a href="https://about.gitlab.com/partners/" target="_blank">Technology Partners</a></li>
+          <li><a href="https://about.gitlab.com/community/mvp/" target="_blank">Hall of Fame</a></li>
+        </ul>
+      </div>
+      <div class='col-6 col-md-3 col-lg-2 footer-link-holder'>
+        <h3 class=footer-link-title>Company</h3>
+        <ul class='animated footer-links'>
+          <li><a href="https://gitlab.com/groups/gitlab-org" target="_blank">Source Code</a></li>
+          <li><a href="https://about.gitlab.com/blog/" target="_blank">Blog</a></li>
+          <li><a href="https://about.gitlab.com/customers/" target="_blank">Customers</a></li>
+          <li><a href="https://about.gitlab.com/press/" target="_blank">Press and Logos</a></li>
+          <li><a href="https://shop.gitlab.com/" target="_blank">Shop</a></li>
+          <li><a href="https://about.gitlab.com/company/" target="_blank">About Us</a></li>
+          <li><a href="https://about.gitlab.com/company/team/" target="_blank">Team</a></li>
+          <li><a href="https://about.gitlab.com/direction/" target="_blank">Direction</a></li>
+          <li><a href="https://about.gitlab.com/handbook/" target="_blank">Handbook</a></li>
+          <li><a href="https://about.gitlab.com/jobs/" target="_blank">Jobs</a></li>
+          <li><a href="https://about.gitlab.com/terms/" target="_blank">Terms</a></li>
+          <li><a href="https://about.gitlab.com/privacy/" target="_blank">Privacy Policy</a></li>
+          <li><a href="https://about.gitlab.com/company/contact/" target="_blank">Contact Us</a></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+</footer>
+<div class='animated text-center source-link'>
+  <a href='https://gitlab.com/gitlab-org/gitlab-docs' target='_blank'>Created</a> with Nanoc, hosted on <a href='https://about.gitlab.com/product/pages/' target='_blank'>GitLab Pages</a>
+  <a href='https://creativecommons.org/licenses/by-sa/4.0/' target='_blank' rel="license" alt="Creative Commons License"><img src='/assets/images/by-sa.svg'></a>
+  <a href='/cookies-policy/' alt='Cookies Policy'>Cookies Policy</a>
+  
+  
+  <div class="edit-on">
+    <i class="fa fa-code-fork" aria-hidden="true"></i>
+    <a href="https://gitlab.com/gitlab-org/gitlab-runner/blob/master/docs/executors/docker.md">Edit this page</a>
+    (<a href="https://gitlab.com/-/ide/project/gitlab-org/gitlab-runner/edit/master/-/docs/executors/docker.md">Web IDE</a>)
+  </div>
+  
+</div>
+
+  <script src="/assets/javascripts/docs-v1.js"></script>
+  <script src="/assets/javascripts/global-nav-v.js"></script>
+  <script src="/assets/javascripts/tables-v1.js"></script>
+  <script src="/frontend/bundles/default.js" data-cookieconsent="ignore"></script>
+</body>
+</html>
