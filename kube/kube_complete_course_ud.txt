@@ -3077,6 +3077,322 @@ boogie$ cat templates/NOTES.txt                                 [☸ kube-infra:
   kubectl port-forward $POD_NAME 8080:80
 {{- end }}
 
-
-
 ch5 v99
+
+exemple appli complete :
+une appli qui va avoir une partie en node js en front et une dbmysql : l'appli va afficher un message a chaque fois qu'une personne fait un hit sur une url , une base de données est egalement créee. chaque connexion incremente un compteur en bdd et le message d'acceuil donne le nbre de visiteur du site 
+
+boogie$ tree demo-chart                                                                                                                              [☸ kube-infra:fso]
+demo-chart
+├── Chart.yaml
+├── README.md
+├── requirements.lock
+├── requirements.yaml
+├── templates
+│   ├── deployment.yaml
+│   ├── _helpers.tpl
+│   ├── ingress.yaml
+│   ├── NOTES.txt
+│   └── service.yaml
+└── values.yaml
+
+1 directory, 10 files
+
+
+- fichier values.yaml :
+
+boogie$ cat  values.yaml                                                                                                                             [☸ kube-infra:fso]
+# Default values for demo-chart.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 3
+
+image:
+  repository: boogie/node-demo-app            <<< l'appli en node js 
+  tag: v0.0.1
+  pullPolicy: IfNotPresent
+
+service:
+  type: LoadBalancer
+  port: 80
+
+ingress:
+  enabled: false
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  path: /
+  hosts:
+    - node-demo-app.boogie
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
+
+resources: {}
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  # limits:
+  #  cpu: 100m
+  #  memory: 128Mi
+  # requests:
+  #  cpu: 100m
+  #  memory: 128Mi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+##
+## MariaDB chart configuration
+##
+mariadb:
+  enabled: true                         <<<<< definition de notre chart mysql 
+  replication:
+    enabled: false
+  db:
+    name: app
+    user: app-user
+  master:
+    persistence:
+      enabled: true
+      accessMode: ReadWriteOnce
+      size: 8Gi
+
+
+- fichier requirement :
+
+ce fichier va indiquer les dependances de notre chart : qui sera donc une image depuis la registry google et sera recupérée uniquement si la condition mariadb.enable est remplie : ce qui est le cas quand on examine la section mysql dans le values.yaml  
+boogie$ cat requirements.yaml                                                                                                                        [☸ kube-infra:fso]
+dependencies:
+- name: mariadb
+  version: 4.x.x
+  repository: https://kubernetes-charts.storage.googleapis.com/
+  condition: mariadb.enabled
+  tags:
+    - node-app-database
+
+
+- les fichiers de templates :
+
+on a par exemple le deployment , quelques modif sont faites : ex le port de l'appli est setté en dur ( port 3000 )
+l'essentiel porte sur la definition de variables mariadb 
+
+certains blocs contiennent le keyword template : 
+ex :
+          env:
+          - name: MYSQL_HOST
+          {{- if .Values.mariadb.enabled }}
+            value: {{ template "mariadb.fullname" . }}
+          {{- else }}
+
+le lien de la construction pourra être fait en examinant le fichier _helpers.tpl 
+
+dans notre cas la contruction de mariadb.fullname est faite grâce à cette indication dans le bloc helpers.tpl 
+
+Create a default fully qualified app name.
+We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
+*/}}
+{{- define "mariadb.fullname" -}}
+{{- printf "%s-%s" .Release.Name "mariadb" | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+
+
+boogie$ cat templates/deployment.yaml                                                                                                                [☸ kube-infra:fso]
+apiVersion: apps/v1beta2
+kind: Deployment
+metadata:
+  name: {{ template "demo-chart.fullname" . }}
+  labels:
+    app: {{ template "demo-chart.name" . }}
+    chart: {{ template "demo-chart.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ template "demo-chart.name" . }}
+      release: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ template "demo-chart.name" . }}
+        release: {{ .Release.Name }}
+    spec:
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 3000
+              protocol: TCP
+          env:
+          - name: MYSQL_HOST
+          {{- if .Values.mariadb.enabled }}
+            value: {{ template "mariadb.fullname" . }}
+          {{- else }}
+            value: unknown
+          {{- end }}
+          - name: MYSQL_USER
+          {{- if .Values.mariadb.enabled }}
+            value: {{ .Values.mariadb.db.user | quote }}
+          {{- else }}
+            value: unknown
+          {{- end }}
+          - name: MYSQL_DATABASE
+          {{- if .Values.mariadb.enabled }}
+            value: {{ .Values.mariadb.db.name | quote }}
+          {{- else }}
+            value: unknown
+          {{- end }}
+          - name: MYSQL_PASSWORD
+            valueFrom:
+              secretKeyRef:
+              {{- if .Values.mariadb.enabled }}
+                name: {{ template "mariadb.fullname" . }}
+                key: mariadb-password
+              {{- else }}
+                name: unknown
+                key: db-password
+              {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+          resources:
+{{ toYaml .Values.resources | indent 12 }}
+    {{- with .Values.nodeSelector }}
+      nodeSelector:
+{{ toYaml . | indent 8 }}
+    {{- end }}
+    {{- with .Values.affinity }}
+      affinity:
+{{ toYaml . | indent 8 }}
+    {{- end }}
+    {{- with .Values.tolerations }}
+      tolerations:
+{{ toYaml . | indent 8 }}
+    {{- end }}
+
+
+
+le fichier helpers.tpl va nous permettre de comprendre comment les infos du template sont alimentées :
+
+boogie$ cat templates/_helpers.tpl                                                                                                                   [☸ kube-infra:fso]
+{{/* vim: set filetype=mustache: */}}
+{{/*
+Expand the name of the chart.
+*/}}
+{{- define "demo-chart.name" -}}
+{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+
+{{/*
+Create a default fully qualified app name.
+We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
+If release name contains chart name it will be used as a full name.
+*/}}
+{{- define "demo-chart.fullname" -}}
+{{- if .Values.fullnameOverride -}}
+{{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" -}}
+{{- else -}}
+{{- $name := default .Chart.Name .Values.nameOverride -}}
+{{- if contains $name .Release.Name -}}
+{{- .Release.Name | trunc 63 | trimSuffix "-" -}}
+{{- else -}}
+{{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Create chart name and version as used by the chart label.
+*/}}
+{{- define "demo-chart.chart" -}}
+{{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+
+{{/*
+Create a default fully qualified app name.
+We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
+*/}}
+{{- define "mariadb.fullname" -}}
+{{- printf "%s-%s" .Release.Name "mariadb" | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+
+
+on va pouvoir poser un fichier readme qui contient les infos pour la creation du chart :
+
+Chart.yaml  README.md  requirements.lock  requirements.yaml  templates  values.yaml
+ ~/Documents/learn/kubernetes/learn-devops-the-complete-kubernetes-course/kubernetes-course/helm/demo-chart (master*) [10:33:07]
+boogie$ cat README.md                                                                                                                                [☸ kube-infra:fso]
+# Node demo app Chart
+
+## Download dependencies
+```
+helm dependency update
+```
+
+## Install Chart
+```
+helm install .
+```
+
+## Upgrade Chart
+```
+helm upgrade --set image.tag=v0.0.2,mariadb.db.password=$DB_APP_PASS RELEASE .
+```
+
+
+on voit  qu'on commence  a charger les dependances :
+
+## Download dependencies
+```
+helm dependency update
+
+
+>>> ce qui va se baser sur le fichier de requirement et donc downloader le chart mariadb-4-3.1.gz defini dans notre fichier de requirement ( puisqu'on a vu que cette action est faite si mariadb enable est defini dans notre chart /values.yaml 
+
+
+on lance l'install maintenant puisque nous n'avons plus de dependances : 
+
+helm install 
+
+on va biensur pouvoir upgrader notre appli :
+
+## Upgrade Chart
+```
+helm upgrade --set image.tag=v0.0.2,mariadb.db.password=$DB_APP_PASS RELEASE .
+
+
+on peut rollback 
+on va examiner la version qu'on a :
+helm history 
+
+
+on selectionne la version qu'on veutr utiliser pour notre rollback 
+
+ex :
+helm rollback mon_app num_version 
+help rollback my-app 1
+
+helm list 
+helm delete ourapp
+
+attention si on a un statefull set : les volumes ne sont pas deleted 
+
+ch5 -v 100
+
+
+
