@@ -1,0 +1,472 @@
+# prerequis
+
+Ce workshop est basé sur la compréhension du cluster CEPH et de ces principaux services.
+
+Afin de travailler dans de bonne conditions voici les prérequis pour compléter ce workshop :
+
+*   Vagrant     : 2.2.6
+*   VirtualBox  : 6.0.14
+
+La version indiquée est la version avec laquelle le workshop a été testé.
+
+## Vagrant
+
+Il est possible de déterminer la dernière version de Vagrant via la commande suivante :
+
+console
+```
+$ curl -s "https://releases.hashicorp.com/vagrant/index.json" \
+    | jq --raw-output \
+        '.versions
+        | with_entries(select(.key | test("-rc[0-9]+$") | not))
+        | to_entries
+        | max_by(.key)
+        | .value.builds[]
+        | select(.arch=="x86_64")
+        | select(.os=="debian")
+        | .url'
+https://releases.hashicorp.com/vagrant/2.2.6/vagrant_2.2.6_x86_64.deb
+```
+
+Télécharger et installer ce package pour installer la version version de vagrant.
+
+### plugins
+
+Au moins 2 plugins sont nécessaires pour faire tourner le workshop.
+
+console
+```
+$ vagrant plugin install vagrant-cachier
+$ vagrant plugin install vagrant-hostmanager
+```
+
+### plugins
+
+Au moins 2 plugins sont nécessaires pour faire tourner le workshop.
+
+console
+```
+$ vagrant plugin install vagrant-cachier
+$ vagrant plugin install vagrant-hostmanager
+```
+
+### sudoers
+
+Vagrant nécessite quelques autorisations particuliers pour être autonome :
+
+console
+```
+sudo cat /etc/sudoers.d/vagrant
+Cmnd_Alias VAGRANT_HOST_CP = /bin/cp /home/boogie/.vagrant.d/tmp/hosts.local /etc/hosts
+%sudo ALL=(root) NOPASSWD: VAGRANT_HOST_CP
+```
+# Prepapre Config
+
+## Architecture
+
+![](https://docs.ceph.com/docs/master/_images/ditaa-b490c5d9d3bb6984503b59681d08337aff62e992.png)
+
+## Preparation du cluster
+
+Nous allons créer un cluster simple et s'assurer qu'il fonctionne. Ensuite nous l'agrandirons.
+
+L'ensemble des commandes de gestion du cluster se feront depuis la vm ceph-admin.
+Taper cette commande pour se connecter a la VM.
+
+/!\ le workshop se base sur la commande ceph-deploy pour déployer le cluster.
+Ce n'est pas l'unique méthode pour installer un cluster ceph : il est possible d'employer Puppet ou tout faire manuellement.
+
+
+```console
+$ vagrant ssh ceph-admin
+```
+
+L'outil `ceph-deploy` va écrire les fichiers de configuration et les enregistrer dans le répertoire courant.
+Afin de ne pas mélanger tout, nous allons créer un réperoire dédié au futur cluster:
+
+```console
+vagrant@ceph-admin:~$ mkdir test-cluster && cd test-cluster
+```
+
+### Création d'un cluster Ceph avec les options par défaut
+
+La commande ceph-deploy initilise un cluster.
+
+```console
+vagrant@ceph-admin:~/test-cluster$ # ceph-deploy new {initial-monitor-node(s)}
+vagrant@ceph-admin:~/test-cluster$ ceph-deploy new ceph-server-1
+```
+
+Au final nous nous retrouvons avec 3 fichiers.
+
+Quesiton :
+
+-   A quoi correspondent ces fichiers ?
+
+la conf cluster , les log et le keyring
+
+### Surcharge du nombre de réplica
+
+Maintenant que nous allons devoir faire évoluer les options par défaut. En effet elle ne permetrons pas de faire tourner le cluster convenablement dans notre cas.
+Pour notre premier cluster, nous n'aurons que 2 [object storage daemons](http://docs.ceph.com/docs/master/architecture/#the-ceph-storage-cluster).
+
+Par défaut, le nombre de réplica est de 3. Comme nous aurons que 2 OSDs, nous allons devoir réduire ce nombre de replica par default.
+Ceci afin que Ceph arrive a terme a un état `active + clean`.
+
+La plupart de la configuration de ceph est écrite le fichier `/etc/ceph/ceph.conf`
+
+Adapter le nombre de réplica dans le fichier `ceph.conf`.
+```
+osd pool default size = 2
+```
+
+### Ajouter une option concernant l'horloge
+
+Comme nous allons constuire un cluster ceph basé sur le meme Host, nous risquons d'avoir un soucis de décalage de l'horloge.
+Nous allons devoir dire au Ceph qu'il soit tolérant avec ces décalage.
+
+Ajouter ce paramétrage dans le fichier `ceph.conf`
+```
+mon_clock_drift_allowed = 1
+```
+
+### Configuration finale
+
+A peu de chose prêt nous allons avoir une configuraiton tel que ci-dessous
+
+```
+[global]
+fsid = 7acac25d-2bd8-4911-807e-e35377e741bf
+mon_initial_members = ceph-server-1
+mon_host = 172.21.12.11
+auth_cluster_required = cephx
+auth_service_required = cephx
+auth_client_required = cephx
+osd pool default size = 2
+mon_clock_drift_allowed = 1
+```
+
+Question :
+
+-   pourquoi le fsid est différent du votre ? doit il etre toujours différent a chaque construction d'un cluster ?
+id généré par ceph 
+-   pourquoi l'ip du monitor est inscrite dans le fichier ?
+
+
+-   qu'est ce que Cephx ? qui est en charge de l'authentification CephX ?
+
+## Installation du cluster
+
+Maintenant que nous avons une configuration, nous allons pouvoir commencer à déployer le cluster Ceph.
+
+Notez que nous allons spécifier la version de Ceph que nous souhaitons installer.
+Dans notre cas, nous allons partir sur la derniere version de Ceph qui n'est autre que [nautilus](https://docs.ceph.com/docs/master/releases/nautilus/).
+
+```console
+vagrant@ceph-admin:~/test-cluster$ ceph-deploy install --release=nautilus ceph-admin ceph-server-1 ceph-server-2 ceph-server-3 ceph-client
+```
+
+Cette commande va se connecter en ssh a l'ensemble des serveurs et installer tous les packages nécessaires pour la mise en place du cluster.
+
+Question :
+
+-   Quel est le premier composant a installer ?
+
+# Monitor
+
+Le monitor est un composant indispensable au bon fonctionnement d'un cluster ceph.
+Sans lui, ceph ne peut pas fonctionner. Il gère les parties suivantes :
+
+-   Quorum
+-   CephX
+
+monitor : c'est le composant principal qui va permettre de gérer le cluster
+## deploiement du monitor
+
+Il est possible de deployer l'ensemble des monitor de la maniere suivantes.
+
+```console
+vagrant@ceph-admin:~/test-cluster$ ceph-deploy mon create-initial
+```
+
+## recupération des clefs
+
+La derniere version de ceph-deploy semble récupérer les clefs.
+
+```console
+vagrant@ceph-admin:~/test-cluster$ ceph-deploy gatherkeys ceph-server-1
+```
+
+```console
+vagrant@ceph-admin:~/test-cluster$ ls -l *keyring
+```
+
+Question :
+
+-   A quoi servent ces clefs sous cette forme ?
+-   Deux types de clefs se distinguent ? quelles sont elles ?
+-   Que contient un fichier de clef ?
+
+## deploiement des clefs
+
+```console
+vagrant@ceph-admin:~/test-cluster$ ceph-deploy admin ceph-admin
+```
+
+## vérification du cluster
+
+```console
+vagrant@ceph-admin:~/test-cluster$ ceph health detail
+vagrant@ceph-admin:~/test-cluster$ ceph -s
+```
+
+Question :
+
+-   Que se passe t'il ? Pourquoi cela ne fonctionne pas ? (INDICE : par defaut, la commande *ceph* lit son fichier de configuration ddans `/etc/ceph`)
+
+Apres avoir compris le soucis, vous devriez avoir un résultat similaire
+
+```
+  cluster:
+    id:     9017049b-d83b-4818-8cb7-b9813db7ec48
+    health: HEALTH_OK
+
+  services:
+    mon: 1 daemons, quorum ceph-server-1 (age 3m)
+    mgr: no daemons active
+    osd: 0 osds: 0 up, 0 in
+
+  data:
+    pools:   0 pools, 0 pgs
+    objects: 0 objects, 0 B
+    usage:   0 B used, 0 B / 0 B avail
+    pgs
+```
+
+Question :
+
+-   Apres avoir résolu le problème, peut on dire que le cluster est prêt ?
+-   Que doit on installer ensuite ?
+
+Pour approfondir sur les monitor, il est possible de lancer la comamnde : `ceph quorum_status`.
+Il est aussi possible de se connecter sur `ceph-server-1` et de regarder les logs dans le répertoire `/var/log/ceph`.
+
+## cephx
+
+Comme dit précedement, le monitor s'occupe de l'authentification.
+
+Il est possible de connaitre les clefs connues via la commande suivante :
+
+```console
+vagrant@ceph-admin:~/test-cluster$ sudo ceph auth ls
+```
+# OSDs
+
+Notre but est de démarrer un OSDs basé sur le disque */dev/sdc*.
+
+## Creation du premier OSD
+
+Se connecter sur la VM *ceph-server-2*, puis lister les disques visible par Ceph :
+
+```console
+vagrant@ceph-server-2:~$ sudo ceph-volume inventory
+```
+
+Question :
+
+-   Pourquoi l'un des disques n'est pas disponible ?
+
+vagrant@ceph-server-2:~$ sudo ceph-volume inventory
+
+Device Path               Size         rotates available Model name
+/dev/sdb                  10.00 MB     True    True      HARDDISK
+/dev/sdc                  2.00 GB      True    True      HARDDISK
+/dev/sda                  10.00 GB     True    False     HARDDISK
+
+--> le disque est taggé : il va falloir 
+
+
+
+Vous pouvez employer la commande `sudo ceph-volume inventory <disk>` pour vous aider.
+
+Depuis le serveur *ceph-admin*,
+
+Nettoyer le disque /dev/sdc. le `zap` d'un disque permet de cleaner toute trace d'un cluster ceph sur le disque.
+
+```console
+vagrant@ceph-admin:~/test-cluster$ ceph-deploy disk zap ceph-server-2 /dev/sdc
+```
+
+Tentons de créer le permiers OSD.
+
+```console
+vagrant@ceph-admin:~/test-cluster$ ceph-deploy osd create --data /dev/sdc ceph-server-2
+```
+
+INDICE : La commande va échouer. Selon vous, comment résoudre le problème ? Qu'est ce qui manque sur ceph-server-2 ?
+
+Après avoir s'être assuré que la commande fonctionne, répondez aux questions suivantes.
+
+Question :
+
+-   Quel est le storage employé pour la création du disque ?
+-   Pourquoi ceph met en place une surcouche lvm ?
+
+Déployons la clef de bootstrap
+
+```console
+vagrant@ceph-admin:~/test-cluster$ cat ceph.bootstrap-osd.keyring | ssh ceph-server-2 'sudo bash -c "cat -> /etc/ceph/ceph.client.bootstrap-osd.keyring"; sudo chown ceph.ceph /etc/ceph/ceph.client.bootstrap-osd.keyring'
+```
+
+Retentons de créer le disque.
+
+Vérifier que le disque a bien été ajouté.
+
+```console
+vagrant@ceph-admin:~/test-cluster$ sudo ceph -s
+ cluster:
+   id:     c8f31c05-cee6-4642-bbde-a2d882b707dc
+   health: HEALTH_WARN
+           no active mgr
+
+ services:
+   mon: 1 daemons, quorum ceph-server-1 (age 3m)
+   mgr: no daemons active
+   osd: 1 osds: 1 up (since 50s), 1 in (since 50s)
+
+ data:
+   pools:   0 pools, 0 pgs
+   objects: 0 objects, 0 B
+   usage:   0 B used, 0 B / 0 B avail
+   pgs:
+```
+
+## Creation du second OSD
+
+Répéter les opérations sur le *ceph-server-3*.
+
+vagrant@ceph-admin:~/test-cluster$ ceph-deploy osd create --data /dev/sdc ceph-server-3
+
+on va creer un manager qui est mandatory :
+
+
+vagrant@ceph-admin:~/test-cluster$ ceph-deploy mgr create ceph-server-1
+
+
+
+
+
+Vérifier la répartions des OSDs
+
+```console
+vagrant@ceph-admin:~/test-cluster$ sudo ceph osd tree
+```
+vagrant@ceph-admin:~/test-cluster$ sudo ceph osd tree
+ID CLASS WEIGHT  TYPE NAME              STATUS REWEIGHT PRI-AFF 
+-1       0.00198 root default                                   
+-3       0.00099     host ceph-server-2                         
+ 0   hdd 0.00099         osd.0              up  1.00000 1.00000 
+-5       0.00099     host ceph-server-3                         
+ 1   hdd 0.00099         osd.1              up  1.00000 1.00000 
+
+Question :
+
+-   quel est le nom de l'osd ? est il unique ?
+-   verifier la clef cephx pour chacun des osd ? est elle la meme ?
+
+
+
+-> on demarre d'abord tous les monitor pour avoir le qorum
+-> ensuite on demarre le manager
+-> ensuite on demarre les osd
+
+on part du principe un osd = un disque
+
+- on passe les commandes cephs en sudo car la clé d'autenh dans /etc/ceph est en r only pour root
+
+
+
+on doit toujours avoir les clés des composants qu' on veut utiliser.
+
+
+la couche lvm est utilisé pour les osd  car ceph a besoin de deux volumes : un pour le volume et l'autre pour les data
+
+
+on  a un warning car dans notre conf initiales on a defini 2 en replica
+les replica doivent être reparti entre les host : pas sur les osd
+
+
+le rados envoie a l'osd et c'est l'osd qui va faire la repartition des data en fonction de la crushmap : qui contient les infos / topologie du cluster
+
+
+se logger sur la gw de bess et mater histrique
+
+
+sur le noeud qui va porter le service manager on install le plugin dashboard 
+
+vagrant@ceph-server-1:~$ sudo apt install ceph-mgr-dashboard
+
+
+on peut depuis l'admin activer le module dashboard : 
+
+sudo ceph mgr module enable dashboard
+
+   77  sudo ceph config set mgr mgr/dashboard/ssl false
+   78  sudo ceph mgr module disable dashboard
+   79  sudo ceph mgr module enable dashboard
+   80  sudo ceph mgr module disable dashboard
+   81  sudo ceph config set mgr mgr/dashboard/server_addr 172.21.12.11
+   82  sudo ceph mgr module enable dashboard
+
+
+
+
+
+
+
+
+commandes tp en vrac :
+
+   19  mkdir test-cluster && cd test-cluster
+   20  ceph-deploy new ceph-server-1
+   21  ls
+   22  vi ceph.conf
+   23  ceph-deploy install --release=nautilus ceph-admin ceph-server-1 ceph-server-2 ceph-server-3 ceph-client
+   24  ls
+   25  ceph-deploy mon create-initial
+   26  ls
+   27  ceph-deploy gatherkeys ceph-server-1
+   28  ls
+   29  less ceph.bootstrap-mgr.keyring
+   30  cat ceph.bootstrap-mgr.keyring
+   31  cat ceph.bootstrap-osd.keyring
+   32  ceph-deploy admin ceph-admin
+   33  cd /etc/ceph/
+   34  ls
+   35  ll
+   36  cat /etc/ceph/ceph.conf
+   37  cd -
+   38  ls
+   39  ceph health detail
+   40  ceph -s
+   41  sudo ceph health detail
+   42  sudo ceph -s
+   43  sudo ceph status
+   44  sudo ceph health detail
+   45  sudo ceph auth ls
+   46  ls
+   47  sudo ceph -s
+   48  sudo ceph --help
+   49  sudo ceph status --help
+   50  sudo ceph quorum_status
+   51  sudo apt install jq
+   52  sudo ceph quorum_status |jq .
+   53  ssh ceph-server-1
+   54  vagrant@ceph-server-2
+   55  ssh vagrant@ceph-server-2
+   56  ceph-deploy disk zap ceph-server-2 /dev/sdc
+   57  ceph-deploy osd create --data /dev/sdc ceph-server-2
+   58  sudo ceph -s
+   59  ceph-deploy osd create --data /dev/sdc ceph-server-3
+   60  sudo ceph -s
+
