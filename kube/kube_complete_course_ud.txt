@@ -3395,4 +3395,103 @@ attention si on a un statefull set : les volumes ne sont pas deleted
 ch5 -v 100
 
 
+- Build et deployment de chart avec jenkins : 
+
+un chart jenkins existe :
+
+on cree un service account dédié : 
+
+boogie$ cat serviceaccount.yaml                                                                                                                      [☸ kube-infra:fso]
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: jenkins-helm
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: jenkins-helm
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: jenkins-helm
+  namespace: default
+
+# install jenkins
+```
+kubectl create -f serviceaccount.yaml
+
+on lance l'install via helm en settant les rbac(si vieille version de kube) et en definissant le user jenkins avec un uid a 1000 ( pour ne pas executer en root )
+helm install --name jenkins --set rbac.install=true,Master.RunAsUser=1000,Master.FsGroup=1000 stable/jenkins
+
+
+
+on lance l'install .
+Le plugin kubernetes de jenkins est installé dans notre deployment : on pourra lancer des pods depuis jenkins.
+
+on se loggue sur jenkins : admin/ admin
+
+1/ on update les plugins :
+
+manage plugins > update
+
+2/ on va créer un job de build pour pousser notre conf dans un bucket s3 amazon :
+
+on s'assure de permttre au pod de pouvoir ecrire dans le bucket amazon : on recupere les id 
+
+
+creation de job 
+> type pipeline 
+
+on set un nom 
+on peut definir dans la section pipeline le definition d'un script / ou un script de repo  : en url 
+
+on va inserer le script suivant dans la fenetre :
+
+boogie$ cat Jenkinsfile.build                                                                                                                        [☸ kube-infra:fso]
+pipeline {
+  agent {
+    kubernetes {
+      label 'helm-pod'
+      containerTemplate {
+        name 'helm'
+        image 'wardviaene/helm-s3'
+        ttyEnabled true
+        command 'cat'
+      }
+    }
+  }
+  stages {
+    stage('Run helm') {
+      steps {
+        container('helm') {
+          git url: 'git://github.com/wardviaene/kubernetes-course.git', branch: 'master'
+          sh '''
+          HELM_BUCKET=helm-rytcufor
+          PACKAGE=demo-chart
+          export AWS_REGION=eu-west-1
+
+          cp -r /home/helm/.helm ~
+          helm repo add my-charts s3://${HELM_BUCKET}/charts
+          cd helm/${PACKAGE}
+          helm dependency update
+          helm package .
+          helm s3 push --force ${PACKAGE}-*.tgz my-charts
+          '''
+        }
+      }
+    }
+  }
+}
+
+on lance le build 
+ceci va creer un pod qui va pousser les charts dans s3
+
+on lance ensuite le deploy :
+
+on va donc lancer la creation du pod ..qui va deployer l'appli dans notre cluster
+
 
