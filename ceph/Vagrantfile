@@ -1,0 +1,286 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+# Specify minimum Vagrant version and Vagrant API version
+Vagrant.require_version ">= 1.7.2"
+VAGRANTFILE_API_VERSION = "2"
+
+require 'yaml'
+require 'getoptlong'
+require 'net/http'
+
+# Define colors
+class String
+  def colorize(color_code)
+      "\e[#{color_code}m#{self}\e[0m"
+  end
+
+  def red
+    colorize(31)
+  end
+
+  def green
+    colorize(32)
+  end
+
+  def yellow
+    colorize(33)
+  end
+
+  def blue
+    colorize(34)
+  end
+
+  def pink
+    colorize(35)
+  end
+
+  def light_blue
+    colorize(36)
+  end
+end
+
+# Extract Parameters from config
+def server_val(server, config, sym)
+  name = sym.to_s
+  server[name] || val(config, sym)
+end
+
+def val(config, sym)
+  name = sym.to_s
+  ENV[name] || ENV[name.upcase] || config[name] || false
+end
+
+# Load config file
+def loadConfiguration()
+  config_filename = ENV['CONFIG'] || 'servers.yaml'
+  local_config_filename = ENV['LOCAL_CONFIG'] || 'local_servers.yaml'
+  config_file = File.join( File.dirname(__FILE__), config_filename)
+  local_config_file = File.join( File.dirname(__FILE__), local_config_filename)
+  local_config = File.exist?(local_config_file) ? YAML::load_file(local_config_file) : {}
+
+  # Overload default config with local config
+  servers = YAML.load_file(config_file)
+  servers.merge(local_config)
+end
+
+# Beware this might need vagrant version >= 1.7.2
+def checkForVagrantPlugins(plugins_list)
+  # Install required vagrant plugins if necessary
+  plugins_list.each do |plugin|
+    need_restart = false
+    unless Vagrant.has_plugin? plugin
+      system "vagrant plugin install #{plugin}"
+      need_restart = true
+    end
+    exec "vagrant #{ARGV.join(' ')}" if need_restart
+  end
+end
+
+### Main code ###
+
+# Just list vagrant mandatory plugins here
+required_plugins = %w()
+
+# Read YAML file with box details
+main_config = loadConfiguration()
+provider = 'virtualbox'
+has_provider_arg = ARGV.index {|s| s.include?('--provider')}
+
+# Libvirt
+if ARGV.include?('--provider=libvirt') ||
+  (!has_provider_arg && ENV['VAGRANT_DEFAULT_PROVIDER'] == 'libvirt') ||
+  (!has_provider_arg && val(main_config, :provider) == 'libvirt')
+
+  required_plugins << 'vagrant-libvirt'
+  provider = 'libvirt'
+end
+
+# Host manager
+if val(main_config, :with_host_manager) == true
+  required_plugins << 'vagrant-hostmanager'
+end
+
+# Cachier
+if val(main_config, :with_cachier) == true
+  required_plugins << 'vagrant-cachier'
+end
+
+if provider != 'virtualbox' && ARGV.include?('up')
+  if not ARGV.include?('--no-parallel')
+    puts "You really want the machine not to be started in parallel. Please rerun with --no-parallel argument."
+    exit
+  end
+end
+
+# Install mandatory plugins
+puts "### Required plugins: #{required_plugins}".light_blue
+checkForVagrantPlugins(required_plugins)
+
+# Create boxes
+Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
+
+  # Cache for packages, gems, etc
+  if Vagrant.has_plugin?("vagrant-cachier")
+    config.cache.scope = :box
+    config.cache.synced_folder_opts = {
+      owner: "_apt",
+      # type: :nfs,
+      # mount_options: ['rw', 'vers=3', 'tcp', 'nolock']
+    }
+  end
+
+  # Configure hostmanager
+  if Vagrant.has_plugin?("vagrant-hostmanager")
+    config.hostmanager.enabled = true
+    config.hostmanager.manage_host = true
+    config.hostmanager.ignore_private_ip = false
+    config.hostmanager.include_offline = true
+  end
+
+  # Iterate through entries in YAML file
+  main_config['servers'].each_with_index do |server, index|
+
+    # global option
+    config.ssh.forward_agent = true
+    config.ssh.insert_key = false
+
+    config.vm.define server["name"] do |srv|
+      box = server_val(server, main_config, :box)
+
+      # check if it's an internal box.
+      if "#{box}" !~ /\//
+        puts "++> box_url #{server_val(server, main_config, :box_url)}/#{box}".light_blue
+        srv.vm.box_url = "#{server_val(server, main_config, :box_url)}/#{box}"
+        srv.vm.box_check_update = true
+      end
+
+      # Set Box and Hostname
+      srv.vm.hostname = "#{server["name"]}"
+      srv.vm.box      = "#{box}"
+
+      # Configure dedicated ssh key for Meetic
+      if server_val(server, main_config, :ssh_private_key)
+        config.ssh.username = server_val(server, main_config, :ssh_user)
+        config.ssh.private_key_path = server_val(server, main_config, :ssh_private_key)
+      end
+
+      # Specify box's version (visible with "vagrant box list")
+      if server.key?('box_version')
+          srv.vm.box_version = server['box_version']
+      end
+
+      # Configure network
+      if server.key?('network')
+        if server['network'].key?('private')
+
+          # Configure a "private_network"
+          if server['network']['private'].key?('type')
+              # In case of DHCP, type = 'DHCP'
+              srv.vm.network 'private_network', type: server['network']['private']['type']
+
+          elsif server['network']['private'].key?('ip')
+              # Static IP
+              srv.vm.network 'private_network', ip: server['network']['private']['ip']
+          end
+        end
+
+        # Forwarded ports
+        if server['network'].key?('forwarded_ports')
+          server['network']['forwarded_ports'].each do |fp_name, fp_values|
+            srv.vm.network 'forwarded_port',
+                  id: fp_name,
+                  host: fp_values['host'],
+                  guest: fp_values['guest'],
+                  host_ip: fp_values['host_ip'],
+                  guest_ip: fp_values['guest_ip'],
+                  protocol: fp_values['protocol']
+          end
+        end
+      else
+        # Virtualbox : Set default network as DHCP if no one specify
+        if provider == 'virtualbox'
+          srv.vm.network 'private_network', type: 'dhcp'
+        end
+      end
+
+      # Manage hostmanager plugin server's aliases
+      if Vagrant.has_plugin?("vagrant-hostmanager")
+        if server.key?('hostmanager')
+          if server['hostmanager'].key?('aliases')
+            srv.hostmanager.aliases = server['hostmanager']['aliases']
+          end
+        end
+      end
+
+      # workaround for private_network
+      if provider == 'virtualbox'
+        srv.hostmanager.ip_resolver = proc do |vb, resolving_vm|
+            if vb.id
+              `VBoxManage guestproperty get #{vb.id} "/VirtualBox/GuestInfo/Net/1/V4/IP"`.split()[1]
+            end
+        end
+      end
+
+      srv.vm.provider :virtualbox do |vm|
+        # Set VM's name
+        vm.name = server["name"]
+
+        # Override VM's RAM &nd CPUs
+        vm.memory = server_val(server, main_config, :ram) ? server_val(server, main_config, :ram) : 512
+        vm.cpus = server_val(server, main_config, :cpus) ? server_val(server, main_config, :cpus) : 1
+
+        # Additional disks
+        if server.key?('disks')
+          server['disks'].each.with_index do |dsize, dindex|
+            disk_port = dindex + 1
+            disk_file = "./tmp/#{server['name']}_disk_" + sprintf('%02d', disk_port) + ".vdi"
+            unless File.exist?(disk_file)
+              vm.customize [
+                'createhd',
+                '--filename', disk_file,
+                '--format', 'VDI',
+                '--size', dsize
+              ]
+            end
+            vm.customize [
+              'storageattach', :id,               # the id will be replaced (by vagrant) by the identifier of the actual machine
+              '--storagectl', 'SCSI',             # one of `SATA Controller` or `SCSI Controller` or `IDE Controller`;
+                                                  # obtain the right name using: vboxmanage showvminfo
+              '--port', disk_port + 1,            # port of storage controller. Note that port #0 is for 1st hard disk, so start numbering from 1.
+              '--device', 0,                      # the device number inside given port (usually is #0)
+              '--type', 'hdd',
+              '--medium',
+              disk_file                           # path to our VDI image
+            ]
+          end
+        end
+      end
+
+      srv.vm.provider :libvirt do |libvirt, override|
+        override.vm.synced_folder ".", "/vagrant", type: "nfs"
+
+        # Override VM's RAM &nd CPUs
+        libvirt.memory = server_val(server, main_config, :ram) ? server_val(server, main_config, :ram) : 512
+        libvirt.cpus = server_val(server, main_config, :cpus) ? server_val(server, main_config, :cpus) : 1
+
+        # Additional disks
+        if server.key?('disks')
+          server['disks'].each do |size|
+              libvirt.storage :file, :size => "#{size}M"
+          end
+        end
+      end
+
+      # We need one Ceph admin machine to manage the cluster
+      if server['name'] == "ceph-admin"
+        srv.vm.provision :shell, :inline => "wget -q -O- 'https://download.ceph.com/keys/release.asc' | apt-key add -", :privileged => true
+        srv.vm.provision :shell, :inline => "echo deb https://download.ceph.com/debian-nautilus/ $(lsb_release -sc) main | tee /etc/apt/sources.list.d/ceph.list", :privileged => true
+        srv.vm.provision :shell, :inline => "DEBIAN_FRONTEND=noninteractive apt-get update && apt-get install -yq ntp ceph-deploy", :privileged => true
+      else
+      # Virtual machine neet python in order to be install
+        srv.vm.provision :shell, :inline => "DEBIAN_FRONTEND=noninteractive apt-get update && apt-get install -yq python", :privileged => true
+      end
+    end
+  end
+end
