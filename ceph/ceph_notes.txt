@@ -1,0 +1,29 @@
+=== notes ceph : ===
+
+
+Ceph permet de fournir du stockage en mode bloc , en mode objet ou même avec  son propre filesystem cephfs.
+Un cluster de stockage ceph nécéssite des composants essentiels :
+-> ceph monitor
+-> ceph manager
+-> ceph osd ' object storage deamon'
+
+et eventuellement 
+-> ceph metadata quand on utilise un filessystem ceph pour les clients.
+
+- les composants : 
+
+-> ceph monitor : ceph-mon : élément essentiel qui maintient la carte / topologie du cluster : la map du monitor, map des osd , CRUSH map ( algo de repartition des data sur les disques )
+Ces map sont critiques et nécéssaires afin que les deamons cephs se coordonnent entre eux.
+Le monitor est responsable de l'authent entre les clients et les daemons. C'est le point d'entrée  principal entre les differents composants.
+de base on doit avoir trois monitor dans le cluster pour assurer redondance et ha.
+
+-> ceph manager : ceh-mgr : il est responsale de la trace des metrics du cluster et de l'etat du cluster : l'utilisation du stockage, la charge system.
+le manager expose via des modules python les infos du cluster ceph ( ex un dashboard est dispo, une api permet de recupérer les infos du cluster. )
+Il faut au moins deux managers dans notre cluster pour assurer la ha.
+
+-> ceph osds : ceph-osd: l'osd est un object daemon de stockage ; qui stocke la data, gère la replication, le recovery, le rebalancing et fourni des infos de monitoring au ceph manager et ceph monitor en checkant les autres ceph-osd .
+Au minimum 3 osd sont nécéssaire pour la redondance et la repli.
+
+-> MDSs: A Ceph Metadata Server (MDS, ceph-mds) stores metadata on behalf of the Ceph File System (i.e., Ceph Block Devices and Ceph Object Storage do not use MDS). Ceph Metadata Servers allow POSIX file system users to execute basic commands (like ls, find, etc.) without placing an enormous burden on the Ceph Storage Cluster.
+
+ceph stocke les data en tant qu'objet dans des pool logique de stockage en utilisant l'algorithme CRUSH : ceph determine quel group doit contenir l'object et calcul quel ceph-osd doit stocker ce group. L'algo crush permet au cluster ceph d'être scalable, de gérer le rebalance et le recover.
