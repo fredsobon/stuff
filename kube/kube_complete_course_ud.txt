@@ -3397,8 +3397,7 @@ ch5 -v 100
 
 - Build et deployment de chart avec jenkins : 
 
-un chart jenkins existe :
-
+un chart jenkins existe : on va donc s'en servir pour installer jenkins.
 on cree un service account dédié : 
 
 boogie$ cat serviceaccount.yaml                                                                                                                      [☸ kube-infra:fso]
@@ -3427,12 +3426,10 @@ kubectl create -f serviceaccount.yaml
 on lance l'install via helm en settant les rbac(si vieille version de kube) et en definissant le user jenkins avec un uid a 1000 ( pour ne pas executer en root )
 helm install --name jenkins --set rbac.install=true,Master.RunAsUser=1000,Master.FsGroup=1000 stable/jenkins
 
-
-
 on lance l'install .
 Le plugin kubernetes de jenkins est installé dans notre deployment : on pourra lancer des pods depuis jenkins.
 
-on se loggue sur jenkins : admin/ admin
+on se loggue sur jenkins : admin/ xxxx apres avoir recupérer les infos apres le deployment des conf kube.
 
 1/ on update les plugins :
 
@@ -3440,14 +3437,13 @@ manage plugins > update
 
 2/ on va créer un job de build pour pousser notre conf dans un bucket s3 amazon :
 
-on s'assure de permttre au pod de pouvoir ecrire dans le bucket amazon : on recupere les id 
-
+on s'assure de permettre au pod de pouvoir ecrire dans le bucket amazon : on recupere les id nécéssaire pour les connex aws
 
 creation de job 
 > type pipeline 
 
 on set un nom 
-on peut definir dans la section pipeline le definition d'un script / ou un script de repo  : en url 
+on peut definir dans la section pipeline le definition d'un script / ou un script de repo  : en url ( au cas ou on a forké le repo)
 
 on va inserer le script suivant dans la fenetre :
 
@@ -3458,7 +3454,7 @@ pipeline {
       label 'helm-pod'
       containerTemplate {
         name 'helm'
-        image 'wardviaene/helm-s3'
+        image 'boogie/helm-s3'
         ttyEnabled true
         command 'cat'
       }
@@ -3468,7 +3464,7 @@ pipeline {
     stage('Run helm') {
       steps {
         container('helm') {
-          git url: 'git://github.com/wardviaene/kubernetes-course.git', branch: 'master'
+          git url: 'git://github.com/boogie/kubernetes-course.git', branch: 'master'
           sh '''
           HELM_BUCKET=helm-rytcufor
           PACKAGE=demo-chart
@@ -3489,9 +3485,62 @@ pipeline {
 
 on lance le build 
 ceci va creer un pod qui va pousser les charts dans s3
-
 on lance ensuite le deploy :
-
 on va donc lancer la creation du pod ..qui va deployer l'appli dans notre cluster
 
+on va créer un job de type pipeline en utilisant idem un script : 
+
+ici nous allons deployer la conf helm dans notre cluster kube via le service account Jenkins-helm créé 
+
+cat Jenkinsfile.deploy 
+
+pipeline {
+  agent {
+    kubernetes {
+      label 'helm-pod'
+      serviceAccount 'jenkins-helm'
+      containerTemplate {
+        name 'helm-pod'
+        image 'boogie/helm-s3'
+        ttyEnabled true
+        command 'cat'                          <<< ici la commande cat est lancé le pod tourne en background. 
+      }
+    }
+  }
+  stages {                               
+    stage('Run helm') {               <<< la con commence les operations 
+      steps {
+        container('helm-pod') {
+          git url: 'git://github.com/boogie/kubernetes-course.git', branch: 'master'
+          sh '''
+          HELM_BUCKET=helm-rytcufor
+          PACKAGE=demo-chart
+          export AWS_REGION=eu-west-1
+
+          cp -r /home/helm/.helm ~                  <<< on copie les fichiers helms dans notre homedir
+          helm repo add my-charts s3://${HELM_BUCKET}/charts    <<<< on ajoute le repo helm 
+          DEPLOYED=$(helm list |grep -E "^${PACKAGE}" |grep DEPLOYED |wc -l)       <<< on compte les lignes et on controlle si la paquet est déja installé          
+          if [ $DEPLOYED == 0 ] ; then
+            helm install --name ${PACKAGE} my-charts/${PACKAGE}          <<< si le paquet n'est pas installé on l'installe 
+          else
+            helm upgrade ${PACKAGE} my-charts/${PACKAGE}                 <<<< sinon on upgrade.
+          fi
+          echo "deployed!"
+          '''
+        }
+      }
+    }
+  }
+}
+
+on va donc injecter ce script dans un nouveau script jenkins, on lance et au premier run l'installation se fait.
+
+On va pouvoir upgrader en chnageant la version .
+On pourra donc pluguer jenkins a notre repo et lancer un deployment a chaque upgrade dans notre repo.
+ex: on selectionne poll depuis jenkins pour recup les nouvelles versions de code.
+
+
+= serverless in kubernetes = 
+
+ch6 v102
 
