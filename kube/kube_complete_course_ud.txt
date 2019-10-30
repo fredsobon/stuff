@@ -3557,14 +3557,156 @@ En tant qu'admin kube on va devoir gérer l'infra sous jacente mais en tant que 
 Il va être important de bien examiner les differents projets serverless afin de choisir celui qui correspond le mieux a nos besoins ..et qui est bien mature et suivi.
 
 
-= kubeless : 
+= kubeless presentation : 
 
-c'est un framework nativ à kube.
+c'est un framework natif à kube.
+https://github.com/kubeless/kubeless
+il permet d'ameliorer les ressources de kube en fournissant de l'autoscaling, du routage , du monitoring.
+Il utilise des customs ressources definition pour implementer ces fonctions.
+completement opensource il offre une ui pour permettre aux devs son amélioration.
+Avec kubeless ont deploy une fonction developpée dans le language de notre choix ex de runtime supportés : python /nodejs /ruby /php /golang ....
+une fois qu'on a deployer notre fonction, on doit déterminer commment elle sera triggered.
+
+Les fonctions http sont supportés : ex on peut permettre l'execution d'une fonction des qu'un endpoint est contacté.
+ex: on ecrit une fonction qui renvoi du texte dans le navigateur des que l'url est contactée.
+kube utilise dans ce cas un object ingress
+
+des fonctions de pub / sub comme kafka sont egalement supportées.
+
+= kubeless in action : 
+
+- installation :
+
 https://github.com/kubeless/kubeless
 
-il permet d'ameliorer les ressources de kube en fournissant de l'autoscaling, du routage , du monitoring.
+-> releases : 
+on download la version qui nous interresse en fonction de notre os .
+ex: 
+# Install CLI
+```
+wget https://github.com/kubeless/kubeless/releases/download/v1.0.2/kubeless_linux-amd64.zip
+unzip kubeless_linux-amd64.zip
+sudo mv bundles/kubeless_linux-amd64/kubeless /usr/local/bin
+rm -r bundles/
+```
 
-ch6 -v 103
+on peut tester la bonne installation du binaire en lancant l'executable kubeless depuis notre prompt
+
+
+# Deploy kubeless
+```
+kubectl create ns kubeless
+kubectl create -f https://github.com/kubeless/kubeless/releases/download/v1.0.2/kubeless-v1.0.2.yaml
+
+
+# Example function
+
+exemple on créee une petite fonction pythpn :
+
+boogie$ cat example.py                                                                                                                               [☸ kube-infra:fso]
+def hello(event, context):
+  print event
+  return event['data']
+
+ pour creer nos fonctions on va definir le rutime que l'on veut utiliser :
+ 
+## python
+```
+kubeless function deploy hello --runtime python2.7 \           <<<<< on defini notre runtime 
+                               --from-file python-example/example.py \        <<<< on défini l'endroit du code contenant notre fonction;
+                               --handler test.hello          <<< ici on a un handler de défini
+
+on peut definir une fonction en ndejs qui sera similaire : 
+
+boogie$ cat node-example/example.js                                                                                                                  [☸ kube-infra:fso]
+module.exports = {
+  myfunction: function (event, context) {
+    console.log(event);
+    return "Hello world!";
+  }
+}
+
+
+on peut definir un fichier package.json de dépendance dans lequel on alimentera nos dependances en fcontions de nos besoins :
+ex : ici la section dependance est vide : 
+boogie$ cat node-example/package.json                                                                                                                [☸ kube-infra:fso]
+{
+  "name": "node-example",
+  "version": "0.0.1",
+  "scripts": {
+    "start": "node example.js"
+  },
+  "engines": {
+    "node": "^6.14.4"
+  },
+  "dependencies": {
+  }
+}
+
+## NodeJS
+```
+kubeless function deploy myfunction --runtime nodejs6 \
+                                --dependencies node-example/package.json \             <<<< on peut en fonction du runtime definir des dependences 
+                                --handler test.myfunction \
+                                --from-file node-example/example.js
+```
+
+# Commands
+
+on peut passer des commandes kubeless pour examiner nos fonctions : 
+
+## List Function
+
+on va voir les fonctions que l'on a déployé.
+kubeless function ls
+
+
+## Call Function
+
+on peut executer nos fonctions 
+ex ici on va lancer la fonction nodejs en lui donnant en argument --data 'This is some data ' ..ce qui ne sert pas a grand chose puisque la fonction nodejs ne fait que retourner la chaine "Hello world!"
+
+kubeless function call myfunction --data 'This is some data'
+
+on peut examiner les logs de notre pod puisque la fonction nodejs log dans  la console 
+
+kubectl  logs my-fonction-7766656-dfdfg
+
+
+## Expose function
+
+on va pouvoir exposer notre fonction de
+
+
+kubectl create -f nginx-ingress-controller-with-elb.yml
+kubeless trigger http create myfunction --function-name myfunction --hostname myfunction.kubernetes.newtech.academy
+```
+
+
+# PubSub
+## Kafka Installation
+```
+export RELEASE=$(curl -s https://api.github.com/repos/kubeless/kafka-trigger/releases/latest | grep tag_name | cut -d '"' -f 4)
+kubectl create -f https://github.com/kubeless/kafka-trigger/releases/download/$RELEASE/kafka-zookeeper-$RELEASE.yaml
+```
+
+## Deploy function
+```
+kubeless function deploy uppercase --runtime nodejs6 \
+                                --dependencies node-example/package.json \
+                                --handler test.uppercase \
+                                --from-file node-example/uppercase.js
+```
+
+## Trigger and publish
+```
+kubeless trigger kafka create test --function-selector created-by=kubeless,function=uppercase --trigger-topic uppercase
+kubeless topic publish --topic uppercase --data "this message will be converted to uppercase"
+
+
+ch6-v104
+
+
 
 
 
