@@ -3592,12 +3592,10 @@ rm -r bundles/
 
 on peut tester la bonne installation du binaire en lancant l'executable kubeless depuis notre prompt
 
-
 # Deploy kubeless
 ```
 kubectl create ns kubeless
 kubectl create -f https://github.com/kubeless/kubeless/releases/download/v1.0.2/kubeless-v1.0.2.yaml
-
 
 # Example function
 
@@ -3652,14 +3650,12 @@ kubeless function deploy myfunction --runtime nodejs6 \
 ```
 
 # Commands
-
 on peut passer des commandes kubeless pour examiner nos fonctions : 
 
 ## List Function
 
 on va voir les fonctions que l'on a déployé.
 kubeless function ls
-
 
 ## Call Function
 
@@ -3672,39 +3668,41 @@ on peut examiner les logs de notre pod puisque la fonction nodejs log dans  la c
 
 kubectl  logs my-fonction-7766656-dfdfg
 
-
 ## Expose function
 
-on va pouvoir exposer notre fonction de
+on va pouvoir exposer notre fonction de maniere à pouvoir executer notre fonction via l'appel a une url ( ici on va utiliser une ressource de type ingress et un lb aws ) : 
 
-
+on créer notre conf : 
 kubectl create -f nginx-ingress-controller-with-elb.yml
-kubeless trigger http create myfunction --function-name myfunction --hostname myfunction.kubernetes.newtech.academy
-```
 
+
+maintenant on va s'asssurer que les regles ingress pointant vers cette fonction sont créées. 
+
+on va donc créer une fonction qui s'appellera myfunction et qui sera executée quand l'url myfunction.kubernetes.newtech.academy sera appellée.
+
+on crée un enregistrement dns chez aws pour notre sous domain myfunction de kubernetes.newtech.academy et au bout de quelques minutes un appel a myfunction.kubernetes.newtech.academy nous renvoi hello world ! le resultat de notre function.
+
+kubeless trigger http create myfunction --function-name myfunction --hostname myfunction.kubernetes.newtech.academy
+
+ch6 v105
 
 # PubSub
 ## Kafka Installation
-```
 export RELEASE=$(curl -s https://api.github.com/repos/kubeless/kafka-trigger/releases/latest | grep tag_name | cut -d '"' -f 4)
 kubectl create -f https://github.com/kubeless/kafka-trigger/releases/download/$RELEASE/kafka-zookeeper-$RELEASE.yaml
 ```
 
 ## Deploy function
-```
 kubeless function deploy uppercase --runtime nodejs6 \
                                 --dependencies node-example/package.json \
                                 --handler test.uppercase \
                                 --from-file node-example/uppercase.js
-```
 
 ## Trigger and publish
-```
 kubeless trigger kafka create test --function-selector created-by=kubeless,function=uppercase --trigger-topic uppercase
 kubeless topic publish --topic uppercase --data "this message will be converted to uppercase"
 
 
-ch6-v104
 
 
 
