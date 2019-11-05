@@ -1,0 +1,85 @@
+== notes ipvs =
+
+https://www.objectif-libre.com/fr/blog/2018/03/19/kubernetes-ipvs/
+
+Kubernetes & IPVS
+Cet article est une explication de la fonctionnalité d’IPVS proposée et supportée par Kubernetes (à partir de la version 1.9).
+
+Public visé : cet article s’adresse aux administrateurs système exploitant ou explorant l’orchestrateur de conteneurs Kubernetes. Des connaissances sur l’architecture et le fonctionnement de base d’un cluster Kubernetes sont conseillées pour bien en comprendre les tenants et aboutissants.
+
+Par Flavien Hardy, Consultant Cloud @ Objectif Libre
+
+
+Qu’est-ce que l’IPVS ?
+L’IPVS est un mécanisme Kernel de load balancing de niveau 4 (Transport). La version stable de cette fonctionnalité est disponible pour les noyaux linux >=2.6.
+
+Concrètement, l’IPVS expose un service accessible depuis une IP virtuelle unique puis répartit le trafic TCP/UDP vers plusieurs serveurs.
+
+Quel rapport avec Kubernetes ?
+Cette dernière explication est la définition même d’un service dans Kubernetes !
+
+                                             __
+---------------------      --------------   /    POD1
+[ Incomming traffic ] ---> [ Service IP ] ->---  POD2
+---------------------      --------------   \__  POD3
+Historiquement, les services (gérés par le composant kube-proxy) étaient implémentés à l’aide de règles IPTables. La fonctionnalité d’IPVS est vouée à remplacer ce mécanisme.
+
+Quels avantages Vs IPTables ?
+Par défaut, la gestion des services dans Kubernetes est faite par IPTables.
+
+Cependant, des déploiements de grande envergure (plus de 5000 services) ont atteint les limites d’IPTables :
+
+Perte de performance pour le traitement du paquet
+Perte de performance à l’ajout d’une nouvelle règle
+Cette perte de performance est due à l’implémentation d’IPTables et Netfilter : chaque paquet entrant est soumis à une évaluation séquentielle des règles. A contrario, la fonctionnalité d’IPVS se base sur une table de hash gérée par le noyau.
+
+Le mode de fonctionnement d’IPTables est adapté au contexte de Firewalling, mais n’est pas optimal pour le traitement massif de paquets.
+
+Comment le mettre en œuvre ?
+Pour la version actuelle de Kubernetes (1.9), la fonctionnalité d’IPVS est en Beta. Il est donc nécessaire d’activer la feature gate SupportIPVSProxyMode.
+
+Avec Kubespray, il suffit de renseigner le paramètre suivant dans le fichier de configuration k8s-cluster.yml :
+
+kube_proxy_mode: ipvs
+Impact (kube-proxy uniquement) :
+
+Activation de la feature gate SupportIPVSProxyMode
+Mode proxy IPVS
+Chargement de modules Kernels (ip_vs_rr, ip_vs__wrr, ip_vs_sh, nf_conntrack_ipv4)
+La fonctionnalité est déclarée stable pour la version 1.10 (https://github.com/kubernetes/kubernetes/pull/58442).
+
+Les +
+Load balancing
+La fonctionnalité d’IPVS pour kube-proxy permet de choisir entre plusieurs méthodes de load balancing pour les services : Round Robin (défaut), least connection, destination hashing, etc.
+
+À l’heure actuelle, la méthode de load balancing d’un service en particulier ne peut être modifiée (issue ouverte à ce sujet).
+
+Pour modifier la méthode par défaut dans Kubespray, il est pour l’instant nécessaire de modifier les pods kube-proxy.
+
+Administration
+La fonctionnalité d’IPVS vient avec un outil d’administration en ligne de commande : ipvsadm. C’est bien plus efficace et lisible qu’un iptables -L -t nat | grep PATTERN.
+
+Exemple :
+
+~ # ipvsadm -l -n
+IP Virtual Server version 1.2.1 (size=4096)
+Prot LocalAddress:Port Scheduler Flags
+  -> RemoteAddress:Port           Forward Weight ActiveConn InActConn
+TCP  10.233.0.1:443 rr persistent 10800
+  -> 195.154.162.187:6443         Masq    1      0          0
+  -> 195.154.165.191:6443         Masq    1      0          0
+  -> 62.210.115.35:6443           Masq    1      2          0
+
+[...]
+Cette règle correspond au Service Kubernetes default/kubernetes:443 (accès à l’API serveur). Notre VIP est 10.233.0.1:443, les paquets TCP entrant sont load-balancés en round robin entre nos 3 masters Kubernetes (IP:6443).
+
+Quelques liens utiles :
+IPVS/Kubernetes GitHub
+https://github.com/kubernetes/kubernetes/issues/44063
+
+LVS IPVS
+http://www.linuxvirtualserver.org/software/ipvs.html
+IPVS Kubernetes
+https://kubernetes.io/docs/concepts/services-networking/service/#proxy-mode-ipvs
+Configuration Kubespray
+Discussion IPVS
