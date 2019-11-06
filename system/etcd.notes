@@ -1,15 +1,12 @@
 ===== notes etcd : ===
 
-
 - etcd stocke les fichiers de configurations du cluster, comme le répertoire /etc sur Linux. Et comme pour les fichiers de configuration dans /etc, une bonne pratique consiste à avoir un backup des fichiers gérés par etcd. Ceci permettra de remettre en route plus rapidement un cluster après incident majeur.
 
-sudo apt install etc
-
+sudo apt install etcd
 
 - le serveur ecoute principalement sur deux ports : 
 -2379 : pour les clients qui se connecteront sur etcd.
 -2380 : pour les communications intra cluster etcd ( peers )  
-
 
 = commandes : 
 
@@ -23,12 +20,6 @@ etcdctl --endpoints https://etcd01:2379 -ca-file etcdctl_client_ca.crt -cert-fil
 
 - definir une clé : 
 etcdctl --endpoints https://etcd01:2379 -ca-file etcdctl_client_ca.crt -cert-file etcdctl_client.crt --key-file etcdctl_client.key set '/coreos.com/network/config' '{"Network": "10.10.0.0/16","Backend": {"Type": "vxlan"}}'
-
-
-
-
-
-
 
 
 - set up cluster : 
@@ -55,7 +46,6 @@ initial-cluster-state: "existing"
 puis alimenter la liste des peer urls
 
 
-
 - tester en ssl :
 
 # etcdctl --endpoints "https://etcdserver.io:2379" --ca-file /etc/kube-tls/etcd_ca.crt  --cert-file /etc/kube-tls/etcd_client.crt --key-file /etc/kube-tls/etcd_client.key  set bla blou
@@ -77,7 +67,6 @@ name: "etcdserver"
 
 # Path to the data directory.
 data-dir: "/var/lib/etcd/default.etcd"
-
 
 # Number of committed transactions to trigger a snapshot to disk.
 snapshot-count: 10000
@@ -104,7 +93,6 @@ max-snapshots: 5
 # Maximum number of wal files to retain (0 is unlimited).
 max-wals: 5
 
-
 # List of this member's client URLs to advertise to the public.
 # The URLs needed to be a comma-separated list.
 advertise-client-urls: "https://etcdserver.boogie.net:2379"
@@ -113,11 +101,8 @@ advertise-client-urls: "https://etcdserver.boogie.net:2379"
 # The URLs needed to be a comma-separated list.
 initial-advertise-peer-urls: "https://etcdserver.boogie.net:2380"
 
-
 # Valid values include 'exit', 'proxy'
 discovery-fallback: "proxy"
-
-
 
 # Initial cluster configuration for bootstrapping.
 initial-cluster: "etcdserver=https://etcdserver.boogie.net:2380"
@@ -171,7 +156,6 @@ client-transport-security:
   # Path to the client server TLS trusted CA key file.
   trusted-ca-file: "/etc/kube-tls/etcd_server.crt"
 
-
 peer-transport-security:
   # Path to the peer server TLS cert file.
   cert-file: "/etc/kube-tls/etcd_peer.crt"
@@ -184,7 +168,6 @@ peer-transport-security:
 
   # Path to the peer server TLS trusted CA key file.
   trusted-ca-file: "/etc/kube-tls/etcd_peer.crt"
-
 
 # Enable debug-level logging for etcd.
 debug: false
@@ -239,4 +222,69 @@ ETCD_PEER_TRUSTED_CA_FILE="/etc/kube-tls/etcd_ca.crt"
 #[logging]
 ETCD_DEBUG=true
 # 
+
+=== kube backup : ===
+= Backup and restore =
+
+que doit on backuper ?
+
+les configurations de nos ressources
+
+on peut stocker tous nos fichiers de définition d'objects dans un repertoire dédié.
+il nous faut donc une copie de sauvegarde de ces fichiers. --> on va habituellement les stocker dans un cvs : git / gitlab /github.
+on peut pour s'assurer que toutes les ressources sont bien backupées intérroger l'apiserver et stocker l'intégralité de nos ressources dans un fichier de backup.
+
+kubectl get all --all-namespaces -o yaml > all-deployed-services.yaml
+
+certains outils dédiés existent.
+
+Etcd stocke les états du cluster : les infos du cluster y sont stockées.
+
+On va pouvoir backuper les data etcd
+
+>> on défini le datadir de etcd : l'endroit ou sont stockées les data.
+
+Un outil de snap est fourni avec etcd :
+
+Attention il faut préfixer avec l'api V3 de etcd
+ETCDCTL_API=3 etcdctl snapshot save snapshot.db
+>>> ici on backup dans le repertoire courant nos data dans un fichier appellé snapshot.db
+on peut biensur backupé ou on veut en précisant le path :
+
+ETCDCTL_API=3 etcdctl snapshot save /home/boogie/backup/etcd_bck.db
+
+On peut voir l'état de notre snap :
+
+ETCDCTL_API=3 etcdctl snapshot status snapshot.db
+
+Pour restaurer un backup :
+
+1/ stopper le kubeapiserver : car on va devroir arreter le service etcd
+
+service kube-apiserver stop
+
+2/ restauration du snap sur l'intégralité des nodes du cluster etcd :
+ETCDCTL_API=3 etcdctl snapshot restore snapshot.db \
+  --data-dir /var/lib/etcd-for_backup \
+  --initial-cluster etcd01=https://etcd01.boogie.net:2380,etcd02=https://etcd02.boogie.net:2380 \
+  --initial-cluster-token etcd-cluster-1 \
+  --initial-advertise-peer-urls https://${internal_ip}:2380
+
+!! /!\ Etcd restore les data depuis le backup et instancie une NOUVELLE configuration de cluster
+et configure les membres comme des nouveaux membres d'un nouveau cluster !!
+C'est fait par prévention pour empecher un nouveau membre de s'integrer dans un cluster déja existant.
+a ce moment la un nouveau datadir est créer dans notre exemple : /var/lib/etcd-from-backup
+
+On va maintenant configurer notre service etcd pour qu'il prenne en compte notre nouveau data dir domain et notre nouveau token
+
+une fois notre service modifier on reload le service daemon et etcd :
+
+systemctl daemon-reload
+service etcd restart
+
+3/ on démarre le kubeapiserver service :
+
+service kube-apiserver start
+
+Attention pour le tls on doit indiquer a etcd les endpoint; ca; crt et key
 
