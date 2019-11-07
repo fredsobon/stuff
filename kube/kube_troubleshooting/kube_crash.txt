@@ -1,0 +1,31 @@
+====== crash notes : ===
+
+
+suite à un crash serveur de role master  on veut le sortir du cluster kube  
+
+1/ on drain les pods du node  :
+
+kubectl drain zinfpaasmaster01bv --ignore-daemonsets
+
+2/ on sort le node du cluster : 
+
+kubectl delete node master1
+
+
+3/ sur le master1 ko on reset la conf du cluster :
+
+kubeadm reset
+
+4/ on regénere un token pour rejoindre le cluster :
+
+kubeadm token create --print-join-command
+
+kubeadm join 10.10.10.50:6443 --token ewzakt.tbma9cx8j8eqsctg     --discovery-token-ca-cert-hash sha256:288342ecd6e5504e99487f71c944487acbd7c19b2ecf5243ae6cbc827f86a146
+
+
+5 / on redefini le node en role master :
+
+kubectl label node master1 node-role.kubernetes.io/master= 
+
+
+on verifie et on a bien le node de nouveau dans le cluster 
