@@ -1,11 +1,13 @@
 ====== crash notes : ===
 
 
-suite à un crash serveur de role master  on veut le sortir du cluster kube  
+Suite à un crash serveur de role master  on veut le sortir du cluster kube  : notre noeud à perdu toute sa conf dans /etc/kubernetes et /var/lib/kubelet 
+apres un run puppet qui permet de gérer nos confs partiellemnent , quelques pods tournent sur le serveur ..mais pas d'api, de scheduleur ..bref kube ko ...
+
 
 1/ on drain les pods du node  :
 
-kubectl drain zinfpaasmaster01bv --ignore-daemonsets
+kubectl drain master01 --ignore-daemonsets
 
 2/ on sort le node du cluster : 
 
@@ -22,10 +24,31 @@ kubeadm token create --print-join-command
 
 kubeadm join 10.10.10.50:6443 --token ewzakt.tbma9cx8j8eqsctg     --discovery-token-ca-cert-hash sha256:288342ecd6e5504e99487f71c944487acbd7c19b2ecf5243ae6cbc827f86a146
 
+à partir de ce moment un kubectl get nodes nous montre notre serveur membre du cluster 
+
 
 5 / on redefini le node en role master :
 
 kubectl label node master1 node-role.kubernetes.io/master= 
 
-
 on verifie et on a bien le node de nouveau dans le cluster 
+
+6/ 
+on set notre master en unschedule comme tout bon master qui en principe n'heberge pas de pods.
+
+kubectl taint nodes NODE-NAME testkey=testvalue:NoExecute
+
+si on veut qu'il héberge des pods applicatifs :
+
+kubectl taint nodes NODE-NAME testkey=testvalue:NoExecute-
+
+
+7 / une synchro du repertoire kubernetes depuis un second master va permettre , apres un run puppet  qui se chargera de remplacer les informations specifiques à notre node ..les pods de l'api , du scheduleur et du controlleur vont maintenant tourner correctement.
+
+notre cluster est de nouveau opérationnel .
+
+
+
+
+
+
