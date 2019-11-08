@@ -435,3 +435,63 @@ Recommended way is restore from snapshot. --force-new-cluster can be used to ove
 
 
 
+======== upgrade etcd : =====
+proc upgrade version etcd pour cluster kube 
+
+Imperatif lire les changelogs 
+
+Attention breking change de v3.3 à v3.4 
+
+https://github.com/etcd-io/etcd/blob/master/Documentation/upgrades/upgrade_3_4.md
+
+1/ mettre a dispo sur notre repo d'image ou autre le nouveau binaire etcd  :
+https://github.com/etcd-io/etcd/blob/master/Documentation/upgrades/upgrade_3_4.md
+
+ex : 
+curl -u bob:bob -T etcd-v3.4.3-linux-amd64.tar.gz https://artifact.lapin.net/artifactory/etcd/etcd-v3.4.3-linux-amd64.tar.gz 
+
+l'api v3 est maintenant le standart :  on va définir l'api par default : 
+
+ETCDCTL_API=3 /usr/local/bin/etcdctl
+
+# ETCDCTL_API=3 /usr/local/bin/etcdctl version
+etcdctl version: 3.3.13
+API version: 3.3
+
+
+
+on verouille etcd en v2 a false  : 
+/usr/local/bin/etcd --enable-v2=false
+
+
+
+On backup nos data : 
+
+# ETCDCTL_API=3 /usr/local/bin/etcdctl --endpoints=https://10.123.2.2:2379 --cacert=/etc/kubernetes/pki/etcd/ca.crt --cert=/etc/kubernetes/pki/etcd/client.crt --key=/etc/kubernetes/pki/etcd/client.key snapshot save /root/snapshot.db
+Snapshot saved at /root/snapshot.db
+# ll /root/
+total 1,8M
+-rw-r--r--  1 root root 1,8M  8 nov.  15:11 snapshot.db
+
+
+# ETCDCTL_API=3 /usr/local/bin/etcdctl --endpoints=https://10.123.2.2:2379 --cacert=/etc/kubernetes/pki/etcd/ca.crt --cert=/etc/kubernetes/pki/etcd/client.crt --key=/etc/kubernetes/pki/etcd/client.key endpoint health
+https://10.123.2.2:2379 is healthy: successfully committed proposal: took = 1.314228ms
+
+[root@zinfpaasdevtools02uv ~] # ETCDCTL_API=3 /usr/local/bin/etcdctl --endpoints=https://10.123.2.2:2379 --cacert=/etc/kubernetes/pki/etcd/ca.crt --cert=/etc/kubernetes/pki/etcd/client.crt --key=/etc/kubernetes/pki/etcd/client.key member list
+f15d3be0498a022d, started, zinfpaasdevtools02uv, https://10.123.2.2:2380, https://10.123.2.2:2379
+
+[root@zinfpaasdevtools02uv ~] # ETCDCTL_API=3 /usr/local/bin/etcdctl --endpoints=https://10.123.2.2:2379 --cacert=/etc/kubernetes/pki/etcd/ca.crt --cert=/etc/kubernetes/pki/etcd/client.crt --key=/etc/kubernetes/pki/etcd/client.key endpoint status
+https://10.123.2.2:2379, f15d3be0498a022d, 3.3.13, 1.9 MB, true, 2, 236554
+
+on arrête etcd 
+on rename les binaires /usr/local/bin/etcd et etcdctl en ori.
+on download le binaire : 
+puis on le decompresse  dans notre arbo /usr/local/bin/etcd /usr/local/bin/etcdctl
+
+on redémarre notre service etcd et c'est ok :
+  [/usr/local/bin] # ETCDCTL_API=3 /usr/local/bin/etcdctl version
+etcdctl version: 3.4.3
+API version: 3.4
+
+
+
