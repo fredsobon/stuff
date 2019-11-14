@@ -4075,13 +4075,57 @@ on exécute la commande suivante qui va déclencher la creation de notre fonctio
 ## Trigger and publish
 kubeless trigger kafka create test --function-selector created-by=kubeless,function=uppercase --trigger-topic uppercase
 
-le declenchemnt de cette fonction va se faire en publiant des data dans le topic : on envoit les data au topic : la fonction de conversion se déclenche.
+le declenchement de cette fonction va se faire en publiant des data dans le topic : on envoit les data au topic : la fonction de conversion se déclenche.
+
+on peut se passer de kubeless pour pousser dans notre topic kafka : n'importe quel outil adapté peut faire le job.
+Dans notre cas nous ne disposons que de kubeless on va donc l'utiliser en passant les argument nécéssaire à la publication de data dans notre topic.
 
 kubeless topic publish --topic uppercase --data "this message will be converted to uppercase"
 
+en examinant les logs de notre pod hébergant kafka on va voir dans les logs le message posté en cli ..mais converti en majuscule...
+
+
+kubectl get logs uppercase-dfssddd543-dfdjsd
+
+....
+THIS MESSAGE WILL BE CONVERTED TO UPPERCASE
+...
+
+
+boogie$ cat  node-example/uppercase.js                                                                                                               [☸ kube-infra:fso]
+module.exports = {
+  uppercase: function (event, context) {       <<< on a donc la fonction qui va recupérer les flux en entrée
+    str = event['data'].toUpperCase()          <<< le flux d'entrée event contient les data ( dans notre cas le message en minuscule) puis ces data sont converties.
+    console.log(str);                          <<< on envoi le tout recupérer dans une variable str dans notre console de log
+    return str
+  }
+}
+
+
+biensur  on pourra stocker nos data converties dans une db, recupérer nos data pour les renvoyer dans kafka en creant un produceur etc .....
+
+
+ch7 to do 
+
+== Microservices : 
 
 
 
+
+== kubeadm : ==
+
+ch8 : to do  git clone repo "on perm or cloud"  et examiner le rep script.
+
+kubeadm va nous permettre de build notre cluster et nous permet d'installer kube sur toute type de distro linux.
+
+kubeadm peut utiliser des tokens de bootstrap : simple token qui permettent de booter un cluster ou de permettre de  joindre un node plus tard.
+on va utiliser les tokens pour permettre à un node de joindre notre cluster de manière secure.
+
+kubeadm permet l'upgrade et le downgrade de cluster.
+Attention il faut nous même installer un CNI (container network interface) : kubadm ne le gère pas.
+
+mini 2 Gb ram / 2 cpu .
+s'assurer des connexions entre les differents nodes du cluster ( private network ou reseau pub routé et filtré via un fw) 
 
 
 

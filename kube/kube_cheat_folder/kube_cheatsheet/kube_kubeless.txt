@@ -1,0 +1,567 @@
+===    kubeless notes : ===
+
+
+
+= serverless : fonctions dans kubernetes = 
+les services de cloud permettent d'utiliser des composants serverless afin de  deployer des fonctions à la place d'instances ou de containers.
+ex: azure functions, aws lambda, google cloud functions
+dans ces cas nous n'avons ps à nous soucier des composants d'infrastructure .
+Les functions n'ont pas à etre systematiquement mis à "on" contrairement aux containers : on peut donc réduire les couts d'utilisation.
+on ne fait que payer pour l'utilisation que l'on fait de notre function.
+on a juste à coder et le runtime d'execution est fourni par le cloud provider.
+on doit faire un peu de setup : ex on doit utiliser une api aws pour indiquer une url qui lorsque qu'elle sera appellée executera le code de notre fonction.
+
+Dans kube , au lieu d'utiliser des containers dans certains cas on peut utiliser des fonctions.
+ex : de projets permettant l'utilisation de fonctions : kubeless, openfaas 
+En tant qu'admin kube on va devoir gérer l'infra sous jacente mais en tant que dev on a juste a deployer nos fonctions.
+Il va être important de bien examiner les differents projets serverless afin de choisir celui qui correspond le mieux a nos besoins ..et qui est bien mature et suivi.
+
+
+= kubeless presentation : 
+
+c'est un framework natif à kube.
+https://github.com/kubeless/kubeless
+il permet d'ameliorer les ressources de kube en fournissant de l'autoscaling, du routage , du monitoring.
+Il utilise des customs ressources definition pour implementer ces fonctions.
+completement opensource il offre une ui pour permettre aux devs son amélioration.
+Avec kubeless ont deploy une fonction developpée dans le language de notre choix ex de runtime supportés : python /nodejs /ruby /php /golang ....
+une fois qu'on a deployer notre fonction, on doit déterminer commment elle sera triggered.
+
+Les fonctions http sont supportés : ex on peut permettre l'execution d'une fonction des qu'un endpoint est contacté.
+ex: on ecrit une fonction qui renvoi du texte dans le navigateur des que l'url est contactée.
+kube utilise dans ce cas un object ingress
+
+des fonctions de pub / sub comme kafka sont egalement supportées.
+
+= kubeless in action : 
+
+- installation :
+
+https://github.com/kubeless/kubeless
+
+-> releases : 
+on download la version qui nous interresse en fonction de notre os .
+ex: 
+# Install CLI
+```
+wget https://github.com/kubeless/kubeless/releases/download/v1.0.2/kubeless_linux-amd64.zip
+unzip kubeless_linux-amd64.zip
+sudo mv bundles/kubeless_linux-amd64/kubeless /usr/local/bin
+rm -r bundles/
+```
+
+on peut tester la bonne installation du binaire en lancant l'executable kubeless depuis notre prompt
+
+# Deploy kubeless
+```
+kubectl create ns kubeless
+kubectl create -f https://github.com/kubeless/kubeless/releases/download/v1.0.2/kubeless-v1.0.2.yaml
+
+# Example function
+
+exemple on créee une petite fonction pythpn :
+
+boogie$ cat example.py                                                                                                                               [☸ kube-infra:fso]
+def hello(event, context):
+  print event
+  return event['data']
+
+ pour creer nos fonctions on va definir le rutime que l'on veut utiliser :
+ 
+## python
+```
+kubeless function deploy hello --runtime python2.7 \           <<<<< on defini notre runtime 
+                               --from-file python-example/example.py \        <<<< on défini l'endroit du code contenant notre fonction;
+                               --handler test.hello          <<< ici on a un handler de défini
+
+on peut definir une fonction en ndejs qui sera similaire : 
+
+boogie$ cat node-example/example.js                                                                                                                  [☸ kube-infra:fso]
+module.exports = {
+  myfunction: function (event, context) {
+    console.log(event);
+    return "Hello world!";
+  }
+}
+
+
+on peut definir un fichier package.json de dépendance dans lequel on alimentera nos dependances en fcontions de nos besoins :
+ex : ici la section dependance est vide : 
+boogie$ cat node-example/package.json                                                                                                                [☸ kube-infra:fso]
+{
+  "name": "node-example",
+  "version": "0.0.1",
+  "scripts": {
+    "start": "node example.js"
+  },
+  "engines": {
+    "node": "^6.14.4"
+  },
+  "dependencies": {
+  }
+}
+
+## NodeJS
+```
+kubeless function deploy myfunction --runtime nodejs6 \
+                                --dependencies node-example/package.json \             <<<< on peut en fonction du runtime definir des dependences 
+                                --handler test.myfunction \
+                                --from-file node-example/example.js
+```
+
+# Commands
+on peut passer des commandes kubeless pour examiner nos fonctions : 
+
+## List Function
+
+on va voir les fonctions que l'on a déployé.
+kubeless function ls
+
+## Call Function
+
+on peut executer nos fonctions 
+ex ici on va lancer la fonction nodejs en lui donnant en argument --data 'This is some data ' ..ce qui ne sert pas a grand chose puisque la fonction nodejs ne fait que retourner la chaine "Hello world!"
+
+kubeless function call myfunction --data 'This is some data'
+
+on peut examiner les logs de notre pod puisque la fonction nodejs log dans  la console 
+
+kubectl  logs my-fonction-7766656-dfdfg
+
+## Expose function
+
+on va pouvoir exposer notre fonction de maniere à pouvoir executer notre fonction via l'appel a une url ( ici on va utiliser une ressource de type ingress et un lb aws ) : 
+
+on créer notre conf : 
+
+boogie$ cat nginx-ingress-controller-with-elb.yml                                                                                                    [☸ kube-infra:fso]
+---
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ingress-nginx
+---
+
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: default-http-backend
+  labels:
+    app.kubernetes.io/name: default-http-backend
+    app.kubernetes.io/part-of: ingress-nginx
+  namespace: ingress-nginx
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: default-http-backend
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: default-http-backend
+        app.kubernetes.io/part-of: ingress-nginx
+    spec:
+      terminationGracePeriodSeconds: 60
+      containers:
+      - name: default-http-backend
+        # Any image is permissible as long as:
+        # 1. It serves a 404 page at /
+        # 2. It serves 200 on a /healthz endpoint
+        image: gcr.io/google_containers/defaultbackend:1.4
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 30
+          timeoutSeconds: 5
+        ports:
+        - containerPort: 8080
+        resources:
+          limits:
+            cpu: 10m
+            memory: 20Mi
+          requests:
+            cpu: 10m
+            memory: 20Mi
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: default-http-backend
+  namespace: ingress-nginx
+  labels:
+    app.kubernetes.io/name: default-http-backend
+    app.kubernetes.io/part-of: ingress-nginx
+spec:
+  ports:
+  - port: 80
+    targetPort: 8080
+  selector:
+    app.kubernetes.io/name: default-http-backend
+---
+
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: nginx-configuration
+  namespace: ingress-nginx
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+data:
+  use-proxy-protocol: "true"
+---
+
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: tcp-services
+  namespace: ingress-nginx
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+---
+
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: udp-services
+  namespace: ingress-nginx
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+---
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: nginx-ingress-serviceaccount
+  namespace: ingress-nginx
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: nginx-ingress-clusterrole
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+      - endpoints
+      - nodes
+      - pods
+      - secrets
+    verbs:
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - nodes
+    verbs:
+      - get
+  - apiGroups:
+      - ""
+    resources:
+      - services
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - "extensions"
+    resources:
+      - ingresses
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+        - events
+    verbs:
+        - create
+        - patch
+  - apiGroups:
+      - "extensions"
+    resources:
+      - ingresses/status
+    verbs:
+      - update
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: Role
+metadata:
+  name: nginx-ingress-role
+  namespace: ingress-nginx
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+      - pods
+      - secrets
+      - namespaces
+    verbs:
+      - get
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+    resourceNames:
+      # Defaults to "<election-id>-<ingress-class>"
+      # Here: "<ingress-controller-leader>-<nginx>"
+      # This has to be adapted if you change either parameter
+      # when launching the nginx-ingress-controller.
+      - "ingress-controller-leader-nginx"
+    verbs:
+      - get
+      - update
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+    verbs:
+      - create
+  - apiGroups:
+      - ""
+    resources:
+      - endpoints
+    verbs:
+      - get
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: RoleBinding
+metadata:
+  name: nginx-ingress-role-nisa-binding
+  namespace: ingress-nginx
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: nginx-ingress-role
+subjects:
+  - kind: ServiceAccount
+    name: nginx-ingress-serviceaccount
+    namespace: ingress-nginx
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: nginx-ingress-clusterrole-nisa-binding
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: nginx-ingress-clusterrole
+subjects:
+  - kind: ServiceAccount
+    name: nginx-ingress-serviceaccount
+    namespace: ingress-nginx
+---
+
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: nginx-ingress-controller
+  namespace: ingress-nginx
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ingress-nginx
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ingress-nginx
+      annotations:
+        prometheus.io/port: '10254'
+        prometheus.io/scrape: 'true'
+    spec:
+      serviceAccountName: nginx-ingress-serviceaccount
+      containers:
+        - name: nginx-ingress-controller
+          image: quay.io/kubernetes-ingress-controller/nginx-ingress-controller:0.18.0
+          args:
+            - /nginx-ingress-controller
+            - --default-backend-service=$(POD_NAMESPACE)/default-http-backend
+            - --configmap=$(POD_NAMESPACE)/nginx-configuration
+            - --tcp-services-configmap=$(POD_NAMESPACE)/tcp-services
+            - --udp-services-configmap=$(POD_NAMESPACE)/udp-services
+            - --publish-service=$(POD_NAMESPACE)/ingress-nginx
+            - --annotations-prefix=nginx.ingress.kubernetes.io
+          securityContext:
+            capabilities:
+                drop:
+                - ALL
+                add:
+                - NET_BIND_SERVICE
+            # www-data -> 33
+            runAsUser: 33
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          ports:
+          - name: http
+            containerPort: 80
+          - name: https
+            containerPort: 443
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /healthz
+              port: 10254
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /healthz
+              port: 10254
+              scheme: HTTP
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: ingress-nginx
+  namespace: ingress-nginx
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+  annotations:
+    # Enable PROXY protocol
+    service.beta.kubernetes.io/aws-load-balancer-proxy-protocol: '*'
+    # Increase the ELB idle timeout to avoid issues with WebSockets or Server-Sent Events.
+    service.beta.kubernetes.io/aws-load-balancer-connection-idle-timeout: '3600'
+spec:
+  type: LoadBalancer
+  selector:
+    app.kubernetes.io/name: ingress-nginx
+  ports:
+  - name: http
+    port: 80
+    targetPort: http
+  - name: https
+    port: 443
+    targetPort: https
+
+
+et on l'applique : 
+
+kubectl create -f nginx-ingress-controller-with-elb.yml
+
+
+maintenant on va s'asssurer que les regles ingress pointant vers cette fonction sont créées. 
+
+on va donc créer une fonction qui s'appellera myfunction et qui sera executée quand l'url myfunction.kubernetes.newtech.academy sera appellée.
+
+on crée un enregistrement dns chez aws pour notre sous domain myfunction de kubernetes.newtech.academy et au bout de quelques minutes un appel a myfunction.kubernetes.newtech.academy nous renvoi hello world ! le resultat de notre function.
+
+kubeless trigger http create myfunction --function-name myfunction --hostname myfunction.kubernetes.newtech.academy
+
+ch6 v105
+
+= pub sub exemple avec kafka : =
+
+on install kafka et zookeeper : 
+# PubSub
+## Kafka Installation
+export RELEASE=$(curl -s https://api.github.com/repos/kubeless/kafka-trigger/releases/latest | grep tag_name | cut -d '"' -f 4)
+kubectl create -f https://github.com/kubeless/kafka-trigger/releases/download/$RELEASE/kafka-zookeeper-$RELEASE.yaml
+```
+
+on va créer et deployer une fonction qui converti les données en entrées en majuscules  :
+
+boogie$ cat  node-example/uppercase.js                                                                                                               [☸ kube-infra:fso]
+module.exports = {
+  uppercase: function (event, context) {
+    str = event['data'].toUpperCase()
+    console.log(str);
+    return str
+  }
+}
+
+## Deploy function
+kubeless function deploy uppercase --runtime nodejs6 \
+                                --dependencies node-example/package.json \
+                                --handler test.uppercase \
+                                --from-file node-example/uppercase.js
+
+
+dans l'exemple en http on linkait la fonction avec un objet ingress, ici on agit différemment : 
+
+on exécute la commande suivante qui va déclencher la creation de notre fonction via kubeless ( --function-selector created-by=kubeless ) et un topic uppercase sera triggered : 
+
+## Trigger and publish
+kubeless trigger kafka create test --function-selector created-by=kubeless,function=uppercase --trigger-topic uppercase
+
+le declenchement de cette fonction va se faire en publiant des data dans le topic : on envoit les data au topic : la fonction de conversion se déclenche.
+
+on peut se passer de kubeless pour pousser dans notre topic kafka : n'importe quel outil adapté peut faire le job.
+Dans notre cas nous ne disposons que de kubeless on va donc l'utiliser en passant les argument nécéssaire à la publication de data dans notre topic.
+
+kubeless topic publish --topic uppercase --data "this message will be converted to uppercase"
+
+en examinant les logs de notre pod hébergant kafka on va voir dans les logs le message posté en cli ..mais converti en majuscule...
+
+
+kubectl get logs uppercase-dfssddd543-dfdjsd
+
+....
+THIS MESSAGE WILL BE CONVERTED TO UPPERCASE
+...
+
+
+boogie$ cat  node-example/uppercase.js                                                                                                               [☸ kube-infra:fso]
+module.exports = {
+  uppercase: function (event, context) {       <<< on a donc la fonction qui va recupérer les flux en entrée
+    str = event['data'].toUpperCase()          <<< le flux d'entrée event contient les data ( dans notre cas le message en minuscule) puis ces data sont converties.
+    console.log(str);                          <<< on envoi le tout recupérer dans une variable str dans notre console de log
+    return str
+  }
+}
+
+
+biensur  on pourra stocker nos data converties dans une db, recupérer nos data pour les renvoyer dans kafka en creant un produceur etc .....
+
+
