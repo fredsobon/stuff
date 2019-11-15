@@ -4405,7 +4405,7 @@ on va maintenant que notre service est accessible depuis l'exterrieur pouvoir in
 une fois que notre appli est déployer on va devoir préparer un issuer : qui va certifier notre tls :
 comme on est limité en demande de certification : on crée un issuer pour tester et un pour la prod : 
 
-boogie$ cat issuer-staging.yml                                                                                                [☸ kubernetes-admin@kubeallinone:default]
+boogie$ cat issuer-staging.yml                                                                                                
 apiVersion: certmanager.k8s.io/v1alpha1
 kind: Issuer
 metadata:
@@ -4416,7 +4416,7 @@ spec:
     # The ACME server URL
     server: https://acme-staging-v02.api.letsencrypt.org/directory
     # Email address used for ACME registration
-    email: your@email.inv
+    email: your@email.inv                                              <<<< on renseigne notre adresse email pour la verif de domaine faite par letsenscrypt.
     # Name of a secret used to store the ACME account private key
     privateKeySecretRef:
       name: myapp-letsncrypt-staging
@@ -4425,7 +4425,7 @@ spec:
 
 
 
-boogie$ cat issuer-prod.yml                                                                                                   [☸ kubernetes-admin@kubeallinone:default]
+boogie$ cat issuer-prod.yml                                                                                                   
 apiVersion: certmanager.k8s.io/v1alpha1
 kind: Issuer
 metadata:
@@ -4435,11 +4435,80 @@ spec:
     # The ACME server URL
     server: https://acme-v02.api.letsencrypt.org/directory
     # Email address used for ACME registration
-    email: your@email.inv
+    email: your@email.inv                                             <<<<< idem ici 
     # Name of a secret used to store the ACME account private key
     privateKeySecretRef:
       name: myapp-letsncrypt-prod
     # Enable HTTP01 validations
     http01: {}
 
-ch10 v126 m7
+
+
+
+kubectl create -f issuer-staging.yml
+kubectl create -f issuer-prod.yml
+
+
+on a egalement des objects de type certificat :
+
+
+boogie$ cat certificate-staging.yml                                                                                                                                                                 [☸ kubernetes-admin@kubeallinone:default]
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: Certificate
+metadata:
+  name: myapp
+  namespace: default
+spec:
+  secretName: myapp-tls-staging   <<<<<<<<<<<<<<<<<<<<<<<  le cert sera stocké en secret 
+  issuerRef:
+    name: myapp-letsncrypt-staging       <<<<< on a ici l'issuer 
+  commonName: myapp.newtech.academy      <<<<<  le certif sera signé pour ce domaine 
+  #dnsNames:                             <<<<   on peut décommenté cette partie si le certif gere aussi le www
+  #- www.myapp.newtech.academy
+  acme:                                <<<<<<<<<<<<<<<< cette section est utilisée pour le process de vérification 
+    config:
+    - http01:                          <<< on signifie qu'on utilise http pour la verif
+        ingress: myapp                 << et que l'ingress sera myapp et ingress est bien responsable de notre domaine.
+      domains:
+      - myapp.newtech.academy                                         
+      #- www.myapp.newtech.academy
+
+Letsencrypt utilise toujours la meme url de verif et on va donc en publiant notre conf créer un certif qui au bout d'un petit moment sera signé par letsencrypt 
+on pourra voir les logs de l'ingress et du certificat et faire un describe sur ces ressources pour voir que letsencrypt a bien validé les certifs pou notre domain de staging : qui va nous servir de test car non reconnu par les browsers. et . 
+
+
+pour activer le certificat il suffit d'enable tls dans notre conf en décommantant les lignes précedemments commentées dans nos objects :
+
+
+boogie$ cat myapp-ingress.yml                                                                                                 [☸ kubernetes-admin@kubeallinone:default]
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: nginx
+  name: myapp
+  namespace: default
+spec:
+  tls:                                <<<<<<< section tls activé pour notre ingress apres que letsencrypt ait validé notre cert 
+  - secretName: myapp-tls-staging
+    hosts:
+    - myapp.newtech.academy
+  rules:
+    - host: myapp.newtech.academy     
+      http:
+        paths:
+          - backend:
+              serviceName: myapp       
+              servicePort: 3000
+            path: /
+
+
+on va maintenant faire la meme chose pour la prod.
+on peut voir que l'entree de notre domaine/.well-known/acme-challenge/.... est utilisée par letsencrypt pour la verif de domaine ..si on examine les logs ou on fait un describe de notre certificate avant qu'il ne soit signé par letsencrypt.
+
+une fois que c'est signé : on peut ouvrir un browser et saisir notre url de site : on verra que le site est en https avec un certif valide délivré par letsencrypt.
+
+
+
+
+

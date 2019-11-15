@@ -1,0 +1,114 @@
+== notes kubeadm :  ===
+== kubeadm : ==
+
+ch8 : to do  git clone repo "on perm or cloud"  et examiner le rep script.
+
+kubeadm va nous permettre de build notre cluster et nous permet d'installer kube sur toute type de distro linux.
+
+kubeadm peut utiliser des tokens de bootstrap : simple token qui permettent de booter un cluster ou de permettre de  joindre un node plus tard.
+on va utiliser les tokens pour permettre à un node de joindre notre cluster de manière secure.
+
+kubeadm permet l'upgrade et le downgrade de cluster.
+Attention il faut nous même installer un CNI (container network interface) : kubadm ne le gère pas.
+
+mini 2 Gb ram / 2 cpu .
+s'assurer des connexions entre les differents nodes du cluster ( private network ou reseau pub routé et filtré via un fw)
+
+on peut s'inspirer des scripts suivants pour l'install de notre cluster :
+
+controller / master :
+
+oogie$ cat install-kubernetes.sh                                                                                            [☸ kubernetes-admin@kube_devtools:default]
+#!/bin/bash
+
+echo "installing docker"
+apt-get update
+apt-get install -y \
+    apt-transport-https \
+    ca-certificates \
+    curl \
+    software-properties-common
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
+add-apt-repository \
+   "deb https://download.docker.com/linux/$(. /etc/os-release; echo "$ID") \
+   $(lsb_release -cs) \
+   stable"
+apt-get update && apt-get install -y docker-ce=$(apt-cache madison docker-ce | grep 17.03 | head -1 | awk '{print $3}')
+
+echo "installing kubernetes"
+apt-get update && apt-get install -y apt-transport-https
+curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
+cat <<EOF >/etc/apt/sources.list.d/kubernetes.list
+deb http://apt.kubernetes.io/ kubernetes-xenial main
+EOF
+apt-get update
+apt-get install -y kubelet kubeadm kubectl
+
+# DigitalOcean without firewall (IP-in-IP allowed) - or any other cloud / on-prem that supports IP-in-IP traffic
+# echo "deploying kubernetes (with calico)..."
+# kubeadm init --pod-network-cidr=192.168.0.0/16 # add --apiserver-advertise-address="ip" if you want to use a different IP address than the main server IP
+# export KUBECONFIG=/etc/kubernetes/admin.conf
+# kubectl apply -f https://docs.projectcalico.org/v3.1/getting-started/kubernetes/installation/hosted/rbac-kdd.yaml
+# kubectl apply -f https://docs.projectcalico.org/v3.1/getting-started/kubernetes/installation/hosted/kubernetes-datastore/calico-networking/1.7/calico.yaml
+
+
+# DigitalOcean with firewall (VxLAN with Flannel) - could be resolved in the future by allowing IP-in-IP in the firewall settings
+echo "deploying kubernetes (with canal)..."
+kubeadm init --pod-network-cidr=10.244.0.0/16 # add --apiserver-advertise-address="ip" if you want to use a different IP address than the main server IP
+export KUBECONFIG=/etc/kubernetes/admin.conf
+kubectl apply -f https://docs.projectcalico.org/v3.1/getting-started/kubernetes/installation/hosted/canal/rbac.yaml
+kubectl apply -f https://docs.projectcalico.org/v3.1/getting-started/kubernetes/installation/hosted/canal/canal.yaml
+
+
+
+worker /node :
+
+boogie$ cat install-node.sh                                                                                                  [☸ kubernetes-admin@kube_devtools:default]
+#!/bin/bash
+echo "installing docker"
+apt-get update
+apt-get install -y \
+    apt-transport-https \
+    ca-certificates \
+    curl \
+    software-properties-common
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
+add-apt-repository \
+   "deb https://download.docker.com/linux/$(. /etc/os-release; echo "$ID") \
+   $(lsb_release -cs) \
+   stable"
+apt-get update && apt-get install -y docker-ce=$(apt-cache madison docker-ce | grep 17.03 | head -1 | awk '{print $3}')
+
+echo "installing kubeadm and kubectl"
+apt-get update && apt-get install -y apt-transport-https
+curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
+cat <<EOF >/etc/apt/sources.list.d/kubernetes.list
+deb http://apt.kubernetes.io/ kubernetes-xenial main
+EOF
+apt-get update
+apt-get install -y kubelet kubeadm kubectl
+
+
+
+une fois que le master a été installé, sur la sortie standart on peut voir la ligne de commande qui permet au node / worker de joindre le cluster avec les infos token etc ...appropriées.
+
+
+on peut créer un user dédié qui permettra l'administration kube :
+
+ex :
+boogie$ cat create-user.sh                                                                                                   [☸ kubernetes-admin@kube_devtools:default]
+#!/bin/bash
+groupadd ubuntu
+useradd -g ubuntu -G admin -s /bin/bash -d /home/ubuntu ubuntu
+mkdir -p /home/ubuntu
+cp -r /root/.ssh /home/ubuntu/.ssh
+chown -R ubuntu:ubuntu /home/ubuntu
+echo "ubuntu ALL=(ALL:ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+# create .kube/config
+mkdir -p ~ubuntu/.kube
+cp -i /etc/kubernetes/admin.conf ~ubuntu/.kube/config
+chown ubuntu:ubuntu ~ubuntu/.kube/config
+
+on va créer ce user sur le master et le controller : on ne s'occupe pas de la partie creation rep kube et config kube sur le node ..puisque celle ci n'est pas présente sur les workers.
+

@@ -1,0 +1,270 @@
+== notes dex == 
+
+https://www.objectif-libre.com/fr/blog/2017/12/29/kubernetes-authentification-ldap/
+Interfacer votre Kubernetes avec un LDAP : explication et tutoriel.
+
+Objectif
+Kubernetes ne permet pas de s’interfacer nativement avec un annuaire LDAP. Pour cela, plusieurs briques supplémentaires sont nécessaires.
+
+Cet article explique comment agencer et configurer ces différents services.
+
+OpenID connect
+Le système d’authentification OpenID Connect est au centre de l’authentification LDAP sur Kubernetes.
+
+Ce système met en jeu plusieurs acteurs :
+
+L’utilisateur : demandeur d’un token de connexion à Kubernetes
+L’Identity Provider : gère la liaison avec le système d’authentification (LDAP), et est fournisseur du token de connexion à Kubernetes
+L’application cliente : UI permettant l’envoi des scopes d’authentification et l’affichage des informations de connexions renvoyées par le serveur
+Kubernetes : consommateur du token
+Lorsqu’un utilisateur souhaite se connecter au Kubernetes via ses identifiants LDAP, il faudra qu’il suive les étapes suivantes :
+
+Accès à l’application cliente
+Redirection vers le serveur d’authentification
+Authentification LDAP auprès du serveur d’authentification
+Redirection vers l’application cliente :  récupération des informations de connexion pour Kubernetes
+Authentification auprès de Kubernetes avec votre token
+Mise en œuvre
+Pour le lab, nous utiliserons plusieurs outils :
+
+Minikube
+Dex
+OpenLDAP
+Les tests ont été effectués sur une distribution Ubuntu 17.04.
+
+L’ensemble des manipulations ci-dessous sont à effectuer sur votre poste tant qu’il n’est pas spécifié de travailler sur la VM minikube.
+
+Mise en place du LDAP de test
+Pré-requis : Docker
+
+Lancement du conteneur OpenLDAP :
+docker run --name ldap -p 1389:389 -d osixia/openldap:1.1.10
+Ajout de données de test
+cat <<EOF > config-ldap.ldif
+dn: ou=People,dc=example,dc=org
+objectClass: organizationalUnit
+
+dn: uid=janedoe,ou=People,dc=example,dc=org
+objectClass: posixAccount
+objectClass: inetOrgPerson
+objectClass: top
+cn: Jane Doe
+sn: Doe
+gidNumber: 10001
+gecos: Jane Doe
+uidNumber: 10001
+loginShell: /bin/bash
+homeDirectory: /home/jdoe
+mail: jane.doe@example.org
+uid: janedoe
+userpassword: foo
+
+dn: uid=johndoe,ou=People,dc=example,dc=org
+objectClass: posixAccount
+objectClass: inetOrgPerson
+objectClass: top
+cn: John Doe
+sn: Doe
+gidNumber: 10002
+gecos: John Doe
+uidNumber: 10002
+loginShell: /bin/bash
+homeDirectory: /home/jdoe
+mail: john.doe@example.org
+uid: johndoe
+userpassword: bar
+
+# Group definitions.
+
+dn: ou=Groups,dc=example,dc=org
+objectClass: organizationalUnit
+ou: Groups
+
+dn: cn=admins,ou=Groups,dc=example,dc=org
+gidnumber: 20001
+objectclass: posixgroup
+objectclass: top
+cn: admins
+memberuid: janedoe
+memberuid: johndoe
+
+dn: cn=developers,ou=Groups,dc=example,dc=org
+gidnumber: 20002
+objectclass: posixgroup
+objectclass: top
+cn: developers
+memberuid: janedoe
+EOF
+
+sudo apt install -y ldap-utils
+ldapadd -H ldap://localhost:1389 -D "cn=admin,dc=example,dc=org" -w admin -f config-ldap.ldif
+# Ajouter l'entrée "127.0.0.1 ldap.example.org" dans votre fichier /etc/hosts
+Configuration du service Dex
+Prérequis : LDAP fonctionnel
+
+Dex est notre Identity Provider : il nous permet d’obtenir un token rendant possible l’authentification sur Kubernetes.
+
+Création de la configuration Dex :
+cat <<EOF > config-dex.yaml
+issuer: https://dex.example.com:5554/dex
+storage:
+ type: sqlite3
+ config:
+ file: dex.db
+web:
+ http: 0.0.0.0:5556
+ https: 0.0.0.0:5554
+ tlsCert: /etc/dex/cfg/ssl/cert.pem
+ tlsKey: /etc/dex/cfg/ssl/key.pem
+logger:
+ level: "debug"
+ format: "text"
+staticClients:
+- id: minikube
+  redirectURIs:
+  - 'http://127.0.0.1:5555/callback'
+  name: 'Minikube Auth'
+  secret: ZXhhbXBsZS1hcHAtc2VjcmV0
+oauth2:
+ skipApprovalScreen: true
+connectors:
+- type: ldap
+  id: ldap
+  name: LDAP
+  config:
+    host: ldap.example.org:1389
+    insecureNoSSL: true
+    insecureSkipVerify: true
+    startTLS: false
+    bindDN: cn=admin,dc=example,dc=org
+    bindPW: admin
+    userSearch:
+      baseDN: ou=People,dc=example,dc=org
+      filter: "(objectClass=posixAccount)"
+      username: mail
+      idAttr: uid
+      emailAttr: mail
+      nameAttr: uid
+    groupSearch:
+      baseDN: ou=Groups,dc=example,dc=org
+      filter: "(objectClass=posixgroup)"
+      userAttr: uid
+      groupAttr: memberuid
+      nameAttr: cn
+EOF
+Génération des certificats pour Dex :
+wget https://raw.githubusercontent.com/coreos/dex/master/examples/k8s/gencert.sh
+# Ajouter l'entrée "127.0.0.1 dex.example.com" dans votre fichier /etc/hosts
+chmod +x gencert.sh
+./gencert.sh
+ Lancement de Dex :
+docker run --name dex --network host -d -v $(pwd):/etc/dex/cfg/ quay.io/coreos/dex:v2.9.0 serve /etc/dex/cfg/config-dex.yaml
+Vous devriez maintenant avoir un identity provider fonctionnel permettant de délivrer des tokens pour les utilisateurs stockés dans votre LDAP de test.
+
+ 
+
+Configuration de notre application cliente
+Nous allons utiliser une application cliente fournie comme exemple par Dex, mais légèrement modifiée (du CSS et du formatage pour l’utilisation du token avec Kubernetes)
+
+Configuration de l’application
+cat <<EOF > config-login-app.yaml
+# ID pour authentifier l'application auprès de Dex
+client_id: "minikube"
+# Secret partagé
+client_secret: ZXhhbXBsZS1hcHAtc2VjcmV0
+# URL d'accès à Dex
+issuer_url: "https://dex.example.com:5554/dex"
+# CA signant le certificat de Dex
+issuer_root_ca: "/config/ssl/ca.pem"
+# URL de redirection
+redirect_url: "http://127.0.0.1:5555/callback"
+# IP, Port et protocol d'écoute
+listen: "http://0.0.0.0:5555"
+# Désactivation des champs "extra_scopes" dans l'application
+disable_choices: false
+# Les extra_scopes
+extra_scopes: "groups"
+# En-tête de l'application
+app_name: "Kubernetes Login"
+EOF
+Lancement de l’application :
+docker run --name login-app -d --network host -v $(pwd):/config/ objectiflibre/login-app /config/config-login-app.yaml
+Vous devriez maintenant pouvoir vous connecter sur http://localhost:5555.
+
+Après avoir cliqué sur « Requests Token » sur la page de login, vous serez redirigé sur l’interface d’authentification Dex. Renseignez l’utilisateur « jane.doe@example.org » et le mot de passe « foo ».
+
+Configuration de Minikube
+Et maintenant le cœur du sujet : l’authentification sur Kubernetes !
+
+Pré-requis : binaire minikube
+
+Lancement de Minikube avec les informations de connexion OIDC :
+minikube start \
+ --kubernetes-version v1.8.0 \
+ --mount-string "$(pwd):/minikube-host" \
+ --mount \
+ --extra-config=apiserver.Authorization.Mode=RBAC \
+ --extra-config=apiserver.Authentication.OIDC.IssuerURL=https://dex.example.com:5554/dex \
+ --extra-config=apiserver.Authentication.OIDC.UsernameClaim=email \
+ --extra-config=apiserver.Authentication.OIDC.ClientID="minikube" \
+ --extra-config=apiserver.Authentication.OIDC.GroupsClaim=groups \
+ --extra-config=apiserver.Authentication.OIDC.CAFile="/minikube-host/ssl/ca.pem"
+Les certificats sont récupérés automatiquement grâce au point de montage « /minikube-host ». Il est cependant nécessaire de modifier le fichier « /etc/hosts » pour pointer vers notre Dex local.
+
+Modification du fichier « /etc/hosts » :
+minikube ssh
+sudo -i
+echo "192.168.99.1  dex.example.com" >> /etc/hosts
+Ajout des RBAC pour notre groupe « admins » :
+cat <<EOF > rbac.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: ldap_cluster_admin
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- apiGroup: rbac.authorization.k8s.io
+  kind: Group
+  name: admins
+EOF
+
+kubectl apply -f rbac.yaml
+ Test de connexion :
+Récupérez les informations de connexion depuis l’application de login, et copier/coller le contenu dans la partie users du fichier ~/.kube/config.
+
+Puis, connectez-vous avec votre utilisateur « janedoe » :
+
+kubectl --user=janedoe get po -n kube-system
+Et en production ?
+Ce tutoriel vous permettra de tester les fonctionnalités de Dex + Kubernetes en local, de manière non-sécurisée et peu stable. Quelques pistes pour la mise en production du service :
+
+Modifier la configuration Dex pour accéder au LDAP en LDAPS/Start TLS
+# config-dex.yml
+connectors:
+- type: ldap
+  config:
+    startTLS: true
+    rootCA: /etc/dex/ssl/ldap-ca.pem
+[...]
+Passer l’application cliente et Dex en HTTPS
+Mise en haute disponibilité des services :
+L’application cliente est nativement sans état.
+Dex nécessite un stockage externalisé, plusieurs méthodes sont aujourd’hui fonctionnelles : Etcd, Kubernetes (CRD & PTR) et Postgres.
+L’accès aux applications peut ensuite être load balancé.
+
+Pour les curieux : un exemple d’intégration de la stack {Application Cliente / Dex / Letsencrypt / Kubernetes} est disponible sur ce dépôt GitHub.
+https://github.com/ObjectifLibre/k8s-ldap
+
+Liens utiles
+Documentation Dex : https://github.com/coreos/dex/tree/master/Documentation
+https://github.com/dexidp/dex/tree/master/Documentation
+
+Documentation OIDC/Kubernetes : https://kubernetes.io/docs/admin/authentication/#option-1—oidc-authenticator
+https://kubernetes.io/docs/reference/access-authn-authz/authentication/#option-1---oidc-authenticator
+
+Ressources & documentation Docker LDAP/osixia : https://github.com/osixia/docker-openldap
+https://kubernetes.io/docs/reference/access-authn-authz/authentication/#option-1---oidc-authenticator
+
