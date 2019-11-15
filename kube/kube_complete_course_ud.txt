@@ -4245,7 +4245,9 @@ une fois qu'on a recu notre cert tls, celui ci sera stocker en tant que secret d
 
 = utilisation cert-manager : =
 
-installation de helm :
+
+
+Dans un premier temps on va installer helm :
 
 # install helm
 
@@ -4260,7 +4262,6 @@ curl https://raw.githubusercontent.com/kubernetes/helm/master/scripts/get | bash
 ```
 helm init --service-account tiller
 ```
-
 
 on set ensuite un service account avec les droits :
 
@@ -4311,7 +4312,134 @@ spec:
 
 
 
+# install nginx ingress
 
-ch10-v125
+```
+helm install --name my-ingress stable/nginx-ingress \
+  --set controller.kind=DaemonSet \
+  --set controller.service.type=NodePort \
+  --set controller.hostNetwork=true           <<<< on defini ici une conf reseau permettant d'acceder au port 80 /443 directement en saisissant l'ip du node 
+```
+
+# start myapp
+
+Create myapp and add an ingress rule:
+
+```
+kubectl create -f myapp.yml
+kubectl create -f myapp-ingress.yml
 
 
+
+on doit permettre si on a un firewall les acces au ports 80/443 : car let's encrypt va essayer de se connecter sur notre ip pub pour gérer les certs
+
+
+on va déployer notre app :
+
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: myapp
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: myapp
+    spec:
+      containers:
+      - name: k8s-demo
+        image: wardviaene/k8s-demo
+        ports:
+        - containerPort: 3000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: myapp
+spec:
+  ports:
+  - port: 3000
+    targetPort: 3000
+    protocol: TCP
+  selector:
+    app: myapp
+
+puis on va publier notre conf ingress pour permettre l'acces à notre endpoint en attaquant vers un nom dns :
+
+boogie$ cat myapp-ingress.yml                                                                                                 [☸ kubernetes-admin@kubeallinone:default]
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: nginx
+  name: myapp
+  namespace: default
+spec:
+  #tls:
+  #- secretName: myapp-tls-staging
+  #  hosts:
+  #  - myapp.newtech.academy
+  rules:
+    - host: myapp.newtech.academy       <<<<< a chaque fois qu'on va appeller ce domaine 
+      http:
+        paths:
+          - backend:
+              serviceName: myapp       <<<<<< on va rediriger vers le service matchant ce nom : que l'on retrouve dans notre déploiement. 
+              servicePort: 3000
+            path: /
+
+
+on va faire une entrée dns de ce domaine vers une ip pub portée par notre cluster (ex : node1 )
+si on est chez un provider dont les ip changent on peut mettre en place une ip flottante pour nous assurer que le nom dns ne change pas.
+
+
+une fois notre record fait on peut tester :
+
+un curl sur ip pub > envoi vers le default backend de notre conf ingress
+un curl sur notre domaine ( directmeent sur le port 80) renvoi vers le pod en passant par l'ingress, puis kubeproxy qui route vers le backend final hénbergeant l'appli nommée myapp.
+
+
+on va maintenant que notre service est accessible depuis l'exterrieur pouvoir installer cert-manager avec helm :
+
+une fois que notre appli est déployer on va devoir préparer un issuer : qui va certifier notre tls :
+comme on est limité en demande de certification : on crée un issuer pour tester et un pour la prod : 
+
+boogie$ cat issuer-staging.yml                                                                                                [☸ kubernetes-admin@kubeallinone:default]
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: Issuer
+metadata:
+  name: myapp-letsncrypt-staging
+  namespace: default
+spec:
+  acme:
+    # The ACME server URL
+    server: https://acme-staging-v02.api.letsencrypt.org/directory
+    # Email address used for ACME registration
+    email: your@email.inv
+    # Name of a secret used to store the ACME account private key
+    privateKeySecretRef:
+      name: myapp-letsncrypt-staging
+    # Enable HTTP01 validations
+    http01: {}
+
+
+
+boogie$ cat issuer-prod.yml                                                                                                   [☸ kubernetes-admin@kubeallinone:default]
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: Issuer
+metadata:
+  name: myapp-letsncrypt-prod
+spec:
+  acme:
+    # The ACME server URL
+    server: https://acme-v02.api.letsencrypt.org/directory
+    # Email address used for ACME registration
+    email: your@email.inv
+    # Name of a secret used to store the ACME account private key
+    privateKeySecretRef:
+      name: myapp-letsncrypt-prod
+    # Enable HTTP01 validations
+    http01: {}
+
+ch10 v126 m7
