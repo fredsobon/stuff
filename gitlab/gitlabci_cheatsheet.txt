@@ -1,0 +1,121 @@
+=== gitlabci sheetcheat ===
+
+il faudra bien s'assurer qu'un runner est configuré pour notre check ci !!
+
+exemples : 
+
+- ci de check de lint de fichiers yaml : on va checker la syntaxe des derniers fichiers du commit git :
+---
+#
+image: artifact-docker-lapin.net/images/debian-linter
+
+# help to debug :
+before_script:
+ - date
+ - ci/before_gitlab_ci.sh
+after_script:
+ - date
+# stage
+stages:
+ - syntax-checker
+ - lint-checker
+manifests_syntax_check:
+ tags:
+  - lintci
+ stage: syntax-checker
+ script:
+  - ci/check_all_yaml.sh
+manifests_lint_check:
+ tags:
+  - lintci
+ stage: lint-checker
+ script:
+  - ci/check_yaml-lint.sh
+
+
+avec les scripts : 
+
+-> recup des derniers fichiers commit ( rapport au commit precedent ) 
+
+boogie$ cat ci/before_gitlab_ci.sh                                         
+#!/bin/sh
+
+. $(dirname $0)/functions.sh
+
+if [ ! -z $GITLAB_CI ]; then
+
+  # Check only diffs with the last modified files :
+  CHANGED_FILES=$(git diff --name-only HEAD HEAD~1)
+
+  #debug_log "Changed Files: $CHANGED_FILES"
+  echo "Changed Files: "
+  echo "$CHANGED_FILES"
+
+fi
+
+exit 0
+
+
+-> yamllint sur les fichiers modifiés s'ils existent : 
+
+boogie$ cat ci/check_yaml-lint.sh                                 
+#!/bin/sh
+set -ex
+#. $(dirname $0)/functions.sh
+
+echo '### check lint of yaml files ###'
+
+CHANGED_YAML=$(echo "$CHANGED_FILES" | grep "\.yaml$")
+if [ ! -z "$CHANGED_YAML" ]; then
+  echo "processing $CHANGED_YAML"
+  for file in $CHANGED_YAML
+  do
+     echo -n "$file is being checked ..."
+    yamllint $CHANGED_YAML || status=1
+  done
+else status=0
+fi
+echo "status => $status"
+exit $status
+
+
+- ci de build de rpm et de push vers un repo dédié : on aura setté au prealable des variables communes à plusieurs ci ( ex api key de notre repo ) ...
+---
+variables:
+  ARCH: "x86_64"
+  VERSION: "9.0.14"
+  RPM_REGISTRY: "https://artifact.lapin.net/artifactory/rpms/tomcat9/${VERSION}"
+stages:
+  - build
+  - test
+  - push
+build_rpms:
+  stage: build
+  tags:
+    - 'infraci'
+  image: 'artifact-docker-lapin.net/centos/centos7.5:2.0.1'
+  script:
+    - yum -y install rpm-build make which
+    - cd SPECS
+    - rpmbuild --undefine=_disable_source_fetch --define "_sourcedir ${CI_PROJECT_DIR}/SOURCES" --define "_rpmdir ${CI_PROJECT_DIR}/RPMS" -ba tomcat9.spec
+  artifacts:
+    expire_in: 1 day
+    paths:
+      - RPMS/${ARCH}/*.rpm
+test_rpms:
+  stage: test
+  tags:
+    - 'infraci'
+  image: 'artifact-docker-lapin.net/rpm/centos7.5:2.0.1'
+  dependencies:
+    - build_rpms
+  script:
+    - rpm -ivh RPMS/${ARCH}/*.rpm
+    - rpm -ql tomcat9 |awk '/usr\/lib\/systemd\/system\/tomcat9.service/'
+push_rpms:
+  stage: push
+  tags:
+    - 'infraci-shell'
+  script:
+    - for rpm in RPMS/${ARCH}/*.rpm; do curl --fail -H "X-JFrog-Art-Api:${ARTIFACTORY_APIKEY}" -T "${rpm}" -X PUT "${RPM_REGISTRY}/"; done
+
