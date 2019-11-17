@@ -163,7 +163,7 @@ subjects:
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  labels:
+/etc/ssl/certs/cacert.pem  labels:
     app: dex
   name: dex
   namespace: dex
@@ -525,6 +525,35 @@ si on utilise localhost le certificat ne match pas et on a une erreur.
 on peut forcer à toujours utiliser ssl en ajoutant le port :
 
 ldapsearch -x -D 'uid=serviceaccount,ou=People,dc=example,dc=com' -w 'serviceaccountldap' -H ldaps:///ldap01.example.com:636 b dc=example,dc=com 'uid=john' cn gidNumber  
+
+
+il est possible d'avoir des erreurs de type DNS SRV: Could not turn DN="ldap01.example.com" into a domain
+
+dans ce cas pour tester on pourra requetter en local notre ldap sans préciser de host :
+
+root@boogie-hypervisor:~/dex/on-prem-or-cloud-agnostic-kubernetes/dex# ldapsearch -x -D 'uid=serviceaccount,ou=People,dc=example,dc=com' -w 'serviceaccountldap'  -b dc=example,dc=com 'uid=john' cn gidNumber
+# extended LDIF
+#
+# LDAPv3
+# base <dc=example,dc=com> with scope subtree
+# filter: uid=john
+# requesting: cn gidNumber
+#
+
+# john, People, example.com
+dn: uid=john,ou=People,dc=example,dc=com
+cn: John Doe
+gidNumber: 5000
+
+# search result
+search: 2
+result: 0 Success
+
+# numResponses: 2
+# numEntries: 1
+
+on  a bien la reponse de notre ldap -> c'est ok
+
 
 
 on va maintenant modifier la config map pour ajouter le certifact tls 
