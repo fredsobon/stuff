@@ -1,0 +1,108 @@
+=== notes  openid : ===
+
+c'est une methode d'authentification pour kube.
+elle est construite au dessus de oauth2 et permet de s'authentifier de manière secure à l'aide d'un token.
+ce token id pourra etre verifier en s'assurant qu'il a bien ete signé par le serveur d'authent avec rsa ou autre algo ....
+
+ceci est important car l'authorité d'authent n'est pas kube mais un composant externe qui sera donc considéré de confiance par kube.
+ce token est un json token : JWT json web token. 
+il contient des infos sur le user et optionnellement des groups.
+une fois recupéré le token peut etre utilisé pour s'authentifier sur l'api server
+kubectl token=<yourtoken>
+
+exemple utilisation de auth0 comme identity provider
+on creer un compte , on defini les entrées ,un compte / mdp de gestion et une db pour la connextion client et recupérer les infos.
+
+on va devoir definir pour notre api serveur l'utilisation d'oidc qui pointera sur par ex auth0 avec les infos que l'on aura renseignée sur le site . 
+spec:
+  kubeAPIServer:
+    oidcIssuerURL: https://authent-lapin.eu.auth0.com/
+    oidcClientID: blablabla 
+    oidcUsernameClaim: sub   << on utilise ce type d'option 
+
+on doit reload notre cluster /api pour prendre en compte les modifs ...
+
+on peut déployer le dashboard kube pour nos tests d"authent :
+
+kubectl create -f https://raw.githubusercontent.com/kubernetes/kops/master/addons/kubernetes-dashboard/v1.6.3.yaml
+
+
+on va maintenant déployer notre conf : 
+on renseigne notre secret : password qu'on aura renseigner sur le site de l oauth provider 
+auth0-secrets.yml  
+apiVersion: v1
+kind: Secret
+metadata:
+  name: auth0-secrets
+type: Opaque
+data:
+  AUTH0_CLIENT_SECRET: w<www<wqqQQ # enter the auth0 secret here :qui correspond au mdp saisi sur le site Oauth mais encodé en base 64
+
+on deploit ensuite le service qui sera de type loadbanlacer
+
+rse/authentication  cat auth0-service.yml                                                               [☸ minikube:default]
+apiVersion: v1
+kind: Service
+metadata:
+  name: kubernetes-auth-server
+spec:
+  ports:
+  - port: 80
+    targetPort: app-port
+    protocol: TCP
+  selector:
+    app: kubernetes-auth-server
+  type: LoadBalancer
+
+on cree ensuite le déploiement qui va contenir l'image de l'appli et les infos de user de oauth provider 
+rse/authentication   master cat auth0-deployment.yml                                                           [☸ minikube:default]
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: kubernetes-auth-server
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: kubernetes-auth-server
+    spec:
+      containers:
+      - name: kubernetes-auth-server
+        image: wardviaene/kubernetes-auth-server:1.0.1
+        imagePullPolicy: Always
+        ports:
+        - name: app-port
+          containerPort: 3000
+        env:
+          - name: AUTH0_CLIENT_ID
+            value:  # change into your client id
+          - name: AUTH0_DOMAIN
+            value: newtechacademy.eu.auth0.com # change into your domain
+          - name: AUTH0_CALLBACK_URL
+            value: http://authserver.kubernetes.newtech.academy/callback # change into your callback url
+          - name: AUTH0_API_ID
+            value: https://newtechacademy.eu.auth0.com/userinfo # change into your identifier
+          - name: AUTH0_CONNECTION
+            value: Username-Password-Authentication # auth0 user database connection  <<< on link avec la db de connection créée sur oauth0
+          - name: KUBERNETES_UI_HOST
+            value: api.kubernetes.newtech.academy
+          - name: APP_HOST
+            value: authserver.kubernetes.newtech.academy
+          - name: AUTH0_CLIENT_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: auth0-secrets
+                key: AUTH0_CLIENT_SECRET
+
+
+on deploit nos conf :
+kubectl create -f 
+
+le pod d'authentifiaction apparait
+
+l'appli d'exemple est en python / flask 
+
+on peut une fois déployé se connecter sur un frontend , saisir notre user /mdp .puis selectionner le kubebasshboard : l'authen réussi et on a acces directment au dashboard kube.
+
+

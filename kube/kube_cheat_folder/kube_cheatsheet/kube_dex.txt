@@ -11,11 +11,27 @@ on va devoir demarrer kubernetes en utilisant oidc et en utilisant dex
 le user va s'authentifier a dex qui va verifier l'id en se connectant à une autre souce (ldap /ad, github).
 Dex va ensuite fournir un token a nootre user qui va s'en servir pour se connecter à kube.
 kube va verifier le token pour s'assurer qu'il est ok en le comparant a son oidc interne : qui est defini comme dex .
+c'est kube api qui va verifier le token ( s'assurer de sa provenance, sa validité) ensuite la requette du user va être examinée ex: get pods  les rbac sont verifiées. si le user a le droit de faire un get pod alors le resultat de la commande lui est renvoyé.
+
 
 la provenance du token etait verifiée et valide : le user peut donc se connecter à kube.
 
 OICD n'est pas déploye dans beaucoup d'entreprises.
 Dex sert donc de pont entre ce que les entreprises utilisent générallement comme méthode d'authent (ldap ...) et ce que kube utilise (oicd ...)
+
+
+- set up de dex :
+
+sur le master kube plusieurs etapes sont à faire :
+
+> generation de certifs
+> creation du namespace dex 
+> creation des secret dex dans le namespace dex en donnant les cert générés précédemment 
+> on copie le ca.pem dans l'arbo kubernetes/pki en le nommant openid-ca.pem
+./gencert.sh
+kubectl create -f dex-ns.yaml
+kubectl create secret tls dex.newtech.academy.tls -n dex --cert=ssl/cert.pem --key=ssl/key.pem
+sudo cp ssl/ca.pem /etc/kubernetes/pki/openid-ca.pem
 
 
 
