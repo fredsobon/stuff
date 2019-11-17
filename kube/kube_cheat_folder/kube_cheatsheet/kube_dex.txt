@@ -20,6 +20,8 @@ OICD n'est pas déploye dans beaucoup d'entreprises.
 Dex sert donc de pont entre ce que les entreprises utilisent générallement comme méthode d'authent (ldap ...) et ce que kube utilise (oicd ...)
 
 
+- exemple creation de conf pour authent à github en oauth :
+
 - set up de dex :
 
 sur le master kube plusieurs etapes sont à faire :
@@ -33,31 +35,617 @@ kubectl create -f dex-ns.yaml
 kubectl create secret tls dex.newtech.academy.tls -n dex --cert=ssl/cert.pem --key=ssl/key.pem
 sudo cp ssl/ca.pem /etc/kubernetes/pki/openid-ca.pem
 
+on peut examiner le contenu du script qui génere les certs : 
+
+cat gencert.sh 
+#!/bin/bash
+
+mkdir -p ssl
+
+cat << EOF > ssl/req.cnf
+[req]
+req_extensions = v3_req
+distinguished_name = req_distinguished_name
+
+[req_distinguished_name]
+
+[ v3_req ]
+basicConstraints = CA:FALSE
+keyUsage = nonRepudiation, digitalSignature, keyEncipherment
+subjectAltName = @alt_names
+
+[alt_names]
+DNS.1 = dex.newtech.academy   <<<<<<<<<<<<<<<<<<<<<<<<<< on doit biensur adapter l'entrée en focntion de notre nom de domaine .
+EOF
+
+openssl genrsa -out ssl/ca-key.pem 2048
+openssl req -x509 -new -nodes -key ssl/ca-key.pem -days 10 -out ssl/ca.pem -subj "/CN=kube-ca"
+
+openssl genrsa -out ssl/key.pem 2048
+openssl req -new -key ssl/key.pem -out ssl/csr.pem -subj "/CN=kube-ca" -config ssl/req.cnf
+openssl x509 -req -in ssl/csr.pem -CA ssl/ca.pem -CAkey ssl/ca-key.pem -CAcreateserial -out ssl/cert.pem -days 10 -extensions v3_req -extfile ssl/req.cnf
 
 
 
 
+on s'assure que l'entree dns pointe sur un node de notre cluster 
 
 
 
+On va maintenant creer un secret pour notre compte github :
+
+```
+kubectl create secret \
+    generic github-client \
+    -n dex \
+    --from-literal=client-id=$GITHUB_CLIENT_ID \
+    --from-literal=client-secret=$GITHUB_CLIENT_SECRET
+```
+
+
+on doit au prealable creer un compte pour l'oauth github :
+on se log sur notre compte , on va des les settings et on choisi oauth :
+-> on va definir une application qui aura le droit de s'authentifier :
+on saisit par exemple kubernetes dex 
+-> homepage de l'appli : https://dex.newtech.ackademy
+-> authorization callback url : on defini l'url de l'appli avec le portr du node port et callback : pour permttre le retour de github a notre appli . Si on met un fake dns il faudra nousassurer de renseigner correctement le fichier hosts 
+https://dex.newtech.academy:32000/callback
+
+une fois qu'on enregistre notre appli on retrouve sur la page github notre client id et notre client secret
+
+on va recuperer ces infos puis faire des exports des variables github :
+
+export GITHUB_CLIENT_ID=bldfdfdfddfd
+export GITHUB_CLIENT_SECRET=dfdfffegrgrghrhth
+
+on peut maintenant lancer notre commande :
+
+kubectl create secret \
+    generic github-client \
+    -n dex \
+    --from-literal=client-id=$GITHUB_CLIENT_ID \
+    --from-literal=client-secret=$GITHUB_CLIENT_SECRET
+
+On va maintenant devoir modifier notre api-server pour la prise en compte de oicd :
+
+kube-apiserver manifest file changes ( /etc/kubernetes/manifests/kube-apiserver.yaml):
+```
+    - --oidc-issuer-url=https://dex.newtech.academy:32000    <<<<< on renseigne avec les entréés de notre conf 
+    - --oidc-client-id=example-app   <<< appli de test fourni par dex 
+    - --oidc-ca-file=/etc/kubernetes/pki/openid-ca.pem  <<< ca qu'on a générée 
+    - --oidc-username-claim=email  <<< type mail pour les users
+    - --oidc-groups-claim=groups
+
+
+il est possible d'avoir des souci  pour editer le manifest kube-api-server avec vim : on peut le faire avec nano.
+une fois fait on peut voir que l'api server redémarre.
+
+on peut biensur toujours se connecter au cluster avec kubectl qui utilise la config peuplée de certif.
+on va avec oidc utiliser au autre mécanisme.
+
+on va maintenant déployer dex :
+
+kubectl create -f dex.yaml
+
+cat dex.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: dex
+  namespace: dex
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: dex
+  namespace: dex
+rules:
+- apiGroups: ["dex.coreos.com"] # API group created by dex
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["apiextensions.k8s.io"]
+  resources: ["customresourcedefinitions"]
+  verbs: ["create"] # To manage its own resources identity must be able to create customresourcedefinitions.
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: dex
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: dex
+subjects:
+- kind: ServiceAccount
+  name: dex                 # Service account assigned to the dex pod.
+  namespace: dex  # The namespace dex is running in.
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  labels:
+    app: dex
+  name: dex
+  namespace: dex
+spec:
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: dex
+    spec:
+      serviceAccountName: dex
+      hostAliases:
+      - ip: "127.1.2.3"  <<< à supprimer et remplacer par 192.168.0.80 ou ip pub   <<<<<<<<< à checker ...      
+        hostnames:
+        - "ldap01.example.com"
+      containers:
+      - image: quay.io/coreos/dex:v2.10.0
+        name: dex
+        command: ["/usr/local/bin/dex", "serve", "/etc/dex/cfg/config.yaml"]
+
+        ports:
+        - name: https
+          containerPort: 5556
+
+        volumeMounts:
+        - name: config
+          mountPath: /etc/dex/cfg
+        - name: tls
+          mountPath: /etc/dex/tls
+        - name: ldap-tls
+          mountPath: /etc/dex/ldap-tls
+
+        env:
+        - name: GITHUB_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: github-client
+              key: client-id
+        - name: GITHUB_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: github-client
+              key: client-secret
+      volumes:
+      - name: config
+        configMap:
+          name: dex
+          items:
+          - key: config.yaml
+            path: config.yaml
+      - name: tls
+        secret:
+          secretName: dex.newtech.academy.tls
+      - name: ldap-tls                          <<<< la section ldap n'est pas utilisée pour l'instant.
+        configMap:
+          name: ldap-tls
+          items:
+          - key: cacert.pem
+            path: cacert.pem
+---
+kind: ConfigMap                         <<<< pour l'instant la section ldap n'est pas utilisée .
+apiVersion: v1
+metadata:
+  name: ldap-tls
+  namespace: dex
+data:
+  cacert.pem: |
+    empty
+---
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: dex
+  namespace: dex
+data:
+  config.yaml: |
+    issuer: https://dex.newtech.academy:32000
+    storage:
+      type: kubernetes
+      config:
+        inCluster: true
+    web:
+      https: 0.0.0.0:5556
+      tlsCert: /etc/dex/tls/tls.crt
+      tlsKey: /etc/dex/tls/tls.key
+    connectors:
+    - type: github
+      id: github
+      name: GitHub
+      config:
+        clientID: $GITHUB_CLIENT_ID
+        clientSecret: $GITHUB_CLIENT_SECRET
+        redirectURI: https://dex.newtech.academy:32000/callback
+        org: kubernetes
+    oauth2:
+      skipApprovalScreen: true
+
+    staticClients:
+    - id: example-app
+      redirectURIs:
+      - 'https://dex.newtech.academy:32000/callback'   <<<<<< on defini ici notre conf de callback 
+      - 'http://178.62.90.238:5555/callback'           <<<<<< ici on a une ip du master en seconde entrée 
+      name: 'Example App'
+      secret: ZXhhbXBsZS1hcHAtc2VjcmV0
+    enablePasswordDB: false
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dex
+  namespace: dex
+spec:
+  type: NodePort
+  ports:
+  - name: dex
+    port: 5556
+    protocol: TCP
+    targetPort: 5556
+    nodePort: 32000   <<<< node port dispo sur les hosts du cluster
+  selector:
+    app: dex
 
 
 
+on va maintenant installer sur notre master l'appli de test de dex pour nous authentifier :
+
+sudo apt-get install make golang-1.9
+git clone https://github.com/coreos/dex.git
+cd dex
+git checkout v2.10.0
+export PATH=$PATH:/usr/lib/go-1.9/bin
+go get github.com/coreos/dex
+make bin/example-app
+export MY_IP=$(curl -s ifconfig.co)
+
+on laisse l'appli tourner en background : 
+./bin/example-app --issuer https://dex.newtech.academy:32000 --issuer-root-ca /etc/kubernetes/pki/openid-ca.pem --listen http://${MY_IP}:5555 --redirect-uri http://${MY_IP}:5555/callback
 
 
+on  va créer un user pour valider notre test :
+
+cat user.yaml
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: Role
+metadata:
+  name: exampleUser
+  namespace: default
+rules:
+- apiGroups: [""] # "" indicates the core API group
+  resources: ["pods"]
+  verbs: ["get", "watch", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: RoleBinding
+metadata:
+  name: exampleUser
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: exampleUser
+subjects:
+- kind: User
+  name: your@email.inv  <<<<< on saisi l'adresse email donnée sur le compte github.
+  namespace: default
+
+une fois créee , on va maintenant recupérer un token en nous connectant sur l'appli d'exemple :
+
+http://178.62.90.238:5555
+
+on clic sur se logger : on arrive sur une page https non validé car c'est un autosigné 
+puis on arrive sur une page github , on clic sur authoriser l'application definie kubernetes dex , une fois fait on est redirigé vers l'url de callback définie et on a un token généré.
+
+on va maintenant definir notre token en variable et crée un user context dans kube utilisant ce token :
+
+kubectl config set-credentials developer --auth-provider=oidc --auth-provider-arg=idp-issuer-url=https://dex.newtech.academy:32000 --auth-provider-arg=client-id=example-app --auth-provider-arg=idp-certificate-authority=/etc/kubernetes/pki/openid-ca.pem  --auth-provider-arg=id-token=${TOKEN}
 
 
+on defini ce context par defaut :
+kubectl config set-context dev-default --cluster=kubernetes --namespace=default --user=developer
+kubectl config use-context dev-default
+
+si on test on voit que le user peut se connecter et recupérer la liste des pods mais pas des nodes comme specifié dans le rbac ...
+
+il est possible de générer un renouvellement auto du token mais ceci n'est pas conseillé car on doit partager un secret avec le end user :
+
+# Auto-renewal of token
+For autorenewal, you need to share the client secret with the end-user (not recommended)
+```
+kubectl config set-credentials developer --auth-provider=oidc --auth-provider-arg=idp-issuer-url=https://dex.newtech.academy:32000 --auth-provider-arg=client-id=example-app --auth-provider-arg=idp-certificate-authority=/etc/kubernetes/pki/openid-ca.pem  --auth-provider-arg=id-token=${TOKEN} --auth-provider-arg=refresh-token=${REFRESH_TOKEN} --auth-provider-arg=client-secret=${CLIENT_SECRET}
 
 
+=  ldap config :  =
 
 
+sur un node master du cluster pour tester on va installer un ldap :
+
+sudo apt-get -y install slapd ldap-utils gnutls-bin ssl-cert
+
+on defini un password ldap
+
+on peut reconfigurer le ldap :
+
+sudo dpkg-reconfigure slapd
+
+on defini un fake domain pour nos test  : example.com
+orgabisation example.inc
+
+on configure un passwd pour l'admin et on set mdb comme storage db
+on peut remove l'ancienne db si besoin.
+on utilise les derniers protocoles ldap
+
+dex veut du chiffrement pour le ldap sinon on est en clair.
+on va donc créer des certif pour ldap :
+on va s'assurer de renseigner les bonnes infos : 
+cat gencert-ldap.sh
+#!/bin/bash
+
+# from https://help.ubuntu.com/lts/serverguide/openldap-server.html
+
+set -x
+
+sudo sh -c "certtool --generate-privkey > /etc/ssl/private/cakey.pem"
+
+echo 'cn = Example Company
+ca
+cert_signing_key
+' > /tmp/ca.info
+
+sudo mv /tmp/ca.info /etc/ssl/ca.info
+
+sudo certtool --generate-self-signed \
+--load-privkey /etc/ssl/private/cakey.pem \
+--template /etc/ssl/ca.info \
+--outfile /etc/ssl/certs/cacert.pem
+
+sudo certtool --generate-privkey \
+--bits 1024 \
+--outfile /etc/ssl/private/ldap01_slapd_key.pem
+
+echo 'organization = Example Company
+cn = ldap01.example.com    <<< notre host avec notre fake domaine 
+tls_www_server
+encryption_key
+signing_key
+expiration_days = 3650' > /tmp/ldap01.info
+
+sudo mv /tmp/ldap01.info /etc/ssl/ldap01.info
+
+sudo certtool --generate-certificate \
+--load-privkey /etc/ssl/private/ldap01_slapd_key.pem \
+--load-ca-certificate /etc/ssl/certs/cacert.pem \
+--load-ca-privkey /etc/ssl/private/cakey.pem \
+--template /etc/ssl/ldap01.info \
+--outfile /etc/ssl/certs/ldap01_slapd_cert.pem
+
+sudo chgrp openldap /etc/ssl/private/ldap01_slapd_key.pem
+sudo chmod 0640 /etc/ssl/private/ldap01_slapd_key.pem
+sudo gpasswd -a openldap ssl-cert
+
+sudo sh -c "cat /etc/ssl/certs/cacert.pem >> /etc/ssl/certs/ca-certificates.crt"
+
+sudo systemctl restart slapd.service
+
+on va maintenant modifier notre ldap pour qu'il prenne en charge nos certificats :
+
+on a une arbo ldap de créer :
+ls ldap 
+certinfo.ldif  users.ldif
+
+cat ldap/certinfo.ldif
+dn: cn=config
+add: olcTLSCACertificateFile
+olcTLSCACertificateFile: /etc/ssl/certs/cacert.pem
+-
+add: olcTLSCertificateFile
+olcTLSCertificateFile: /etc/ssl/certs/ldap01_slapd_cert.pem
+-
+add: olcTLSCertificateKeyFile
+olcTLSCertificateKeyFile: /etc/ssl/private/ldap01_slapd_key.pem
+
+on modifie notre ldap pour qu'il prenne en compte nos certif :
+
+sudo ldapmodify -H ldapi:// -Y EXTERNAL -f ldap/certinfo.ldif
+
+on va ajouter un user pour tester notre fonctionnement 
+on a donc un user account avec une mailbox , un password et un service account qui sera utilisé par kube. 
+ex : 
+cat ldap/users.ldif          [☸ minikube:default]
+dn: ou=People,dc=example,dc=com
+objectClass: organizationalUnit
+ou: People
+
+dn: ou=Groups,dc=example,dc=com
+objectClass: organizationalUnit
+ou: Groups
+
+dn: cn=miners,ou=Groups,dc=example,dc=com
+objectClass: posixGroup
+cn: miners
+gidNumber: 5000
+
+dn: uid=john,ou=People,dc=example,dc=com
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+uid: john
+sn: Doe
+givenName: John
+cn: John Doe
+displayName: John Doe
+uidNumber: 10000
+gidNumber: 5000
+userPassword: johnldap
+gecos: John Doe
+mail: john@doe.inv
+loginShell: /bin/bash
+homeDirectory: /home/john
+
+dn: uid=serviceaccount,ou=People,dc=example,dc=com
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+uid: serviceaccount
+sn: serviceaccount
+givenName: serviceaccount
+cn: service account
+displayName: service account
+uidNumber: 99999
+gidNumber: 9999
+userPassword: serviceaccountldap
+gecos: Service Account
+loginShell: /bin/false
+homeDirectory: /home/serviceaccount
+
+ldapadd -x -D cn=admin,dc=example,dc=com -W -f ldap/users.ldif
 
 
+on doit maintenant ajouter le ldaps dans la conf de notre ldap :
+
+ /etc/default/slapd
+```
+SLAPD_SERVICES="ldap:/// ldapi:/// ldaps:///"  <<< on rajoute ldaps 
+
+on redemarre ldap 
+sudo systemctl restart slapd.service
+
+pour tester notre ldap on va modifier le /etc/hosts du master kube 
+
+127.0.0.1 localhost ldap01.example.com
+
+on recherche notre user :
+
+ZZ signifie en ssl 
+
+ldapsearch -x -D 'uid=serviceaccount,ou=People,dc=example,dc=com' -w 'serviceaccountldap' -H ldap:///ldap01.example.com -ZZ -b dc=example,dc=com 'uid=john' cn gidNumber  
+
+si on utilise localhost le certificat ne match pas et on a une erreur.
+
+on peut forcer à toujours utiliser ssl en ajoutant le port :
+
+ldapsearch -x -D 'uid=serviceaccount,ou=People,dc=example,dc=com' -w 'serviceaccountldap' -H ldaps:///ldap01.example.com:636 b dc=example,dc=com 'uid=john' cn gidNumber  
 
 
+on va maintenant modifier la config map pour ajouter le certifact tls 
+on ajoute le certif de notre conf situé /etc/ssl/certs/cacert.pem
+
+kubectl edit configmap ldap-tls -n dex 
+
+---
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: ldap-tls
+  namespace: dex
+data:
+  cacert.pem: |
+    empty         <<< on ajoute notre certif généré.
+---
+
+on va editer la seconde config map :
 
 
+cat configmap-ldap.yaml 
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dex
+  namespace: dex
+data:
+  config.yaml: |
+    issuer: https://dex.newtech.academy:32000
+    storage:
+      type: kubernetes
+      config:
+        inCluster: true
+    web:
+      https: 0.0.0.0:5556
+      tlsCert: /etc/dex/tls/tls.crt
+      tlsKey: /etc/dex/tls/tls.key
+    connectors:
+    - type: github
+      id: github
+      name: GitHub
+      config:
+        clientID: $GITHUB_CLIENT_ID
+        clientSecret: $GITHUB_CLIENT_SECRET
+        redirectURI: https://dex.newtech.academy:32000/callback
+        org: kubernetes
+    - type: ldap                                                            <<<<< on renseigne nos confs 
+      id: ldap
+      name: LDAP
+      config:
+        host: ldap01.example.com:636
+        rootCA: /etc/dex/ldap-tls/cacert.pem
 
+        # The DN and password for an application service account. The connector uses
+        # these credentials to search for users and groups. Not required if the LDAP
+        # server provides access for anonymous auth.
+        # Please note that if the bind password contains a `$`, it has to be saved in an
+        # environment variable which should be given as the value to `bindPW`.
+        bindDN: uid=serviceaccount,ou=People,dc=example,dc=com
+        bindPW: serviceaccountldap
+
+        # The attribute to display in the provided password prompt. If unset, will
+        # display "Username"
+        usernamePrompt: SSO Username
+
+        # User search maps a username and password entered by a user to a LDAP entry.
+        userSearch:
+          # BaseDN to start the search from. It will translate to the query
+          # "(&(objectClass=person)(uid=<username>))".
+          baseDN: ou=People,dc=example,dc=com                                       <<<< on adapte la conf en fonction de nos besoins.
+          # Optional filter to apply when searching the directory.
+          filter: "(objectClass=inetOrgPerson)"
+
+          # username attribute used for comparing user entries. This will be translated
+          # and combined with the other filter as "(<attr>=<username>)".
+          username: uid
+          # The following three fields are direct mappings of attributes on the user entry.
+          # String representation of the user.
+          idAttr: uid
+          # Required. Attribute to map to Email.
+          emailAttr: mail
+          # Maps to display name of users. No default value.
+          nameAttr: cn
+
+        # Group search queries for groups given a user entry.
+        groupSearch:
+          # BaseDN to start the search from. It will translate to the query
+          # "(&(objectClass=group)(member=<user uid>))".
+          baseDN: ou=Groups,dc=example,dc=com
+          # Optional filter to apply when searching the directory.
+          filter: "(objectClass=group)"
+
+          # Following two fields are used to match a user to a group. It adds an additional
+          # requirement to the filter that an attribute in the group must match the user's
+          # attribute value.
+          userAttr: uid
+          groupAttr: member
+
+          # Represents group name.
+          nameAttr: name
+    oauth2:
+      skipApprovalScreen: true
+    staticClients:
+    - id: example-app
+      redirectURIs:
+      - 'http://178.62.90.238:5555/callback'
+      name: 'Example App'
+      secret: ZXhhbXBsZS1hcHAtc2VjcmV0
+    enablePasswordDB: false
+
+bien verifier les termes car chaque ldap est different 
+
+on applique notre conf : 
+kubectl apply -f configmap-ldap.yaml
+
+on delete les pods du namespace dex 
+puis ceux ci sont redémarrés avec la bonne conf 
+
+on va pouvoir se reconnecter à notre appli exemple de dex qui propose maintenant en plus de github un login ldaps :
+quand on clic sur ldap ..on retouve un token ..qu'on va utiliser pour nosu connecter à kube ....
 
 
 
