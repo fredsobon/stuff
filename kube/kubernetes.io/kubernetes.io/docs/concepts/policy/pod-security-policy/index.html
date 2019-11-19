@@ -1,0 +1,403 @@
+<!doctype html><html id=docs lang=en><head><script async src="https://www.googletagmanager.com/gtag/js?id=UA-36037335-10"></script><script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}
+gtag('js',new Date());gtag('config','UA-36037335-10');</script><meta charset=utf-8><title>Pod Security Policies - Kubernetes</title><meta name=viewport content="width=device-width,initial-scale=1"><link rel="shortcut icon" type=image/png href=/images/favicon.png><link rel=stylesheet href=/css/style.55b6352217b8627c14bd768cbee811b2c66d837dc1f3cc71f39ede62bc159b59.css integrity="sha256-VbY1Ihe4YnwUvXaMvugRssZtg33B88xx857eYrwVm1k="><link rel=stylesheet href=/css/base_fonts.css><link rel=stylesheet href=/css/jquery-ui.min.css><link rel=stylesheet href=/css/callouts.css><link rel=stylesheet href=/css/custom-jekyll/tags.css><meta name=description content><meta property=og:description content><meta name=twitter:description content><meta property=og:url content=https://kubernetes.io/docs/concepts/policy/pod-security-policy/><meta property=og:title content="Pod Security Policies"><meta name=twitter:title content="Pod Security Policies"><meta name=twitter:image content=https://kubernetes.io/images/favicon.png><meta name=twitter:image:alt content=Kubernetes><meta property=og:image content=/images/kubernetes-horizontal-color.png><meta property=og:type content=article><script src=/js/anchor-4.1.1.min.js></script><script src=/js/jquery-3.2.1.min.js></script><script src=/js/jquery-ui-1.12.1.min.js></script><script src=/js/bootstrap-4.3.1.min.js></script><script src=/js/sweetalert-2.1.2.min.js></script><script src=/js/script.js></script><script src=/js/custom-jekyll/tags.js></script></head><body><div id=cellophane onclick=kub.toggleMenu()></div><header><a href=/ class=logo title="Production-Grade Container Orchestration - Kubernetes" aria-label="Kubernetes website"></a><div class=nav-buttons data-auto-burger=primary><ul class=global-nav><li><a href=/docs/ class=active>Documentation</a></li><li><a href=/blog/>Blog</a></li><li><a href=/partners/>Partners</a></li><li><a href=/community/>Community</a></li><li><a href=/case-studies/>Case Studies</a></li><li><a href=#>English <span class="ui-icon ui-icon-carat-1-s"></span></a><ul><li><a href=/zh/docs/concepts/policy/pod-security-policy/>中文 Chinese</a></li><li><a href=/id/docs/concepts/policy/pod-security-policy/>Bahasa Indonesia</a></li></ul></li><li><a href=#>v1.16 <span class="ui-icon ui-icon-carat-1-s"></span></a><ul><li><a href=https://kubernetes.io>v1.16</a></li><li><a href=https://v1-15.docs.kubernetes.io>v1.15</a></li><li><a href=https://v1-14.docs.kubernetes.io>v1.14</a></li><li><a href=https://v1-13.docs.kubernetes.io>v1.13</a></li><li><a href=https://v1-12.docs.kubernetes.io>v1.12</a></li></ul></li></ul><a href=/docs/tutorials/kubernetes-basics/ class=button id=tryKubernetes data-auto-burger-exclude>Learn Kubernetes Basics</a>
+<button id=hamburger onclick=kub.toggleMenu() data-auto-burger-exclude><div></div></button></div><nav id=mainNav><div class=main-section data-auto-burger=primary><div class=nav-box><h3><a href=/docs/tutorials/hello-minikube/>Get Started</a></h3><p>Ready to get your hands dirty? Build a simple Kubernetes cluster that runs "Hello World" for Node.js.</p></div><div class=nav-box><h3><a href=/docs/home/>Documentation</a></h3><p>Learn how to use Kubernetes with conceptual, tutorial, and reference documentation. You can even <a href=/editdocs/ data-auto-burger-exclude>help contribute to the docs</a>!</p></div><div class=nav-box><h3><a href=/blog/>Blog</a></h3><p>Read the latest news for Kubernetes and the containers space in general, and get technical how-tos hot off the presses.</p></div></div><div class=main-section data-auto-burger=primary><div class=left><h5 class=github-invite>Interested in hacking on the core Kubernetes code base?</h5><a href=https://github.com/kubernetes/kubernetes class=button data-auto-burger-exclude>View On GitHub</a></div><div class=right><h5 class=github-invite>Explore the community</h5><div class=social><a href=https://twitter.com/kubernetesio class=twitter><span>Twitter</span></a>
+<a href=https://github.com/kubernetes/kubernetes class=github><span>GitHub</span></a>
+<a href=http://slack.k8s.io/ class=slack><span>Slack Slack</span></a>
+<a href=https://stackoverflow.com/questions/tagged/kubernetes class=stack-overflow><span>Stack Overflow</span></a>
+<a href=https://discuss.kubernetes.io class=mailing-list><span>Forum</span></a>
+<a href="https://calendar.google.com/calendar/embed?src=nt2tcnbtbied3l6gi2h29slvc0%40group.calendar.google.com" class=calendar><span>Events Calendar</span></a></div></div><div class=clear style=clear:both></div></div></nav></header><section id=hero class="light-text no-sub"><h1>Concepts</h1><h5></h5><div id=vendorStrip class=light-text><ul><li><a href=/docs/home/>HOME</a></li><li><a href=/docs/setup/>GETTING STARTED</a></li><li><a href=/docs/concepts/ class=YAH>CONCEPTS</a></li><li><a href=/docs/tasks/>TASKS</a></li><li><a href=/docs/tutorials/>TUTORIALS</a></li><li><a href=/docs/reference/>REFERENCE</a></li><li><a href=/docs/contribute/>CONTRIBUTE</a></li></ul><form id=searchBox action=/docs/search/ role=search><input type=text id=search name=q placeholder=Search aria-label=Search></form></div></section><main><section id=encyclopedia><div id=docsToc><div class=pi-accordion><a class=item data-title=Concepts href=/docs/concepts/></a><div class=item data-title=Overview><div class=container><a class=item data-title="What is Kubernetes" href=/docs/concepts/overview/what-is-kubernetes/></a><a class=item data-title="Kubernetes Components" href=/docs/concepts/overview/components/></a><a class=item data-title="The Kubernetes API" href=/docs/concepts/overview/kubernetes-api/></a><div class=item data-title="Working with Kubernetes Objects"><div class=container><a class=item data-title="Understanding Kubernetes Objects" href=/docs/concepts/overview/working-with-objects/kubernetes-objects/></a><a class=item data-title="Kubernetes Object Management" href=/docs/concepts/overview/working-with-objects/object-management/></a><a class=item data-title=Names href=/docs/concepts/overview/working-with-objects/names/></a><a class=item data-title=Namespaces href=/docs/concepts/overview/working-with-objects/namespaces/></a><a class=item data-title="Labels and Selectors" href=/docs/concepts/overview/working-with-objects/labels/></a><a class=item data-title=Annotations href=/docs/concepts/overview/working-with-objects/annotations/></a><a class=item data-title="Field Selectors" href=/docs/concepts/overview/working-with-objects/field-selectors/></a><a class=item data-title="Recommended Labels" href=/docs/concepts/overview/working-with-objects/common-labels/></a></div></div></div></div><div class=item data-title="Cluster Architecture"><div class=container><a class=item data-title=Nodes href=/docs/concepts/architecture/nodes/></a><a class=item data-title="Master-Node Communication" href=/docs/concepts/architecture/master-node-communication/></a><a class=item data-title=Controllers href=/docs/concepts/architecture/controller/></a><a class=item data-title="Concepts Underlying the Cloud Controller Manager" href=/docs/concepts/architecture/cloud-controller/></a></div></div><div class=item data-title=Containers><div class=container><a class=item data-title=Images href=/docs/concepts/containers/images/></a><a class=item data-title="Container Environment Variables" href=/docs/concepts/containers/container-environment-variables/></a><a class=item data-title="Runtime Class" href=/docs/concepts/containers/runtime-class/></a><a class=item data-title="Container Lifecycle Hooks" href=/docs/concepts/containers/container-lifecycle-hooks/></a></div></div><div class=item data-title=Workloads><div class=container><div class=item data-title=Pods><div class=container><a class=item data-title="Pod Overview" href=/docs/concepts/workloads/pods/pod-overview/></a><a class=item data-title=Pods href=/docs/concepts/workloads/pods/pod/></a><a class=item data-title="Pod Lifecycle" href=/docs/concepts/workloads/pods/pod-lifecycle/></a><a class=item data-title="Init Containers" href=/docs/concepts/workloads/pods/init-containers/></a><a class=item data-title="Pod Preset" href=/docs/concepts/workloads/pods/podpreset/></a><a class=item data-title="Pod Topology Spread Constraints" href=/docs/concepts/workloads/pods/pod-topology-spread-constraints/></a><a class=item data-title=Disruptions href=/docs/concepts/workloads/pods/disruptions/></a><a class=item data-title="Ephemeral Containers" href=/docs/concepts/workloads/pods/ephemeral-containers/></a></div></div><div class=item data-title=Controllers><div class=container><a class=item data-title=ReplicaSet href=/docs/concepts/workloads/controllers/replicaset/></a><a class=item data-title=ReplicationController href=/docs/concepts/workloads/controllers/replicationcontroller/></a><a class=item data-title=Deployments href=/docs/concepts/workloads/controllers/deployment/></a><a class=item data-title=StatefulSets href=/docs/concepts/workloads/controllers/statefulset/></a><a class=item data-title=DaemonSet href=/docs/concepts/workloads/controllers/daemonset/></a><a class=item data-title="Garbage Collection" href=/docs/concepts/workloads/controllers/garbage-collection/></a><a class=item data-title="TTL Controller for Finished Resources" href=/docs/concepts/workloads/controllers/ttlafterfinished/></a><a class=item data-title="Jobs - Run to Completion" href=/docs/concepts/workloads/controllers/jobs-run-to-completion/></a><a class=item data-title=CronJob href=/docs/concepts/workloads/controllers/cron-jobs/></a></div></div></div></div><div class=item data-title="Services, Load Balancing, and Networking"><div class=container><a class=item data-title="Endpoint Slices" href=/docs/concepts/services-networking/endpoint-slices/></a><a class=item data-title=Service href=/docs/concepts/services-networking/service/></a><a class=item data-title="DNS for Services and Pods" href=/docs/concepts/services-networking/dns-pod-service/></a><a class=item data-title="Connecting Applications with Services" href=/docs/concepts/services-networking/connect-applications-service/></a><a class=item data-title=Ingress href=/docs/concepts/services-networking/ingress/></a><a class=item data-title="Ingress Controllers" href=/docs/concepts/services-networking/ingress-controllers/></a><a class=item data-title="Network Policies" href=/docs/concepts/services-networking/network-policies/></a><a class=item data-title="Adding entries to Pod /etc/hosts with HostAliases" href=/docs/concepts/services-networking/add-entries-to-pod-etc-hosts-with-host-aliases/></a><a class=item data-title="IPv4/IPv6 dual-stack" href=/docs/concepts/services-networking/dual-stack/></a></div></div><div class=item data-title=Storage><div class=container><a class=item data-title=Volumes href=/docs/concepts/storage/volumes/></a><a class=item data-title="Persistent Volumes" href=/docs/concepts/storage/persistent-volumes/></a><a class=item data-title="Volume Snapshots" href=/docs/concepts/storage/volume-snapshots/></a><a class=item data-title="CSI Volume Cloning" href=/docs/concepts/storage/volume-pvc-datasource/></a><a class=item data-title="Storage Classes" href=/docs/concepts/storage/storage-classes/></a><a class=item data-title="Volume Snapshot Classes" href=/docs/concepts/storage/volume-snapshot-classes/></a><a class=item data-title="Dynamic Volume Provisioning" href=/docs/concepts/storage/dynamic-provisioning/></a><a class=item data-title="Node-specific Volume Limits" href=/docs/concepts/storage/storage-limits/></a></div></div><div class=item data-title=Configuration><div class=container><a class=item data-title="Configuration Best Practices" href=/docs/concepts/configuration/overview/></a><a class=item data-title="Resource Bin Packing for Extended Resources" href=/docs/concepts/configuration/resource-bin-packing/></a><a class=item data-title="Managing Compute Resources for Containers" href=/docs/concepts/configuration/manage-compute-resources-container/></a><a class=item data-title="Pod Overhead" href=/docs/concepts/configuration/pod-overhead/></a><a class=item data-title="Assigning Pods to Nodes" href=/docs/concepts/configuration/assign-pod-node/></a><a class=item data-title="Taints and Tolerations" href=/docs/concepts/configuration/taint-and-toleration/></a><a class=item data-title=Secrets href=/docs/concepts/configuration/secret/></a><a class=item data-title="Organizing Cluster Access Using kubeconfig Files" href=/docs/concepts/configuration/organize-cluster-access-kubeconfig/></a><a class=item data-title="Pod Priority and Preemption" href=/docs/concepts/configuration/pod-priority-preemption/></a><a class=item data-title="Scheduling Framework" href=/docs/concepts/configuration/scheduling-framework/></a></div></div><div class=item data-title=Security><div class=container><a class=item data-title="Overview of Cloud Native Security" href=/docs/concepts/security/overview/></a></div></div><div class=item data-title=Policies><div class=container><a class=item data-title="Limit Ranges" href=/docs/concepts/policy/limit-range/></a><a class=item data-title="Resource Quotas" href=/docs/concepts/policy/resource-quotas/></a><a class=item data-title="Pod Security Policies" href=/docs/concepts/policy/pod-security-policy/></a></div></div><div class=item data-title=Scheduling><div class=container><a class=item data-title="Kubernetes Scheduler" href=/docs/concepts/scheduling/kube-scheduler/></a><a class=item data-title="Scheduler Performance Tuning" href=/docs/concepts/scheduling/scheduler-perf-tuning/></a></div></div><div class=item data-title="Cluster Administration"><div class=container><a class=item data-title="Cluster Administration Overview" href=/docs/concepts/cluster-administration/cluster-administration-overview/></a><a class=item data-title=Certificates href=/docs/concepts/cluster-administration/certificates/></a><a class=item data-title="Cloud Providers" href=/docs/concepts/cluster-administration/cloud-providers/></a><a class=item data-title="Managing Resources" href=/docs/concepts/cluster-administration/manage-deployment/></a><a class=item data-title="Cluster Networking" href=/docs/concepts/cluster-administration/networking/></a><a class=item data-title="Logging Architecture" href=/docs/concepts/cluster-administration/logging/></a><a class=item data-title="Configuring kubelet Garbage Collection" href=/docs/concepts/cluster-administration/kubelet-garbage-collection/></a><a class=item data-title=Federation href=/docs/concepts/cluster-administration/federation/></a><a class=item data-title="Proxies in Kubernetes" href=/docs/concepts/cluster-administration/proxies/></a><a class=item data-title="Controller manager metrics" href=/docs/concepts/cluster-administration/controller-metrics/></a><a class=item data-title="Installing Addons" href=/docs/concepts/cluster-administration/addons/></a></div></div><div class=item data-title="Extending Kubernetes"><div class=container><a class=item data-title="Extending your Kubernetes Cluster" href=/docs/concepts/extend-kubernetes/extend-cluster/></a><div class=item data-title="Extending the Kubernetes API"><div class=container><a class=item data-title="Extending the Kubernetes API with the aggregation layer" href=/docs/concepts/extend-kubernetes/api-extension/apiserver-aggregation/></a><a class=item data-title="Custom Resources" href=/docs/concepts/extend-kubernetes/api-extension/custom-resources/></a></div></div><div class=item data-title="Compute, Storage, and Networking Extensions"><div class=container><a class=item data-title="Network Plugins" href=/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/></a><a class=item data-title="Device Plugins" href=/docs/concepts/extend-kubernetes/compute-storage-net/device-plugins/></a></div></div><a class=item data-title="Operator pattern" href=/docs/concepts/extend-kubernetes/operator/></a><a class=item data-title="Service Catalog" href=/docs/concepts/extend-kubernetes/service-catalog/></a><a class=item data-title="Poseidon-Firmament - An alternate scheduler" href=/docs/concepts/extend-kubernetes/poseidon-firmament-alternate-scheduler/></a></div></div></div><button class=push-menu-close-button onclick=kub.toggleToc()></button></div><div id=docsContent><p><a href=https://github.com/kubernetes/website/edit/master/content/en/docs/concepts/policy/pod-security-policy.md id=editPageButton target=_blank>Edit This Page</a></p><h1>Pod Security Policies</h1><div style=margin-top:10px;margin-bottom:10px><b>FEATURE STATE:</b> <code>Kubernetes v1.16</code>
+<a href=# id=feature-state-dialog-link class="ui-state-default ui-corner-all"><span class="ui-icon ui-icon-newwin"></span>beta</a><div id=feature-state-dialog class=ui-dialog-content title=beta>This feature is currently in a <em>beta</em> state, meaning:</p><ul><li>The version names contain beta (e.g. v2beta3).</li><li>Code is well tested. Enabling the feature is considered safe. Enabled by default.</li><li>Support for the overall feature will not be dropped, though details may change.</li><li>The schema and/or semantics of objects may change in incompatible ways in a subsequent beta or stable release. When this happens, we will provide instructions for migrating to the next version. This may require deleting, editing, and re-creating API objects. The editing process may require some thought. This may require downtime for applications that rely on the feature.</li><li>Recommended for only non-business-critical uses because of potential for incompatible changes in subsequent releases. If you have multiple clusters that can be upgraded independently, you may be able to relax this restriction.</li><li><strong>Please do try our beta features and give feedback on them! After they exit beta, it may not be practical for us to make more changes.</strong></li></ul></div><script>$(function(){$("#feature-state-dialog").dialog({autoOpen:false,width:"600",buttons:[{text:"Ok",click:function(){$(this).dialog("close");}}]});$("#feature-state-dialog-link").click(function(event){$("#feature-state-dialog").dialog("open");event.preventDefault();});});</script></div><p>Pod Security Policies enable fine-grained authorization of pod creation and
+updates.</p><ul id=markdown-toc><li><a href=#what-is-a-pod-security-policy>What is a Pod Security Policy?</a></li><li><a href=#enabling-pod-security-policies>Enabling Pod Security Policies</a></li><li><a href=#authorizing-policies>Authorizing Policies</a></li><li><a href=#policy-order>Policy Order</a></li><li><a href=#example>Example</a></li><li><a href=#policy-reference>Policy Reference</a></li></ul><h2 id=what-is-a-pod-security-policy>What is a Pod Security Policy?</h2><p>A <em>Pod Security Policy</em> is a cluster-level resource that controls security
+sensitive aspects of the pod specification. The <code>PodSecurityPolicy</code> objects
+define a set of conditions that a pod must run with in order to be accepted into
+the system, as well as defaults for the related fields. They allow an
+administrator to control the following:</p><table><thead><tr><th>Control Aspect</th><th>Field Names</th></tr></thead><tbody><tr><td>Running of privileged containers</td><td><a href=#privileged><code>privileged</code></a></td></tr><tr><td>Usage of host namespaces</td><td><a href=#host-namespaces><code>hostPID</code>, <code>hostIPC</code></a></td></tr><tr><td>Usage of host networking and ports</td><td><a href=#host-namespaces><code>hostNetwork</code>, <code>hostPorts</code></a></td></tr><tr><td>Usage of volume types</td><td><a href=#volumes-and-file-systems><code>volumes</code></a></td></tr><tr><td>Usage of the host filesystem</td><td><a href=#volumes-and-file-systems><code>allowedHostPaths</code></a></td></tr><tr><td>White list of FlexVolume drivers</td><td><a href=#flexvolume-drivers><code>allowedFlexVolumes</code></a></td></tr><tr><td>Allocating an FSGroup that owns the pod&rsquo;s volumes</td><td><a href=#volumes-and-file-systems><code>fsGroup</code></a></td></tr><tr><td>Requiring the use of a read only root file system</td><td><a href=#volumes-and-file-systems><code>readOnlyRootFilesystem</code></a></td></tr><tr><td>The user and group IDs of the container</td><td><a href=#users-and-groups><code>runAsUser</code>, <code>runAsGroup</code>, <code>supplementalGroups</code></a></td></tr><tr><td>Restricting escalation to root privileges</td><td><a href=#privilege-escalation><code>allowPrivilegeEscalation</code>, <code>defaultAllowPrivilegeEscalation</code></a></td></tr><tr><td>Linux capabilities</td><td><a href=#capabilities><code>defaultAddCapabilities</code>, <code>requiredDropCapabilities</code>, <code>allowedCapabilities</code></a></td></tr><tr><td>The SELinux context of the container</td><td><a href=#selinux><code>seLinux</code></a></td></tr><tr><td>The Allowed Proc Mount types for the container</td><td><a href=#allowedprocmounttypes><code>allowedProcMountTypes</code></a></td></tr><tr><td>The AppArmor profile used by containers</td><td><a href=#apparmor>annotations</a></td></tr><tr><td>The seccomp profile used by containers</td><td><a href=#seccomp>annotations</a></td></tr><tr><td>The sysctl profile used by containers</td><td><a href=#sysctl><code>forbiddenSysctls</code>,<code>allowedUnsafeSysctls</code></a></td></tr></tbody></table><h2 id=enabling-pod-security-policies>Enabling Pod Security Policies</h2><p>Pod security policy control is implemented as an optional (but recommended)
+<a href=/docs/reference/access-authn-authz/admission-controllers/#podsecuritypolicy>admission
+controller</a>. PodSecurityPolicies
+are enforced by <a href=/docs/reference/access-authn-authz/admission-controllers/#how-do-i-turn-on-an-admission-control-plug-in>enabling the admission
+controller</a>,
+but doing so without authorizing any policies <strong>will prevent any pods from being
+created</strong> in the cluster.</p><p>Since the pod security policy API (<code>policy/v1beta1/podsecuritypolicy</code>) is
+enabled independently of the admission controller, for existing clusters it is
+recommended that policies are added and authorized before enabling the admission
+controller.</p><h2 id=authorizing-policies>Authorizing Policies</h2><p>When a PodSecurityPolicy resource is created, it does nothing. In order to use
+it, the requesting user or target pod&rsquo;s <a href=/docs/tasks/configure-pod-container/configure-service-account/>service
+account</a> must be
+authorized to use the policy, by allowing the <code>use</code> verb on the policy.</p><p>Most Kubernetes pods are not created directly by users. Instead, they are
+typically created indirectly as part of a
+<a href=/docs/concepts/workloads/controllers/deployment/>Deployment</a>,
+<a href=/docs/concepts/workloads/controllers/replicaset/>ReplicaSet</a>, or other
+templated controller via the controller manager. Granting the controller access
+to the policy would grant access for <em>all</em> pods created by that controller,
+so the preferred method for authorizing policies is to grant access to the
+pod&rsquo;s service account (see <a href=#run-another-pod>example</a>).</p><h3 id=via-rbac>Via RBAC</h3><p><a href=/docs/reference/access-authn-authz/rbac/>RBAC</a> is a standard Kubernetes
+authorization mode, and can easily be used to authorize use of policies.</p><p>First, a <code>Role</code> or <code>ClusterRole</code> needs to grant access to <code>use</code> the desired
+policies. The rules to grant access look like this:</p><div class=highlight><pre style=background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml>apiVersion:<span style=color:#bbb> </span>rbac.authorization.k8s.io/v1<span style=color:#bbb>
+</span><span style=color:#bbb></span>kind:<span style=color:#bbb> </span>ClusterRole<span style=color:#bbb>
+</span><span style=color:#bbb></span>metadata:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>name:<span style=color:#bbb> </span>&lt;role<span style=color:#bbb> </span>name&gt;<span style=color:#bbb>
+</span><span style=color:#bbb></span>rules:<span style=color:#bbb>
+</span><span style=color:#bbb></span>-<span style=color:#bbb> </span>apiGroups:<span style=color:#bbb> </span>[<span style=color:#b44>&#39;policy&#39;</span>]<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>resources:<span style=color:#bbb> </span>[<span style=color:#b44>&#39;podsecuritypolicies&#39;</span>]<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>verbs:<span style=color:#bbb>     </span>[<span style=color:#b44>&#39;use&#39;</span>]<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>resourceNames:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>-<span style=color:#bbb> </span>&lt;list<span style=color:#bbb> </span>of<span style=color:#bbb> </span>policies<span style=color:#bbb> </span>to<span style=color:#bbb> </span>authorize&gt;</code></pre></div><p>Then the <code>(Cluster)Role</code> is bound to the authorized user(s):</p><div class=highlight><pre style=background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml>apiVersion:<span style=color:#bbb> </span>rbac.authorization.k8s.io/v1<span style=color:#bbb>
+</span><span style=color:#bbb></span>kind:<span style=color:#bbb> </span>ClusterRoleBinding<span style=color:#bbb>
+</span><span style=color:#bbb></span>metadata:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>name:<span style=color:#bbb> </span>&lt;binding<span style=color:#bbb> </span>name&gt;<span style=color:#bbb>
+</span><span style=color:#bbb></span>roleRef:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>kind:<span style=color:#bbb> </span>ClusterRole<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>name:<span style=color:#bbb> </span>&lt;role<span style=color:#bbb> </span>name<span style=color:#b44;font-style:italic>&gt;
+</span><span style=color:#b44;font-style:italic>  apiGroup: rbac.authorization.k8s.io</span><span style=color:#bbb>
+</span><span style=color:#bbb></span>subjects:<span style=color:#bbb>
+</span><span style=color:#bbb></span><span style=color:#080;font-style:italic># Authorize specific service accounts:</span><span style=color:#bbb>
+</span><span style=color:#bbb></span>-<span style=color:#bbb> </span>kind:<span style=color:#bbb> </span>ServiceAccount<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>name:<span style=color:#bbb> </span>&lt;authorized<span style=color:#bbb> </span>service<span style=color:#bbb> </span>account<span style=color:#bbb> </span>name<span style=color:#b44;font-style:italic>&gt;
+</span><span style=color:#b44;font-style:italic>  namespace: &lt;authorized pod namespace&gt;</span><span style=color:#bbb>
+</span><span style=color:#bbb></span><span style=color:#080;font-style:italic># Authorize specific users (not recommended):</span><span style=color:#bbb>
+</span><span style=color:#bbb></span>-<span style=color:#bbb> </span>kind:<span style=color:#bbb> </span>User<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>apiGroup:<span style=color:#bbb> </span>rbac.authorization.k8s.io<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>name:<span style=color:#bbb> </span>&lt;authorized<span style=color:#bbb> </span>user<span style=color:#bbb> </span>name&gt;</code></pre></div><p>If a <code>RoleBinding</code> (not a <code>ClusterRoleBinding</code>) is used, it will only grant
+usage for pods being run in the same namespace as the binding. This can be
+paired with system groups to grant access to all pods run in the namespace:</p><div class=highlight><pre style=background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml><span style=color:#080;font-style:italic># Authorize all service accounts in a namespace:</span><span style=color:#bbb>
+</span><span style=color:#bbb></span>-<span style=color:#bbb> </span>kind:<span style=color:#bbb> </span>Group<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>apiGroup:<span style=color:#bbb> </span>rbac.authorization.k8s.io<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>name:<span style=color:#bbb> </span>system:serviceaccounts<span style=color:#bbb>
+</span><span style=color:#bbb></span><span style=color:#080;font-style:italic># Or equivalently, all authenticated users in a namespace:</span><span style=color:#bbb>
+</span><span style=color:#bbb></span>-<span style=color:#bbb> </span>kind:<span style=color:#bbb> </span>Group<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>apiGroup:<span style=color:#bbb> </span>rbac.authorization.k8s.io<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>name:<span style=color:#bbb> </span>system:authenticated</code></pre></div><p>For more examples of RBAC bindings, see <a href=/docs/reference/access-authn-authz/rbac#role-binding-examples>Role Binding
+Examples</a>.
+For a complete example of authorizing a PodSecurityPolicy, see
+<a href=#example>below</a>.</p><h3 id=troubleshooting>Troubleshooting</h3><ul><li>The <a href=/docs/admin/kube-controller-manager/>Controller Manager</a> must be run
+against <a href=/docs/reference/access-authn-authz/controlling-access/>the secured API port</a>,
+and must not have superuser permissions. Otherwise requests would bypass
+authentication and authorization modules, all PodSecurityPolicy objects would be
+allowed, and users would be able to create privileged containers. For more details
+on configuring Controller Manager authorization, see <a href=/docs/reference/access-authn-authz/rbac/#controller-roles>Controller
+Roles</a>.</li></ul><h2 id=policy-order>Policy Order</h2><p>In addition to restricting pod creation and update, pod security policies can
+also be used to provide default values for many of the fields that it
+controls. When multiple policies are available, the pod security policy
+controller selects policies according to the following criteria:</p><ol><li>PodSecurityPolicies which allow the pod as-is, without changing defaults or
+mutating the pod, are preferred. The order of these non-mutating
+PodSecurityPolicies doesn&rsquo;t matter.</li><li>If the pod must be defaulted or mutated, the first PodSecurityPolicy
+(ordered by name) to allow the pod is selected.</li></ol><blockquote class=note><div><strong>Note:</strong> During update operations (during which mutations to pod specs are disallowed)
+only non-mutating PodSecurityPolicies are used to validate the pod.</div></blockquote><h2 id=example>Example</h2><p><em>This example assumes you have a running cluster with the PodSecurityPolicy
+admission controller enabled and you have cluster admin privileges.</em></p><h3 id=set-up>Set up</h3><p>Set up a namespace and a service account to act as for this example. We&rsquo;ll use
+this service account to mock a non-admin user.</p><div class=highlight><pre style=background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell>kubectl create namespace psp-example
+kubectl create serviceaccount -n psp-example fake-user
+kubectl create rolebinding -n psp-example fake-editor --clusterrole<span style=color:#666>=</span>edit --serviceaccount<span style=color:#666>=</span>psp-example:fake-user</code></pre></div><p>To make it clear which user we&rsquo;re acting as and save some typing, create 2
+aliases:</p><div class=highlight><pre style=background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell><span style=color:#a2f>alias</span> kubectl-admin<span style=color:#666>=</span><span style=color:#b44>&#39;kubectl -n psp-example&#39;</span>
+<span style=color:#a2f>alias</span> kubectl-user<span style=color:#666>=</span><span style=color:#b44>&#39;kubectl --as=system:serviceaccount:psp-example:fake-user -n psp-example&#39;</span></code></pre></div><h3 id=create-a-policy-and-a-pod>Create a policy and a pod</h3><p>Define the example PodSecurityPolicy object in a file. This is a policy that
+simply prevents the creation of privileged pods.</p><table class=includecode id=policy-example-psp-yaml><thead><tr><th><a href=https://raw.githubusercontent.com/kubernetes/website/master/content/en/examples/policy/example-psp.yaml download=policy/example-psp.yaml><code>policy/example-psp.yaml</code></a>
+<img src=https://d33wubrfki0l68.cloudfront.net/951ae1fcc65e28202164b32c13fa7ae04fab4a0b/b77dc/images/copycode.svg style=max-height:24px onclick="copyCode('policy-example-psp-yaml')" title="Copy policy/example-psp.yaml to clipboard"></th></tr></thead><tbody><tr><td><div class=highlight><pre style=background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml>apiVersion:<span style=color:#bbb> </span>policy/v1beta1<span style=color:#bbb>
+</span><span style=color:#bbb></span>kind:<span style=color:#bbb> </span>PodSecurityPolicy<span style=color:#bbb>
+</span><span style=color:#bbb></span>metadata:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>name:<span style=color:#bbb> </span>example<span style=color:#bbb>
+</span><span style=color:#bbb></span>spec:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>privileged:<span style=color:#bbb> </span><span style=color:#a2f;font-weight:700>false</span><span style=color:#bbb>  </span><span style=color:#080;font-style:italic># Don&#39;t allow privileged pods!</span><span style=color:#bbb>
+</span><span style=color:#bbb>  </span><span style=color:#080;font-style:italic># The rest fills in some required fields.</span><span style=color:#bbb>
+</span><span style=color:#bbb>  </span>seLinux:<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>rule:<span style=color:#bbb> </span>RunAsAny<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>supplementalGroups:<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>rule:<span style=color:#bbb> </span>RunAsAny<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>runAsUser:<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>rule:<span style=color:#bbb> </span>RunAsAny<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>fsGroup:<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>rule:<span style=color:#bbb> </span>RunAsAny<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>volumes:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>-<span style=color:#bbb> </span><span style=color:#b44>&#39;*&#39;</span><span style=color:#bbb>
+</span></code></pre></div></td></tr></tbody></table><p>And create it with kubectl:</p><div class=highlight><pre style=background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell>kubectl-admin create -f example-psp.yaml</code></pre></div><p>Now, as the unprivileged user, try to create a simple pod:</p><div class=highlight><pre style=background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell>kubectl-user create -f- <span style=color:#b44>&lt;&lt;EOF
+</span><span style=color:#b44>apiVersion: v1
+</span><span style=color:#b44>kind: Pod
+</span><span style=color:#b44>metadata:
+</span><span style=color:#b44>  name:      pause
+</span><span style=color:#b44>spec:
+</span><span style=color:#b44>  containers:
+</span><span style=color:#b44>    - name:  pause
+</span><span style=color:#b44>      image: k8s.gcr.io/pause
+</span><span style=color:#b44>EOF</span>
+Error from server <span style=color:#666>(</span>Forbidden<span style=color:#666>)</span>: error when creating <span style=color:#b44>&#34;STDIN&#34;</span>: pods <span style=color:#b44>&#34;pause&#34;</span> is forbidden: unable to validate against any pod security policy: <span style=color:#666>[]</span></code></pre></div><p><strong>What happened?</strong> Although the PodSecurityPolicy was created, neither the
+pod&rsquo;s service account nor <code>fake-user</code> have permission to use the new policy:</p><div class=highlight><pre style=background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell>kubectl-user auth can-i use podsecuritypolicy/example
+no</code></pre></div><p>Create the rolebinding to grant <code>fake-user</code> the <code>use</code> verb on the example
+policy:</p><blockquote class=note><div><strong>Note:</strong> This is not the recommended way! See the <a href=#run-another-pod>next section</a>
+for the preferred approach.</div></blockquote><div class=highlight><pre style=background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell>kubectl-admin create role psp:unprivileged <span style=color:#b62;font-weight:700>\
+</span><span style=color:#b62;font-weight:700></span>    --verb<span style=color:#666>=</span>use <span style=color:#b62;font-weight:700>\
+</span><span style=color:#b62;font-weight:700></span>    --resource<span style=color:#666>=</span>podsecuritypolicy <span style=color:#b62;font-weight:700>\
+</span><span style=color:#b62;font-weight:700></span>    --resource-name<span style=color:#666>=</span>example
+role <span style=color:#b44>&#34;psp:unprivileged&#34;</span> created
+
+kubectl-admin create rolebinding fake-user:psp:unprivileged <span style=color:#b62;font-weight:700>\
+</span><span style=color:#b62;font-weight:700></span>    --role<span style=color:#666>=</span>psp:unprivileged <span style=color:#b62;font-weight:700>\
+</span><span style=color:#b62;font-weight:700></span>    --serviceaccount<span style=color:#666>=</span>psp-example:fake-user
+rolebinding <span style=color:#b44>&#34;fake-user:psp:unprivileged&#34;</span> created
+
+kubectl-user auth can-i use podsecuritypolicy/example
+yes</code></pre></div><p>Now retry creating the pod:</p><div class=highlight><pre style=background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell>kubectl-user create -f- <span style=color:#b44>&lt;&lt;EOF
+</span><span style=color:#b44>apiVersion: v1
+</span><span style=color:#b44>kind: Pod
+</span><span style=color:#b44>metadata:
+</span><span style=color:#b44>  name:      pause
+</span><span style=color:#b44>spec:
+</span><span style=color:#b44>  containers:
+</span><span style=color:#b44>    - name:  pause
+</span><span style=color:#b44>      image: k8s.gcr.io/pause
+</span><span style=color:#b44>EOF</span>
+pod <span style=color:#b44>&#34;pause&#34;</span> created</code></pre></div><p>It works as expected! But any attempts to create a privileged pod should still
+be denied:</p><div class=highlight><pre style=background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell>kubectl-user create -f- <span style=color:#b44>&lt;&lt;EOF
+</span><span style=color:#b44>apiVersion: v1
+</span><span style=color:#b44>kind: Pod
+</span><span style=color:#b44>metadata:
+</span><span style=color:#b44>  name:      privileged
+</span><span style=color:#b44>spec:
+</span><span style=color:#b44>  containers:
+</span><span style=color:#b44>    - name:  pause
+</span><span style=color:#b44>      image: k8s.gcr.io/pause
+</span><span style=color:#b44>      securityContext:
+</span><span style=color:#b44>        privileged: true
+</span><span style=color:#b44>EOF</span>
+Error from server <span style=color:#666>(</span>Forbidden<span style=color:#666>)</span>: error when creating <span style=color:#b44>&#34;STDIN&#34;</span>: pods <span style=color:#b44>&#34;privileged&#34;</span> is forbidden: unable to validate against any pod security policy: <span style=color:#666>[</span>spec.containers<span style=color:#666>[</span><span style=color:#666>0</span><span style=color:#666>]</span>.securityContext.privileged: Invalid value: true: Privileged containers are not allowed<span style=color:#666>]</span></code></pre></div><p>Delete the pod before moving on:</p><div class=highlight><pre style=background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell>kubectl-user delete pod pause</code></pre></div><h3 id=run-another-pod>Run another pod</h3><p>Let&rsquo;s try that again, slightly differently:</p><div class=highlight><pre style=background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell>kubectl-user run pause --image<span style=color:#666>=</span>k8s.gcr.io/pause
+deployment <span style=color:#b44>&#34;pause&#34;</span> created
+
+kubectl-user get pods
+No resources found.
+
+kubectl-user get events | head -n <span style=color:#666>2</span>
+LASTSEEN   FIRSTSEEN   COUNT     NAME              KIND         SUBOBJECT                TYPE      REASON                  SOURCE                                  MESSAGE
+1m         2m          <span style=color:#666>15</span>        pause-7774d79b5   ReplicaSet                            Warning   FailedCreate            replicaset-controller                   Error creating: pods <span style=color:#b44>&#34;pause-7774d79b5-&#34;</span> is forbidden: no providers available to validate pod request</code></pre></div><p><strong>What happened?</strong> We already bound the <code>psp:unprivileged</code> role for our <code>fake-user</code>,
+why are we getting the error <code>Error creating: pods &quot;pause-7774d79b5-&quot; is
+forbidden: no providers available to validate pod request</code>? The answer lies in
+the source - <code>replicaset-controller</code>. Fake-user successfully created the
+deployment (which successfully created a replicaset), but when the replicaset
+went to create the pod it was not authorized to use the example
+podsecuritypolicy.</p><p>In order to fix this, bind the <code>psp:unprivileged</code> role to the pod&rsquo;s service
+account instead. In this case (since we didn&rsquo;t specify it) the service account
+is <code>default</code>:</p><div class=highlight><pre style=background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell>kubectl-admin create rolebinding default:psp:unprivileged <span style=color:#b62;font-weight:700>\
+</span><span style=color:#b62;font-weight:700></span>    --role<span style=color:#666>=</span>psp:unprivileged <span style=color:#b62;font-weight:700>\
+</span><span style=color:#b62;font-weight:700></span>    --serviceaccount<span style=color:#666>=</span>psp-example:default
+rolebinding <span style=color:#b44>&#34;default:psp:unprivileged&#34;</span> created</code></pre></div><p>Now if you give it a minute to retry, the replicaset-controller should
+eventually succeed in creating the pod:</p><div class=highlight><pre style=background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell>kubectl-user get pods --watch
+NAME                    READY     STATUS    RESTARTS   AGE
+pause-7774d79b5-qrgcb   <span style=color:#666>0</span>/1       Pending   <span style=color:#666>0</span>         1s
+pause-7774d79b5-qrgcb   <span style=color:#666>0</span>/1       Pending   <span style=color:#666>0</span>         1s
+pause-7774d79b5-qrgcb   <span style=color:#666>0</span>/1       ContainerCreating   <span style=color:#666>0</span>         1s
+pause-7774d79b5-qrgcb   <span style=color:#666>1</span>/1       Running   <span style=color:#666>0</span>         2s</code></pre></div><h3 id=clean-up>Clean up</h3><p>Delete the namespace to clean up most of the example resources:</p><div class=highlight><pre style=background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell>kubectl-admin delete ns psp-example
+namespace <span style=color:#b44>&#34;psp-example&#34;</span> deleted</code></pre></div><p>Note that <code>PodSecurityPolicy</code> resources are not namespaced, and must be cleaned
+up separately:</p><div class=highlight><pre style=background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell>kubectl-admin delete psp example
+podsecuritypolicy <span style=color:#b44>&#34;example&#34;</span> deleted</code></pre></div><h3 id=example-policies>Example Policies</h3><p>This is the least restricted policy you can create, equivalent to not using the
+pod security policy admission controller:</p><table class=includecode id=policy-privileged-psp-yaml><thead><tr><th><a href=https://raw.githubusercontent.com/kubernetes/website/master/content/en/examples/policy/privileged-psp.yaml download=policy/privileged-psp.yaml><code>policy/privileged-psp.yaml</code></a>
+<img src=https://d33wubrfki0l68.cloudfront.net/951ae1fcc65e28202164b32c13fa7ae04fab4a0b/b77dc/images/copycode.svg style=max-height:24px onclick="copyCode('policy-privileged-psp-yaml')" title="Copy policy/privileged-psp.yaml to clipboard"></th></tr></thead><tbody><tr><td><div class=highlight><pre style=background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml>apiVersion:<span style=color:#bbb> </span>policy/v1beta1<span style=color:#bbb>
+</span><span style=color:#bbb></span>kind:<span style=color:#bbb> </span>PodSecurityPolicy<span style=color:#bbb>
+</span><span style=color:#bbb></span>metadata:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>name:<span style=color:#bbb> </span>privileged<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>annotations:<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>seccomp.security.alpha.kubernetes.io/allowedProfileNames:<span style=color:#bbb> </span><span style=color:#b44>&#39;*&#39;</span><span style=color:#bbb>
+</span><span style=color:#bbb></span>spec:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>privileged:<span style=color:#bbb> </span><span style=color:#a2f;font-weight:700>true</span><span style=color:#bbb>
+</span><span style=color:#bbb>  </span>allowPrivilegeEscalation:<span style=color:#bbb> </span><span style=color:#a2f;font-weight:700>true</span><span style=color:#bbb>
+</span><span style=color:#bbb>  </span>allowedCapabilities:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>-<span style=color:#bbb> </span><span style=color:#b44>&#39;*&#39;</span><span style=color:#bbb>
+</span><span style=color:#bbb>  </span>volumes:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>-<span style=color:#bbb> </span><span style=color:#b44>&#39;*&#39;</span><span style=color:#bbb>
+</span><span style=color:#bbb>  </span>hostNetwork:<span style=color:#bbb> </span><span style=color:#a2f;font-weight:700>true</span><span style=color:#bbb>
+</span><span style=color:#bbb>  </span>hostPorts:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>-<span style=color:#bbb> </span>min:<span style=color:#bbb> </span><span style=color:#666>0</span><span style=color:#bbb>
+</span><span style=color:#bbb>    </span>max:<span style=color:#bbb> </span><span style=color:#666>65535</span><span style=color:#bbb>
+</span><span style=color:#bbb>  </span>hostIPC:<span style=color:#bbb> </span><span style=color:#a2f;font-weight:700>true</span><span style=color:#bbb>
+</span><span style=color:#bbb>  </span>hostPID:<span style=color:#bbb> </span><span style=color:#a2f;font-weight:700>true</span><span style=color:#bbb>
+</span><span style=color:#bbb>  </span>runAsUser:<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>rule:<span style=color:#bbb> </span><span style=color:#b44>&#39;RunAsAny&#39;</span><span style=color:#bbb>
+</span><span style=color:#bbb>  </span>seLinux:<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>rule:<span style=color:#bbb> </span><span style=color:#b44>&#39;RunAsAny&#39;</span><span style=color:#bbb>
+</span><span style=color:#bbb>  </span>supplementalGroups:<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>rule:<span style=color:#bbb> </span><span style=color:#b44>&#39;RunAsAny&#39;</span><span style=color:#bbb>
+</span><span style=color:#bbb>  </span>fsGroup:<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>rule:<span style=color:#bbb> </span><span style=color:#b44>&#39;RunAsAny&#39;</span><span style=color:#bbb>
+</span></code></pre></div></td></tr></tbody></table><p>This is an example of a restrictive policy that requires users to run as an
+unprivileged user, blocks possible escalations to root, and requires use of
+several security mechanisms.</p><table class=includecode id=policy-restricted-psp-yaml><thead><tr><th><a href=https://raw.githubusercontent.com/kubernetes/website/master/content/en/examples/policy/restricted-psp.yaml download=policy/restricted-psp.yaml><code>policy/restricted-psp.yaml</code></a>
+<img src=https://d33wubrfki0l68.cloudfront.net/951ae1fcc65e28202164b32c13fa7ae04fab4a0b/b77dc/images/copycode.svg style=max-height:24px onclick="copyCode('policy-restricted-psp-yaml')" title="Copy policy/restricted-psp.yaml to clipboard"></th></tr></thead><tbody><tr><td><div class=highlight><pre style=background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml>apiVersion:<span style=color:#bbb> </span>policy/v1beta1<span style=color:#bbb>
+</span><span style=color:#bbb></span>kind:<span style=color:#bbb> </span>PodSecurityPolicy<span style=color:#bbb>
+</span><span style=color:#bbb></span>metadata:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>name:<span style=color:#bbb> </span>restricted<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>annotations:<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>seccomp.security.alpha.kubernetes.io/allowedProfileNames:<span style=color:#bbb> </span><span style=color:#b44>&#39;docker/default,runtime/default&#39;</span><span style=color:#bbb>
+</span><span style=color:#bbb>    </span>apparmor.security.beta.kubernetes.io/allowedProfileNames:<span style=color:#bbb> </span><span style=color:#b44>&#39;runtime/default&#39;</span><span style=color:#bbb>
+</span><span style=color:#bbb>    </span>seccomp.security.alpha.kubernetes.io/defaultProfileName:<span style=color:#bbb>  </span><span style=color:#b44>&#39;runtime/default&#39;</span><span style=color:#bbb>
+</span><span style=color:#bbb>    </span>apparmor.security.beta.kubernetes.io/defaultProfileName:<span style=color:#bbb>  </span><span style=color:#b44>&#39;runtime/default&#39;</span><span style=color:#bbb>
+</span><span style=color:#bbb></span>spec:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>privileged:<span style=color:#bbb> </span><span style=color:#a2f;font-weight:700>false</span><span style=color:#bbb>
+</span><span style=color:#bbb>  </span><span style=color:#080;font-style:italic># Required to prevent escalations to root.</span><span style=color:#bbb>
+</span><span style=color:#bbb>  </span>allowPrivilegeEscalation:<span style=color:#bbb> </span><span style=color:#a2f;font-weight:700>false</span><span style=color:#bbb>
+</span><span style=color:#bbb>  </span><span style=color:#080;font-style:italic># This is redundant with non-root + disallow privilege escalation,</span><span style=color:#bbb>
+</span><span style=color:#bbb>  </span><span style=color:#080;font-style:italic># but we can provide it for defense in depth.</span><span style=color:#bbb>
+</span><span style=color:#bbb>  </span>requiredDropCapabilities:<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>-<span style=color:#bbb> </span>ALL<span style=color:#bbb>
+</span><span style=color:#bbb>  </span><span style=color:#080;font-style:italic># Allow core volume types.</span><span style=color:#bbb>
+</span><span style=color:#bbb>  </span>volumes:<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>-<span style=color:#bbb> </span><span style=color:#b44>&#39;configMap&#39;</span><span style=color:#bbb>
+</span><span style=color:#bbb>    </span>-<span style=color:#bbb> </span><span style=color:#b44>&#39;emptyDir&#39;</span><span style=color:#bbb>
+</span><span style=color:#bbb>    </span>-<span style=color:#bbb> </span><span style=color:#b44>&#39;projected&#39;</span><span style=color:#bbb>
+</span><span style=color:#bbb>    </span>-<span style=color:#bbb> </span><span style=color:#b44>&#39;secret&#39;</span><span style=color:#bbb>
+</span><span style=color:#bbb>    </span>-<span style=color:#bbb> </span><span style=color:#b44>&#39;downwardAPI&#39;</span><span style=color:#bbb>
+</span><span style=color:#bbb>    </span><span style=color:#080;font-style:italic># Assume that persistentVolumes set up by the cluster admin are safe to use.</span><span style=color:#bbb>
+</span><span style=color:#bbb>    </span>-<span style=color:#bbb> </span><span style=color:#b44>&#39;persistentVolumeClaim&#39;</span><span style=color:#bbb>
+</span><span style=color:#bbb>  </span>hostNetwork:<span style=color:#bbb> </span><span style=color:#a2f;font-weight:700>false</span><span style=color:#bbb>
+</span><span style=color:#bbb>  </span>hostIPC:<span style=color:#bbb> </span><span style=color:#a2f;font-weight:700>false</span><span style=color:#bbb>
+</span><span style=color:#bbb>  </span>hostPID:<span style=color:#bbb> </span><span style=color:#a2f;font-weight:700>false</span><span style=color:#bbb>
+</span><span style=color:#bbb>  </span>runAsUser:<span style=color:#bbb>
+</span><span style=color:#bbb>    </span><span style=color:#080;font-style:italic># Require the container to run without root privileges.</span><span style=color:#bbb>
+</span><span style=color:#bbb>    </span>rule:<span style=color:#bbb> </span><span style=color:#b44>&#39;MustRunAsNonRoot&#39;</span><span style=color:#bbb>
+</span><span style=color:#bbb>  </span>seLinux:<span style=color:#bbb>
+</span><span style=color:#bbb>    </span><span style=color:#080;font-style:italic># This policy assumes the nodes are using AppArmor rather than SELinux.</span><span style=color:#bbb>
+</span><span style=color:#bbb>    </span>rule:<span style=color:#bbb> </span><span style=color:#b44>&#39;RunAsAny&#39;</span><span style=color:#bbb>
+</span><span style=color:#bbb>  </span>supplementalGroups:<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>rule:<span style=color:#bbb> </span><span style=color:#b44>&#39;MustRunAs&#39;</span><span style=color:#bbb>
+</span><span style=color:#bbb>    </span>ranges:<span style=color:#bbb>
+</span><span style=color:#bbb>      </span><span style=color:#080;font-style:italic># Forbid adding the root group.</span><span style=color:#bbb>
+</span><span style=color:#bbb>      </span>-<span style=color:#bbb> </span>min:<span style=color:#bbb> </span><span style=color:#666>1</span><span style=color:#bbb>
+</span><span style=color:#bbb>        </span>max:<span style=color:#bbb> </span><span style=color:#666>65535</span><span style=color:#bbb>
+</span><span style=color:#bbb>  </span>fsGroup:<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>rule:<span style=color:#bbb> </span><span style=color:#b44>&#39;MustRunAs&#39;</span><span style=color:#bbb>
+</span><span style=color:#bbb>    </span>ranges:<span style=color:#bbb>
+</span><span style=color:#bbb>      </span><span style=color:#080;font-style:italic># Forbid adding the root group.</span><span style=color:#bbb>
+</span><span style=color:#bbb>      </span>-<span style=color:#bbb> </span>min:<span style=color:#bbb> </span><span style=color:#666>1</span><span style=color:#bbb>
+</span><span style=color:#bbb>        </span>max:<span style=color:#bbb> </span><span style=color:#666>65535</span><span style=color:#bbb>
+</span><span style=color:#bbb>  </span>readOnlyRootFilesystem:<span style=color:#bbb> </span><span style=color:#a2f;font-weight:700>false</span><span style=color:#bbb>
+</span></code></pre></div></td></tr></tbody></table><h2 id=policy-reference>Policy Reference</h2><h3 id=privileged>Privileged</h3><p><strong>Privileged</strong> - determines if any container in a pod can enable privileged mode.
+By default a container is not allowed to access any devices on the host, but a
+&ldquo;privileged&rdquo; container is given access to all devices on the host. This allows
+the container nearly all the same access as processes running on the host.
+This is useful for containers that want to use linux capabilities like
+manipulating the network stack and accessing devices.</p><h3 id=host-namespaces>Host namespaces</h3><p><strong>HostPID</strong> - Controls whether the pod containers can share the host process ID
+namespace. Note that when paired with ptrace this can be used to escalate
+privileges outside of the container (ptrace is forbidden by default).</p><p><strong>HostIPC</strong> - Controls whether the pod containers can share the host IPC
+namespace.</p><p><strong>HostNetwork</strong> - Controls whether the pod may use the node network
+namespace. Doing so gives the pod access to the loopback device, services
+listening on localhost, and could be used to snoop on network activity of other
+pods on the same node.</p><p><strong>HostPorts</strong> - Provides a whitelist of ranges of allowable ports in the host
+network namespace. Defined as a list of <code>HostPortRange</code>, with <code>min</code>(inclusive)
+and <code>max</code>(inclusive). Defaults to no allowed host ports.</p><p><strong>AllowedHostPaths</strong> - See <a href=#volumes-and-file-systems>Volumes and file systems</a>.</p><h3 id=volumes-and-file-systems>Volumes and file systems</h3><p><strong>Volumes</strong> - Provides a whitelist of allowed volume types. The allowable values
+correspond to the volume sources that are defined when creating a volume. For
+the complete list of volume types, see <a href=/docs/concepts/storage/volumes/#types-of-volumes>Types of
+Volumes</a>. Additionally, <code>*</code>
+may be used to allow all volume types.</p><p>The <strong>recommended minimum set</strong> of allowed volumes for new PSPs are:</p><ul><li>configMap</li><li>downwardAPI</li><li>emptyDir</li><li>persistentVolumeClaim</li><li>secret</li><li>projected</li></ul><blockquote class=warning><div><strong>Warning:</strong> PodSecurityPolicy does not limit the types of <code>PersistentVolume</code> objects that may be referenced by a <code>PersistentVolumeClaim</code>.
+Only trusted users should be granted permission to create <code>PersistentVolume</code> objects.</div></blockquote><p><strong>FSGroup</strong> - Controls the supplemental group applied to some volumes.</p><ul><li><em>MustRunAs</em> - Requires at least one <code>range</code> to be specified. Uses the
+minimum value of the first range as the default. Validates against all ranges.</li><li><em>MayRunAs</em> - Requires at least one <code>range</code> to be specified. Allows
+<code>FSGroups</code> to be left unset without providing a default. Validates against
+all ranges if <code>FSGroups</code> is set.</li><li><em>RunAsAny</em> - No default provided. Allows any <code>fsGroup</code> ID to be specified.</li></ul><p><strong>AllowedHostPaths</strong> - This specifies a whitelist of host paths that are allowed
+to be used by hostPath volumes. An empty list means there is no restriction on
+host paths used. This is defined as a list of objects with a single <code>pathPrefix</code>
+field, which allows hostPath volumes to mount a path that begins with an
+allowed prefix, and a <code>readOnly</code> field indicating it must be mounted read-only.
+For example:</p><div class=highlight><pre style=background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml>allowedHostPaths:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span><span style=color:#080;font-style:italic># This allows &#34;/foo&#34;, &#34;/foo/&#34;, &#34;/foo/bar&#34; etc., but</span><span style=color:#bbb>
+</span><span style=color:#bbb>  </span><span style=color:#080;font-style:italic># disallows &#34;/fool&#34;, &#34;/etc/foo&#34; etc.</span><span style=color:#bbb>
+</span><span style=color:#bbb>  </span><span style=color:#080;font-style:italic># &#34;/foo/../&#34; is never valid.</span><span style=color:#bbb>
+</span><span style=color:#bbb>  </span>-<span style=color:#bbb> </span>pathPrefix:<span style=color:#bbb> </span><span style=color:#b44>&#34;/foo&#34;</span><span style=color:#bbb>
+</span><span style=color:#bbb>    </span>readOnly:<span style=color:#bbb> </span><span style=color:#a2f;font-weight:700>true</span><span style=color:#bbb> </span><span style=color:#080;font-style:italic># only allow read-only mounts</span></code></pre></div><blockquote class=warning><div><strong>Warning:</strong><p>There are many ways a container with unrestricted access to the host
+filesystem can escalate privileges, including reading data from other
+containers, and abusing the credentials of system services, such as Kubelet.</p><p>Writeable hostPath directory volumes allow containers to write
+to the filesystem in ways that let them traverse the host filesystem outside the <code>pathPrefix</code>.
+<code>readOnly: true</code>, available in Kubernetes 1.11+, must be used on <strong>all</strong> <code>allowedHostPaths</code>
+to effectively limit access to the specified <code>pathPrefix</code>.</p></div></blockquote><p><strong>ReadOnlyRootFilesystem</strong> - Requires that containers must run with a read-only
+root filesystem (i.e. no writable layer).</p><h3 id=flexvolume-drivers>FlexVolume drivers</h3><p>This specifies a whitelist of FlexVolume drivers that are allowed to be used
+by flexvolume. An empty list or nil means there is no restriction on the drivers.
+Please make sure <a href=#volumes-and-file-systems><code>volumes</code></a> field contains the
+<code>flexVolume</code> volume type; no FlexVolume driver is allowed otherwise.</p><p>For example:</p><div class=highlight><pre style=background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml>apiVersion:<span style=color:#bbb> </span>policy/v1beta1<span style=color:#bbb>
+</span><span style=color:#bbb></span>kind:<span style=color:#bbb> </span>PodSecurityPolicy<span style=color:#bbb>
+</span><span style=color:#bbb></span>metadata:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>name:<span style=color:#bbb> </span>allow-flex-volumes<span style=color:#bbb>
+</span><span style=color:#bbb></span>spec:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span><span style=color:#080;font-style:italic># ... other spec fields</span><span style=color:#bbb>
+</span><span style=color:#bbb>  </span>volumes:<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>-<span style=color:#bbb> </span>flexVolume<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>allowedFlexVolumes:<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>-<span style=color:#bbb> </span>driver:<span style=color:#bbb> </span>example/lvm<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>-<span style=color:#bbb> </span>driver:<span style=color:#bbb> </span>example/cifs</code></pre></div><h3 id=users-and-groups>Users and groups</h3><p><strong>RunAsUser</strong> - Controls which user ID the containers are run with.</p><ul><li><em>MustRunAs</em> - Requires at least one <code>range</code> to be specified. Uses the
+minimum value of the first range as the default. Validates against all ranges.</li><li><em>MustRunAsNonRoot</em> - Requires that the pod be submitted with a non-zero
+<code>runAsUser</code> or have the <code>USER</code> directive defined (using a numeric UID) in the
+image. Pods which have specified neither <code>runAsNonRoot</code> nor <code>runAsUser</code> settings
+will be mutated to set <code>runAsNonRoot=true</code>, thus requiring a defined non-zero
+numeric <code>USER</code> directive in the container. No default provided. Setting
+<code>allowPrivilegeEscalation=false</code> is strongly recommended with this strategy.</li><li><em>RunAsAny</em> - No default provided. Allows any <code>runAsUser</code> to be specified.</li></ul><p><strong>RunAsGroup</strong> - Controls which primary group ID the containers are run with.</p><ul><li><em>MustRunAs</em> - Requires at least one <code>range</code> to be specified. Uses the
+minimum value of the first range as the default. Validates against all ranges.</li><li><em>MayRunAs</em> - Does not require that RunAsGroup be specified. However, when RunAsGroup
+is specified, they have to fall in the defined range.</li><li><em>RunAsAny</em> - No default provided. Allows any <code>runAsGroup</code> to be specified.</li></ul><p><strong>SupplementalGroups</strong> - Controls which group IDs containers add.</p><ul><li><em>MustRunAs</em> - Requires at least one <code>range</code> to be specified. Uses the
+minimum value of the first range as the default. Validates against all ranges.</li><li><em>MayRunAs</em> - Requires at least one <code>range</code> to be specified. Allows
+<code>supplementalGroups</code> to be left unset without providing a default.
+Validates against all ranges if <code>supplementalGroups</code> is set.</li><li><em>RunAsAny</em> - No default provided. Allows any <code>supplementalGroups</code> to be
+specified.</li></ul><h3 id=privilege-escalation>Privilege Escalation</h3><p>These options control the <code>allowPrivilegeEscalation</code> container option. This bool
+directly controls whether the
+<a href=https://www.kernel.org/doc/Documentation/prctl/no_new_privs.txt target=_blank><code>no_new_privs</code></a>
+flag gets set on the container process. This flag will prevent <code>setuid</code> binaries
+from changing the effective user ID, and prevent files from enabling extra
+capabilities (e.g. it will prevent the use of the <code>ping</code> tool). This behavior is
+required to effectively enforce <code>MustRunAsNonRoot</code>.</p><p><strong>AllowPrivilegeEscalation</strong> - Gates whether or not a user is allowed to set the
+security context of a container to <code>allowPrivilegeEscalation=true</code>. This
+defaults to allowed so as to not break setuid binaries. Setting it to <code>false</code>
+ensures that no child process of a container can gain more privileges than its parent.</p><p><strong>DefaultAllowPrivilegeEscalation</strong> - Sets the default for the
+<code>allowPrivilegeEscalation</code> option. The default behavior without this is to allow
+privilege escalation so as to not break setuid binaries. If that behavior is not
+desired, this field can be used to default to disallow, while still permitting
+pods to request <code>allowPrivilegeEscalation</code> explicitly.</p><h3 id=capabilities>Capabilities</h3><p>Linux capabilities provide a finer grained breakdown of the privileges
+traditionally associated with the superuser. Some of these capabilities can be
+used to escalate privileges or for container breakout, and may be restricted by
+the PodSecurityPolicy. For more details on Linux capabilities, see
+<a href=http://man7.org/linux/man-pages/man7/capabilities.7.html target=_blank>capabilities(7)</a>.</p><p>The following fields take a list of capabilities, specified as the capability
+name in ALL_CAPS without the <code>CAP_</code> prefix.</p><p><strong>AllowedCapabilities</strong> - Provides a whitelist of capabilities that may be added
+to a container. The default set of capabilities are implicitly allowed. The
+empty set means that no additional capabilities may be added beyond the default
+set. <code>*</code> can be used to allow all capabilities.</p><p><strong>RequiredDropCapabilities</strong> - The capabilities which must be dropped from
+containers. These capabilities are removed from the default set, and must not be
+added. Capabilities listed in <code>RequiredDropCapabilities</code> must not be included in
+<code>AllowedCapabilities</code> or <code>DefaultAddCapabilities</code>.</p><p><strong>DefaultAddCapabilities</strong> - The capabilities which are added to containers by
+default, in addition to the runtime defaults. See the <a href=https://docs.docker.com/engine/reference/run/#runtime-privilege-and-linux-capabilities target=_blank>Docker
+documentation</a>
+for the default list of capabilities when using the Docker runtime.</p><h3 id=selinux>SELinux</h3><ul><li><em>MustRunAs</em> - Requires <code>seLinuxOptions</code> to be configured. Uses
+<code>seLinuxOptions</code> as the default. Validates against <code>seLinuxOptions</code>.</li><li><em>RunAsAny</em> - No default provided. Allows any <code>seLinuxOptions</code> to be
+specified.</li></ul><h3 id=allowedprocmounttypes>AllowedProcMountTypes</h3><p><code>allowedProcMountTypes</code> is a whitelist of allowed ProcMountTypes.
+Empty or nil indicates that only the <code>DefaultProcMountType</code> may be used.</p><p><code>DefaultProcMount</code> uses the container runtime defaults for readonly and masked
+paths for /proc. Most container runtimes mask certain paths in /proc to avoid
+accidental security exposure of special devices or information. This is denoted
+as the string <code>Default</code>.</p><p>The only other ProcMountType is <code>UnmaskedProcMount</code>, which bypasses the
+default masking behavior of the container runtime and ensures the newly
+created /proc the container stays intact with no modifications. This is
+denoted as the string <code>Unmasked</code>.</p><h3 id=apparmor>AppArmor</h3><p>Controlled via annotations on the PodSecurityPolicy. Refer to the <a href=/docs/tutorials/clusters/apparmor/#podsecuritypolicy-annotations>AppArmor
+documentation</a>.</p><h3 id=seccomp>Seccomp</h3><p>The use of seccomp profiles in pods can be controlled via annotations on the
+PodSecurityPolicy. Seccomp is an alpha feature in Kubernetes.</p><p><strong>seccomp.security.alpha.kubernetes.io/defaultProfileName</strong> - Annotation that
+specifies the default seccomp profile to apply to containers. Possible values
+are:</p><ul><li><code>unconfined</code> - Seccomp is not applied to the container processes (this is the
+default in Kubernetes), if no alternative is provided.</li><li><code>runtime/default</code> - The default container runtime profile is used.</li><li><code>docker/default</code> - The Docker default seccomp profile is used. Deprecated as of
+Kubernetes 1.11. Use <code>runtime/default</code> instead.</li><li><code>localhost/&lt;path&gt;</code> - Specify a profile as a file on the node located at
+<code>&lt;seccomp_root&gt;/&lt;path&gt;</code>, where <code>&lt;seccomp_root&gt;</code> is defined via the
+<code>--seccomp-profile-root</code> flag on the Kubelet.</li></ul><p><strong>seccomp.security.alpha.kubernetes.io/allowedProfileNames</strong> - Annotation that
+specifies which values are allowed for the pod seccomp annotations. Specified as
+a comma-delimited list of allowed values. Possible values are those listed
+above, plus <code>*</code> to allow all profiles. Absence of this annotation means that the
+default cannot be changed.</p><h3 id=sysctl>Sysctl</h3><p>By default, all safe sysctls are allowed.</p><ul><li><code>forbiddenSysctls</code> - excludes specific sysctls. You can forbid a combination of safe and unsafe sysctls in the list. To forbid setting any sysctls, use <code>*</code> on its own.</li><li><code>allowedUnsafeSysctls</code> - allows specific sysctls that had been disallowed by the default list, so long as these are not listed in <code>forbiddenSysctls</code>.</li></ul><p>Refer to the <a href=/docs/concepts/cluster-administration/sysctl-cluster/#podsecuritypolicy>Sysctl documentation</a>.</p><h2>Feedback</h2><p class=feedback--prompt>Was this page helpful?</p><button class="button feedback--yes">Yes</button>
+<button class="button feedback--no">No</button><p class="feedback--response feedback--response__hidden">Thanks for the feedback. If you have a specific, answerable question about how to use Kubernetes, ask it on
+<a target=_blank rel=noopener href=https://stackoverflow.com/questions/tagged/kubernetes>Stack Overflow</a>.
+Open an issue in the GitHub repo if you want to
+<a class=feedback--link target=_blank rel=noopener href="https://github.com/kubernetes/website/issues/new?title=Issue%20with%20k8s.io">report a problem</a>
+or
+<a class=feedback--link target=_blank rel=noopener href="https://github.com/kubernetes/website/issues/new?title=Improvement%20for%20k8s.io">suggest an improvement</a>.</p><script>const yes=document.querySelector('.feedback--yes');const no=document.querySelector('.feedback--no');document.querySelectorAll('.feedback--link').forEach(link=>{link.href=link.href+window.location.pathname;});const sendFeedback=(value)=>{if(!gtag){console.log('!gtag');}
+gtag('event','click',{'event_category':'Helpful','event_label':window.location.pathname,value});};const disableButtons=()=>{yes.disabled=true;yes.classList.add('feedback--button__disabled');no.disabled=true;no.classList.add('feedback--button__disabled');};yes.addEventListener('click',()=>{sendFeedback(1);disableButtons();document.querySelector('.feedback--response').classList.remove('feedback--response__hidden');});no.addEventListener('click',()=>{sendFeedback(0);disableButtons();document.querySelector('.feedback--response').classList.remove('feedback--response__hidden');});</script><div id=pre-footer><hr><div class=issue-button-container><p><a href><img src=https://kubernetes-site.appspot.com/UA-36037335-10/GitHub/docs/concepts/policy/pod-security-policy.md?pixel alt=Analytics></a></p><script type=text/javascript>PDRTJS_settings_8345992={"id":"8345992","unique_id":"\/docs\/concepts\/policy\/pod-security-policy\/","title":"Pod Security Policies","permalink":"https:\/\/kubernetes.io\/docs\/concepts\/policy\/pod-security-policy\/"};(function(d,c,j){if(!document.getElementById(j)){var pd=d.createElement(c),s;pd.id=j;pd.src=('https:'==document.location.protocol)?'https://polldaddy.com/js/rating/rating.js':'http://i0.poll.fm/js/rating/rating.js';s=document.getElementsByTagName(c)[0];s.parentNode.insertBefore(pd,s);}}(document,'script','pd-rating-js'));</script><a href onclick="window.open('https://github.com/kubernetes/website/issues/new?template=bug-report.md&title=Issue%20with%20'+
+'k8s.io'+window.location.pathname)" class="button issue">Create an Issue</a>
+<a href=https://github.com/kubernetes/website/edit/master/content/en/docs/concepts/policy/pod-security-policy.md class="button issue">Edit This Page</a></div><div id=lastedit class="lastedit issue-button-container">Page last modified on September 13, 2019 at 2:42 AM PST by
+<a href=https://github.com/kubernetes/website/commit/b2d803d71eaeec4a7635fdc1fa26850d59d5841a/>Rename `Flexvolume` to `FlexVolume` in docs (#16333)</a> (<a href=https://github.com/kubernetes/website/commits/master/content/en/docs/concepts/policy/pod-security-policy.md>Page History</a>)</div></div></div></section></main><footer><div class="light-text main-section"><nav><a href=/docs/home/>Home</a>
+<a href=/blog/>Blog</a>
+<a href=/partners/>Partners</a>
+<a href=/community/>Community</a>
+<a href=/case-studies/>Case Studies</a></nav><div class=social role=region aria-label="Social hyperlinks"><div><a href=https://twitter.com/kubernetesio class=twitter><span>Twitter</span></a>
+<a href=https://github.com/kubernetes/kubernetes class=github><span>GitHub</span></a>
+<a href=https://slack.k8s.io/ class=slack><span>Slack</span></a></div><div><a href=https://stackoverflow.com/questions/tagged/kubernetes class=stack-overflow><span>Stack Overflow</span></a>
+<a href=https://discuss.kubernetes.io class=mailing-list><span>Forum</span></a>
+<a href="https://calendar.google.com/calendar/embed?src=nt2tcnbtbied3l6gi2h29slvc0%40group.calendar.google.com" class=calendar><span>Events Calendar</span></a></div><div><a href=https://git.k8s.io/community/contributors/guide class=button>Contribute</a></div></div><div class="miceType center">&copy; 2019 The Kubernetes Authors | Documentation Distributed under <a href=https://git.k8s.io/website/LICENSE class=light-text>CC BY 4.0</a></a></div><div class="miceType center">Copyright &copy; 2019 The Linux Foundation &reg;. All rights reserved. The Linux Foundation has registered trademarks and uses trademarks. For a list of trademarks of The Linux Foundation, please see our <a href=https://www.linuxfoundation.org/trademark-usage class=light-text>Trademark Usage page</a></div><div class="miceType center">ICP license: 京ICP备17074266号-3</div></div></footer><button class=flyout-button onclick=kub.toggleToc() aria-label="Toggle table of contents visibility"></button>
+<script>(function(){window.addEventListener('DOMContentLoaded',init)
+function init(){window.removeEventListener('DOMContentLoaded',init)
+hideNav()}
+function hideNav(toc){if(!toc)toc=document.querySelector('#docsToc')
+if(!toc)return
+var container=toc.querySelector('.container')
+if(container){if(container.childElementCount===0||toc.querySelectorAll('a.item').length===1){toc.style.display='none'
+document.getElementById('docsContent').style.width='100%'}}else{requestAnimationFrame(function(){hideNav(toc)})}}})();</script><script language=application/javascript>(function addHeadingLinks(){var article=document.getElementById('docsContent');var headings=article.querySelectorAll('h1, h2, h3, h4, h5, h6');headings.forEach(function(heading){if(heading.id){var a=document.createElement('a');a.innerHTML=heading.innerHTML;a.href='#'+heading.id;a.classList.add('inpage_heading');heading.innerHTML='';heading.appendChild(a);}});})();</script></body></html>

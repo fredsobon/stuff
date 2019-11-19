@@ -1,0 +1,750 @@
+<!doctype html><html id=docs lang=en><head><script async src="https://www.googletagmanager.com/gtag/js?id=UA-36037335-10"></script><script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}
+gtag('js',new Date());gtag('config','UA-36037335-10');</script><meta charset=utf-8><title>Volumes - Kubernetes</title><meta name=viewport content="width=device-width,initial-scale=1"><link rel="shortcut icon" type=image/png href=/images/favicon.png><link rel=stylesheet href=/css/style.55b6352217b8627c14bd768cbee811b2c66d837dc1f3cc71f39ede62bc159b59.css integrity="sha256-VbY1Ihe4YnwUvXaMvugRssZtg33B88xx857eYrwVm1k="><link rel=stylesheet href=/css/base_fonts.css><link rel=stylesheet href=/css/jquery-ui.min.css><link rel=stylesheet href=/css/callouts.css><link rel=stylesheet href=/css/custom-jekyll/tags.css><meta name=description content><meta property=og:description content><meta name=twitter:description content><meta property=og:url content=https://kubernetes.io/docs/concepts/storage/volumes/><meta property=og:title content=Volumes><meta name=twitter:title content=Volumes><meta name=twitter:image content=https://kubernetes.io/images/favicon.png><meta name=twitter:image:alt content=Kubernetes><meta property=og:image content=/images/kubernetes-horizontal-color.png><meta property=og:type content=article><script src=/js/anchor-4.1.1.min.js></script><script src=/js/jquery-3.2.1.min.js></script><script src=/js/jquery-ui-1.12.1.min.js></script><script src=/js/bootstrap-4.3.1.min.js></script><script src=/js/sweetalert-2.1.2.min.js></script><script src=/js/script.js></script><script src=/js/custom-jekyll/tags.js></script></head><body><div id=cellophane onclick=kub.toggleMenu()></div><header><a href=/ class=logo title="Production-Grade Container Orchestration - Kubernetes" aria-label="Kubernetes website"></a><div class=nav-buttons data-auto-burger=primary><ul class=global-nav><li><a href=/docs/ class=active>Documentation</a></li><li><a href=/blog/>Blog</a></li><li><a href=/partners/>Partners</a></li><li><a href=/community/>Community</a></li><li><a href=/case-studies/>Case Studies</a></li><li><a href=#>English <span class="ui-icon ui-icon-carat-1-s"></span></a><ul><li><a href=/zh/docs/concepts/storage/volumes/>中文 Chinese</a></li><li><a href=/fr/docs/concepts/storage/volumes/>Français</a></li><li><a href=/id/docs/concepts/storage/volumes/>Bahasa Indonesia</a></li></ul></li><li><a href=#>v1.16 <span class="ui-icon ui-icon-carat-1-s"></span></a><ul><li><a href=https://kubernetes.io>v1.16</a></li><li><a href=https://v1-15.docs.kubernetes.io>v1.15</a></li><li><a href=https://v1-14.docs.kubernetes.io>v1.14</a></li><li><a href=https://v1-13.docs.kubernetes.io>v1.13</a></li><li><a href=https://v1-12.docs.kubernetes.io>v1.12</a></li></ul></li></ul><a href=/docs/tutorials/kubernetes-basics/ class=button id=tryKubernetes data-auto-burger-exclude>Learn Kubernetes Basics</a>
+<button id=hamburger onclick=kub.toggleMenu() data-auto-burger-exclude><div></div></button></div><nav id=mainNav><div class=main-section data-auto-burger=primary><div class=nav-box><h3><a href=/docs/tutorials/hello-minikube/>Get Started</a></h3><p>Ready to get your hands dirty? Build a simple Kubernetes cluster that runs "Hello World" for Node.js.</p></div><div class=nav-box><h3><a href=/docs/home/>Documentation</a></h3><p>Learn how to use Kubernetes with conceptual, tutorial, and reference documentation. You can even <a href=/editdocs/ data-auto-burger-exclude>help contribute to the docs</a>!</p></div><div class=nav-box><h3><a href=/blog/>Blog</a></h3><p>Read the latest news for Kubernetes and the containers space in general, and get technical how-tos hot off the presses.</p></div></div><div class=main-section data-auto-burger=primary><div class=left><h5 class=github-invite>Interested in hacking on the core Kubernetes code base?</h5><a href=https://github.com/kubernetes/kubernetes class=button data-auto-burger-exclude>View On GitHub</a></div><div class=right><h5 class=github-invite>Explore the community</h5><div class=social><a href=https://twitter.com/kubernetesio class=twitter><span>Twitter</span></a>
+<a href=https://github.com/kubernetes/kubernetes class=github><span>GitHub</span></a>
+<a href=http://slack.k8s.io/ class=slack><span>Slack Slack</span></a>
+<a href=https://stackoverflow.com/questions/tagged/kubernetes class=stack-overflow><span>Stack Overflow</span></a>
+<a href=https://discuss.kubernetes.io class=mailing-list><span>Forum</span></a>
+<a href="https://calendar.google.com/calendar/embed?src=nt2tcnbtbied3l6gi2h29slvc0%40group.calendar.google.com" class=calendar><span>Events Calendar</span></a></div></div><div class=clear style=clear:both></div></div></nav></header><section id=hero class="light-text no-sub"><h1>Concepts</h1><h5></h5><div id=vendorStrip class=light-text><ul><li><a href=/docs/home/>HOME</a></li><li><a href=/docs/setup/>GETTING STARTED</a></li><li><a href=/docs/concepts/ class=YAH>CONCEPTS</a></li><li><a href=/docs/tasks/>TASKS</a></li><li><a href=/docs/tutorials/>TUTORIALS</a></li><li><a href=/docs/reference/>REFERENCE</a></li><li><a href=/docs/contribute/>CONTRIBUTE</a></li></ul><form id=searchBox action=/docs/search/ role=search><input type=text id=search name=q placeholder=Search aria-label=Search></form></div></section><main><section id=encyclopedia><div id=docsToc><div class=pi-accordion><a class=item data-title=Concepts href=/docs/concepts/></a><div class=item data-title=Overview><div class=container><a class=item data-title="What is Kubernetes" href=/docs/concepts/overview/what-is-kubernetes/></a><a class=item data-title="Kubernetes Components" href=/docs/concepts/overview/components/></a><a class=item data-title="The Kubernetes API" href=/docs/concepts/overview/kubernetes-api/></a><div class=item data-title="Working with Kubernetes Objects"><div class=container><a class=item data-title="Understanding Kubernetes Objects" href=/docs/concepts/overview/working-with-objects/kubernetes-objects/></a><a class=item data-title="Kubernetes Object Management" href=/docs/concepts/overview/working-with-objects/object-management/></a><a class=item data-title=Names href=/docs/concepts/overview/working-with-objects/names/></a><a class=item data-title=Namespaces href=/docs/concepts/overview/working-with-objects/namespaces/></a><a class=item data-title="Labels and Selectors" href=/docs/concepts/overview/working-with-objects/labels/></a><a class=item data-title=Annotations href=/docs/concepts/overview/working-with-objects/annotations/></a><a class=item data-title="Field Selectors" href=/docs/concepts/overview/working-with-objects/field-selectors/></a><a class=item data-title="Recommended Labels" href=/docs/concepts/overview/working-with-objects/common-labels/></a></div></div></div></div><div class=item data-title="Cluster Architecture"><div class=container><a class=item data-title=Nodes href=/docs/concepts/architecture/nodes/></a><a class=item data-title="Master-Node Communication" href=/docs/concepts/architecture/master-node-communication/></a><a class=item data-title=Controllers href=/docs/concepts/architecture/controller/></a><a class=item data-title="Concepts Underlying the Cloud Controller Manager" href=/docs/concepts/architecture/cloud-controller/></a></div></div><div class=item data-title=Containers><div class=container><a class=item data-title=Images href=/docs/concepts/containers/images/></a><a class=item data-title="Container Environment Variables" href=/docs/concepts/containers/container-environment-variables/></a><a class=item data-title="Runtime Class" href=/docs/concepts/containers/runtime-class/></a><a class=item data-title="Container Lifecycle Hooks" href=/docs/concepts/containers/container-lifecycle-hooks/></a></div></div><div class=item data-title=Workloads><div class=container><div class=item data-title=Pods><div class=container><a class=item data-title="Pod Overview" href=/docs/concepts/workloads/pods/pod-overview/></a><a class=item data-title=Pods href=/docs/concepts/workloads/pods/pod/></a><a class=item data-title="Pod Lifecycle" href=/docs/concepts/workloads/pods/pod-lifecycle/></a><a class=item data-title="Init Containers" href=/docs/concepts/workloads/pods/init-containers/></a><a class=item data-title="Pod Preset" href=/docs/concepts/workloads/pods/podpreset/></a><a class=item data-title="Pod Topology Spread Constraints" href=/docs/concepts/workloads/pods/pod-topology-spread-constraints/></a><a class=item data-title=Disruptions href=/docs/concepts/workloads/pods/disruptions/></a><a class=item data-title="Ephemeral Containers" href=/docs/concepts/workloads/pods/ephemeral-containers/></a></div></div><div class=item data-title=Controllers><div class=container><a class=item data-title=ReplicaSet href=/docs/concepts/workloads/controllers/replicaset/></a><a class=item data-title=ReplicationController href=/docs/concepts/workloads/controllers/replicationcontroller/></a><a class=item data-title=Deployments href=/docs/concepts/workloads/controllers/deployment/></a><a class=item data-title=StatefulSets href=/docs/concepts/workloads/controllers/statefulset/></a><a class=item data-title=DaemonSet href=/docs/concepts/workloads/controllers/daemonset/></a><a class=item data-title="Garbage Collection" href=/docs/concepts/workloads/controllers/garbage-collection/></a><a class=item data-title="TTL Controller for Finished Resources" href=/docs/concepts/workloads/controllers/ttlafterfinished/></a><a class=item data-title="Jobs - Run to Completion" href=/docs/concepts/workloads/controllers/jobs-run-to-completion/></a><a class=item data-title=CronJob href=/docs/concepts/workloads/controllers/cron-jobs/></a></div></div></div></div><div class=item data-title="Services, Load Balancing, and Networking"><div class=container><a class=item data-title="Endpoint Slices" href=/docs/concepts/services-networking/endpoint-slices/></a><a class=item data-title=Service href=/docs/concepts/services-networking/service/></a><a class=item data-title="DNS for Services and Pods" href=/docs/concepts/services-networking/dns-pod-service/></a><a class=item data-title="Connecting Applications with Services" href=/docs/concepts/services-networking/connect-applications-service/></a><a class=item data-title=Ingress href=/docs/concepts/services-networking/ingress/></a><a class=item data-title="Ingress Controllers" href=/docs/concepts/services-networking/ingress-controllers/></a><a class=item data-title="Network Policies" href=/docs/concepts/services-networking/network-policies/></a><a class=item data-title="Adding entries to Pod /etc/hosts with HostAliases" href=/docs/concepts/services-networking/add-entries-to-pod-etc-hosts-with-host-aliases/></a><a class=item data-title="IPv4/IPv6 dual-stack" href=/docs/concepts/services-networking/dual-stack/></a></div></div><div class=item data-title=Storage><div class=container><a class=item data-title=Volumes href=/docs/concepts/storage/volumes/></a><a class=item data-title="Persistent Volumes" href=/docs/concepts/storage/persistent-volumes/></a><a class=item data-title="Volume Snapshots" href=/docs/concepts/storage/volume-snapshots/></a><a class=item data-title="CSI Volume Cloning" href=/docs/concepts/storage/volume-pvc-datasource/></a><a class=item data-title="Storage Classes" href=/docs/concepts/storage/storage-classes/></a><a class=item data-title="Volume Snapshot Classes" href=/docs/concepts/storage/volume-snapshot-classes/></a><a class=item data-title="Dynamic Volume Provisioning" href=/docs/concepts/storage/dynamic-provisioning/></a><a class=item data-title="Node-specific Volume Limits" href=/docs/concepts/storage/storage-limits/></a></div></div><div class=item data-title=Configuration><div class=container><a class=item data-title="Configuration Best Practices" href=/docs/concepts/configuration/overview/></a><a class=item data-title="Resource Bin Packing for Extended Resources" href=/docs/concepts/configuration/resource-bin-packing/></a><a class=item data-title="Managing Compute Resources for Containers" href=/docs/concepts/configuration/manage-compute-resources-container/></a><a class=item data-title="Pod Overhead" href=/docs/concepts/configuration/pod-overhead/></a><a class=item data-title="Assigning Pods to Nodes" href=/docs/concepts/configuration/assign-pod-node/></a><a class=item data-title="Taints and Tolerations" href=/docs/concepts/configuration/taint-and-toleration/></a><a class=item data-title=Secrets href=/docs/concepts/configuration/secret/></a><a class=item data-title="Organizing Cluster Access Using kubeconfig Files" href=/docs/concepts/configuration/organize-cluster-access-kubeconfig/></a><a class=item data-title="Pod Priority and Preemption" href=/docs/concepts/configuration/pod-priority-preemption/></a><a class=item data-title="Scheduling Framework" href=/docs/concepts/configuration/scheduling-framework/></a></div></div><div class=item data-title=Security><div class=container><a class=item data-title="Overview of Cloud Native Security" href=/docs/concepts/security/overview/></a></div></div><div class=item data-title=Policies><div class=container><a class=item data-title="Limit Ranges" href=/docs/concepts/policy/limit-range/></a><a class=item data-title="Resource Quotas" href=/docs/concepts/policy/resource-quotas/></a><a class=item data-title="Pod Security Policies" href=/docs/concepts/policy/pod-security-policy/></a></div></div><div class=item data-title=Scheduling><div class=container><a class=item data-title="Kubernetes Scheduler" href=/docs/concepts/scheduling/kube-scheduler/></a><a class=item data-title="Scheduler Performance Tuning" href=/docs/concepts/scheduling/scheduler-perf-tuning/></a></div></div><div class=item data-title="Cluster Administration"><div class=container><a class=item data-title="Cluster Administration Overview" href=/docs/concepts/cluster-administration/cluster-administration-overview/></a><a class=item data-title=Certificates href=/docs/concepts/cluster-administration/certificates/></a><a class=item data-title="Cloud Providers" href=/docs/concepts/cluster-administration/cloud-providers/></a><a class=item data-title="Managing Resources" href=/docs/concepts/cluster-administration/manage-deployment/></a><a class=item data-title="Cluster Networking" href=/docs/concepts/cluster-administration/networking/></a><a class=item data-title="Logging Architecture" href=/docs/concepts/cluster-administration/logging/></a><a class=item data-title="Configuring kubelet Garbage Collection" href=/docs/concepts/cluster-administration/kubelet-garbage-collection/></a><a class=item data-title=Federation href=/docs/concepts/cluster-administration/federation/></a><a class=item data-title="Proxies in Kubernetes" href=/docs/concepts/cluster-administration/proxies/></a><a class=item data-title="Controller manager metrics" href=/docs/concepts/cluster-administration/controller-metrics/></a><a class=item data-title="Installing Addons" href=/docs/concepts/cluster-administration/addons/></a></div></div><div class=item data-title="Extending Kubernetes"><div class=container><a class=item data-title="Extending your Kubernetes Cluster" href=/docs/concepts/extend-kubernetes/extend-cluster/></a><div class=item data-title="Extending the Kubernetes API"><div class=container><a class=item data-title="Extending the Kubernetes API with the aggregation layer" href=/docs/concepts/extend-kubernetes/api-extension/apiserver-aggregation/></a><a class=item data-title="Custom Resources" href=/docs/concepts/extend-kubernetes/api-extension/custom-resources/></a></div></div><div class=item data-title="Compute, Storage, and Networking Extensions"><div class=container><a class=item data-title="Network Plugins" href=/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/></a><a class=item data-title="Device Plugins" href=/docs/concepts/extend-kubernetes/compute-storage-net/device-plugins/></a></div></div><a class=item data-title="Operator pattern" href=/docs/concepts/extend-kubernetes/operator/></a><a class=item data-title="Service Catalog" href=/docs/concepts/extend-kubernetes/service-catalog/></a><a class=item data-title="Poseidon-Firmament - An alternate scheduler" href=/docs/concepts/extend-kubernetes/poseidon-firmament-alternate-scheduler/></a></div></div></div><button class=push-menu-close-button onclick=kub.toggleToc()></button></div><div id=docsContent><p><a href=https://github.com/kubernetes/website/edit/master/content/en/docs/concepts/storage/volumes.md id=editPageButton target=_blank>Edit This Page</a></p><h1>Volumes</h1><p>On-disk files in a Container are ephemeral, which presents some problems for
+non-trivial applications when running in Containers. First, when a Container
+crashes, kubelet will restart it, but the files will be lost - the
+Container starts with a clean state. Second, when running Containers together
+in a <code>Pod</code> it is often necessary to share files between those Containers. The
+Kubernetes <code>Volume</code> abstraction solves both of these problems.</p><p>Familiarity with <a href=/docs/user-guide/pods>Pods</a> is suggested.</p><ul id=markdown-toc><li><a href=#background>Background</a></li><li><a href=#types-of-volumes>Types of Volumes</a></li><li><a href=#using-subpath>Using subPath</a></li><li><a href=#resources>Resources</a></li><li><a href=#out-of-tree-volume-plugins>Out-of-Tree Volume Plugins</a></li><li><a href=#mount-propagation>Mount propagation</a></li><li><a href=#what-s-next>What's next</a></li></ul><h2 id=background>Background</h2><p>Docker also has a concept of
+<a href=https://docs.docker.com/engine/admin/volumes/ target=_blank>volumes</a>, though it is
+somewhat looser and less managed. In Docker, a volume is simply a directory on
+disk or in another Container. Lifetimes are not managed and until very
+recently there were only local-disk-backed volumes. Docker now provides volume
+drivers, but the functionality is very limited for now (e.g. as of Docker 1.7
+only one volume driver is allowed per Container and there is no way to pass
+parameters to volumes).</p><p>A Kubernetes volume, on the other hand, has an explicit lifetime - the same as
+the Pod that encloses it. Consequently, a volume outlives any Containers that run
+within the Pod, and data is preserved across Container restarts. Of course, when a
+Pod ceases to exist, the volume will cease to exist, too. Perhaps more
+importantly than this, Kubernetes supports many types of volumes, and a Pod can
+use any number of them simultaneously.</p><p>At its core, a volume is just a directory, possibly with some data in it, which
+is accessible to the Containers in a Pod. How that directory comes to be, the
+medium that backs it, and the contents of it are determined by the particular
+volume type used.</p><p>To use a volume, a Pod specifies what volumes to provide for the Pod (the
+<code>.spec.volumes</code>
+field) and where to mount those into Containers (the
+<code>.spec.containers[*].volumeMounts</code>
+field).</p><p>A process in a container sees a filesystem view composed from their Docker
+image and volumes. The <a href=https://docs.docker.com/userguide/dockerimages/ target=_blank>Docker
+image</a> is at the root of the
+filesystem hierarchy, and any volumes are mounted at the specified paths within
+the image. Volumes can not mount onto other volumes or have hard links to
+other volumes. Each Container in the Pod must independently specify where to
+mount each volume.</p><h2 id=types-of-volumes>Types of Volumes</h2><p>Kubernetes supports several types of Volumes:</p><ul><li><a href=#awselasticblockstore>awsElasticBlockStore</a></li><li><a href=#azuredisk>azureDisk</a></li><li><a href=#azurefile>azureFile</a></li><li><a href=#cephfs>cephfs</a></li><li><a href=#cinder>cinder</a></li><li><a href=#configmap>configMap</a></li><li><a href=#csi>csi</a></li><li><a href=#downwardapi>downwardAPI</a></li><li><a href=#emptydir>emptyDir</a></li><li><a href=#fc>fc (fibre channel)</a></li><li><a href=#flexVolume>flexVolume</a></li><li><a href=#flocker>flocker</a></li><li><a href=#gcepersistentdisk>gcePersistentDisk</a></li><li><a href=#gitrepo>gitRepo (deprecated)</a></li><li><a href=#glusterfs>glusterfs</a></li><li><a href=#hostpath>hostPath</a></li><li><a href=#iscsi>iscsi</a></li><li><a href=#local>local</a></li><li><a href=#nfs>nfs</a></li><li><a href=#persistentvolumeclaim>persistentVolumeClaim</a></li><li><a href=#projected>projected</a></li><li><a href=#portworxvolume>portworxVolume</a></li><li><a href=#quobyte>quobyte</a></li><li><a href=#rbd>rbd</a></li><li><a href=#scaleio>scaleIO</a></li><li><a href=#secret>secret</a></li><li><a href=#storageos>storageos</a></li><li><a href=#vspherevolume>vsphereVolume</a></li></ul><p>We welcome additional contributions.</p><h3 id=awselasticblockstore>awsElasticBlockStore</h3><p>An <code>awsElasticBlockStore</code> volume mounts an Amazon Web Services (AWS) <a href=http://aws.amazon.com/ebs/ target=_blank>EBS
+Volume</a> into your Pod. Unlike
+<code>emptyDir</code>, which is erased when a Pod is removed, the contents of an EBS
+volume are preserved and the volume is merely unmounted. This means that an
+EBS volume can be pre-populated with data, and that data can be &ldquo;handed off&rdquo;
+between Pods.</p><blockquote class=caution><div><strong>Caution:</strong> You must create an EBS volume using <code>aws ec2 create-volume</code> or the AWS API before you can use it.</div></blockquote><p>There are some restrictions when using an <code>awsElasticBlockStore</code> volume:</p><ul><li>the nodes on which Pods are running must be AWS EC2 instances</li><li>those instances need to be in the same region and availability-zone as the EBS volume</li><li>EBS only supports a single EC2 instance mounting a volume</li></ul><h4 id=creating-an-ebs-volume>Creating an EBS volume</h4><p>Before you can use an EBS volume with a Pod, you need to create it.</p><div class=highlight><pre style=background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell>aws ec2 create-volume --availability-zone<span style=color:#666>=</span>eu-west-1a --size<span style=color:#666>=</span><span style=color:#666>10</span> --volume-type<span style=color:#666>=</span>gp2</code></pre></div><p>Make sure the zone matches the zone you brought up your cluster in. (And also check that the size and EBS volume
+type are suitable for your use!)</p><h4 id=aws-ebs-example-configuration>AWS EBS Example configuration</h4><div class=highlight><pre style=background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml>apiVersion:<span style=color:#bbb> </span>v1<span style=color:#bbb>
+</span><span style=color:#bbb></span>kind:<span style=color:#bbb> </span>Pod<span style=color:#bbb>
+</span><span style=color:#bbb></span>metadata:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>name:<span style=color:#bbb> </span>test-ebs<span style=color:#bbb>
+</span><span style=color:#bbb></span>spec:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>containers:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>-<span style=color:#bbb> </span>image:<span style=color:#bbb> </span>k8s.gcr.io/test-webserver<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>name:<span style=color:#bbb> </span>test-container<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>volumeMounts:<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>-<span style=color:#bbb> </span>mountPath:<span style=color:#bbb> </span>/test-ebs<span style=color:#bbb>
+</span><span style=color:#bbb>      </span>name:<span style=color:#bbb> </span>test-volume<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>volumes:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>-<span style=color:#bbb> </span>name:<span style=color:#bbb> </span>test-volume<span style=color:#bbb>
+</span><span style=color:#bbb>    </span><span style=color:#080;font-style:italic># This AWS EBS volume must already exist.</span><span style=color:#bbb>
+</span><span style=color:#bbb>    </span>awsElasticBlockStore:<span style=color:#bbb>
+</span><span style=color:#bbb>      </span>volumeID:<span style=color:#bbb> </span>&lt;volume-id<span style=color:#b44;font-style:italic>&gt;
+</span><span style=color:#b44;font-style:italic>      fsType: ext4</span></code></pre></div><h4 id=csi-migration>CSI Migration</h4><div style=margin-top:10px;margin-bottom:10px><b>FEATURE STATE:</b> <code>Kubernetes v1.14</code>
+<a href=# id=feature-state-dialog-link class="ui-state-default ui-corner-all"><span class="ui-icon ui-icon-newwin"></span>alpha</a><div id=feature-state-dialog class=ui-dialog-content title=alpha>This feature is currently in a <em>alpha</em> state, meaning:</p><ul><li>The version names contain alpha (e.g. v1alpha1).</li><li>Might be buggy. Enabling the feature may expose bugs. Disabled by default.</li><li>Support for feature may be dropped at any time without notice.</li><li>The API may change in incompatible ways in a later software release without notice.</li><li>Recommended for use only in short-lived testing clusters, due to increased risk of bugs and lack of long-term support.</li></ul></div><script>$(function(){$("#feature-state-dialog").dialog({autoOpen:false,width:"600",buttons:[{text:"Ok",click:function(){$(this).dialog("close");}}]});$("#feature-state-dialog-link").click(function(event){$("#feature-state-dialog").dialog("open");event.preventDefault();});});</script></div><p>The CSI Migration feature for awsElasticBlockStore, when enabled, shims all plugin operations
+from the existing in-tree plugin to the <code>ebs.csi.aws.com</code> Container
+Storage Interface (CSI) Driver. In order to use this feature, the <a href=https://github.com/kubernetes-sigs/aws-ebs-csi-driver target=_blank>AWS EBS CSI
+Driver</a>
+must be installed on the cluster and the <code>CSIMigration</code> and <code>CSIMigrationAWS</code>
+Alpha features must be enabled.</p><h3 id=azuredisk>azureDisk</h3><p>A <code>azureDisk</code> is used to mount a Microsoft Azure <a href=https://azure.microsoft.com/en-us/documentation/articles/virtual-machines-linux-about-disks-vhds/ target=_blank>Data Disk</a> into a Pod.</p><p>More details can be found <a href=https://github.com/kubernetes/examples/tree/master/staging/volumes/azure_disk/README.md target=_blank>here</a>.</p><h4 id=csi-migration-1>CSI Migration</h4><div style=margin-top:10px;margin-bottom:10px><b>FEATURE STATE:</b> <code>Kubernetes v1.15</code>
+<a href=# id=feature-state-dialog-link class="ui-state-default ui-corner-all"><span class="ui-icon ui-icon-newwin"></span>alpha</a><div id=feature-state-dialog class=ui-dialog-content title=alpha>This feature is currently in a <em>alpha</em> state, meaning:</p><ul><li>The version names contain alpha (e.g. v1alpha1).</li><li>Might be buggy. Enabling the feature may expose bugs. Disabled by default.</li><li>Support for feature may be dropped at any time without notice.</li><li>The API may change in incompatible ways in a later software release without notice.</li><li>Recommended for use only in short-lived testing clusters, due to increased risk of bugs and lack of long-term support.</li></ul></div><script>$(function(){$("#feature-state-dialog").dialog({autoOpen:false,width:"600",buttons:[{text:"Ok",click:function(){$(this).dialog("close");}}]});$("#feature-state-dialog-link").click(function(event){$("#feature-state-dialog").dialog("open");event.preventDefault();});});</script></div><p>The CSI Migration feature for azureDisk, when enabled, shims all plugin operations
+from the existing in-tree plugin to the <code>disk.csi.azure.com</code> Container
+Storage Interface (CSI) Driver. In order to use this feature, the <a href=https://github.com/kubernetes-sigs/azuredisk-csi-driver target=_blank>Azure Disk CSI
+Driver</a>
+must be installed on the cluster and the <code>CSIMigration</code> and <code>CSIMigrationAzureDisk</code>
+Alpha features must be enabled.</p><h3 id=azurefile>azureFile</h3><p>A <code>azureFile</code> is used to mount a Microsoft Azure File Volume (SMB 2.1 and 3.0)
+into a Pod.</p><p>More details can be found <a href=https://github.com/kubernetes/examples/tree/master/staging/volumes/azure_file/README.md target=_blank>here</a>.</p><h4 id=csi-migration-2>CSI Migration</h4><div style=margin-top:10px;margin-bottom:10px><b>FEATURE STATE:</b> <code>Kubernetes v1.15</code>
+<a href=# id=feature-state-dialog-link class="ui-state-default ui-corner-all"><span class="ui-icon ui-icon-newwin"></span>alpha</a><div id=feature-state-dialog class=ui-dialog-content title=alpha>This feature is currently in a <em>alpha</em> state, meaning:</p><ul><li>The version names contain alpha (e.g. v1alpha1).</li><li>Might be buggy. Enabling the feature may expose bugs. Disabled by default.</li><li>Support for feature may be dropped at any time without notice.</li><li>The API may change in incompatible ways in a later software release without notice.</li><li>Recommended for use only in short-lived testing clusters, due to increased risk of bugs and lack of long-term support.</li></ul></div><script>$(function(){$("#feature-state-dialog").dialog({autoOpen:false,width:"600",buttons:[{text:"Ok",click:function(){$(this).dialog("close");}}]});$("#feature-state-dialog-link").click(function(event){$("#feature-state-dialog").dialog("open");event.preventDefault();});});</script></div><p>The CSI Migration feature for azureFile, when enabled, shims all plugin operations
+from the existing in-tree plugin to the <code>file.csi.azure.com</code> Container
+Storage Interface (CSI) Driver. In order to use this feature, the <a href=https://github.com/kubernetes-sigs/azurefile-csi-driver target=_blank>Azure File CSI
+Driver</a>
+must be installed on the cluster and the <code>CSIMigration</code> and <code>CSIMigrationAzureFile</code>
+Alpha features must be enabled.</p><h3 id=cephfs>cephfs</h3><p>A <code>cephfs</code> volume allows an existing CephFS volume to be
+mounted into your Pod. Unlike <code>emptyDir</code>, which is erased when a Pod is
+removed, the contents of a <code>cephfs</code> volume are preserved and the volume is merely
+unmounted. This means that a CephFS volume can be pre-populated with data, and
+that data can be &ldquo;handed off&rdquo; between Pods. CephFS can be mounted by multiple
+writers simultaneously.</p><blockquote class=caution><div><strong>Caution:</strong> You must have your own Ceph server running with the share exported before you can use it.</div></blockquote><p>See the <a href=https://github.com/kubernetes/examples/tree/master/volumes/cephfs/ target=_blank>CephFS example</a> for more details.</p><h3 id=cinder>cinder</h3><blockquote class=note><div><strong>Note:</strong> Prerequisite: Kubernetes with OpenStack Cloud Provider configured. For cloudprovider
+configuration please refer <a href=/docs/concepts/cluster-administration/cloud-providers/#openstack>cloud provider openstack</a>.</div></blockquote><p><code>cinder</code> is used to mount OpenStack Cinder Volume into your Pod.</p><h4 id=cinder-volume-example-configuration>Cinder Volume Example configuration</h4><div class=highlight><pre style=background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml>apiVersion:<span style=color:#bbb> </span>v1<span style=color:#bbb>
+</span><span style=color:#bbb></span>kind:<span style=color:#bbb> </span>Pod<span style=color:#bbb>
+</span><span style=color:#bbb></span>metadata:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>name:<span style=color:#bbb> </span>test-cinder<span style=color:#bbb>
+</span><span style=color:#bbb></span>spec:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>containers:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>-<span style=color:#bbb> </span>image:<span style=color:#bbb> </span>k8s.gcr.io/test-webserver<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>name:<span style=color:#bbb> </span>test-cinder-container<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>volumeMounts:<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>-<span style=color:#bbb> </span>mountPath:<span style=color:#bbb> </span>/test-cinder<span style=color:#bbb>
+</span><span style=color:#bbb>      </span>name:<span style=color:#bbb> </span>test-volume<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>volumes:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>-<span style=color:#bbb> </span>name:<span style=color:#bbb> </span>test-volume<span style=color:#bbb>
+</span><span style=color:#bbb>    </span><span style=color:#080;font-style:italic># This OpenStack volume must already exist.</span><span style=color:#bbb>
+</span><span style=color:#bbb>    </span>cinder:<span style=color:#bbb>
+</span><span style=color:#bbb>      </span>volumeID:<span style=color:#bbb> </span>&lt;volume-id<span style=color:#b44;font-style:italic>&gt;
+</span><span style=color:#b44;font-style:italic>      fsType: ext4</span></code></pre></div><h4 id=csi-migration-3>CSI Migration</h4><div style=margin-top:10px;margin-bottom:10px><b>FEATURE STATE:</b> <code>Kubernetes v1.14</code>
+<a href=# id=feature-state-dialog-link class="ui-state-default ui-corner-all"><span class="ui-icon ui-icon-newwin"></span>alpha</a><div id=feature-state-dialog class=ui-dialog-content title=alpha>This feature is currently in a <em>alpha</em> state, meaning:</p><ul><li>The version names contain alpha (e.g. v1alpha1).</li><li>Might be buggy. Enabling the feature may expose bugs. Disabled by default.</li><li>Support for feature may be dropped at any time without notice.</li><li>The API may change in incompatible ways in a later software release without notice.</li><li>Recommended for use only in short-lived testing clusters, due to increased risk of bugs and lack of long-term support.</li></ul></div><script>$(function(){$("#feature-state-dialog").dialog({autoOpen:false,width:"600",buttons:[{text:"Ok",click:function(){$(this).dialog("close");}}]});$("#feature-state-dialog-link").click(function(event){$("#feature-state-dialog").dialog("open");event.preventDefault();});});</script></div><p>The CSI Migration feature for Cinder, when enabled, shims all plugin operations
+from the existing in-tree plugin to the <code>cinder.csi.openstack.org</code> Container
+Storage Interface (CSI) Driver. In order to use this feature, the <a href=https://github.com/kubernetes/cloud-provider-openstack/blob/master/docs/using-cinder-csi-plugin.md target=_blank>Openstack Cinder CSI
+Driver</a>
+must be installed on the cluster and the <code>CSIMigration</code> and <code>CSIMigrationOpenStack</code>
+Alpha features must be enabled.</p><h3 id=configmap>configMap</h3><p>The <a href=/docs/tasks/configure-pod-container/configure-pod-configmap/><code>configMap</code></a> resource
+provides a way to inject configuration data into Pods.
+The data stored in a <code>ConfigMap</code> object can be referenced in a volume of type
+<code>configMap</code> and then consumed by containerized applications running in a Pod.</p><p>When referencing a <code>configMap</code> object, you can simply provide its name in the
+volume to reference it. You can also customize the path to use for a specific
+entry in the ConfigMap.
+For example, to mount the <code>log-config</code> ConfigMap onto a Pod called <code>configmap-pod</code>,
+you might use the YAML below:</p><div class=highlight><pre style=background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml>apiVersion:<span style=color:#bbb> </span>v1<span style=color:#bbb>
+</span><span style=color:#bbb></span>kind:<span style=color:#bbb> </span>Pod<span style=color:#bbb>
+</span><span style=color:#bbb></span>metadata:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>name:<span style=color:#bbb> </span>configmap-pod<span style=color:#bbb>
+</span><span style=color:#bbb></span>spec:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>containers:<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>-<span style=color:#bbb> </span>name:<span style=color:#bbb> </span>test<span style=color:#bbb>
+</span><span style=color:#bbb>      </span>image:<span style=color:#bbb> </span>busybox<span style=color:#bbb>
+</span><span style=color:#bbb>      </span>volumeMounts:<span style=color:#bbb>
+</span><span style=color:#bbb>        </span>-<span style=color:#bbb> </span>name:<span style=color:#bbb> </span>config-vol<span style=color:#bbb>
+</span><span style=color:#bbb>          </span>mountPath:<span style=color:#bbb> </span>/etc/config<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>volumes:<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>-<span style=color:#bbb> </span>name:<span style=color:#bbb> </span>config-vol<span style=color:#bbb>
+</span><span style=color:#bbb>      </span>configMap:<span style=color:#bbb>
+</span><span style=color:#bbb>        </span>name:<span style=color:#bbb> </span>log-config<span style=color:#bbb>
+</span><span style=color:#bbb>        </span>items:<span style=color:#bbb>
+</span><span style=color:#bbb>          </span>-<span style=color:#bbb> </span>key:<span style=color:#bbb> </span>log_level<span style=color:#bbb>
+</span><span style=color:#bbb>            </span>path:<span style=color:#bbb> </span>log_level</code></pre></div><p>The <code>log-config</code> ConfigMap is mounted as a volume, and all contents stored in
+its <code>log_level</code> entry are mounted into the Pod at path &ldquo;<code>/etc/config/log_level</code>&rdquo;.
+Note that this path is derived from the volume&rsquo;s <code>mountPath</code> and the <code>path</code>
+keyed with <code>log_level</code>.</p><blockquote class=caution><div><strong>Caution:</strong> You must create a <a href=/docs/tasks/configure-pod-container/configure-pod-configmap/>ConfigMap</a> before you can use it.</div></blockquote><blockquote class=note><div><strong>Note:</strong> A Container using a ConfigMap as a <a href=#using-subpath>subPath</a> volume mount will not
+receive ConfigMap updates.</div></blockquote><h3 id=downwardapi>downwardAPI</h3><p>A <code>downwardAPI</code> volume is used to make downward API data available to applications.
+It mounts a directory and writes the requested data in plain text files.</p><blockquote class=note><div><strong>Note:</strong> A Container using Downward API as a <a href=#using-subpath>subPath</a> volume mount will not
+receive Downward API updates.</div></blockquote><p>See the <a href=/docs/tasks/inject-data-application/downward-api-volume-expose-pod-information/><code>downwardAPI</code> volume example</a> for more details.</p><h3 id=emptydir>emptyDir</h3><p>An <code>emptyDir</code> volume is first created when a Pod is assigned to a Node, and
+exists as long as that Pod is running on that node. As the name says, it is
+initially empty. Containers in the Pod can all read and write the same
+files in the <code>emptyDir</code> volume, though that volume can be mounted at the same
+or different paths in each Container. When a Pod is removed from a node for
+any reason, the data in the <code>emptyDir</code> is deleted forever.</p><blockquote class=note><div><strong>Note:</strong> A Container crashing does <em>NOT</em> remove a Pod from a node, so the data in an <code>emptyDir</code> volume is safe across Container crashes.</div></blockquote><p>Some uses for an <code>emptyDir</code> are:</p><ul><li>scratch space, such as for a disk-based merge sort</li><li>checkpointing a long computation for recovery from crashes</li><li>holding files that a content-manager Container fetches while a webserver
+Container serves the data</li></ul><p>By default, <code>emptyDir</code> volumes are stored on whatever medium is backing the
+node - that might be disk or SSD or network storage, depending on your
+environment. However, you can set the <code>emptyDir.medium</code> field to <code>&quot;Memory&quot;</code>
+to tell Kubernetes to mount a tmpfs (RAM-backed filesystem) for you instead.
+While tmpfs is very fast, be aware that unlike disks, tmpfs is cleared on
+node reboot and any files you write will count against your Container&rsquo;s
+memory limit.</p><h4 id=example-pod>Example Pod</h4><div class=highlight><pre style=background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml>apiVersion:<span style=color:#bbb> </span>v1<span style=color:#bbb>
+</span><span style=color:#bbb></span>kind:<span style=color:#bbb> </span>Pod<span style=color:#bbb>
+</span><span style=color:#bbb></span>metadata:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>name:<span style=color:#bbb> </span>test-pd<span style=color:#bbb>
+</span><span style=color:#bbb></span>spec:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>containers:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>-<span style=color:#bbb> </span>image:<span style=color:#bbb> </span>k8s.gcr.io/test-webserver<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>name:<span style=color:#bbb> </span>test-container<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>volumeMounts:<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>-<span style=color:#bbb> </span>mountPath:<span style=color:#bbb> </span>/cache<span style=color:#bbb>
+</span><span style=color:#bbb>      </span>name:<span style=color:#bbb> </span>cache-volume<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>volumes:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>-<span style=color:#bbb> </span>name:<span style=color:#bbb> </span>cache-volume<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>emptyDir:<span style=color:#bbb> </span>{}</code></pre></div><h3 id=fc>fc (fibre channel)</h3><p>An <code>fc</code> volume allows an existing fibre channel volume to be mounted in a Pod.
+You can specify single or multiple target World Wide Names using the parameter
+<code>targetWWNs</code> in your volume configuration. If multiple WWNs are specified,
+targetWWNs expect that those WWNs are from multi-path connections.</p><blockquote class=caution><div><strong>Caution:</strong> You must configure FC SAN Zoning to allocate and mask those LUNs (volumes) to the target WWNs beforehand so that Kubernetes hosts can access them.</div></blockquote><p>See the <a href=https://github.com/kubernetes/examples/tree/master/staging/volumes/fibre_channel target=_blank>FC example</a> for more details.</p><h3 id=flocker>flocker</h3><p><a href=https://github.com/ClusterHQ/flocker target=_blank>Flocker</a> is an open-source clustered Container data volume manager. It provides management
+and orchestration of data volumes backed by a variety of storage backends.</p><p>A <code>flocker</code> volume allows a Flocker dataset to be mounted into a Pod. If the
+dataset does not already exist in Flocker, it needs to be first created with the Flocker
+CLI or by using the Flocker API. If the dataset already exists it will be
+reattached by Flocker to the node that the Pod is scheduled. This means data
+can be &ldquo;handed off&rdquo; between Pods as required.</p><blockquote class=caution><div><strong>Caution:</strong> You must have your own Flocker installation running before you can use it.</div></blockquote><p>See the <a href=https://github.com/kubernetes/examples/tree/master/staging/volumes/flocker target=_blank>Flocker example</a> for more details.</p><h3 id=gcepersistentdisk>gcePersistentDisk</h3><p>A <code>gcePersistentDisk</code> volume mounts a Google Compute Engine (GCE) <a href=http://cloud.google.com/compute/docs/disks target=_blank>Persistent
+Disk</a> into your Pod. Unlike
+<code>emptyDir</code>, which is erased when a Pod is removed, the contents of a PD are
+preserved and the volume is merely unmounted. This means that a PD can be
+pre-populated with data, and that data can be &ldquo;handed off&rdquo; between Pods.</p><blockquote class=caution><div><strong>Caution:</strong> You must create a PD using <code>gcloud</code> or the GCE API or UI before you can use it.</div></blockquote><p>There are some restrictions when using a <code>gcePersistentDisk</code>:</p><ul><li>the nodes on which Pods are running must be GCE VMs</li><li>those VMs need to be in the same GCE project and zone as the PD</li></ul><p>A feature of PD is that they can be mounted as read-only by multiple consumers
+simultaneously. This means that you can pre-populate a PD with your dataset
+and then serve it in parallel from as many Pods as you need. Unfortunately,
+PDs can only be mounted by a single consumer in read-write mode - no
+simultaneous writers allowed.</p><p>Using a PD on a Pod controlled by a ReplicationController will fail unless
+the PD is read-only or the replica count is 0 or 1.</p><h4 id=creating-a-pd>Creating a PD</h4><p>Before you can use a GCE PD with a Pod, you need to create it.</p><div class=highlight><pre style=background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell>gcloud compute disks create --size<span style=color:#666>=</span>500GB --zone<span style=color:#666>=</span>us-central1-a my-data-disk</code></pre></div><h4 id=example-pod-1>Example Pod</h4><div class=highlight><pre style=background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml>apiVersion:<span style=color:#bbb> </span>v1<span style=color:#bbb>
+</span><span style=color:#bbb></span>kind:<span style=color:#bbb> </span>Pod<span style=color:#bbb>
+</span><span style=color:#bbb></span>metadata:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>name:<span style=color:#bbb> </span>test-pd<span style=color:#bbb>
+</span><span style=color:#bbb></span>spec:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>containers:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>-<span style=color:#bbb> </span>image:<span style=color:#bbb> </span>k8s.gcr.io/test-webserver<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>name:<span style=color:#bbb> </span>test-container<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>volumeMounts:<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>-<span style=color:#bbb> </span>mountPath:<span style=color:#bbb> </span>/test-pd<span style=color:#bbb>
+</span><span style=color:#bbb>      </span>name:<span style=color:#bbb> </span>test-volume<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>volumes:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>-<span style=color:#bbb> </span>name:<span style=color:#bbb> </span>test-volume<span style=color:#bbb>
+</span><span style=color:#bbb>    </span><span style=color:#080;font-style:italic># This GCE PD must already exist.</span><span style=color:#bbb>
+</span><span style=color:#bbb>    </span>gcePersistentDisk:<span style=color:#bbb>
+</span><span style=color:#bbb>      </span>pdName:<span style=color:#bbb> </span>my-data-disk<span style=color:#bbb>
+</span><span style=color:#bbb>      </span>fsType:<span style=color:#bbb> </span>ext4</code></pre></div><h4 id=regional-persistent-disks>Regional Persistent Disks</h4><div style=margin-top:10px;margin-bottom:10px><b>FEATURE STATE:</b> <code>Kubernetes v1.10</code>
+<a href=# id=feature-state-dialog-link class="ui-state-default ui-corner-all"><span class="ui-icon ui-icon-newwin"></span>beta</a><div id=feature-state-dialog class=ui-dialog-content title=beta>This feature is currently in a <em>beta</em> state, meaning:</p><ul><li>The version names contain beta (e.g. v2beta3).</li><li>Code is well tested. Enabling the feature is considered safe. Enabled by default.</li><li>Support for the overall feature will not be dropped, though details may change.</li><li>The schema and/or semantics of objects may change in incompatible ways in a subsequent beta or stable release. When this happens, we will provide instructions for migrating to the next version. This may require deleting, editing, and re-creating API objects. The editing process may require some thought. This may require downtime for applications that rely on the feature.</li><li>Recommended for only non-business-critical uses because of potential for incompatible changes in subsequent releases. If you have multiple clusters that can be upgraded independently, you may be able to relax this restriction.</li><li><strong>Please do try our beta features and give feedback on them! After they exit beta, it may not be practical for us to make more changes.</strong></li></ul></div><script>$(function(){$("#feature-state-dialog").dialog({autoOpen:false,width:"600",buttons:[{text:"Ok",click:function(){$(this).dialog("close");}}]});$("#feature-state-dialog-link").click(function(event){$("#feature-state-dialog").dialog("open");event.preventDefault();});});</script></div><p>The <a href=https://cloud.google.com/compute/docs/disks/#repds target=_blank>Regional Persistent Disks</a> feature allows the creation of Persistent Disks that are available in two zones within the same region. In order to use this feature, the volume must be provisioned as a PersistentVolume; referencing the volume directly from a pod is not supported.</p><h4 id=manually-provisioning-a-regional-pd-persistentvolume>Manually provisioning a Regional PD PersistentVolume</h4><p>Dynamic provisioning is possible using a <a href=/docs/concepts/storage/storage-classes/#gce>StorageClass for GCE PD</a>.
+Before creating a PersistentVolume, you must create the PD:</p><div class=highlight><pre style=background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell>gcloud beta compute disks create --size<span style=color:#666>=</span>500GB my-data-disk
+    --region us-central1
+    --replica-zones us-central1-a,us-central1-b</code></pre></div><p>Example PersistentVolume spec:</p><div class=highlight><pre style=background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml>apiVersion:<span style=color:#bbb> </span>v1<span style=color:#bbb>
+</span><span style=color:#bbb></span>kind:<span style=color:#bbb> </span>PersistentVolume<span style=color:#bbb>
+</span><span style=color:#bbb></span>metadata:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>name:<span style=color:#bbb> </span>test-volume<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>labels:<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>failure-domain.beta.kubernetes.io/zone:<span style=color:#bbb> </span>us-central1-a__us-central1-b<span style=color:#bbb>
+</span><span style=color:#bbb></span>spec:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>capacity:<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>storage:<span style=color:#bbb> </span>400Gi<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>accessModes:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>-<span style=color:#bbb> </span>ReadWriteOnce<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>gcePersistentDisk:<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>pdName:<span style=color:#bbb> </span>my-data-disk<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>fsType:<span style=color:#bbb> </span>ext4</code></pre></div><h4 id=csi-migration-4>CSI Migration</h4><div style=margin-top:10px;margin-bottom:10px><b>FEATURE STATE:</b> <code>Kubernetes v1.14</code>
+<a href=# id=feature-state-dialog-link class="ui-state-default ui-corner-all"><span class="ui-icon ui-icon-newwin"></span>alpha</a><div id=feature-state-dialog class=ui-dialog-content title=alpha>This feature is currently in a <em>alpha</em> state, meaning:</p><ul><li>The version names contain alpha (e.g. v1alpha1).</li><li>Might be buggy. Enabling the feature may expose bugs. Disabled by default.</li><li>Support for feature may be dropped at any time without notice.</li><li>The API may change in incompatible ways in a later software release without notice.</li><li>Recommended for use only in short-lived testing clusters, due to increased risk of bugs and lack of long-term support.</li></ul></div><script>$(function(){$("#feature-state-dialog").dialog({autoOpen:false,width:"600",buttons:[{text:"Ok",click:function(){$(this).dialog("close");}}]});$("#feature-state-dialog-link").click(function(event){$("#feature-state-dialog").dialog("open");event.preventDefault();});});</script></div><p>The CSI Migration feature for GCE PD, when enabled, shims all plugin operations
+from the existing in-tree plugin to the <code>pd.csi.storage.gke.io</code> Container
+Storage Interface (CSI) Driver. In order to use this feature, the <a href=https://github.com/kubernetes-sigs/gcp-compute-persistent-disk-csi-driver target=_blank>GCE PD CSI
+Driver</a>
+must be installed on the cluster and the <code>CSIMigration</code> and <code>CSIMigrationGCE</code>
+Alpha features must be enabled.</p><h3 id=gitrepo>gitRepo (deprecated)</h3><blockquote class=warning><div><strong>Warning:</strong> The gitRepo volume type is deprecated. To provision a container with a git repo, mount an <a href=#emptydir>EmptyDir</a> into an InitContainer that clones the repo using git, then mount the <a href=#emptydir>EmptyDir</a> into the Pod&rsquo;s container.</div></blockquote><p>A <code>gitRepo</code> volume is an example of what can be done as a volume plugin. It
+mounts an empty directory and clones a git repository into it for your Pod to
+use. In the future, such volumes may be moved to an even more decoupled model,
+rather than extending the Kubernetes API for every such use case.</p><p>Here is an example of gitRepo volume:</p><div class=highlight><pre style=background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml>apiVersion:<span style=color:#bbb> </span>v1<span style=color:#bbb>
+</span><span style=color:#bbb></span>kind:<span style=color:#bbb> </span>Pod<span style=color:#bbb>
+</span><span style=color:#bbb></span>metadata:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>name:<span style=color:#bbb> </span>server<span style=color:#bbb>
+</span><span style=color:#bbb></span>spec:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>containers:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>-<span style=color:#bbb> </span>image:<span style=color:#bbb> </span>nginx<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>name:<span style=color:#bbb> </span>nginx<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>volumeMounts:<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>-<span style=color:#bbb> </span>mountPath:<span style=color:#bbb> </span>/mypath<span style=color:#bbb>
+</span><span style=color:#bbb>      </span>name:<span style=color:#bbb> </span>git-volume<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>volumes:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>-<span style=color:#bbb> </span>name:<span style=color:#bbb> </span>git-volume<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>gitRepo:<span style=color:#bbb>
+</span><span style=color:#bbb>      </span>repository:<span style=color:#bbb> </span><span style=color:#b44>&#34;git@somewhere:me/my-git-repository.git&#34;</span><span style=color:#bbb>
+</span><span style=color:#bbb>      </span>revision:<span style=color:#bbb> </span><span style=color:#b44>&#34;22f1d8406d464b0c0874075539c1f2e96c253775&#34;</span></code></pre></div><h3 id=glusterfs>glusterfs</h3><p>A <code>glusterfs</code> volume allows a <a href=http://www.gluster.org target=_blank>Glusterfs</a> (an open
+source networked filesystem) volume to be mounted into your Pod. Unlike
+<code>emptyDir</code>, which is erased when a Pod is removed, the contents of a
+<code>glusterfs</code> volume are preserved and the volume is merely unmounted. This
+means that a glusterfs volume can be pre-populated with data, and that data can
+be &ldquo;handed off&rdquo; between Pods. GlusterFS can be mounted by multiple writers
+simultaneously.</p><blockquote class=caution><div><strong>Caution:</strong> You must have your own GlusterFS installation running before you can use it.</div></blockquote><p>See the <a href=https://github.com/kubernetes/examples/tree/master/volumes/glusterfs target=_blank>GlusterFS example</a> for more details.</p><h3 id=hostpath>hostPath</h3><p>A <code>hostPath</code> volume mounts a file or directory from the host node&rsquo;s filesystem
+into your Pod. This is not something that most Pods will need, but it offers a
+powerful escape hatch for some applications.</p><p>For example, some uses for a <code>hostPath</code> are:</p><ul><li>running a Container that needs access to Docker internals; use a <code>hostPath</code>
+of <code>/var/lib/docker</code></li><li>running cAdvisor in a Container; use a <code>hostPath</code> of <code>/sys</code></li><li>allowing a Pod to specify whether a given <code>hostPath</code> should exist prior to the
+Pod running, whether it should be created, and what it should exist as</li></ul><p>In addition to the required <code>path</code> property, user can optionally specify a <code>type</code> for a <code>hostPath</code> volume.</p><p>The supported values for field <code>type</code> are:</p><table><thead><tr><th align=left>Value</th><th align=left>Behavior</th></tr></thead><tbody><tr><td align=left></td><td align=left>Empty string (default) is for backward compatibility, which means that no checks will be performed before mounting the hostPath volume.</td></tr><tr><td align=left><code>DirectoryOrCreate</code></td><td align=left>If nothing exists at the given path, an empty directory will be created there as needed with permission set to 0755, having the same group and ownership with Kubelet.</td></tr><tr><td align=left><code>Directory</code></td><td align=left>A directory must exist at the given path</td></tr><tr><td align=left><code>FileOrCreate</code></td><td align=left>If nothing exists at the given path, an empty file will be created there as needed with permission set to 0644, having the same group and ownership with Kubelet.</td></tr><tr><td align=left><code>File</code></td><td align=left>A file must exist at the given path</td></tr><tr><td align=left><code>Socket</code></td><td align=left>A UNIX socket must exist at the given path</td></tr><tr><td align=left><code>CharDevice</code></td><td align=left>A character device must exist at the given path</td></tr><tr><td align=left><code>BlockDevice</code></td><td align=left>A block device must exist at the given path</td></tr></tbody></table><p>Watch out when using this type of volume, because:</p><ul><li>Pods with identical configuration (such as created from a podTemplate) may
+behave differently on different nodes due to different files on the nodes</li><li>when Kubernetes adds resource-aware scheduling, as is planned, it will not be
+able to account for resources used by a <code>hostPath</code></li><li>the files or directories created on the underlying hosts are only writable by root. You
+either need to run your process as root in a
+<a href=/docs/user-guide/security-context>privileged Container</a> or modify the file
+permissions on the host to be able to write to a <code>hostPath</code> volume</li></ul><h4 id=example-pod-2>Example Pod</h4><div class=highlight><pre style=background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml>apiVersion:<span style=color:#bbb> </span>v1<span style=color:#bbb>
+</span><span style=color:#bbb></span>kind:<span style=color:#bbb> </span>Pod<span style=color:#bbb>
+</span><span style=color:#bbb></span>metadata:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>name:<span style=color:#bbb> </span>test-pd<span style=color:#bbb>
+</span><span style=color:#bbb></span>spec:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>containers:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>-<span style=color:#bbb> </span>image:<span style=color:#bbb> </span>k8s.gcr.io/test-webserver<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>name:<span style=color:#bbb> </span>test-container<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>volumeMounts:<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>-<span style=color:#bbb> </span>mountPath:<span style=color:#bbb> </span>/test-pd<span style=color:#bbb>
+</span><span style=color:#bbb>      </span>name:<span style=color:#bbb> </span>test-volume<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>volumes:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>-<span style=color:#bbb> </span>name:<span style=color:#bbb> </span>test-volume<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>hostPath:<span style=color:#bbb>
+</span><span style=color:#bbb>      </span><span style=color:#080;font-style:italic># directory location on host</span><span style=color:#bbb>
+</span><span style=color:#bbb>      </span>path:<span style=color:#bbb> </span>/data<span style=color:#bbb>
+</span><span style=color:#bbb>      </span><span style=color:#080;font-style:italic># this field is optional</span><span style=color:#bbb>
+</span><span style=color:#bbb>      </span>type:<span style=color:#bbb> </span>Directory</code></pre></div><h3 id=iscsi>iscsi</h3><p>An <code>iscsi</code> volume allows an existing iSCSI (SCSI over IP) volume to be mounted
+into your Pod. Unlike <code>emptyDir</code>, which is erased when a Pod is removed, the
+contents of an <code>iscsi</code> volume are preserved and the volume is merely
+unmounted. This means that an iscsi volume can be pre-populated with data, and
+that data can be &ldquo;handed off&rdquo; between Pods.</p><blockquote class=caution><div><strong>Caution:</strong> You must have your own iSCSI server running with the volume created before you can use it.</div></blockquote><p>A feature of iSCSI is that it can be mounted as read-only by multiple consumers
+simultaneously. This means that you can pre-populate a volume with your dataset
+and then serve it in parallel from as many Pods as you need. Unfortunately,
+iSCSI volumes can only be mounted by a single consumer in read-write mode - no
+simultaneous writers allowed.</p><p>See the <a href=https://github.com/kubernetes/examples/tree/master/volumes/iscsi target=_blank>iSCSI example</a> for more details.</p><h3 id=local>local</h3><div style=margin-top:10px;margin-bottom:10px><b>FEATURE STATE:</b> <code>Kubernetes v1.14</code>
+<a href=# id=feature-state-dialog-link class="ui-state-default ui-corner-all"><span class="ui-icon ui-icon-newwin"></span>stable</a><div id=feature-state-dialog class=ui-dialog-content title=stable>This feature is <em>stable</em>, meaning:</p><ul><li>The version name is vX where X is an integer.</li><li>Stable versions of features will appear in released software for many subsequent versions.</li></ul></div><script>$(function(){$("#feature-state-dialog").dialog({autoOpen:false,width:"600",buttons:[{text:"Ok",click:function(){$(this).dialog("close");}}]});$("#feature-state-dialog-link").click(function(event){$("#feature-state-dialog").dialog("open");event.preventDefault();});});</script></div><p>A <code>local</code> volume represents a mounted local storage device such as a disk,
+partition or directory.</p><p>Local volumes can only be used as a statically created PersistentVolume. Dynamic
+provisioning is not supported yet.</p><p>Compared to <code>hostPath</code> volumes, local volumes can be used in a durable and
+portable manner without manually scheduling Pods to nodes, as the system is aware
+of the volume&rsquo;s node constraints by looking at the node affinity on the PersistentVolume.</p><p>However, local volumes are still subject to the availability of the underlying
+node and are not suitable for all applications. If a node becomes unhealthy,
+then the local volume will also become inaccessible, and a Pod using it will not
+be able to run. Applications using local volumes must be able to tolerate this
+reduced availability, as well as potential data loss, depending on the
+durability characteristics of the underlying disk.</p><p>The following is an example of PersistentVolume spec using a <code>local</code> volume and
+<code>nodeAffinity</code>:</p><div class=highlight><pre style=background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml>apiVersion:<span style=color:#bbb> </span>v1<span style=color:#bbb>
+</span><span style=color:#bbb></span>kind:<span style=color:#bbb> </span>PersistentVolume<span style=color:#bbb>
+</span><span style=color:#bbb></span>metadata:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>name:<span style=color:#bbb> </span>example-pv<span style=color:#bbb>
+</span><span style=color:#bbb></span>spec:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>capacity:<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>storage:<span style=color:#bbb> </span>100Gi<span style=color:#bbb>
+</span><span style=color:#bbb>  </span><span style=color:#080;font-style:italic># volumeMode field requires BlockVolume Alpha feature gate to be enabled.</span><span style=color:#bbb>
+</span><span style=color:#bbb>  </span>volumeMode:<span style=color:#bbb> </span>Filesystem<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>accessModes:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>-<span style=color:#bbb> </span>ReadWriteOnce<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>persistentVolumeReclaimPolicy:<span style=color:#bbb> </span>Delete<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>storageClassName:<span style=color:#bbb> </span>local-storage<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>local:<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>path:<span style=color:#bbb> </span>/mnt/disks/ssd1<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>nodeAffinity:<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>required:<span style=color:#bbb>
+</span><span style=color:#bbb>      </span>nodeSelectorTerms:<span style=color:#bbb>
+</span><span style=color:#bbb>      </span>-<span style=color:#bbb> </span>matchExpressions:<span style=color:#bbb>
+</span><span style=color:#bbb>        </span>-<span style=color:#bbb> </span>key:<span style=color:#bbb> </span>kubernetes.io/hostname<span style=color:#bbb>
+</span><span style=color:#bbb>          </span>operator:<span style=color:#bbb> </span>In<span style=color:#bbb>
+</span><span style=color:#bbb>          </span>values:<span style=color:#bbb>
+</span><span style=color:#bbb>          </span>-<span style=color:#bbb> </span>example-node</code></pre></div><p>PersistentVolume <code>nodeAffinity</code> is required when using local volumes. It enables
+the Kubernetes scheduler to correctly schedule Pods using local volumes to the
+correct node.</p><p>PersistentVolume <code>volumeMode</code> can now be set to &ldquo;Block&rdquo; (instead of the default
+value &ldquo;Filesystem&rdquo;) to expose the local volume as a raw block device. The
+<code>volumeMode</code> field requires <code>BlockVolume</code> Alpha feature gate to be enabled.</p><p>When using local volumes, it is recommended to create a StorageClass with
+<code>volumeBindingMode</code> set to <code>WaitForFirstConsumer</code>. See the
+<a href=/docs/concepts/storage/storage-classes/#local>example</a>. Delaying volume binding ensures
+that the PersistentVolumeClaim binding decision will also be evaluated with any
+other node constraints the Pod may have, such as node resource requirements, node
+selectors, Pod affinity, and Pod anti-affinity.</p><p>An external static provisioner can be run separately for improved management of
+the local volume lifecycle. Note that this provisioner does not support dynamic
+provisioning yet. For an example on how to run an external local provisioner,
+see the <a href=https://github.com/kubernetes-sigs/sig-storage-local-static-provisioner target=_blank>local volume provisioner user
+guide</a>.</p><blockquote class=note><div><strong>Note:</strong> The local PersistentVolume requires manual cleanup and deletion by the
+user if the external static provisioner is not used to manage the volume
+lifecycle.</div></blockquote><h3 id=nfs>nfs</h3><p>An <code>nfs</code> volume allows an existing NFS (Network File System) share to be
+mounted into your Pod. Unlike <code>emptyDir</code>, which is erased when a Pod is
+removed, the contents of an <code>nfs</code> volume are preserved and the volume is merely
+unmounted. This means that an NFS volume can be pre-populated with data, and
+that data can be &ldquo;handed off&rdquo; between Pods. NFS can be mounted by multiple
+writers simultaneously.</p><blockquote class=caution><div><strong>Caution:</strong> You must have your own NFS server running with the share exported before you can use it.</div></blockquote><p>See the <a href=https://github.com/kubernetes/examples/tree/master/staging/volumes/nfs target=_blank>NFS example</a> for more details.</p><h3 id=persistentvolumeclaim>persistentVolumeClaim</h3><p>A <code>persistentVolumeClaim</code> volume is used to mount a
+<a href=/docs/concepts/storage/persistent-volumes/>PersistentVolume</a> into a Pod. PersistentVolumes are a
+way for users to &ldquo;claim&rdquo; durable storage (such as a GCE PersistentDisk or an
+iSCSI volume) without knowing the details of the particular cloud environment.</p><p>See the <a href=/docs/concepts/storage/persistent-volumes/>PersistentVolumes example</a> for more
+details.</p><h3 id=projected>projected</h3><p>A <code>projected</code> volume maps several existing volume sources into the same directory.</p><p>Currently, the following types of volume sources can be projected:</p><ul><li><a href=#secret><code>secret</code></a></li><li><a href=#downwardapi><code>downwardAPI</code></a></li><li><a href=#configmap><code>configMap</code></a></li><li><code>serviceAccountToken</code></li></ul><p>All sources are required to be in the same namespace as the Pod. For more details,
+see the <a href=https://github.com/kubernetes/community/blob/master/contributors/design-proposals/node/all-in-one-volume.md target=_blank>all-in-one volume design document</a>.</p><p>The projection of service account tokens is a feature introduced in Kubernetes
+1.11 and promoted to Beta in 1.12.
+To enable this feature on 1.11, you need to explicitly set the <code>TokenRequestProjection</code>
+<a href=/docs/reference/command-line-tools-reference/feature-gates/>feature gate</a> to
+True.</p><h4 id=example-pod-with-a-secret-a-downward-api-and-a-configmap>Example Pod with a secret, a downward API, and a configmap.</h4><div class=highlight><pre style=background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml>apiVersion:<span style=color:#bbb> </span>v1<span style=color:#bbb>
+</span><span style=color:#bbb></span>kind:<span style=color:#bbb> </span>Pod<span style=color:#bbb>
+</span><span style=color:#bbb></span>metadata:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>name:<span style=color:#bbb> </span>volume-test<span style=color:#bbb>
+</span><span style=color:#bbb></span>spec:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>containers:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>-<span style=color:#bbb> </span>name:<span style=color:#bbb> </span>container-test<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>image:<span style=color:#bbb> </span>busybox<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>volumeMounts:<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>-<span style=color:#bbb> </span>name:<span style=color:#bbb> </span>all-in-one<span style=color:#bbb>
+</span><span style=color:#bbb>      </span>mountPath:<span style=color:#bbb> </span><span style=color:#b44>&#34;/projected-volume&#34;</span><span style=color:#bbb>
+</span><span style=color:#bbb>      </span>readOnly:<span style=color:#bbb> </span><span style=color:#a2f;font-weight:700>true</span><span style=color:#bbb>
+</span><span style=color:#bbb>  </span>volumes:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>-<span style=color:#bbb> </span>name:<span style=color:#bbb> </span>all-in-one<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>projected:<span style=color:#bbb>
+</span><span style=color:#bbb>      </span>sources:<span style=color:#bbb>
+</span><span style=color:#bbb>      </span>-<span style=color:#bbb> </span>secret:<span style=color:#bbb>
+</span><span style=color:#bbb>          </span>name:<span style=color:#bbb> </span>mysecret<span style=color:#bbb>
+</span><span style=color:#bbb>          </span>items:<span style=color:#bbb>
+</span><span style=color:#bbb>            </span>-<span style=color:#bbb> </span>key:<span style=color:#bbb> </span>username<span style=color:#bbb>
+</span><span style=color:#bbb>              </span>path:<span style=color:#bbb> </span>my-group/my-username<span style=color:#bbb>
+</span><span style=color:#bbb>      </span>-<span style=color:#bbb> </span>downwardAPI:<span style=color:#bbb>
+</span><span style=color:#bbb>          </span>items:<span style=color:#bbb>
+</span><span style=color:#bbb>            </span>-<span style=color:#bbb> </span>path:<span style=color:#bbb> </span><span style=color:#b44>&#34;labels&#34;</span><span style=color:#bbb>
+</span><span style=color:#bbb>              </span>fieldRef:<span style=color:#bbb>
+</span><span style=color:#bbb>                </span>fieldPath:<span style=color:#bbb> </span>metadata.labels<span style=color:#bbb>
+</span><span style=color:#bbb>            </span>-<span style=color:#bbb> </span>path:<span style=color:#bbb> </span><span style=color:#b44>&#34;cpu_limit&#34;</span><span style=color:#bbb>
+</span><span style=color:#bbb>              </span>resourceFieldRef:<span style=color:#bbb>
+</span><span style=color:#bbb>                </span>containerName:<span style=color:#bbb> </span>container-test<span style=color:#bbb>
+</span><span style=color:#bbb>                </span>resource:<span style=color:#bbb> </span>limits.cpu<span style=color:#bbb>
+</span><span style=color:#bbb>      </span>-<span style=color:#bbb> </span>configMap:<span style=color:#bbb>
+</span><span style=color:#bbb>          </span>name:<span style=color:#bbb> </span>myconfigmap<span style=color:#bbb>
+</span><span style=color:#bbb>          </span>items:<span style=color:#bbb>
+</span><span style=color:#bbb>            </span>-<span style=color:#bbb> </span>key:<span style=color:#bbb> </span>config<span style=color:#bbb>
+</span><span style=color:#bbb>              </span>path:<span style=color:#bbb> </span>my-group/my-config</code></pre></div><h4 id=example-pod-with-multiple-secrets-with-a-non-default-permission-mode-set>Example Pod with multiple secrets with a non-default permission mode set.</h4><div class=highlight><pre style=background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml>apiVersion:<span style=color:#bbb> </span>v1<span style=color:#bbb>
+</span><span style=color:#bbb></span>kind:<span style=color:#bbb> </span>Pod<span style=color:#bbb>
+</span><span style=color:#bbb></span>metadata:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>name:<span style=color:#bbb> </span>volume-test<span style=color:#bbb>
+</span><span style=color:#bbb></span>spec:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>containers:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>-<span style=color:#bbb> </span>name:<span style=color:#bbb> </span>container-test<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>image:<span style=color:#bbb> </span>busybox<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>volumeMounts:<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>-<span style=color:#bbb> </span>name:<span style=color:#bbb> </span>all-in-one<span style=color:#bbb>
+</span><span style=color:#bbb>      </span>mountPath:<span style=color:#bbb> </span><span style=color:#b44>&#34;/projected-volume&#34;</span><span style=color:#bbb>
+</span><span style=color:#bbb>      </span>readOnly:<span style=color:#bbb> </span><span style=color:#a2f;font-weight:700>true</span><span style=color:#bbb>
+</span><span style=color:#bbb>  </span>volumes:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>-<span style=color:#bbb> </span>name:<span style=color:#bbb> </span>all-in-one<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>projected:<span style=color:#bbb>
+</span><span style=color:#bbb>      </span>sources:<span style=color:#bbb>
+</span><span style=color:#bbb>      </span>-<span style=color:#bbb> </span>secret:<span style=color:#bbb>
+</span><span style=color:#bbb>          </span>name:<span style=color:#bbb> </span>mysecret<span style=color:#bbb>
+</span><span style=color:#bbb>          </span>items:<span style=color:#bbb>
+</span><span style=color:#bbb>            </span>-<span style=color:#bbb> </span>key:<span style=color:#bbb> </span>username<span style=color:#bbb>
+</span><span style=color:#bbb>              </span>path:<span style=color:#bbb> </span>my-group/my-username<span style=color:#bbb>
+</span><span style=color:#bbb>      </span>-<span style=color:#bbb> </span>secret:<span style=color:#bbb>
+</span><span style=color:#bbb>          </span>name:<span style=color:#bbb> </span>mysecret2<span style=color:#bbb>
+</span><span style=color:#bbb>          </span>items:<span style=color:#bbb>
+</span><span style=color:#bbb>            </span>-<span style=color:#bbb> </span>key:<span style=color:#bbb> </span>password<span style=color:#bbb>
+</span><span style=color:#bbb>              </span>path:<span style=color:#bbb> </span>my-group/my-password<span style=color:#bbb>
+</span><span style=color:#bbb>              </span>mode:<span style=color:#bbb> </span><span style=color:#666>511</span></code></pre></div><p>Each projected volume source is listed in the spec under <code>sources</code>. The
+parameters are nearly the same with two exceptions:</p><ul><li>For secrets, the <code>secretName</code> field has been changed to <code>name</code> to be consistent
+with ConfigMap naming.</li><li>The <code>defaultMode</code> can only be specified at the projected level and not for each
+volume source. However, as illustrated above, you can explicitly set the <code>mode</code>
+for each individual projection.</li></ul><p>When the <code>TokenRequestProjection</code> feature is enabled, you can inject the token
+for the current <a href=/docs/reference/access-authn-authz/authentication/#service-account-tokens>service account</a>
+into a Pod at a specified path. Below is an example:</p><div class=highlight><pre style=background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml>apiVersion:<span style=color:#bbb> </span>v1<span style=color:#bbb>
+</span><span style=color:#bbb></span>kind:<span style=color:#bbb> </span>Pod<span style=color:#bbb>
+</span><span style=color:#bbb></span>metadata:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>name:<span style=color:#bbb> </span>sa-token-test<span style=color:#bbb>
+</span><span style=color:#bbb></span>spec:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>containers:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>-<span style=color:#bbb> </span>name:<span style=color:#bbb> </span>container-test<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>image:<span style=color:#bbb> </span>busybox<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>volumeMounts:<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>-<span style=color:#bbb> </span>name:<span style=color:#bbb> </span>token-vol<span style=color:#bbb>
+</span><span style=color:#bbb>      </span>mountPath:<span style=color:#bbb> </span><span style=color:#b44>&#34;/service-account&#34;</span><span style=color:#bbb>
+</span><span style=color:#bbb>      </span>readOnly:<span style=color:#bbb> </span><span style=color:#a2f;font-weight:700>true</span><span style=color:#bbb>
+</span><span style=color:#bbb>  </span>volumes:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>-<span style=color:#bbb> </span>name:<span style=color:#bbb> </span>token-vol<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>projected:<span style=color:#bbb>
+</span><span style=color:#bbb>      </span>sources:<span style=color:#bbb>
+</span><span style=color:#bbb>      </span>-<span style=color:#bbb> </span>serviceAccountToken:<span style=color:#bbb>
+</span><span style=color:#bbb>          </span>audience:<span style=color:#bbb> </span>api<span style=color:#bbb>
+</span><span style=color:#bbb>          </span>expirationSeconds:<span style=color:#bbb> </span><span style=color:#666>3600</span><span style=color:#bbb>
+</span><span style=color:#bbb>          </span>path:<span style=color:#bbb> </span>token</code></pre></div><p>The example Pod has a projected volume containing the injected service account
+token. This token can be used by Pod containers to access the Kubernetes API
+server, for example. The <code>audience</code> field contains the intended audience of the
+token. A recipient of the token must identify itself with an identifier specified
+in the audience of the token, and otherwise should reject the token. This field
+is optional and it defaults to the identifier of the API server.</p><p>The <code>expirationSeconds</code> is the expected duration of validity of the service account
+token. It defaults to 1 hour and must be at least 10 minutes (600 seconds). An administrator
+can also limit its maximum value by specifying the <code>--service-account-max-token-expiration</code>
+option for the API server. The <code>path</code> field specifies a relative path to the mount point
+of the projected volume.</p><blockquote class=note><div><strong>Note:</strong> A Container using a projected volume source as a <a href=#using-subpath>subPath</a> volume mount will not
+receive updates for those volume sources.</div></blockquote><h3 id=portworxvolume>portworxVolume</h3><p>A <code>portworxVolume</code> is an elastic block storage layer that runs hyperconverged with
+Kubernetes. <a href=https://portworx.com/use-case/kubernetes-storage/ target=_blank>Portworx</a> fingerprints storage in a server, tiers based on capabilities,
+and aggregates capacity across multiple servers. Portworx runs in-guest in virtual machines or on bare metal Linux nodes.</p><p>A <code>portworxVolume</code> can be dynamically created through Kubernetes or it can also
+be pre-provisioned and referenced inside a Kubernetes Pod.
+Here is an example Pod referencing a pre-provisioned PortworxVolume:</p><div class=highlight><pre style=background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml>apiVersion:<span style=color:#bbb> </span>v1<span style=color:#bbb>
+</span><span style=color:#bbb></span>kind:<span style=color:#bbb> </span>Pod<span style=color:#bbb>
+</span><span style=color:#bbb></span>metadata:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>name:<span style=color:#bbb> </span>test-portworx-volume-pod<span style=color:#bbb>
+</span><span style=color:#bbb></span>spec:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>containers:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>-<span style=color:#bbb> </span>image:<span style=color:#bbb> </span>k8s.gcr.io/test-webserver<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>name:<span style=color:#bbb> </span>test-container<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>volumeMounts:<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>-<span style=color:#bbb> </span>mountPath:<span style=color:#bbb> </span>/mnt<span style=color:#bbb>
+</span><span style=color:#bbb>      </span>name:<span style=color:#bbb> </span>pxvol<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>volumes:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>-<span style=color:#bbb> </span>name:<span style=color:#bbb> </span>pxvol<span style=color:#bbb>
+</span><span style=color:#bbb>    </span><span style=color:#080;font-style:italic># This Portworx volume must already exist.</span><span style=color:#bbb>
+</span><span style=color:#bbb>    </span>portworxVolume:<span style=color:#bbb>
+</span><span style=color:#bbb>      </span>volumeID:<span style=color:#bbb> </span><span style=color:#b44>&#34;pxvol&#34;</span><span style=color:#bbb>
+</span><span style=color:#bbb>      </span>fsType:<span style=color:#bbb> </span><span style=color:#b44>&#34;&lt;fs-type&gt;&#34;</span></code></pre></div><blockquote class=caution><div><strong>Caution:</strong> Make sure you have an existing PortworxVolume with name <code>pxvol</code>
+before using it in the Pod.</div></blockquote><p>More details and examples can be found <a href=https://github.com/kubernetes/examples/tree/master/staging/volumes/portworx/README.md target=_blank>here</a>.</p><h3 id=quobyte>quobyte</h3><p>A <code>quobyte</code> volume allows an existing <a href=http://www.quobyte.com target=_blank>Quobyte</a> volume to
+be mounted into your Pod.</p><blockquote class=caution><div><strong>Caution:</strong> You must have your own Quobyte setup running with the volumes
+created before you can use it.</div></blockquote><p>Quobyte supports the <a class=glossary-tooltip href=/docs/concepts/storage/volumes/#csi target=_blank>Container Storage Interface<span class=tooltip-text>The Container Storage Interface (CSI) defines a standard interface to expose storage systems to containers.</span>
+</a>.
+CSI is the recommended plugin to use Quobyte volumes inside Kubernetes. Quobyte&rsquo;s
+GitHub project has <a href=https://github.com/quobyte/quobyte-csi#quobyte-csi target=_blank>instructions</a> for deploying Quobyte using CSI, along with examples.</p><h3 id=rbd>rbd</h3><p>An <code>rbd</code> volume allows a <a href=http://ceph.com/docs/master/rbd/rbd/ target=_blank>Rados Block
+Device</a> volume to be mounted into your
+Pod. Unlike <code>emptyDir</code>, which is erased when a Pod is removed, the contents of
+a <code>rbd</code> volume are preserved and the volume is merely unmounted. This
+means that a RBD volume can be pre-populated with data, and that data can
+be &ldquo;handed off&rdquo; between Pods.</p><blockquote class=caution><div><strong>Caution:</strong> You must have your own Ceph installation running before you can use RBD.</div></blockquote><p>A feature of RBD is that it can be mounted as read-only by multiple consumers
+simultaneously. This means that you can pre-populate a volume with your dataset
+and then serve it in parallel from as many Pods as you need. Unfortunately,
+RBD volumes can only be mounted by a single consumer in read-write mode - no
+simultaneous writers allowed.</p><p>See the <a href=https://github.com/kubernetes/examples/tree/master/volumes/rbd target=_blank>RBD example</a> for more details.</p><h3 id=scaleio>scaleIO</h3><p>ScaleIO is a software-based storage platform that can use existing hardware to
+create clusters of scalable shared block networked storage. The <code>scaleIO</code> volume
+plugin allows deployed Pods to access existing ScaleIO
+volumes (or it can dynamically provision new volumes for persistent volume claims, see
+<a href=/docs/concepts/storage/persistent-volumes/#scaleio>ScaleIO Persistent Volumes</a>).</p><blockquote class=caution><div><strong>Caution:</strong> You must have an existing ScaleIO cluster already setup and
+running with the volumes created before you can use them.</div></blockquote><p>The following is an example of Pod configuration with ScaleIO:</p><div class=highlight><pre style=background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml>apiVersion:<span style=color:#bbb> </span>v1<span style=color:#bbb>
+</span><span style=color:#bbb></span>kind:<span style=color:#bbb> </span>Pod<span style=color:#bbb>
+</span><span style=color:#bbb></span>metadata:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>name:<span style=color:#bbb> </span>pod<span style=color:#666>-0</span><span style=color:#bbb>
+</span><span style=color:#bbb></span>spec:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>containers:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>-<span style=color:#bbb> </span>image:<span style=color:#bbb> </span>k8s.gcr.io/test-webserver<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>name:<span style=color:#bbb> </span>pod<span style=color:#666>-0</span><span style=color:#bbb>
+</span><span style=color:#bbb>    </span>volumeMounts:<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>-<span style=color:#bbb> </span>mountPath:<span style=color:#bbb> </span>/test-pd<span style=color:#bbb>
+</span><span style=color:#bbb>      </span>name:<span style=color:#bbb> </span>vol<span style=color:#666>-0</span><span style=color:#bbb>
+</span><span style=color:#bbb>  </span>volumes:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>-<span style=color:#bbb> </span>name:<span style=color:#bbb> </span>vol<span style=color:#666>-0</span><span style=color:#bbb>
+</span><span style=color:#bbb>    </span>scaleIO:<span style=color:#bbb>
+</span><span style=color:#bbb>      </span>gateway:<span style=color:#bbb> </span>https://localhost:<span style=color:#666>443</span>/api<span style=color:#bbb>
+</span><span style=color:#bbb>      </span>system:<span style=color:#bbb> </span>scaleio<span style=color:#bbb>
+</span><span style=color:#bbb>      </span>protectionDomain:<span style=color:#bbb> </span>sd0<span style=color:#bbb>
+</span><span style=color:#bbb>      </span>storagePool:<span style=color:#bbb> </span>sp1<span style=color:#bbb>
+</span><span style=color:#bbb>      </span>volumeName:<span style=color:#bbb> </span>vol<span style=color:#666>-0</span><span style=color:#bbb>
+</span><span style=color:#bbb>      </span>secretRef:<span style=color:#bbb>
+</span><span style=color:#bbb>        </span>name:<span style=color:#bbb> </span>sio-secret<span style=color:#bbb>
+</span><span style=color:#bbb>      </span>fsType:<span style=color:#bbb> </span>xfs</code></pre></div><p>For further detail, please see the <a href=https://github.com/kubernetes/examples/tree/master/staging/volumes/scaleio target=_blank>ScaleIO examples</a>.</p><h3 id=secret>secret</h3><p>A <code>secret</code> volume is used to pass sensitive information, such as passwords, to
+Pods. You can store secrets in the Kubernetes API and mount them as files for
+use by Pods without coupling to Kubernetes directly. <code>secret</code> volumes are
+backed by tmpfs (a RAM-backed filesystem) so they are never written to
+non-volatile storage.</p><blockquote class=caution><div><strong>Caution:</strong> You must create a secret in the Kubernetes API before you can use it.</div></blockquote><blockquote class=note><div><strong>Note:</strong> A Container using a Secret as a <a href=#using-subpath>subPath</a> volume mount will not
+receive Secret updates.</div></blockquote><p>Secrets are described in more detail <a href=/docs/user-guide/secrets>here</a>.</p><h3 id=storageos>storageOS</h3><p>A <code>storageos</code> volume allows an existing <a href=https://www.storageos.com target=_blank>StorageOS</a>
+volume to be mounted into your Pod.</p><p>StorageOS runs as a Container within your Kubernetes environment, making local
+or attached storage accessible from any node within the Kubernetes cluster.
+Data can be replicated to protect against node failure. Thin provisioning and
+compression can improve utilization and reduce cost.</p><p>At its core, StorageOS provides block storage to Containers, accessible via a file system.</p><p>The StorageOS Container requires 64-bit Linux and has no additional dependencies.
+A free developer license is available.</p><blockquote class=caution><div><strong>Caution:</strong> You must run the StorageOS Container on each node that wants to
+access StorageOS volumes or that will contribute storage capacity to the pool.
+For installation instructions, consult the
+<a href=https://docs.storageos.com target=_blank>StorageOS documentation</a>.</div></blockquote><div class=highlight><pre style=background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml>apiVersion:<span style=color:#bbb> </span>v1<span style=color:#bbb>
+</span><span style=color:#bbb></span>kind:<span style=color:#bbb> </span>Pod<span style=color:#bbb>
+</span><span style=color:#bbb></span>metadata:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>labels:<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>name:<span style=color:#bbb> </span>redis<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>role:<span style=color:#bbb> </span>master<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>name:<span style=color:#bbb> </span>test-storageos-redis<span style=color:#bbb>
+</span><span style=color:#bbb></span>spec:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>containers:<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>-<span style=color:#bbb> </span>name:<span style=color:#bbb> </span>master<span style=color:#bbb>
+</span><span style=color:#bbb>      </span>image:<span style=color:#bbb> </span>kubernetes/redis:v1<span style=color:#bbb>
+</span><span style=color:#bbb>      </span>env:<span style=color:#bbb>
+</span><span style=color:#bbb>        </span>-<span style=color:#bbb> </span>name:<span style=color:#bbb> </span>MASTER<span style=color:#bbb>
+</span><span style=color:#bbb>          </span>value:<span style=color:#bbb> </span><span style=color:#b44>&#34;true&#34;</span><span style=color:#bbb>
+</span><span style=color:#bbb>      </span>ports:<span style=color:#bbb>
+</span><span style=color:#bbb>        </span>-<span style=color:#bbb> </span>containerPort:<span style=color:#bbb> </span><span style=color:#666>6379</span><span style=color:#bbb>
+</span><span style=color:#bbb>      </span>volumeMounts:<span style=color:#bbb>
+</span><span style=color:#bbb>        </span>-<span style=color:#bbb> </span>mountPath:<span style=color:#bbb> </span>/redis-master-data<span style=color:#bbb>
+</span><span style=color:#bbb>          </span>name:<span style=color:#bbb> </span>redis-data<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>volumes:<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>-<span style=color:#bbb> </span>name:<span style=color:#bbb> </span>redis-data<span style=color:#bbb>
+</span><span style=color:#bbb>      </span>storageos:<span style=color:#bbb>
+</span><span style=color:#bbb>        </span><span style=color:#080;font-style:italic># The `redis-vol01` volume must already exist within StorageOS in the `default` namespace.</span><span style=color:#bbb>
+</span><span style=color:#bbb>        </span>volumeName:<span style=color:#bbb> </span>redis-vol01<span style=color:#bbb>
+</span><span style=color:#bbb>        </span>fsType:<span style=color:#bbb> </span>ext4</code></pre></div><p>For more information including Dynamic Provisioning and Persistent Volume Claims, please see the
+<a href=https://github.com/kubernetes/examples/blob/master/volumes/storageos target=_blank>StorageOS examples</a>.</p><h3 id=vspherevolume>vsphereVolume</h3><blockquote class=note><div><strong>Note:</strong> Prerequisite: Kubernetes with vSphere Cloud Provider configured. For cloudprovider
+configuration please refer <a href=https://vmware.github.io/vsphere-storage-for-kubernetes/documentation/ target=_blank>vSphere getting started guide</a>.</div></blockquote><p>A <code>vsphereVolume</code> is used to mount a vSphere VMDK Volume into your Pod. The contents
+of a volume are preserved when it is unmounted. It supports both VMFS and VSAN datastore.</p><blockquote class=caution><div><strong>Caution:</strong> You must create VMDK using one of the following methods before using with Pod.</div></blockquote><h4 id=creating-a-vmdk-volume>Creating a VMDK volume</h4><p>Choose one of the following methods to create a VMDK.</p><div id=tabs-volumes><ul><li><a href=#tabs-volumes-0>Create using vmkfstools</a></li><li><a href=#tabs-volumes-1>Create using vmware-vdiskmanager</a></li></ul><div id=tabs-volumes-0><p>First ssh into ESX, then use the following command to create a VMDK:</p><div class=highlight><pre style=background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell>vmkfstools -c 2G /vmfs/volumes/DatastoreName/volumes/myDisk.vmdk</code></pre></div><p></div></p><div id=tabs-volumes-1><p>Use the following command to create a VMDK:</p><div class=highlight><pre style=background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell>vmware-vdiskmanager -c -t <span style=color:#666>0</span> -s 40GB -a lsilogic myDisk.vmdk</code></pre></div><p></div></p><p></div></p><script>$(function(){$("#tabs-volumes").tabs();});</script><h4 id=vsphere-vmdk-example-configuration>vSphere VMDK Example configuration</h4><div class=highlight><pre style=background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml>apiVersion:<span style=color:#bbb> </span>v1<span style=color:#bbb>
+</span><span style=color:#bbb></span>kind:<span style=color:#bbb> </span>Pod<span style=color:#bbb>
+</span><span style=color:#bbb></span>metadata:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>name:<span style=color:#bbb> </span>test-vmdk<span style=color:#bbb>
+</span><span style=color:#bbb></span>spec:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>containers:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>-<span style=color:#bbb> </span>image:<span style=color:#bbb> </span>k8s.gcr.io/test-webserver<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>name:<span style=color:#bbb> </span>test-container<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>volumeMounts:<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>-<span style=color:#bbb> </span>mountPath:<span style=color:#bbb> </span>/test-vmdk<span style=color:#bbb>
+</span><span style=color:#bbb>      </span>name:<span style=color:#bbb> </span>test-volume<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>volumes:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>-<span style=color:#bbb> </span>name:<span style=color:#bbb> </span>test-volume<span style=color:#bbb>
+</span><span style=color:#bbb>    </span><span style=color:#080;font-style:italic># This VMDK volume must already exist.</span><span style=color:#bbb>
+</span><span style=color:#bbb>    </span>vsphereVolume:<span style=color:#bbb>
+</span><span style=color:#bbb>      </span>volumePath:<span style=color:#bbb> </span><span style=color:#b44>&#34;[DatastoreName] volumes/myDisk&#34;</span><span style=color:#bbb>
+</span><span style=color:#bbb>      </span>fsType:<span style=color:#bbb> </span>ext4</code></pre></div><p>More examples can be found <a href=https://github.com/kubernetes/examples/tree/master/staging/volumes/vsphere target=_blank>here</a>.</p><h2 id=using-subpath>Using subPath</h2><p>Sometimes, it is useful to share one volume for multiple uses in a single Pod. The <code>volumeMounts.subPath</code>
+property can be used to specify a sub-path inside the referenced volume instead of its root.</p><p>Here is an example of a Pod with a LAMP stack (Linux Apache Mysql PHP) using a single, shared volume.
+The HTML contents are mapped to its <code>html</code> folder, and the databases will be stored in its <code>mysql</code> folder:</p><div class=highlight><pre style=background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml>apiVersion:<span style=color:#bbb> </span>v1<span style=color:#bbb>
+</span><span style=color:#bbb></span>kind:<span style=color:#bbb> </span>Pod<span style=color:#bbb>
+</span><span style=color:#bbb></span>metadata:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>name:<span style=color:#bbb> </span>my-lamp-site<span style=color:#bbb>
+</span><span style=color:#bbb></span>spec:<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>containers:<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>-<span style=color:#bbb> </span>name:<span style=color:#bbb> </span>mysql<span style=color:#bbb>
+</span><span style=color:#bbb>      </span>image:<span style=color:#bbb> </span>mysql<span style=color:#bbb>
+</span><span style=color:#bbb>      </span>env:<span style=color:#bbb>
+</span><span style=color:#bbb>      </span>-<span style=color:#bbb> </span>name:<span style=color:#bbb> </span>MYSQL_ROOT_PASSWORD<span style=color:#bbb>
+</span><span style=color:#bbb>        </span>value:<span style=color:#bbb> </span><span style=color:#b44>&#34;rootpasswd&#34;</span><span style=color:#bbb>
+</span><span style=color:#bbb>      </span>volumeMounts:<span style=color:#bbb>
+</span><span style=color:#bbb>      </span>-<span style=color:#bbb> </span>mountPath:<span style=color:#bbb> </span>/var/lib/mysql<span style=color:#bbb>
+</span><span style=color:#bbb>        </span>name:<span style=color:#bbb> </span>site-data<span style=color:#bbb>
+</span><span style=color:#bbb>        </span>subPath:<span style=color:#bbb> </span>mysql<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>-<span style=color:#bbb> </span>name:<span style=color:#bbb> </span>php<span style=color:#bbb>
+</span><span style=color:#bbb>      </span>image:<span style=color:#bbb> </span>php:<span style=color:#666>7.0</span>-apache<span style=color:#bbb>
+</span><span style=color:#bbb>      </span>volumeMounts:<span style=color:#bbb>
+</span><span style=color:#bbb>      </span>-<span style=color:#bbb> </span>mountPath:<span style=color:#bbb> </span>/var/www/html<span style=color:#bbb>
+</span><span style=color:#bbb>        </span>name:<span style=color:#bbb> </span>site-data<span style=color:#bbb>
+</span><span style=color:#bbb>        </span>subPath:<span style=color:#bbb> </span>html<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>volumes:<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>-<span style=color:#bbb> </span>name:<span style=color:#bbb> </span>site-data<span style=color:#bbb>
+</span><span style=color:#bbb>      </span>persistentVolumeClaim:<span style=color:#bbb>
+</span><span style=color:#bbb>        </span>claimName:<span style=color:#bbb> </span>my-lamp-site-data</code></pre></div><h3 id=using-subpath-with-expanded-environment-variables>Using subPath with expanded environment variables</h3><div style=margin-top:10px;margin-bottom:10px><b>FEATURE STATE:</b> <code>Kubernetes v1.15</code>
+<a href=# id=feature-state-dialog-link class="ui-state-default ui-corner-all"><span class="ui-icon ui-icon-newwin"></span>beta</a><div id=feature-state-dialog class=ui-dialog-content title=beta>This feature is currently in a <em>beta</em> state, meaning:</p><ul><li>The version names contain beta (e.g. v2beta3).</li><li>Code is well tested. Enabling the feature is considered safe. Enabled by default.</li><li>Support for the overall feature will not be dropped, though details may change.</li><li>The schema and/or semantics of objects may change in incompatible ways in a subsequent beta or stable release. When this happens, we will provide instructions for migrating to the next version. This may require deleting, editing, and re-creating API objects. The editing process may require some thought. This may require downtime for applications that rely on the feature.</li><li>Recommended for only non-business-critical uses because of potential for incompatible changes in subsequent releases. If you have multiple clusters that can be upgraded independently, you may be able to relax this restriction.</li><li><strong>Please do try our beta features and give feedback on them! After they exit beta, it may not be practical for us to make more changes.</strong></li></ul></div><script>$(function(){$("#feature-state-dialog").dialog({autoOpen:false,width:"600",buttons:[{text:"Ok",click:function(){$(this).dialog("close");}}]});$("#feature-state-dialog-link").click(function(event){$("#feature-state-dialog").dialog("open");event.preventDefault();});});</script></div><p>Use the <code>subPathExpr</code> field to construct <code>subPath</code> directory names from Downward API environment variables.
+This feature requires the <code>VolumeSubpathEnvExpansion</code> <a href=/docs/reference/command-line-tools-reference/feature-gates/>feature gate</a> to be enabled. It is enabled by default starting with Kubernetes 1.15.
+The <code>subPath</code> and <code>subPathExpr</code> properties are mutually exclusive.</p><p>In this example, a Pod uses <code>subPathExpr</code> to create a directory <code>pod1</code> within the hostPath volume <code>/var/log/pods</code>, using the pod name from the Downward API. The host directory <code>/var/log/pods/pod1</code> is mounted at <code>/logs</code> in the container.</p><div class=highlight><pre style=background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml>apiVersion:<span style=color:#bbb> </span>v1<span style=color:#bbb>
+</span><span style=color:#bbb></span>kind:<span style=color:#bbb> </span>Pod<span style=color:#bbb>
+</span><span style=color:#bbb></span>metadata:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>name:<span style=color:#bbb> </span>pod1<span style=color:#bbb>
+</span><span style=color:#bbb></span>spec:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>containers:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>-<span style=color:#bbb> </span>name:<span style=color:#bbb> </span>container1<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>env:<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>-<span style=color:#bbb> </span>name:<span style=color:#bbb> </span>POD_NAME<span style=color:#bbb>
+</span><span style=color:#bbb>      </span>valueFrom:<span style=color:#bbb>
+</span><span style=color:#bbb>        </span>fieldRef:<span style=color:#bbb>
+</span><span style=color:#bbb>          </span>apiVersion:<span style=color:#bbb> </span>v1<span style=color:#bbb>
+</span><span style=color:#bbb>          </span>fieldPath:<span style=color:#bbb> </span>metadata.name<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>image:<span style=color:#bbb> </span>busybox<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>command:<span style=color:#bbb> </span>[<span style=color:#bbb> </span><span style=color:#b44>&#34;sh&#34;</span>,<span style=color:#bbb> </span><span style=color:#b44>&#34;-c&#34;</span>,<span style=color:#bbb> </span><span style=color:#b44>&#34;while [ true ]; do echo &#39;Hello&#39;; sleep 10; done | tee -a /logs/hello.txt&#34;</span><span style=color:#bbb> </span>]<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>volumeMounts:<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>-<span style=color:#bbb> </span>name:<span style=color:#bbb> </span>workdir1<span style=color:#bbb>
+</span><span style=color:#bbb>      </span>mountPath:<span style=color:#bbb> </span>/logs<span style=color:#bbb>
+</span><span style=color:#bbb>      </span>subPathExpr:<span style=color:#bbb> </span>$(POD_NAME)<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>restartPolicy:<span style=color:#bbb> </span>Never<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>volumes:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>-<span style=color:#bbb> </span>name:<span style=color:#bbb> </span>workdir1<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>hostPath:<span style=color:#bbb>
+</span><span style=color:#bbb>      </span>path:<span style=color:#bbb> </span>/var/log/pods</code></pre></div><h2 id=resources>Resources</h2><p>The storage media (Disk, SSD, etc.) of an <code>emptyDir</code> volume is determined by the
+medium of the filesystem holding the kubelet root dir (typically
+<code>/var/lib/kubelet</code>). There is no limit on how much space an <code>emptyDir</code> or
+<code>hostPath</code> volume can consume, and no isolation between Containers or between
+Pods.</p><p>In the future, we expect that <code>emptyDir</code> and <code>hostPath</code> volumes will be able to
+request a certain amount of space using a <a href=/docs/user-guide/compute-resources>resource</a>
+specification, and to select the type of media to use, for clusters that have
+several media types.</p><h2 id=out-of-tree-volume-plugins>Out-of-Tree Volume Plugins</h2><p>The Out-of-tree volume plugins include the Container Storage Interface (CSI)
+and FlexVolume. They enable storage vendors to create custom storage plugins
+without adding them to the Kubernetes repository.</p><p>Before the introduction of CSI and FlexVolume, all volume plugins (like
+volume types listed above) were &ldquo;in-tree&rdquo; meaning they were built, linked,
+compiled, and shipped with the core Kubernetes binaries and extend the core
+Kubernetes API. This meant that adding a new storage system to Kubernetes (a
+volume plugin) required checking code into the core Kubernetes code repository.</p><p>Both CSI and FlexVolume allow volume plugins to be developed independent of
+the Kubernetes code base, and deployed (installed) on Kubernetes clusters as
+extensions.</p><p>For storage vendors looking to create an out-of-tree volume plugin, please refer
+to <a href=https://github.com/kubernetes/community/blob/master/sig-storage/volume-plugin-faq.md target=_blank>this FAQ</a>.</p><h3 id=csi>CSI</h3><p><a href=https://github.com/container-storage-interface/spec/blob/master/spec.md target=_blank>Container Storage Interface</a> (CSI)
+defines a standard interface for container orchestration systems (like
+Kubernetes) to expose arbitrary storage systems to their container workloads.</p><p>Please read the <a href=https://github.com/kubernetes/community/blob/master/contributors/design-proposals/storage/container-storage-interface.md target=_blank>CSI design proposal</a> for more information.</p><p>CSI support was introduced as alpha in Kubernetes v1.9, moved to beta in
+Kubernetes v1.10, and is GA in Kubernetes v1.13.</p><blockquote class=note><div><strong>Note:</strong> Support for CSI spec versions 0.2 and 0.3 are deprecated in Kubernetes
+v1.13 and will be removed in a future release.</div></blockquote><blockquote class=note><div><strong>Note:</strong> CSI drivers may not be compatible across all Kubernetes releases.
+Please check the specific CSI driver&rsquo;s documentation for supported
+deployments steps for each Kubernetes release and a compatibility matrix.</div></blockquote><p>Once a CSI compatible volume driver is deployed on a Kubernetes cluster, users
+may use the <code>csi</code> volume type to attach, mount, etc. the volumes exposed by the
+CSI driver.</p><p>The <code>csi</code> volume type does not support direct reference from Pod and may only be
+referenced in a Pod via a <code>PersistentVolumeClaim</code> object.</p><p>The following fields are available to storage administrators to configure a CSI
+persistent volume:</p><ul><li><code>driver</code>: A string value that specifies the name of the volume driver to use.
+This value must correspond to the value returned in the <code>GetPluginInfoResponse</code>
+by the CSI driver as defined in the <a href=https://github.com/container-storage-interface/spec/blob/master/spec.md#getplugininfo target=_blank>CSI spec</a>.
+It is used by Kubernetes to identify which CSI driver to call out to, and by
+CSI driver components to identify which PV objects belong to the CSI driver.</li><li><code>volumeHandle</code>: A string value that uniquely identifies the volume. This value
+must correspond to the value returned in the <code>volume.id</code> field of the
+<code>CreateVolumeResponse</code> by the CSI driver as defined in the <a href=https://github.com/container-storage-interface/spec/blob/master/spec.md#createvolume target=_blank>CSI spec</a>.
+The value is passed as <code>volume_id</code> on all calls to the CSI volume driver when
+referencing the volume.</li><li><code>readOnly</code>: An optional boolean value indicating whether the volume is to be
+&ldquo;ControllerPublished&rdquo; (attached) as read only. Default is false. This value is
+passed to the CSI driver via the <code>readonly</code> field in the
+<code>ControllerPublishVolumeRequest</code>.</li><li><code>fsType</code>: If the PV&rsquo;s <code>VolumeMode</code> is <code>Filesystem</code> then this field may be used
+to specify the filesystem that should be used to mount the volume. If the
+volume has not been formatted and formatting is supported, this value will be
+used to format the volume.
+This value is passed to the CSI driver via the <code>VolumeCapability</code> field of
+<code>ControllerPublishVolumeRequest</code>, <code>NodeStageVolumeRequest</code>, and
+<code>NodePublishVolumeRequest</code>.</li><li><code>volumeAttributes</code>: A map of string to string that specifies static properties
+of a volume. This map must correspond to the map returned in the
+<code>volume.attributes</code> field of the <code>CreateVolumeResponse</code> by the CSI driver as
+defined in the <a href=https://github.com/container-storage-interface/spec/blob/master/spec.md#createvolume target=_blank>CSI spec</a>.
+The map is passed to the CSI driver via the <code>volume_attributes</code> field in the
+<code>ControllerPublishVolumeRequest</code>, <code>NodeStageVolumeRequest</code>, and
+<code>NodePublishVolumeRequest</code>.</li><li><code>controllerPublishSecretRef</code>: A reference to the secret object containing
+sensitive information to pass to the CSI driver to complete the CSI
+<code>ControllerPublishVolume</code> and <code>ControllerUnpublishVolume</code> calls. This field is
+optional, and may be empty if no secret is required. If the secret object
+contains more than one secret, all secrets are passed.</li><li><code>nodeStageSecretRef</code>: A reference to the secret object containing
+sensitive information to pass to the CSI driver to complete the CSI
+<code>NodeStageVolume</code> call. This field is optional, and may be empty if no secret
+is required. If the secret object contains more than one secret, all secrets
+are passed.</li><li><code>nodePublishSecretRef</code>: A reference to the secret object containing
+sensitive information to pass to the CSI driver to complete the CSI
+<code>NodePublishVolume</code> call. This field is optional, and may be empty if no
+secret is required. If the secret object contains more than one secret, all
+secrets are passed.</li></ul><h4 id=csi-raw-block-volume-support>CSI raw block volume support</h4><div style=margin-top:10px;margin-bottom:10px><b>FEATURE STATE:</b> <code>Kubernetes v1.14</code>
+<a href=# id=feature-state-dialog-link class="ui-state-default ui-corner-all"><span class="ui-icon ui-icon-newwin"></span>beta</a><div id=feature-state-dialog class=ui-dialog-content title=beta>This feature is currently in a <em>beta</em> state, meaning:</p><ul><li>The version names contain beta (e.g. v2beta3).</li><li>Code is well tested. Enabling the feature is considered safe. Enabled by default.</li><li>Support for the overall feature will not be dropped, though details may change.</li><li>The schema and/or semantics of objects may change in incompatible ways in a subsequent beta or stable release. When this happens, we will provide instructions for migrating to the next version. This may require deleting, editing, and re-creating API objects. The editing process may require some thought. This may require downtime for applications that rely on the feature.</li><li>Recommended for only non-business-critical uses because of potential for incompatible changes in subsequent releases. If you have multiple clusters that can be upgraded independently, you may be able to relax this restriction.</li><li><strong>Please do try our beta features and give feedback on them! After they exit beta, it may not be practical for us to make more changes.</strong></li></ul></div><script>$(function(){$("#feature-state-dialog").dialog({autoOpen:false,width:"600",buttons:[{text:"Ok",click:function(){$(this).dialog("close");}}]});$("#feature-state-dialog-link").click(function(event){$("#feature-state-dialog").dialog("open");event.preventDefault();});});</script></div><p>Starting with version 1.11, CSI introduced support for raw block volumes, which
+relies on the raw block volume feature that was introduced in a previous version of
+Kubernetes. This feature will make it possible for vendors with external CSI drivers to
+implement raw block volumes support in Kubernetes workloads.</p><p>CSI block volume support is feature-gated, but enabled by default. The two
+feature gates which must be enabled for this feature are <code>BlockVolume</code> and
+<code>CSIBlockVolume</code>.</p><p>Learn how to
+<a href=/docs/concepts/storage/persistent-volumes/#raw-block-volume-support>setup your PV/PVC with raw block volume support</a>.</p><h4 id=csi-ephemeral-volumes>CSI ephemeral volumes</h4><div style=margin-top:10px;margin-bottom:10px><b>FEATURE STATE:</b> <code>Kubernetes v1.16</code>
+<a href=# id=feature-state-dialog-link class="ui-state-default ui-corner-all"><span class="ui-icon ui-icon-newwin"></span>beta</a><div id=feature-state-dialog class=ui-dialog-content title=beta>This feature is currently in a <em>beta</em> state, meaning:</p><ul><li>The version names contain beta (e.g. v2beta3).</li><li>Code is well tested. Enabling the feature is considered safe. Enabled by default.</li><li>Support for the overall feature will not be dropped, though details may change.</li><li>The schema and/or semantics of objects may change in incompatible ways in a subsequent beta or stable release. When this happens, we will provide instructions for migrating to the next version. This may require deleting, editing, and re-creating API objects. The editing process may require some thought. This may require downtime for applications that rely on the feature.</li><li>Recommended for only non-business-critical uses because of potential for incompatible changes in subsequent releases. If you have multiple clusters that can be upgraded independently, you may be able to relax this restriction.</li><li><strong>Please do try our beta features and give feedback on them! After they exit beta, it may not be practical for us to make more changes.</strong></li></ul></div><script>$(function(){$("#feature-state-dialog").dialog({autoOpen:false,width:"600",buttons:[{text:"Ok",click:function(){$(this).dialog("close");}}]});$("#feature-state-dialog-link").click(function(event){$("#feature-state-dialog").dialog("open");event.preventDefault();});});</script></div><p>This feature allows CSI volumes to be directly embedded in the Pod specification instead of a PersistentVolume. Volumes specified in this way are ephemeral and do not persist across Pod restarts.</p><p>Example:</p><div class=highlight><pre style=background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml>kind:<span style=color:#bbb> </span>Pod<span style=color:#bbb>
+</span><span style=color:#bbb></span>apiVersion:<span style=color:#bbb> </span>v1<span style=color:#bbb>
+</span><span style=color:#bbb></span>metadata:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>name:<span style=color:#bbb> </span>my-csi-app<span style=color:#bbb>
+</span><span style=color:#bbb></span>spec:<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>containers:<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>-<span style=color:#bbb> </span>name:<span style=color:#bbb> </span>my-frontend<span style=color:#bbb>
+</span><span style=color:#bbb>      </span>image:<span style=color:#bbb> </span>busybox<span style=color:#bbb>
+</span><span style=color:#bbb>      </span>volumeMounts:<span style=color:#bbb>
+</span><span style=color:#bbb>      </span>-<span style=color:#bbb> </span>mountPath:<span style=color:#bbb> </span><span style=color:#b44>&#34;/data&#34;</span><span style=color:#bbb>
+</span><span style=color:#bbb>        </span>name:<span style=color:#bbb> </span>my-csi-inline-vol<span style=color:#bbb>
+</span><span style=color:#bbb>      </span>command:<span style=color:#bbb> </span>[<span style=color:#bbb> </span><span style=color:#b44>&#34;sleep&#34;</span>,<span style=color:#bbb> </span><span style=color:#b44>&#34;1000000&#34;</span><span style=color:#bbb> </span>]<span style=color:#bbb>
+</span><span style=color:#bbb>  </span>volumes:<span style=color:#bbb>
+</span><span style=color:#bbb>    </span>-<span style=color:#bbb> </span>name:<span style=color:#bbb> </span>my-csi-inline-vol<span style=color:#bbb>
+</span><span style=color:#bbb>      </span>csi:<span style=color:#bbb>
+</span><span style=color:#bbb>        </span>driver:<span style=color:#bbb> </span>inline.storage.kubernetes.io<span style=color:#bbb>
+</span><span style=color:#bbb>        </span>volumeAttributes:<span style=color:#bbb>
+</span><span style=color:#bbb>          </span>foo:<span style=color:#bbb> </span>bar</code></pre></div><p>This feature requires CSIInlineVolume feature gate to be enabled. It
+is enabled by default starting with Kubernetes 1.16.</p><p>CSI ephemeral volumes are only supported by a subset of CSI drivers. Please see the list of CSI drivers <a href=https://kubernetes-csi.github.io/docs/drivers.html target=_blank>here</a>.</p><h1 id=developer-resources>Developer resources</h1><p>For more information on how to develop a CSI driver, refer to the <a href=https://kubernetes-csi.github.io/docs/ target=_blank>kubernetes-csi
+documentation</a></p><h4 id=migrating-to-csi-drivers-from-in-tree-plugins>Migrating to CSI drivers from in-tree plugins</h4><div style=margin-top:10px;margin-bottom:10px><b>FEATURE STATE:</b> <code>Kubernetes v1.14</code>
+<a href=# id=feature-state-dialog-link class="ui-state-default ui-corner-all"><span class="ui-icon ui-icon-newwin"></span>alpha</a><div id=feature-state-dialog class=ui-dialog-content title=alpha>This feature is currently in a <em>alpha</em> state, meaning:</p><ul><li>The version names contain alpha (e.g. v1alpha1).</li><li>Might be buggy. Enabling the feature may expose bugs. Disabled by default.</li><li>Support for feature may be dropped at any time without notice.</li><li>The API may change in incompatible ways in a later software release without notice.</li><li>Recommended for use only in short-lived testing clusters, due to increased risk of bugs and lack of long-term support.</li></ul></div><script>$(function(){$("#feature-state-dialog").dialog({autoOpen:false,width:"600",buttons:[{text:"Ok",click:function(){$(this).dialog("close");}}]});$("#feature-state-dialog-link").click(function(event){$("#feature-state-dialog").dialog("open");event.preventDefault();});});</script></div><p>The CSI Migration feature, when enabled, directs operations against existing in-tree
+plugins to corresponding CSI plugins (which are expected to be installed and configured).
+The feature implements the necessary translation logic and shims to re-route the
+operations in a seamless fashion. As a result, operators do not have to make any
+configuration changes to existing Storage Classes, PVs or PVCs (referring to
+in-tree plugins) when transitioning to a CSI driver that supersedes an in-tree plugin.</p><p>In the alpha state, the operations and features that are supported include
+provisioning/delete, attach/detach, mount/unmount and resizing of volumes.</p><p>In-tree plugins that support CSI Migration and have a corresponding CSI driver implemented
+are listed in the &ldquo;Types of Volumes&rdquo; section above.</p><h3 id=flexVolume>FlexVolume</h3><p>FlexVolume is an out-of-tree plugin interface that has existed in Kubernetes
+since version 1.2 (before CSI). It uses an exec-based model to interface with
+drivers. FlexVolume driver binaries must be installed in a pre-defined volume
+plugin path on each node (and in some cases master).</p><p>Pods interact with FlexVolume drivers through the <code>flexvolume</code> in-tree plugin.
+More details can be found <a href=https://github.com/kubernetes/community/blob/master/contributors/devel/sig-storage/flexvolume.md target=_blank>here</a>.</p><h2 id=mount-propagation>Mount propagation</h2><p>Mount propagation allows for sharing volumes mounted by a Container to
+other Containers in the same Pod, or even to other Pods on the same node.</p><p>Mount propagation of a volume is controlled by <code>mountPropagation</code> field in Container.volumeMounts.
+Its values are:</p><ul><li><code>None</code> - This volume mount will not receive any subsequent mounts
+that are mounted to this volume or any of its subdirectories by the host.
+In similar fashion, no mounts created by the Container will be visible on
+the host. This is the default mode.</li></ul><p>This mode is equal to <code>private</code> mount propagation as described in the
+<a href=https://www.kernel.org/doc/Documentation/filesystems/sharedsubtree.txt target=_blank>Linux kernel documentation</a></p><ul><li><code>HostToContainer</code> - This volume mount will receive all subsequent mounts
+that are mounted to this volume or any of its subdirectories.</li></ul><p>In other words, if the host mounts anything inside the volume mount, the
+Container will see it mounted there.</p><p>Similarly, if any Pod with <code>Bidirectional</code> mount propagation to the same
+volume mounts anything there, the Container with <code>HostToContainer</code> mount
+propagation will see it.</p><p>This mode is equal to <code>rslave</code> mount propagation as described in the
+<a href=https://www.kernel.org/doc/Documentation/filesystems/sharedsubtree.txt target=_blank>Linux kernel documentation</a></p><ul><li><code>Bidirectional</code> - This volume mount behaves the same the <code>HostToContainer</code> mount.
+In addition, all volume mounts created by the Container will be propagated
+back to the host and to all Containers of all Pods that use the same volume.</li></ul><p>A typical use case for this mode is a Pod with a FlexVolume or CSI driver or
+a Pod that needs to mount something on the host using a <code>hostPath</code> volume.</p><p>This mode is equal to <code>rshared</code> mount propagation as described in the
+<a href=https://www.kernel.org/doc/Documentation/filesystems/sharedsubtree.txt target=_blank>Linux kernel documentation</a></p><blockquote class=caution><div><strong>Caution:</strong> <code>Bidirectional</code> mount propagation can be dangerous. It can damage
+the host operating system and therefore it is allowed only in privileged
+Containers. Familiarity with Linux kernel behavior is strongly recommended.
+In addition, any volume mounts created by Containers in Pods must be destroyed
+(unmounted) by the Containers on termination.</div></blockquote><h3 id=configuration>Configuration</h3><p>Before mount propagation can work properly on some deployments (CoreOS,
+RedHat/Centos, Ubuntu) mount share must be configured correctly in
+Docker as shown below.</p><p>Edit your Docker&rsquo;s <code>systemd</code> service file. Set <code>MountFlags</code> as follows:</p><div class=highlight><pre style=background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell><span style=color:#b8860b>MountFlags</span><span style=color:#666>=</span>shared</code></pre></div><p>Or, remove <code>MountFlags=slave</code> if present. Then restart the Docker daemon:</p><div class=highlight><pre style=background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-shell data-lang=shell>sudo systemctl daemon-reload
+sudo systemctl restart docker</code></pre></div><h2 id=what-s-next>What&#39;s next</h2><ul><li>Follow an example of <a href=/docs/tutorials/stateful-application/mysql-wordpress-persistent-volume/>deploying WordPress and MySQL with Persistent Volumes</a>.</li></ul><h2>Feedback</h2><p class=feedback--prompt>Was this page helpful?</p><button class="button feedback--yes">Yes</button>
+<button class="button feedback--no">No</button><p class="feedback--response feedback--response__hidden">Thanks for the feedback. If you have a specific, answerable question about how to use Kubernetes, ask it on
+<a target=_blank rel=noopener href=https://stackoverflow.com/questions/tagged/kubernetes>Stack Overflow</a>.
+Open an issue in the GitHub repo if you want to
+<a class=feedback--link target=_blank rel=noopener href="https://github.com/kubernetes/website/issues/new?title=Issue%20with%20k8s.io">report a problem</a>
+or
+<a class=feedback--link target=_blank rel=noopener href="https://github.com/kubernetes/website/issues/new?title=Improvement%20for%20k8s.io">suggest an improvement</a>.</p><script>const yes=document.querySelector('.feedback--yes');const no=document.querySelector('.feedback--no');document.querySelectorAll('.feedback--link').forEach(link=>{link.href=link.href+window.location.pathname;});const sendFeedback=(value)=>{if(!gtag){console.log('!gtag');}
+gtag('event','click',{'event_category':'Helpful','event_label':window.location.pathname,value});};const disableButtons=()=>{yes.disabled=true;yes.classList.add('feedback--button__disabled');no.disabled=true;no.classList.add('feedback--button__disabled');};yes.addEventListener('click',()=>{sendFeedback(1);disableButtons();document.querySelector('.feedback--response').classList.remove('feedback--response__hidden');});no.addEventListener('click',()=>{sendFeedback(0);disableButtons();document.querySelector('.feedback--response').classList.remove('feedback--response__hidden');});</script><div id=pre-footer><hr><div class=issue-button-container><p><a href><img src=https://kubernetes-site.appspot.com/UA-36037335-10/GitHub/docs/concepts/storage/volumes.md?pixel alt=Analytics></a></p><script type=text/javascript>PDRTJS_settings_8345992={"id":"8345992","unique_id":"\/docs\/concepts\/storage\/volumes\/","title":"Volumes","permalink":"https:\/\/kubernetes.io\/docs\/concepts\/storage\/volumes\/"};(function(d,c,j){if(!document.getElementById(j)){var pd=d.createElement(c),s;pd.id=j;pd.src=('https:'==document.location.protocol)?'https://polldaddy.com/js/rating/rating.js':'http://i0.poll.fm/js/rating/rating.js';s=document.getElementsByTagName(c)[0];s.parentNode.insertBefore(pd,s);}}(document,'script','pd-rating-js'));</script><a href onclick="window.open('https://github.com/kubernetes/website/issues/new?template=bug-report.md&title=Issue%20with%20'+
+'k8s.io'+window.location.pathname)" class="button issue">Create an Issue</a>
+<a href=https://github.com/kubernetes/website/edit/master/content/en/docs/concepts/storage/volumes.md class="button issue">Edit This Page</a></div><div id=lastedit class="lastedit issue-button-container">Page last modified on October 23, 2019 at 10:20 PM PST by
+<a href=https://github.com/kubernetes/website/commit/d437e8c6bce23a5c11914eca17d48085450c905c/>en: Change the full link in the document to an inline link. (#17057)</a> (<a href=https://github.com/kubernetes/website/commits/master/content/en/docs/concepts/storage/volumes.md>Page History</a>)</div></div></div></section></main><footer><div class="light-text main-section"><nav><a href=/docs/home/>Home</a>
+<a href=/blog/>Blog</a>
+<a href=/partners/>Partners</a>
+<a href=/community/>Community</a>
+<a href=/case-studies/>Case Studies</a></nav><div class=social role=region aria-label="Social hyperlinks"><div><a href=https://twitter.com/kubernetesio class=twitter><span>Twitter</span></a>
+<a href=https://github.com/kubernetes/kubernetes class=github><span>GitHub</span></a>
+<a href=https://slack.k8s.io/ class=slack><span>Slack</span></a></div><div><a href=https://stackoverflow.com/questions/tagged/kubernetes class=stack-overflow><span>Stack Overflow</span></a>
+<a href=https://discuss.kubernetes.io class=mailing-list><span>Forum</span></a>
+<a href="https://calendar.google.com/calendar/embed?src=nt2tcnbtbied3l6gi2h29slvc0%40group.calendar.google.com" class=calendar><span>Events Calendar</span></a></div><div><a href=https://git.k8s.io/community/contributors/guide class=button>Contribute</a></div></div><div class="miceType center">&copy; 2019 The Kubernetes Authors | Documentation Distributed under <a href=https://git.k8s.io/website/LICENSE class=light-text>CC BY 4.0</a></a></div><div class="miceType center">Copyright &copy; 2019 The Linux Foundation &reg;. All rights reserved. The Linux Foundation has registered trademarks and uses trademarks. For a list of trademarks of The Linux Foundation, please see our <a href=https://www.linuxfoundation.org/trademark-usage class=light-text>Trademark Usage page</a></div><div class="miceType center">ICP license: 京ICP备17074266号-3</div></div></footer><button class=flyout-button onclick=kub.toggleToc() aria-label="Toggle table of contents visibility"></button>
+<script>(function(){window.addEventListener('DOMContentLoaded',init)
+function init(){window.removeEventListener('DOMContentLoaded',init)
+hideNav()}
+function hideNav(toc){if(!toc)toc=document.querySelector('#docsToc')
+if(!toc)return
+var container=toc.querySelector('.container')
+if(container){if(container.childElementCount===0||toc.querySelectorAll('a.item').length===1){toc.style.display='none'
+document.getElementById('docsContent').style.width='100%'}}else{requestAnimationFrame(function(){hideNav(toc)})}}})();</script><script language=application/javascript>(function addHeadingLinks(){var article=document.getElementById('docsContent');var headings=article.querySelectorAll('h1, h2, h3, h4, h5, h6');headings.forEach(function(heading){if(heading.id){var a=document.createElement('a');a.innerHTML=heading.innerHTML;a.href='#'+heading.id;a.classList.add('inpage_heading');heading.innerHTML='';heading.appendChild(a);}});})();</script></body></html>
