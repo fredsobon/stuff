@@ -589,3 +589,28 @@ Sysvinit: sed s/^id:.*:initdefault:/id:3:initdefault:/
 Systemd: ln -sf /lib/systemd/system/multi-user.target /etc/systemd/system/default.target
 Notes: Set to use multi-user runlevel on next reboot.
 
+
+
+====== update service using systemd : ===
+
+
+il est possible qu'un service legacy en sysVinit ne fonctionne plus en systemd et sorte une erreur de type :
+
+Systemd Service Fails To Start With 'Refusing to
+accept PID outside of service control group, acquired
+through unsafe symlink chain' Error.
+ex: 
+A customer-made systemd service, that use to work under RHEL 7.6 and below, now fails when
+started in RHEL 7.7.
+Resolution
+Modify the script referenced in the systemd service file's ExecStart= field to use runuser instead
+of su . Please refer to the "Considerations about su" and "Resolution" sections of Understanding
+why a legacy SysV service on RHEL7 gets terminated too early during system shutdown
+(https://access.redhat.com/articles/2978021) for further explanation.
+
+-> remplacer dans le service :
+ExecStart=su 
+par 
+ExecStart=runuser
+
+
