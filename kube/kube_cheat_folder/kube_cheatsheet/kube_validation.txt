@@ -1,0 +1,51 @@
+====  kube test et validation : ===
+
+on va vouloir valider le bon fonctionnement de notre kube via des kubes 
+
+1/ manuellement :
+
+check node / pods system (api / controller ..) ou les services si les app de kube system sont déployées en service
+on test un deployement basic : etc .....
+
+
+2 / utilisation d'outils dédies :
+
+sur le repos kubernetes github un repos test-infra comporte des tests.
+des tests end to end comportant des milliers de checks sont en place.
+les tests sont regroupés par categories. (ex: network : va verifier la communicatin inter pod, la resolv dns, la latence des temps de reponses des endpoints des services ...)
+
+Deux types de tests pour kube :
+endtoend ~1000 test pour assurer la validation / certification kube  : env 12h
+~160 pour tester la conformitéde notre cluster : quelques soit la manière de le déployer.  env 2h
+
+-autre outil : sonobuoy
+
+3 / utilisation test-infra de kubernetes :
+
+sur un node master : on doit avoir go installé :
+
+go get -u k8s.io/test-infra/kubetest
+
+kubetest --extract=v1.16.3 <<< la version doit correspondre à celle de notre cluster.
+
+un rep kubernetes est créer : on va dedans ensuite on lance :
+
+kubetest --test --provider=skeletton > testout.txt
+
+cette commande va specifier que notre kube est de type local : --provider=skeletton
+
+Si on test un cluster local on doit avant de lancer la commande fournir des infos de notre cluster en variable :
+
+export KUBE_MASTER_IP="192.168.1.5:6443"
+export KUBE_MASTER=kube-master
+
+on peut passer le test complet ou alors le test de conformité :
+
+
+kubetest --test --provider=skeletton --test-args="--ginko.focus=\[Conformance\]" > testout.txt
+
+une fois le test fini on peut voir le résultat dans le fichier de redirection testout.txt
+
+
+
+
