@@ -1,7 +1,7 @@
 ==  minikube notes ===
 
 
-= minikube star options : = 
+= minikube start options : = 
 
 L’instruction start permet deux choses : le démarrage du cluster et la création de la machine Minikube.
 Cette instruction accepte un certain nombre d’options comme par exemple :
@@ -20,7 +20,15 @@ boogie$ sudo mv docker-machine-driver-kvm2 /usr/local/bin/                      
 boogie$ sudo chmod +x /usr/local/bin/docker-machine-driver-kvm2                                                                                             [☸ N/A:N/A]
 boogie$ sudo usermod -a -G kvm,libvirt boogie   
 
+-> demarrage minikube driver libvirt avec version specifique de kube : 
+
 minikube start --kubernetes-version v1.16.3 --vm-driver kvm2
+
+-> on peut définir notre driver par default :
+
+minikube config set vm-driver kvm2
+
+
 
 == minikube - docker context : ==
 
@@ -42,14 +50,99 @@ Pour cela, il est nécessaire d’ajouter l’évaluation du résultat de cette 
 $ eval $(minikube docker-env)
 
 
+== minikube cache : ===
+
+on va pouvoir stocker des images dans le cache de minikube de manière à pouvoir travailler off line : 
+
+minikube cache add ubuntu:16.04
+minikube cache add mailhog/mailhog:latest
+
+minikube cache list                                                                     [☸ minikube:default]
+mailhog/mailhog:latest
+ubuntu:16.04
+
+
+== minikube build image : ==
+
+il va être très utile de builder notre image dans la vm ( pas besoin de build sur notre host et pousser sur une registry docker par exemple) 
+
+> avec docker on peut se connecter en ssh sur minikube et lancer un docker build
+ou alors on peut réutiliser le daemon docker pour que notre client docker communique avec
+: on peut donc builder avec le même daemon docker :
+
+eval $(minikube docker-env)
+
+Attention il faut désactiver le setting : 
+to turn off the imagePullPolicy:Always -> sinon kube n'utilisera jamais les images locales. 
+
+
+
+
 
 == minikube montage host : ==
 
 il est possible de monter un repertoire dans minikube :
 ex: 
+
+
+minikube mount <source directory>:<target directory>
+minikube mount $HOME:/host
+
 minikube mount "$(pwd):/minikube-host"
 
 le rep courant sera donc dispo dans l'arbo minikube 
+
+
+on peut réferencer ce point de montage dans un manifest kube :
+
+{
+  "apiVersion": "v1",
+  "kind": "Pod",
+  "metadata": {
+    "name": "ubuntu"
+  },
+  "spec": {
+        "containers": [
+          {
+            "name": "ubuntu",
+            "image": "ubuntu:18.04",
+            "args": [
+              "bash"
+            ],
+            "stdin": true,
+            "stdinOnce": true,
+            "tty": true,
+            "workingDir": "/host",
+            "volumeMounts": [{
+              "mountPath": "/host",
+              "name": "host-mount"
+            }]
+          }
+        ],
+    "volumes": [
+      {
+        "name": "host-mount",
+        "hostPath": {
+          "path": "/host"
+        }
+      }
+    ]
+  }
+}
+
+== minikube filesync : ==
+
+Place files to be synced in $MINIKUBE_HOME/files
+
+For example, running the following will result in the deployment of a custom /etc/resolv.conf:
+
+mkdir -p ~/.minikube/files/etc
+echo nameserver 8.8.8.8 > ~/.minikube/files/etc/resolv.conf
+minikube start
+
+
+
+
 
 == utilisation images locale ==
 
@@ -255,5 +348,386 @@ sudo apt install libvirt-clients libvirt-daemon-system qemu-kvm
 sudo usermod -a -G libvirt $(whoami)
 newgrp libvirt
 minikube start --vm-driver kvm2
+
+=== minikube docker registry : ===
+
+Using the Docker registry
+How to access the Docker registry within minikube
+As an alternative to reusing the Docker daemon, you may enable the registry addon to push images directly into registry.
+
+Steps are as follows:
+
+For illustration purpose, we will assume that minikube VM has one of the ip from 192.168.39.0/24 subnet. If you have not overridden these subnets as per networking guide, you can find out default subnet being used by minikube for a specific OS and driver combination here which is subject to change. Replace 192.168.39.0/24 with appropriate values for your environment wherever applicable.
+
+Ensure that docker is configured to use 192.168.39.0/24 as insecure registry. Refer here for instructions.
+
+Ensure that 192.168.39.0/24 is enabled as insecure registry in minikube. Refer here for instructions..
+
+Enable minikube registry addon:
+
+minikube addons enable registry
+Build docker image and tag it appropriately:
+
+docker build --tag $(minikube ip):5000/test-img .
+Push docker image to minikube registry:
+
+docker push $(minikube ip):5000/test-img
+Now run it in minikube:
+
+kubectl run test-img --image=$(minikube ip):5000/test-img
+Or if 192.168.39.0/24 is not enabled as insecure registry in minikube, then:
+
+kubectl run test-img --image=localhost:5000/test-img
+
+
+=== minikube debug : ===
+
+minikube start --v=7 will start minikube and output all the important debug logs to stdout
+
+v=0 
+..
+v=7 
+
+minikube logs
+
+=== minikube psp : pod security policies : ===
+Using Minikube with Pod Security Policies
+Overview
+This tutorial explains how to start minikube with Pod Security Policies (PSP) enabled.
+
+Prerequisites
+Minikube 1.5.2 with Kubernetes 1.16.x or higher
+Tutorial
+Before starting minikube, you need to give it the PSP YAMLs in order to allow minikube to bootstrap.
+
+Create the directory:
+mkdir -p ~/.minikube/files/etc/kubernetes/addons
+
+Copy the YAML below into this file: ~/.minikube/files/etc/kubernetes/addons/psp.yaml
+
+Now start minikube:
+minikube start --extra-config=apiserver.enable-admission-plugins=PodSecurityPolicy
+
+---
+apiVersion: policy/v1beta1
+kind: PodSecurityPolicy
+metadata:
+  name: privileged
+  annotations:
+    seccomp.security.alpha.kubernetes.io/allowedProfileNames: "*"
+  labels:
+    addonmanager.kubernetes.io/mode: EnsureExists
+spec:
+  privileged: true
+  allowPrivilegeEscalation: true
+  allowedCapabilities:
+  - "*"
+  volumes:
+  - "*"
+  hostNetwork: true
+  hostPorts:
+  - min: 0
+    max: 65535
+  hostIPC: true
+  hostPID: true
+  runAsUser:
+    rule: 'RunAsAny'
+  seLinux:
+    rule: 'RunAsAny'
+  supplementalGroups:
+    rule: 'RunAsAny'
+  fsGroup:
+    rule: 'RunAsAny'
+---
+apiVersion: policy/v1beta1
+kind: PodSecurityPolicy
+metadata:
+  name: restricted
+  labels:
+    addonmanager.kubernetes.io/mode: EnsureExists
+spec:
+  privileged: false
+  allowPrivilegeEscalation: false
+  requiredDropCapabilities:
+    - ALL
+  volumes:
+    - 'configMap'
+    - 'emptyDir'
+    - 'projected'
+    - 'secret'
+    - 'downwardAPI'
+    - 'persistentVolumeClaim'
+  hostNetwork: false
+  hostIPC: false
+  hostPID: false
+  runAsUser:
+    rule: 'MustRunAsNonRoot'
+  seLinux:
+    rule: 'RunAsAny'
+  supplementalGroups:
+    rule: 'MustRunAs'
+    ranges:
+      # Forbid adding the root group.
+      - min: 1
+        max: 65535
+  fsGroup:
+    rule: 'MustRunAs'
+    ranges:
+      # Forbid adding the root group.
+      - min: 1
+        max: 65535
+  readOnlyRootFilesystem: false
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: psp:privileged
+  labels:
+    addonmanager.kubernetes.io/mode: EnsureExists
+rules:
+- apiGroups: ['policy']
+  resources: ['podsecuritypolicies']
+  verbs:     ['use']
+  resourceNames:
+  - privileged
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: psp:restricted
+  labels:
+    addonmanager.kubernetes.io/mode: EnsureExists
+rules:
+- apiGroups: ['policy']
+  resources: ['podsecuritypolicies']
+  verbs:     ['use']
+  resourceNames:
+  - restricted
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: default:restricted
+  labels:
+    addonmanager.kubernetes.io/mode: EnsureExists
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: psp:restricted
+subjects:
+- kind: Group
+  name: system:authenticated
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: default:privileged
+  namespace: kube-system
+  labels:
+    addonmanager.kubernetes.io/mode: EnsureExists
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: psp:privileged
+subjects:
+- kind: Group
+  name: system:masters
+  apiGroup: rbac.authorization.k8s.io
+- kind: Group
+  name: system:nodes
+  apiGroup: rbac.authorization.k8s.io
+- kind: Group
+  name: system:serviceaccounts:kube-system
+
+
+== minikube ingress : ==
+
+Ingress nginx for TCP and UDP services
+How to set up a minikube ingress for TCP and UDP services
+Overview
+The minikube ingress addon enables developers to route traffic from their host (Laptop, Desktop, etc) to a Kubernetes service running inside their minikube cluster. The ingress addon uses the ingress nginx controller which by default is only configured to listen on ports 80 and 443. TCP and UDP services listening on other ports can be enabled.
+
+Prerequisites
+Latest minikube binary and ISO
+Telnet command line tool
+Kubectl command line tool
+A text editor
+Configuring TCP and UDP services with the nginx ingress controller
+Enable the ingress addon
+Enable the minikube ingress addon with the following command:
+
+minikube addons enable ingress
+Update the TCP and/or UDP services configmaps
+Borrowing from the tutorial on configuring TCP and UDP services with the ingress nginx controller we will need to edit the configmap which is installed by default when enabling the minikube ingress addon.
+
+There are 2 configmaps, 1 for TCP services and 1 for UDP services. By default they look like this:
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tcp-services
+  namespace: ingress-nginx
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: udp-services
+  namespace: ingress-nginx
+Since these configmaps are centralized and may contain configurations, it is best if we only patch them rather than completely overwrite them.
+
+Let’s use this redis deployment as an example:
+
+redis-deployment.yaml
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-deployment
+  namespace: default
+  labels:
+    app: redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+      - image: redis
+        imagePullPolicy: Always
+        name: redis
+        ports:
+        - containerPort: 6379
+          protocol: TCP
+Create a file redis-deployment.yaml and paste the contents above. Then install the redis deployment with the following command:
+
+kubectl apply -f redis-deployment.yaml
+Next we need to create a service that can route traffic to our pods:
+
+redis-service.yaml
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-service
+  namespace: default
+spec:
+  selector:
+    app: redis
+  type: ClusterIP
+  ports:
+    - name: tcp-port
+      port: 6379
+      targetPort: 6379
+      protocol: TCP
+Create a file redis-service.yaml and paste the contents above. Then install the redis service with the following command:
+
+kubectl apply -f redis-service.yaml
+To add a TCP service to the nginx ingress controller you can run the following command:
+
+kubectl patch configmap tcp-services -n kube-system --patch '{"data":{"6379":"default/redis-service:6379"}}'
+Where:
+
+6379 : the port your service should listen to from outside the minikube virtual machine
+default : the namespace that your service is installed in
+redis-service : the name of the service
+We can verify that our resource was patched with the following command:
+
+kubectl get configmap tcp-services -n kube-system -o yaml
+We should see something like this:
+
+apiVersion: v1
+data:
+  "6379": default/redis-service:6379
+kind: ConfigMap
+metadata:
+  creationTimestamp: "2019-10-01T16:19:57Z"
+  labels:
+    addonmanager.kubernetes.io/mode: EnsureExists
+  name: tcp-services
+  namespace: kube-system
+  resourceVersion: "2857"
+  selfLink: /api/v1/namespaces/kube-system/configmaps/tcp-services
+  uid: 4f7fac22-e467-11e9-b543-080027057910
+The only value you need to validate is that there is a value under the data property that looks like this:
+
+  "6379": default/redis-service:6379
+Patch the ingress-nginx-controller
+There is one final step that must be done in order to obtain connectivity from the outside cluster. We need to patch our nginx controller so that it is listening on port 6379 and can route traffic to your service. To do this we need to create a patch file.
+
+nginx-ingress-controller-patch.yaml
+
+spec:
+  template:
+    spec:
+      containers:
+      - name: nginx-ingress-controller
+        ports:
+         - containerPort: 6379
+           hostPort: 6379
+Create a file called nginx-ingress-controller-patch.yaml and paste the contents above.
+
+Next apply the changes with the following command:
+
+kubectl patch deployment nginx-ingress-controller --patch "$(cat nginx-ingress-controller-patch.yaml)" -n kube-system
+Test your connection
+Test that you can reach your service with telnet via the following command:
+
+telnet $(minikube ip) 6379
+You should see the following output:
+
+Trying 192.168.99.179...
+Connected to 192.168.99.179.
+Escape character is '^]'
+To exit telnet enter the Ctrl key and ] at the same time. Then type quit and press enter.
+
+If you were not able to connect please review your steps above.
+
+Review
+In the above example we did the following:
+
+Created a redis deployment and service in the default namespace
+Patched the tcp-services configmap in the kube-system namespace
+Patched the nginx-ingress-controller deployment in the kube-system namespace
+Connected to our service from the host via port 6379
+You can apply the same steps that were applied to tcp-services to the udp-services configmap as well if you have a service that uses UDP and/or TCP
+
+Caveats
+With the exception of ports 80 and 443, each minikube instance can only be configured for exactly 1 service to be listening on any particular port. Multiple TCP and/or UDP services listening on the same port in the same minikube instance is not supported and can not be supported until an update of the ingress spec is released. Please see this document for the latest info on these potential changes
+
+
+== minikube oidc : ==
+
+OpenID Connect Authentication
+Configuring minikube to use OpenID Connect Authentication
+The kube-apiserver in minikube can be configured to support OpenID Connect Authentication.
+
+Read more about OpenID Connect Authentication for Kubernetes here: https://kubernetes.io/docs/reference/access-authn-authz/authentication/#openid-connect-tokens
+
+Configuring the API Server
+Configuration values can be passed to the API server using the --extra-config flag on the minikube start command. See configuring_kubernetes.md for more details.
+
+The following example configures your Minikube cluster to support RBAC and OIDC:
+
+minikube start \
+  --extra-config=apiserver.authorization-mode=RBAC \
+  --extra-config=apiserver.oidc-issuer-url=https://example.com \
+  --extra-config=apiserver.oidc-username-claim=email \
+  --extra-config=apiserver.oidc-client-id=kubernetes-local
+Configuring kubectl
+You can use the kubectl oidc authenticator to create a kubeconfig as shown in the Kubernetes docs: https://kubernetes.io/docs/reference/access-authn-authz/authentication/#option-1-oidc-authenticator
+
+minikube start already creates a kubeconfig that includes a cluster, in order to use it with your oidc authenticator kubeconfig, you can run:
+
+kubectl config set-context kubernetes-local-oidc --cluster=minikube --user username@example.com
+Context "kubernetes-local-oidc" created.
+kubectl config use-context kubernetes-local-oidc
+For the new context to work you will need to create, at the very minimum, a Role and a RoleBinding in your cluster to grant permissions to the subjects included in your oidc-username-claim.
+
+
 
 
