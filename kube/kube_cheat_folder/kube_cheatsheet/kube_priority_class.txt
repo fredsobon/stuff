@@ -1,0 +1,38 @@
+== notes kube priority class : ==
+
+Lorsque l’on parle de surallocation de ressources, il est important de rattacher une priorité. Si cette priorité
+n’existe pas, des ressources système peuvent se retrouver en concurrence avec des ressources applicatives,
+perturbant le fonctionnement du cluster.
+En effet, les ressources applicatives sont par définition moins importantes : rien ne sert de démarrer un pod
+applicatif si ce dernier n’est plus accessible en raison d’un composant système en attente de ressources.
+Le mécanisme de priorité et de préemption existe depuis la version 1.8 de Kubernetes et il est actif par défaut
+depuis la version 1.11. Il s’appuie sur la définition d’objet de type PriorityClass (raccourci pc).
+Ces objets portent un nom ainsi qu’une valeur numérique donnant la priorité : plus la valeur est grande, plus la
+classe est prioritaire.
+
+kubectl get priorityclass                                                         
+NAME                      VALUE        GLOBAL-DEFAULT   AGE
+system-cluster-critical   2000000000   false            33h
+system-node-critical      2000001000   false            33h
+
+
+
+kubectl get priorityclass system-node-critical -o yaml
+apiVersion: scheduling.k8s.io/v1
+description: Used for system critical pods that must not be moved from their current
+  node.
+kind: PriorityClass
+metadata:
+  creationTimestamp: "2019-11-25T22:24:31Z"
+  generation: 1
+  name: system-node-critical
+  resourceVersion: "39"
+  selfLink: /apis/scheduling.k8s.io/v1/priorityclasses/system-node-critical
+  uid: 8941852e-76b1-418f-b0dc-2daa1b6d05f1
+value: 2000001000
+
+
+ici, la classe system-node-critical a une priorité de 2000001000.
+system-cluster-critical a une priorité de 200000000
+
+system-node-critical est donc prioritaire sur system-cluster-critical .
