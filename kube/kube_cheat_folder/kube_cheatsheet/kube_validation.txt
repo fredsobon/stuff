@@ -1,7 +1,13 @@
 ====  kube test et validation : ===
 
 
+https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/conformance-tests.md#conformance-test-version-skew-policy
+
 https://stupefied-goodall-e282f7.netlify.com/contributors/devel/conformance-tests/
+
+https://github.com/cncf/k8s-conformance#certified-kubernetes
+
+https://github.com/cncf/k8s-conformance/blob/master/instructions.md
 
 
 on va vouloir valider le bon fonctionnement de notre kube via des kubes 
@@ -28,9 +34,12 @@ endtoend ~1000 test pour assurer la validation / certification kube  : env 12h
 
 sur un node master : on doit avoir go installé :
 
-Il faut cloner le repo githun kubernetes ensuite allez dedans et lancer 
 
-go get -u k8s.io/test-infra/kubetest
+on peut lancer les tests depuis une machinne hors cluster kube :
+
+Il faut cloner le repo github kubernetes ensuite allez dedans et lancer 
+
+go get -v -u k8s.io/test-infra/kubetest
 
 le binaire kubetest va être générer : on le trouve dans noter gopth : go/bin/kubetest
 
@@ -51,10 +60,73 @@ export KUBE_MASTER=kube-master
 on peut passer le test complet ou alors le test de conformité :
 
 
-kubetest --test --provider=skeletton --test-args="--ginko.focus=\[Conformance\]" > testout.txt
+kubetest --test --provider=skeletton --test_args="--ginko.focus=\[Conformance\]" > testout.txt
 
 une fois le test fini on peut voir le résultat dans le fichier de redirection testout.txt
 
 
+- de manière alternative :
+
+toujours dans le repertoire kubernetes/kubernetes ( apres avoir fait l'extract de notre version de kube à tester : ) 
+
+go run hack/e2e.go  --provider=skeleton --test --check-version-skew=false --test_args="--ginkgo.focus=\[Conformance\]"
 
 
+=== sonobuoy : ===
+
+
+https://github.com/vmware-tanzu/sonobuoy/
+
+https://github.com/cncf/k8s-conformance/blob/master/instructions.md
+
+
+- utilisation de registry privée pou utilisation sonobuoy 
+
+
+docker login artifact-docker-infra.meetic.ilius.net                [☸ kube-infra:fso]
+Authenticating with existing credentials...
+Login Succeeded
+ ~ [03:46:36]
+boogie$ kubectl -n fso create secret generic regcred --from-file=.dockerconfigjson=/home/boogie/.docker/config.json --type=kubernetes.io/dockerconfigjson
+secret/regcred created
+
+exam du secret :
+
+boogie$ kubectl get secret regcred --output=yaml                        
+
+apiVersion: v1
+data:
+  .dockerconfigjson: ewoJImF1dGhzIjogewoJCSJhcnRpZmFjdC1kb2NrZXItaW5mcmEubWVldGljLmlsaXVzLm5ldCI6IHt9LAoJCSJodHRwczovL2luZGV4LmRvY2tlci5pby92MS8iOiB7fQoJfSwKCSJIdHRwSGVhZGVycyI6IHsKCQkiVXNlci1BZ2VudCI6ICJEb2NrZXItQ2xpZW50LzE4LjA5LjYgKGxpbnV4KSIKCX0sCgkiY3JlZHNTdG9yZSI6ICJzZWNyZXRzZXJ2aWNlIgp9
+kind: Secret
+metadata:
+  creationTimestamp: "2019-11-28T14:49:20Z"
+  name: regcred
+  namespace: fso
+  resourceVersion: "31092456"
+  selfLink: /api/v1/namespaces/fso/secrets/regcred
+  uid: 2b1bff43-8d40-4a56-a28d-17619df0fe35
+type: kubernetes.io/dockerconfigjson
+
+qu'on peut verifier et decoder :
+
+kubectl get secret regcred --output="jsonpath={.data.\.dockerconfigjson}" | base64 --decode
+{
+	"auths": {
+		"artifact-docker-infra.meetic.ilius.net": {},
+		"https://index.docker.io/v1/": {}
+	},
+	"HttpHeaders": {
+		"User-Agent": "Docker-Client/18.09.6 (linux)"
+	},
+	"credsStore": "secretservice"
+}%
+
+
+
+
+
+VERSION=0.16.1 OS=linux && \
+    curl -L "https://github.com/vmware-tanzu/sonobuoy/releases/download/v${VERSION}/sonobuoy_${VERSION}_${OS}_amd64.tar.gz" --output $HOME/bin/sonobuoy.tar.gz && \
+    tar -xzf $HOME/bin/sonobuoy.tar.gz -C $HOME/bin && \
+    chmod +x $HOME/bin/sonobuoy && \
+    rm $HOME/bin/sonobuoy.tar.gz
