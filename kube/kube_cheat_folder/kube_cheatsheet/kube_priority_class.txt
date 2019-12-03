@@ -10,12 +10,16 @@ depuis la version 1.11. Il s’appuie sur la définition d’objet de type Prior
 Ces objets portent un nom ainsi qu’une valeur numérique donnant la priorité : plus la valeur est grande, plus la
 classe est prioritaire.
 
+
+/!\ Les ressources PriorityClass ne sont pas affectées par la notion d’espace de noms.
+
+
 kubectl get priorityclass                                                         
 NAME                      VALUE        GLOBAL-DEFAULT   AGE
 system-cluster-critical   2000000000   false            33h
 system-node-critical      2000001000   false            33h
 
-
+on peut récupérer les infos en foramt yaml : 
 
 kubectl get priorityclass system-node-critical -o yaml
 apiVersion: scheduling.k8s.io/v1
@@ -36,3 +40,95 @@ ici, la classe system-node-critical a une priorité de 2000001000.
 system-cluster-critical a une priorité de 200000000
 
 system-node-critical est donc prioritaire sur system-cluster-critical .
+
+
+Il est possible de consulter la priorityclass pour un pod :
+Dans le cas où le pod n’aurait pas de classe de priorité, le champ
+PriorityClassName prendra la valeur <none> .
+La récupération de l’ensemble des classes de priorité des pods du cluster peut se faire à l’aide de la commande
+kubectl suivie des options suivantes :
+
+-> get pods ,
+-> une option de sélection de l’espace de noms système ( -n
+-> option ­o suivie de custom-columns suivie des colonnes suivantes :
+  NAME : récupération du nom du pod ( .metadata.name ),
+  PRIORITY : récupération de la classe ( .spec.priorityClassName ).
+Pour récupérer l’ensemble des pods, utilisez l’option --all-namespaces .
+
+La commande à lancer prenant en compte ces indications :
+$ kubectl get pods -n kube-system -o custom-columns=NAME:.metadata.name,PRIORITY:.spec.priorityClassName
+
+kubectl get pods -n kube-system -o \                                                                                                       [☸ minikube:default]
+custom-columns=NAME:.metadata.name,\PRIORITY:.spec.priorityClassName
+NAME                                        PRIORITY
+coredns-5644d7b6d9-9554g                    system-cluster-critical
+coredns-5644d7b6d9-t9mnq                    system-cluster-critical
+etcd-minikube                               system-cluster-critical
+kube-addon-manager-minikube                 <none>
+kube-apiserver-minikube                     system-cluster-critical
+kube-controller-manager-minikube            system-cluster-critical
+kube-proxy-znw9g                            system-node-critical
+kube-scheduler-minikube                     system-cluster-critical
+nginx-ingress-controller-6fc5bcc8c9-z76qb   <none>
+storage-provisioner                         <none>
+
+
+on peut biensur créer une clase de priorité :
+
+apiVersion: scheduling.k8s.io/v1beta1
+kind: PriorityClass
+metadata:
+name: custom-priority
+description: Custom priority class.
+Value: 100000
+
+
+on va ensuite pouvoir affecter notre classe de priorité :
+
+Comme indiqué plus haut, l’affectation de la classe de priorité se fait dans le champ priorityClassName associé à un pod.
+
+Ci­dessous la déclaration suite à cet ajout :
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+ labels:
+  app: mailhog
+  name: mailhog
+spec:
+ replicas: 1
+ selector:
+  matchLabels:
+    app: mailhog
+template:
+ metadata:
+  labels:
+    app: mailhog
+ spec:
+  priorityClassName: custom-priority
+  containers:
+  - image: mailhog/mailhog
+    name: mailhog
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "250m"
+     limits:
+        memory: "128Mi"
+        cpu: "500m"
+
+Les classes de priorité du cluster ont des niveaux très importants. Afin d’éviter qu’une charge applicative puisse
+prendre le pas sur une charge système, ces classes ne peuvent pas être affectées à un pod en dehors de l’espace
+de noms kube-system .
+
+Dans le cas où vous tenteriez d’effectuer cette affectation, le cluster Kubernetes refuserait de le faire. Dans le cas
+d’un déploiement, l’erreur se trouverait au niveau de l’objet intermédiaire ReplicaSet.
+Cette consultation peut se faire à l’aide de la commande suivante (pour l’application MailHog) :
+
+$ kubectl describe rs -l app=mailhog
+Ci­dessous un exemple de message d’erreur indiquant l’origine du problème :
+...
+Warning FailedCreate 2s (x14 over 43s) replicaset-controller Error
+creating: pods "mailhog-5b6ddd9f6-" is forbidden: pods with system-cluster-
+critical priorityClass is not permitted in default namespace        
+
+
