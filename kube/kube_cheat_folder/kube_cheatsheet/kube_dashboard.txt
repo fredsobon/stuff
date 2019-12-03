@@ -1,0 +1,81 @@
+=== notes access dashboard kube : ===
+
+
+= Accéder au Dashboard : =
+Le Dashboard n'est par défaut pas accessible en dehors du cluster. On peut cependant tricher en passant par un proxy et un tunnel SSH.
+
+Le proxy
+Ouvrez un nouveau terminal branché sur votre master et tapez la commande suivante :
+
+bob@k8smaster:~$ kubectl proxy
+Starting to serve on 127.0.0.1:8001
+Le tunnel SSH
+
+Depuis votre PC hôte, lancez le tunnel :
+
+bob@laptop:~$ ssh -L 8001:127.0.0.1:8001 bob@IP_DU_MASTER
+Affichez le fameux tant attendu
+Si tout s'est bien passé jusqu'ici, vous deviez pouvoir accéder au Dashboard via cette url :
+
+http://127.0.0.1:8001/api/v1/namespaces/kube-system/services/https:kubernetes-dashboard:/proxy/#!/overview?namespace=_all
+
+
+= Installer le Dashboard : 
+
+Pour installer le Dashboard, placez-vous sur votre master et tapez la commande suivante :
+
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/master/src/deploy/recommended/kubernetes-dashboard.yaml
+
+Kubernetes va aller chercher la configuration nécessaire la mise à en place du Dashboard directement depuis son dépôt Github et le faire apparaître dans la liste des pods de votre cluster.
+
+bob@k8smaster:~$  kubectl get pods --all-namespaces -o wide | grep dashb
+kube-system   kubernetes-dashboard-77fd78f978-f8p9l   1/1     Running   0          60s     10.244.1.230   k8snode1    <none>
+Il est  "Running", ça veut dire qu'il est disponible, mais pas encore accessible.
+
+Créez un compte utilisateur
+
+Créez un fichier admin-user.yaml avec ce qui suit dedans :
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: admin-user
+  namespace: kube-system
+
+Puis créez le rôle qui lui sera attaché : admin-role.yaml
+
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: admin-user
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: admin-user
+  namespace: kube-system
+Chargez ces configurations dans le cluster :
+kubectl apply -f admin-user.yaml
+kubectl apply -f admin-role.yaml
+Récupérer le token de connexion
+
+Pour vous connecter au Dashboard, en plus d'avoir le pod et un utilisateur, il vous faut le token qui va bien. Pour le récupérer :
+bob@k8smaster:~$ kubectl -n kube-system describe secret $(kubectl -n kube-system get secret | grep admin-user | awk '{print $1}')
+Name:         admin-user-token-b8qmq
+Namespace:    kube-system
+Labels:       <none>
+Annotations:  kubernetes.io/service-account.name: admin-user
+              kubernetes.io/service-account.uid: a8a600b1-e010-11e8-96ec-0800273c4560
+
+Type:  kubernetes.io/service-account-token
+
+Data
+====
+ca.crt:     1025 bytes
+namespace:  11 bytes
+token:      eyJhbGciOiJSUzI1NiIsImtpZCI6IiJ9.eyJpc3MiOiJrdWJl.........
+J'ai tronqué l'affichage du token. Il est d'une longueur dingue. Copiez-le dans un coin maintenant que vous l'avez.
+
+
