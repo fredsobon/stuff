@@ -1,0 +1,29 @@
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  annotations:
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      more_set_headers "Access-Control-Allow-Origin: $http_origin";
+    kubernetes.io/tls-acme: "true"
+  creationTimestamp: "2019-09-06T08:11:29Z"
+  name: kubernetes-dashboard
+  namespace: kube-system
+spec:
+  tls:
+  - hosts:
+    - kube-dashboard.kube.lapin.net
+    secretName: kubernetes-dashboard-certs
+  rules:
+  - host: kube-dashboard.kube.lapin.net
+    http:
+      paths:
+        - path: "/dashboard"
+          backend:
+            serviceName: kubernetes-dashboard
+            servicePort: 80
+status:
+  loadBalancer:
+    ingress:
+    - ip: 192.168.0.7
