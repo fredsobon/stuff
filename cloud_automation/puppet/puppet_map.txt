@@ -1,0 +1,25 @@
+=== notes puppet map : ==
+
+la fonction map va nous permettre de transformer une liste, hash en fournie en entrée et lui appliquer un traitement afin de produire une sortie :
+
+
+ex: on va construire une liste de servers/port d'apres un tableau de serveur et des variable définies en entrées :
+dans hiera par ex :
+$kubemaster::etcd_servers:
+  - kubemaster1
+  - kubemaster2
+  - kubemaster3
+
+
+dans puppet : 
+etcd_scheme = 'https'
+etcd_client_port = '2379'
+
+on contruit notre liste de type https://server:2379 : les éléments sont concaténés : 
+  $etcd_endpoints =  $kubemaster::etcd_servers.map |$etcd_server| { "${etcd_scheme}${etcd_server}:${etcd_client_port}" }
+
+on peut maintenant séparés chaque éléments par une ',' et les assembler en string :  
+  $etcdctl_endpoints = join($etcd_endpoints, ',')
+
+résultat : 
+https://kubemaster1:2379,https://kubemaster2:2379,https://kubemaster3:2379
