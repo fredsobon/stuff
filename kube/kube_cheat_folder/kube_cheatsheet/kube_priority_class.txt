@@ -73,6 +73,12 @@ nginx-ingress-controller-6fc5bcc8c9-z76qb   <none>
 storage-provisioner                         <none>
 
 
+
+on voit ici que le pod kube-proxy a une priorityclass settée à system-node-critical : il a donc une priorité plus élevée que les pods ayant une priorityclass à 
+system-cluster-critical ..en cas de conflit entre ces pods : le pod kube-proxy restera sur le node tandis que les autres pods pourront être affectés sur un autre node.
+
+
+
 on peut biensur créer une clase de priorité :
 
 apiVersion: scheduling.k8s.io/v1beta1
@@ -115,6 +121,9 @@ template:
      limits:
         memory: "128Mi"
         cpu: "500m"
+
+
+maintenant en cas de conflit avec un autre déploiement mailhog sera prioritaire.
 
 Les classes de priorité du cluster ont des niveaux très importants. Afin d’éviter qu’une charge applicative puisse
 prendre le pas sur une charge système, ces classes ne peuvent pas être affectées à un pod en dehors de l’espace
