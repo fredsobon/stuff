@@ -7,6 +7,29 @@ pour assurer de la persistance à nos data on va attacher un volume que l'on aur
 Le  principe est le même dans kubernetes : les pods par nature sont éphémère et perdent donc les data quand ils sont détruits.
 On va donc attacher un volume dans  un pod : si celui ci est détruit pas de souci un nouveau pod pourrra accéder au data du volume en le montant.
 
+
+L’utilisation d’un volume persistant se fait au sein de la déclaration d’un pod. Une première solution pourrait être de passer par un service externe comme avec un point de montage NFS.
+Cette déclaration de persistance de données se définira en deux parties : 
+-> un référencement au niveau du pod dans le champ volumes ,
+-> une indication de l’emplacement du montage au sein du container.
+Le référencement d’un volume NFS au niveau d’un pod se présentera sous la forme suivante :
+spec:
+  volumes:
+    - name: nfs
+      nfs:
+      # URL for the NFS server
+        server: 192.168.0.1
+        path: /
+Le montage au niveau du container se présentera ainsi :
+spec:
+  containers:
+   - name: mailhog
+     image: mailhog/mailhog
+     # Mount the NFS volume in the container
+     volumeMounts:
+       - name: nfs
+         mountPath: /maildir
+
 - Implémentation :
 
 ex: on va créer un pod qui va écrire dans le fichier d'un repertoire un nombre aléatoire :
