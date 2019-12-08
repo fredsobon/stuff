@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: mailhog
+  name: mailhog
+spec:
+  replicas: 1
+  selector:
+    matchLabels:            
+      app: mailhog
+  template:
+    metadata:
+      labels:
+        app: mailhog
+    spec:
+      # matching avec class de priorite definie dans objetc pc ( priority class annexe )      
+      priorityClassName: custom-priority
+      containers:
+      - image: mailhog/mailhog
+        # on ne pull une img que si aucune n'est presente en locale (utile en mode off line) 
+        imagePullPolicy: IfNotPresent
+        name: mailhog
+        # healtcheck : readyness : pour s'assurer des dépendances ok et liveness : test réponse de notre appli 
+        readinessProbe:
+          tcpSocket:
+            port: 1025
+        livenessProbe:
+          httpGet:
+            port: 8025
+        # settings des ressources nécéssaires pour l'appli (requests)  et limites à ne pas dépasser pour l'appli du pod     
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "250m"
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+        # on defini un point de montage pour notre appli      
+        volumeMounts:
+          - mountPath: /maildir
+            name:
+              mailhog-maildir
+        # on defini des commandes que prend notre container en arguments : on dis à l'appli mailhog d'utiliser le stockage de mails sous format maildi et on indique l'endroit dans lequel l'appli va écrire.      
+        command:
+          - "MailHog"
+          - "-storage=maildir"
+          - "-maildir-path=/maildir"
+      # on fait matcher notre pod avec la reservation/ reclamation de volume pvc créee au prealable comme object kube.      
+      volumes:
+       - name: mailhog-maildir
+         persistentVolumeClaim: { claimName: pvc-mailhog }       
