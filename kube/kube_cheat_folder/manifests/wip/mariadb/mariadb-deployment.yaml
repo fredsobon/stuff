@@ -5,6 +5,9 @@ metadata:
   app: mariadb
  name: mariadb
 spec:
+  # No rolling update: on passe par une methode de deploiement qui detruit le container avant de recréer pour eviter les acces concurents a une bdd qui ne demarre pas : cette methode est à proscrire mais sert juste à montrer un pb de lock si on recre un pod avec une startegy habituelle de Rolling update.
+ strategy:
+  type: Recreate
  selector:
   matchLabels:
    app: mariadb
@@ -13,6 +16,7 @@ spec:
    labels:
     app: mariadb
   spec:
+    # declaration volume cree dans un pvc au prealable :  
    volumes:
     - name: mariadb-data
       persistentVolumeClaim: { claimName: mariadb-data }
@@ -20,9 +24,24 @@ spec:
     - image: mariadb
       name: mariadb
       imagePullPolicy: IfNotPresent
+      # declaration du pooint de montage pour le volume déclaré précedemment : 
       volumeMounts:
        - mountPath: /var/lib/mysql
          name: mariadb-data
+      # declaration de variables nécéssaires pour le demarrage de mysql    
       env:
        - name: MYSQL_ROOT_PASSWORD
          value: mot-de-passe-root
+         # declaration de sondes - on va lancer un shell puis la commande mysqladmin pour permettre la récuperation de la variable d'env définie auparavant : sinon elle n'est pas interprétée. 
+      livenessProbe:
+       exec:
+        command:
+         - "sh"
+         - "-c"
+         - "mysqladmin status -p$MYSQL_ROOT_PASSWORD"
+      readinessProbe:
+       exec:
+        command:
+         - "sh"
+         - "-c"
+         - "mysqladmin status -p$MYSQL_ROOT_PASSWORD"
