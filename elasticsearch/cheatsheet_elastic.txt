@@ -16,6 +16,12 @@ GET /_cluster/settings
 - examiner les noeux du cluster : 
 GET /_cat/nodes
 
+
+- examiner la sante d'un node du cluster : 
+
+GET /_nodes/<node_id>
+GET /_nodes/lapin01
+
 - santé du cluster : 
 GET /_cat/health?pretty
 GET /_cluster/health?level=indices    <<< ici on regarde spécifiquement les index 
@@ -81,4 +87,10 @@ curl -s -XPOST "http://127.0.0.1:9200/_cluster/reroute?retry_failed" | jq '.stat
 
 
 
+ ==== reset d'offset d'index avec kafka comme intermediaire entre les log et les indexers : ===
 
+Sion accumule du retard sur un cluster elk et qu'on veut vraimen avoir des logs dispos dans kibana par exemple  :  on va stopper logstash sur notre / nos serveur hebergeant kafka : 
+
+dans notre exemple on va reset l'offset de l'index accesslog jusqu'à 11h 
+
+ /opt/kafka/bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 --group logstash --topic accesslog --reset-offsets --to-datetime 2019-12-04T11:00:00.000Z  --execute
