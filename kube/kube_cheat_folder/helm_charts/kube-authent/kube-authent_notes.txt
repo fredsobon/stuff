@@ -1,0 +1,45 @@
+=== notes helm charts : ===
+
+
+https://github.com/dexidp/dex
+https://github.com/heptiolabs/gangway
+https://cert-manager.io/docs/installation/
+
+
+
+notes de setting d'authen kube en utilisant dex et gangway 
+
+on va générer une authent via ad ( dex > connection ad > token > dev > user ok puis gangway appli frontend qui permet a un user authentifié de recupérer sa conf kubectl ) 
+
+> dex est l'identity provider 
+> gangway est le génerateur de kubeconfig 
+
+
+on va configurer dex pour se connecter à notre ad pour authentifier les users avec leur email et recupérer les groupes dont ils sont membres ..
+
+Il faut configurer notre kube api server pour qu'il prenne en charge un oidc (composant d'authent )
+
+     --oidc-ca-file=..../dex-ca.pem
+     --oidc-issuer-url=https://dex.example.com:32000
+     --oidc-client-id=gangway
+     --oidc-username-claim=email
+     --oidc-groups-claim=groups
+
+
+Cette conf helm ne gere pas l'install de certmanager mais peut l'utiliser pour régénérer/renouvellerdes certif tls 
+Si cert manager est activé on peut redéfinir une authent de certif pour notre cluster kube . Il faut définir en common names gangway et dex dans nos certs :
+
+certManager:
+  gangwayCert:
+    altNames:
+    - kubectl.prod.lapin.net
+  dexCert:
+    altNames:
+    - dex.prod.lapin.net
+
+
+helm secrets install --name  auth-system --namespace authent -f  helm-vars/prod/values.yaml  -f helm-vars/prod/secrets.srs.yaml .
+
+kubectl apply --validate=false -f https://raw.githubusercontent.com/jetstack/cert-manager/release-0.12/deploy/manifests/00-crds.yaml
+helm  install --name cert-manager --namespace cert-manager jetstack/cert-manager
+kubectl create secret tls lapin-env-ca-keypair --cert /tmp/lapin_env_CA.crt --key /tmp/lapin_env_CA.key --namespace cert-manager
