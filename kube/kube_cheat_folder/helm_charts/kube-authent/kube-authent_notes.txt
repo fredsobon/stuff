@@ -40,6 +40,21 @@ certManager:
 
 helm secrets install --name  auth-system --namespace authent -f  helm-vars/prod/values.yaml  -f helm-vars/prod/secrets.srs.yaml .
 
+
+On va pouvoir utilier certmanager pour générer / renouveller nos certs.
+Pour installer certmanager et notre ca : 
+
 kubectl apply --validate=false -f https://raw.githubusercontent.com/jetstack/cert-manager/release-0.12/deploy/manifests/00-crds.yaml
 helm  install --name cert-manager --namespace cert-manager jetstack/cert-manager
 kubectl create secret tls lapin-env-ca-keypair --cert /tmp/lapin_env_CA.crt --key /tmp/lapin_env_CA.key --namespace cert-manager
+
+apiVersion: cert-manager.io/v1alpha2
+kind: ClusterIssuer
+metadata:
+  name: meetic-env-ca-issuer
+spec:
+  ca:
+    secretName: lapin-env-ca-keypair
+
+
+    
