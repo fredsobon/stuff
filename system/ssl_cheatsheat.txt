@@ -17,10 +17,33 @@ openssl x509 -req -in bob-csr.pem -CA ca.crt -CAkey ca.key -CAcreateserial -out 
 https://support.securly.com/hc/en-us/articles/206081828-How-to-manually-install-the-Securly-SSL-certificate-in-Chrome
 
 
-
-
 == utilisation de notre CA générée en interne pour tester un site : ===
 
 
 -> dans ce cas le passage en argument à curl de notre ca permet de la truster et donc de valider le certif ssl .
 curl -ILv --cacert  MA_CA_PRIVEE_CA.crt https://www.lapin.net                                                                                                                          [☸ k8sdevtools2@kube_devtools:default]
+
+
+
+== ajout d'une CA (authorité de certification) pour certif autosignés ou autre à notre system ==
+
+If you want to send or receive messages signed by root authorities and these authorities are not installed on the server, you must add a trusted root certificate manually.
+Linux (Ubuntu, Debian)
+
+Add :
+Copy your CA to dir /usr/local/share/ca-certificates/
+sudo cp foo.crt /usr/local/share/ca-certificates/foo.crt
+
+Update the CA store: sudo update-ca-certificates
+
+Remove your CA.
+Update the CA store: sudo update-ca-certificates --fresh
+
+Linux (CentOs 6)
+Add
+Install the ca-certificates package: yum install ca-certificates
+Enable the dynamic CA configuration feature: update-ca-trust force-enable
+Add it as a new file to /etc/pki/ca-trust/source/anchors/: cp foo.crt /etc/pki/ca-trust/source/anchors/
+Use command: update-ca-trust extract
+
+
