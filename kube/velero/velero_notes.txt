@@ -23,29 +23,370 @@ docker exec -it minio cat /data/.minio.sys/config/config.json | egrep "(access|s
 on va modifier depuis le brwoser le user /mdp -> en haut a droite du navigateur dans la page minio 
 Change access key and secret key from the Minio dashboard.
 
+il est possible en fonction des versions de pouvoir directement avoir les infos d'authent de base au lancement du docker :
+Object API (Amazon S3 compatible):
+   Go:         https://docs.min.io/docs/golang-client-quickstart-guide
+   Java:       https://docs.min.io/docs/java-client-quickstart-guide
+   Python:     https://docs.min.io/docs/python-client-quickstart-guide
+   JavaScript: https://docs.min.io/docs/javascript-client-quickstart-guide
+   .NET:       https://docs.min.io/docs/dotnet-client-quickstart-guide
+Detected default credentials 'minioadmin:minioadmin', please change the credentials immediately using 'MINIO_ACCESS_KEY' and 'MINIO_SECRET_KEY'
 
-Download Velero 1.0.0 Release
-wget https://github.com/heptio/velero/releases/download/v1.0.0/velero-v1.0.0-linux-amd64.tar.gz
-tar zxf velero-v1.0.0-linux-amd64.tar.gz
-sudo mv velero-v1.0.0-linux-amd64/velero /usr/local/bin/
+on pourra donc se logger avec minioadmin:minioadmin 
+Attention on ne pourra pas changer dans les versions recentes de minio les id via le browser 
+
+- on creer un bucket pour stocker nos data 
+
+> create bucket 
+kubedemo 
+
+
+
+- on dl velero : la derniere version 
+Download Velero 1.2.0 Release
+wget https://github.com/heptio/velero/releases/download/v1.2.0/velero-v1.2.0-linux-amd64.tar.gz
+
+
+
+tar zxf velero-v1.2.0-linux-amd64.tar.gz
+sudo mv velero-v1.2.0-linux-amd64/velero /usr/local/bin/
 rm -rf velero*
+
+
+ok on a maintenant velero op et reconnu dans notre shell apres avoir relancer notre env ou relancer un shell : 
+
+boogie$ velero version                                                                                                                             [☸ minikube:default]
+Client:
+	Version: v1.2.0
+	Git commit: 5d008491bbf681658d3e372da1a9d3a21ca4c03c
+<error getting server version: the server could not find the requested resource (post serverstatusrequests.velero.io)>
+
+
+on voit qu'on a une erreur velero n'est pas configuré dans notre cluster kube et on a pas non plus de conf indiquant a velero de backuper dans nos bucket 
 
 Create credentials file (Needed for velero initialization)
 cat <<EOF>> minio.credentials
 [default]
-aws_access_key_id=minio
-aws_secret_access_key=minio123
+aws_access_key_id=minioadmin
+aws_secret_access_key=minioadmin
 EOF
+
+cat minio.credentials                                                                                                                      [☸ minikube:default]
+[default]
+aws_access_key_id=minioadmin
+aws_secret_access_key=minioadmin
+
+on voit ici qu'on a aws d'indiquer : c'est normal minio utilise les mecanismes aws mais n'est biensur pas sur amazon
+
 
 Install Velero in the Kubernetes Cluster
 
+on va maintenant installer velero dans notre cluster kube 
+
+on specifie des valeurs mandatory :
+provider aws -> on utilise minio qui utilise les concepts aws de storage 
+bucket kubebcktest -> on donne en path le bucket qu'on a crée dans minio 
+secret-file -> on donne en argument le fichier d'authent a notre stockage minio 
+backup-location-config -> les options mandatory : region mino : le type de storage s3ForcePathStyle=true : option de backup simili amazon s3 , s3Url=http://<ip>:9000 : url de stockage de nos backup :celle qu'on a recupérer apres l'install de minio 
+plugins -> on defini le plugin qu'un utilise pour le stockage velero/velero-plugin-for-aws:v1.0.0
 velero install \
    --provider aws \
    --bucket kubedemo \
    --secret-file ./minio.credentials \
    --backup-location-config region=minio,s3ForcePathStyle=true,s3Url=http://<ip>:9000
+   --plugins velero/velero-plugin-for-aws:v1.0.0
+   --use-volume-snapshots=false
+
+velero install  --provider aws --plugins velero/velero-plugin-for-aws:v1.0.0 --bucket kubebcktest  --secret-file ./minio.credentials  --use-volume-snapshots=false --backup-location-config region=minio,s3ForcePathStyle="true",s3Url=http://127.0.0.1:9000
+
+CustomResourceDefinition/backups.velero.io: attempting to create resource
+CustomResourceDefinition/backups.velero.io: created
+CustomResourceDefinition/backupstoragelocations.velero.io: attempting to create resource
+CustomResourceDefinition/backupstoragelocations.velero.io: created
+CustomResourceDefinition/deletebackuprequests.velero.io: attempting to create resource
+CustomResourceDefinition/deletebackuprequests.velero.io: created
+CustomResourceDefinition/downloadrequests.velero.io: attempting to create resource
+CustomResourceDefinition/downloadrequests.velero.io: created
+CustomResourceDefinition/podvolumebackups.velero.io: attempting to create resource
+CustomResourceDefinition/podvolumebackups.velero.io: created
+CustomResourceDefinition/podvolumerestores.velero.io: attempting to create resource
+CustomResourceDefinition/podvolumerestores.velero.io: created
+CustomResourceDefinition/resticrepositories.velero.io: attempting to create resource
+CustomResourceDefinition/resticrepositories.velero.io: created
+CustomResourceDefinition/restores.velero.io: attempting to create resource
+CustomResourceDefinition/restores.velero.io: created
+CustomResourceDefinition/schedules.velero.io: attempting to create resource
+CustomResourceDefinition/schedules.velero.io: created
+CustomResourceDefinition/serverstatusrequests.velero.io: attempting to create resource
+CustomResourceDefinition/serverstatusrequests.velero.io: created
+CustomResourceDefinition/volumesnapshotlocations.velero.io: attempting to create resource
+CustomResourceDefinition/volumesnapshotlocations.velero.io: created
+Waiting for resources to be ready in cluster...
+Namespace/velero: attempting to create resource
+Namespace/velero: created
+ClusterRoleBinding/velero: attempting to create resource
+ClusterRoleBinding/velero: created
+ServiceAccount/velero: attempting to create resource
+ServiceAccount/velero: created
+Secret/cloud-credentials: attempting to create resource
+Secret/cloud-credentials: created
+BackupStorageLocation/default: attempting to create resource
+BackupStorageLocation/default: created
+VolumeSnapshotLocation/default: attempting to create resource
+VolumeSnapshotLocation/default: created
+Deployment/velero: attempting to create resource
+Deployment/velero: created
+Velero is installed! ⛵ Use 'kubectl logs deployment/velero -n velero' to view the status.
+
+on a bien notre appli velero de déployée :
+
+boogie$ kctl get ns                                                                                                                                [☸ minikube:default]
+NAME                   STATUS   AGE
+default                Active   27d
+kube-node-lease        Active   27d
+kube-public            Active   27d
+kube-system            Active   27d
+kubernetes-dashboard   Active   26d
+velero                 Active   4m41s
+
+
+
+
 
 Enable tab completion for preferred shell
 source <(velero completion zsh)
+
+
+- desintallation de velero :
+
+kubectl delete namespace/velero clusterrolebinding/velero
+kubectl delete crds -l component=velero
+
+
+=== doc velero.io minimal config minio ==
+
+wget https://github.com/heptio/velero/releases/download/v1.2.0/velero-v1.2.0-linux-amd64.tar.gz
+
+tar -xzvf velero-v1.2.0-linux-amd64.tar.gz
+
+cd velero-v1.2.0-linux-amd64
+
+boogie$ cat credentials-velero                                                                                                                     [☸ minikube:default]
+[default]
+aws_access_key_id = minio
+aws_secret_access_key = minio123
+
+boogie$ cat examples/minio/00-minio-deployment.yaml                                                                                                [☸ minikube:default]
+# Copyright 2017 the Velero contributors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: velero
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: velero
+  name: minio
+  labels:
+    component: minio
+spec:
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      component: minio
+  template:
+    metadata:
+      labels:
+        component: minio
+    spec:
+      volumes:
+      - name: storage
+        emptyDir: {}
+      - name: config
+        emptyDir: {}
+      containers:
+      - name: minio
+        image: minio/minio:latest
+        imagePullPolicy: IfNotPresent
+        args:
+        - server
+        - /storage
+        - --config-dir=/config
+        env:
+        - name: MINIO_ACCESS_KEY
+          value: "minio"
+        - name: MINIO_SECRET_KEY
+          value: "minio123"
+        ports:
+        - containerPort: 9000
+        volumeMounts:
+        - name: storage
+          mountPath: "/storage"
+        - name: config
+          mountPath: "/config"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: velero
+  name: minio
+  labels:
+    component: minio
+spec:
+  # ClusterIP is recommended for production environments.
+  # Change to NodePort if needed per documentation,
+  # but only if you run Minio in a test/trial environment, for example with Minikube.
+  type: ClusterIP
+  ports:
+    - port: 9000
+      targetPort: 9000
+      protocol: TCP
+  selector:
+    component: minio
+
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  namespace: velero
+  name: minio-setup
+  labels:
+    component: minio
+spec:
+  template:
+    metadata:
+      name: minio-setup
+    spec:
+      restartPolicy: OnFailure
+      volumes:
+      - name: config
+        emptyDir: {}
+      containers:
+      - name: mc
+        image: minio/mc:latest
+        imagePullPolicy: IfNotPresent
+        command:
+        - /bin/sh
+        - -c
+        - "mc --config-dir=/config config host add velero http://minio:9000 minio minio123 && mc --config-dir=/config mb -p velero/velero"
+        volumeMounts:
+        - name: config
+          mountPath: "/config"
+
+kubectl apply -f examples/minio/00-minio-deployment.yaml
+
+velero install \                                                                                                                           [☸ minikube:default]
+    --provider aws \
+    --plugins velero/velero-plugin-for-aws:v1.0.0 \
+    --bucket velero \
+    --secret-file ./credentials-velero \
+    --use-volume-snapshots=false \
+    --backup-location-config region=minio,s3ForcePathStyle="true",s3Url=http://minio.velero.svc:9000
+
+
+kubectl apply -f examples/nginx-app/base.yaml
+
+kubectl get deployments -l component=velero --namespace=velero                                                                             [☸ minikube:default]
+kubectl get deployments --namespace=nginx-example
+
+velero backup create nginx-backup --selector app=nginx
+
+- disaster recovery :
+kubectl delete namespace nginx-example
+
+boogie$ kctl get ns nginx                                                                                                                          [☸ minikube:default]
+Error from server (NotFound): namespaces "nginx" not found
+ ~/Bureau/velero-v1.2.0-linux-amd64 [05:31:18]
+
+- restoration du backup fait précédemment : 
+
+boogie$ velero restore create --from-backup nginx-backup                                                                                           [☸ minikube:default]
+Restore request "nginx-backup-20191223173124" submitted successfully.
+Run `velero restore describe nginx-backup-20191223173124` or `velero restore logs nginx-backup-20191223173124` for more details.
+
+- exam des backups : 
+
+boogie$ velero restore get                                                                                                                         [☸ minikube:default]
+NAME                          BACKUP         STATUS      WARNINGS   ERRORS   CREATED                         SELECTOR
+nginx-backup-20191223173124   nginx-backup   Completed   0          0        2019-12-23 17:31:24 +0100 CET   <none>
+
+boogie$ velero restore describe nginx-backup-20191223173124                                                                                        [☸ minikube:default]
+Name:         nginx-backup-20191223173124
+Namespace:    velero
+Labels:       <none>
+Annotations:  <none>
+
+Phase:  Completed
+
+Backup:  nginx-backup
+
+Namespaces:
+  Included:  *
+  Excluded:  <none>
+
+Resources:
+  Included:        *
+  Excluded:        nodes, events, events.events.k8s.io, backups.velero.io, restores.velero.io, resticrepositories.velero.io
+  Cluster-scoped:  auto
+
+Namespace mappings:  <none>
+
+Label selector:  <none>
+
+Restore PVs:  auto
+
+
+- delete de backup :
+velero backup delete BACKUP_NAME
+
+
+- suppression des conf velero et nginx test pour notre exemple :
+kubectl delete namespace/velero clusterrolebinding/velero
+kubectl delete crds -l component=velero
+kubectl delete -f examples/nginx-app/base.yaml
+
+
+_- Exposition du service minio en dehors du cluster :
+les confs definies dans les exemples ne permettent pas d'agir avec minio en dehors du cluster 
+on va changer le service et le passer de clusterip a nodeport :
+
+minikube service minio --namespace=velero --url                                                                                           [☸ minikube:default]
+http://192.168.39.172:30911
+
+
+in any other environment:
+
+Get the value of an external IP address or DNS name of any node in your cluster. You must be able to reach this address from the Velero client.
+Append the value of the NodePort to get a complete URL. You can get this value by running:
+
+kubectl -n velero get svc/minio -o jsonpath='{.spec.ports[0].nodePort}'
+Edit your BackupStorageLocation YAML, adding publicUrl: <URL_FROM_PREVIOUS_STEP> as a field under spec.config. You must include the http:// or https:// prefix.
+
+on peut donc browser nos backups en saisissant l'url minikube par exemple.
+
+
+- cleanup de notre env de test :
+
+kubectl delete namespace/velero clusterrolebinding/velero
+kubectl delete crds -l component=velero
+kubectl delete -f examples/nginx-app/base.yaml
 
 
