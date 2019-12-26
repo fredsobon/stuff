@@ -1,0 +1,157 @@
+=== Kube Hunter : outil d’analyse du cluster : ===
+
+- Présentation de Kube Hunter
+Kube Hunter est un outil d’analyse d’un cluster Kubernetes. Le projet est hébergé sur GitHub à l’adresse suivante : https://github.com/aquasecurity/kubehunter
+
+- Lancement de l’analyse
+Le lancement de l’analyse s’appuie sur un objet Job qui lance l’exécution de l’image aquasec/kube-hunter .
+Le fichier source du Job se récupère à l’adresse suivante : https://raw.githubusercontent.com/aquasecurity/kubehunter/master/job.yaml
+
+Récupérez ce fichier et ­dans le cas où vous auriez déployé Istio ­ ajoutez­y une annotation sur le pod pour interdire l’injection automatique d’un sidecar Istio.
+Ci­dessous la déclaration complète :
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+name: kube-hunter
+spec:
+  template:
+    metadata:
+    annotations:
+      sidecar.istio.io/inject: "false"
+spec:
+  containers:
+    image: aquasec/kube-hunter
+    command: ["python", "kube-hunter.py"]
+    args: ["--pod"]
+    restartPolicy: Never
+    backoffLimit: 4
+
+Sauvegardez cette déclaration dans le fichier job.yaml et lancez l’analyse :
+$ kubectl apply -f job.yaml
+
+- Résultat de l’analyse
+
+Le job se lance ensuite. Le pod en charge de l’analyse porte le label job-name=kube-hunter :
+$ kubectl get pods -l job-name=kube-hunter
+
+Ci­dessous un exemple d’analyse en cours :
+NAME READY STATUS RESTARTS AGE
+kube-hunter-jwsmv 1/1 Running 0 8s
+Le résultat de l’analyse est disponible directement dans le journal du container :
+$ kubectl logs kube-hunter-jwsmv
+Ci­dessous un extrait de cette analyse :
+~ Started
+~ Discovering Open Kubernetes Services...
+|
+| Accessed to pod’s secrets:
+| type: vulnerability
+| host: None:None
+| description:
+| Accessing the pod’s secrets within a
+| compromised pod might disclose valuable data to a
+|_ potential attacker
+Cannot read wireshark manuf database
+|
+| Kubelet API (readonly):
+| type: open service
+| service: Kubelet API (readonly)
+|_ host: 10.156.0.28:10255
+|
+| Kubelet API:
+|
+type: open service
+|_ host: 10.156.0.28:10250
+...
+Charge à l’administrateur de mettre en place les mesures nécessaires de protection par la restriction d’accès,
+l’ajout de police, etc.
+
+- Publication de rapports HTML
+Le site de Kube Hunter propose de mettre à disposition les rapports d’analyse sur Internet. Pour cela, fournissez un email sur le site de Kube Hunter à l’emplacement suivant : https://kube­hunter.aquasec.com/
+Le site vous renverra alors un jeton (token) utilisable dans la déclaration du job d’analyse. Le jeton est à passer en paramètre au niveau des arguments du pod avec l’option  --token .
+Ci­dessous un exemple de déclaration du champ
+containers suite à cet ajout :
+containers:
+- name: kube-hunter
+image: aquasec/kube-hunter
+command: ["python", "kube-hunter.py"]
+args:
+  - "--pod"
+  - "--token"
+  - "eyJ0eX...oSiRkU4jE0"
+
+Sauvegardez ces modifications dans le fichier job.yaml puis supprimez le job (il n’est pas possible de le mettre à jour) :
+
+$ kubectl delete job kube-hunter
+
+Recréez­le à l’aide de la commande suivante :
+$ kubectl apply -f job.yaml
+À la fin de l’exécution, consultez le journal du pod. Ce dernier devrait indiquer l’emplacement des
+rapports produits :
+See full report:
++----------------------------------------------------------+
+| https://kube-hunter.aquasec.com/report.html?token=eyJ... |
++----------------------------------------------------------+
+Report will be available at:
++----------------------------------------------------------+
+| https://kube-hunter.aquasec.com/report.html?token=eyJ... |
++----------------------------------------------------------+
+Entrez l’adresse du rapport dans un navigateur pour consulter une version graphique de ce dernier
+
+
+- Lancement à intervalles réguliers
+Un moyen de s’assurer que le cluster n’a pas de nouvelles failles est de lancer ce job à intervalles réguliers. Les objets CronJob sont faits pour ce type de travaux.
+
+Un objet CronJob se présente sous la forme d’une déclaration YAML avec les champs suivants :
+> le champ schedule indiquant la fréquence de lancement,
+> le champ concurrencyPolicy pour indiquer le comportement en cas de lancement en parallèle,
+> le champ successfulJobsHistoryLimit
+pour indiquer le nombre de pods à conserver dans la liste des pods en cas de succès,
+-> le champ jobTemplate contenant la structure du job à lancer.
+
+schedule reprend le même format que celui des crontabs pour la programmation des tâches :
+mm hh jj MMM JJJ
+Avec pour les champs suivants :
+- 10 -
+> mm : minute de lancement,
+> hh : heure de lancement,
+> jj : numéro du jour du mois,
+> MMM : mois de lancement (abréviation jan ­­> janvier ou numéro de 1 à 12),
+> JJJ : jour de la semaine (0 pour dimanche, 1 pour lundi, etc.).
+
+Le caractère joker (*) permet de lancer à toutes les minutes/heures/jours. Il est également possible de passer par :
+> un intervalle (1­5 : de 1 à 5),
+> toutes les x fois (*/3 : toutes les 3 unités),
+>  une énumération (1,4 : 1 et 4).
+Ci­dessous un exemple de lancement du job kube­hunter tous les jours à midi :
+
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: kube-hunter
+spec:
+  schedule: "0 12 * * *"
+  concurrencyPolicy: "Forbid"
+  successfulJobsHistoryLimit: 1
+  jobTemplate:
+  spec:
+    template:
+      metadata:
+       annotations:
+         sidecar.istio.io/inject: "false"
+    spec:
+      containers:
+      - name: kube-hunter
+        image: aquasec/kube-hunter
+        command: ["python", "kube-hunter.py"]
+        args:
+          - "--pod"
+          - "--token"
+          - "eyJ0e...kU4jE0"
+        restartPolicy: Never
+        backoffLimit: 4
+  
+Sauvegardez le fichier sous le nom cronjob.yaml et appliquez­le :
+$ kubectl apply -f cronjob.yaml
+
+

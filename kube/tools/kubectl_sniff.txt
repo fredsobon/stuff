@@ -1,0 +1,47 @@
+=== notes sniff : ===
+
+Sniff est une extension Krew qui permet de capturer le trafic d’un pod à l’aide de Wireshark.
+L’extension lance un pod contenant tcpdump sur la même interface réseau que celui à espionner puis lance automatiquement Wireshark en le branchant sur le pod d’espionnage.
+
+- Installation de Sniff et Wireshark
+L’installation de Sniff se réalise à l’aide de la commande suivante :
+
+$ kubectl krew install sniff
+La commande renvoie alors le message suivant :
+Updated the local
+installed plugin: sniff
+
+Wireshark doit être installé sur votre poste. Sous Debian/Ubuntu, cette installation se fait à l’aide de la commande
+suivante :
+$ sudo apt install wireshark
+
+- Lancement d’une séance de capture
+Tout d’abord, récupérez le nom du pod à espionner :
+$ kubectl get pod
+
+Ci­dessous un exemple de résultat :
+NAME READY STATUS RESTARTS AGE
+mailhog-5c76b9bb6c-jzcw6 1/1 Running 0 6s
+
+Ici, il s’agit du pod de MailHog. Pour capturer le trafic de ce dernier, la commande kubectl devra
+être lancée avec les options suivantes :
+> l’option sniff ,
+> l’option -p pour lancer le pod de tcpdump avec des privilèges,
+> le nom du pod.
+
+Pour espionner le pod
+mailhog-5c76b9bb6c-jzcw6 , lancez la commande suivante :
+$ kubectl sniff -p mailhog-5c76b9bb6c-jzcw6
+
+La commande doit alors renvoyer un certain nombre de messages de ce type :
+INFO[0000] sniffing method: upload static tcpdump
+INFO[0000] using tcpdump path at: ’/.../.krew/store/sniff/7...
+82a/static-tcpdump’
+INFO[0000] no container specified, taking first container we found in pod.
+INFO[0000] selected container: ’mailhog’
+INFO[0000] sniffing on pod: ’mailhog-5c76b9bb6c-jzcw6’ [namespace:
+’default’, container: ’mailhog’, filter: ’’, interface: ’any’]
+
+Au bout de quelques secondes, l’interface de Wireshark va se lancer et indiquer le contenu de la capture en cours.
+
+
