@@ -1,0 +1,62 @@
+== notes kube contexts : ===
+
+- listing des contexts configurés dans le kubeconfig : 
+boogie$  kubectl config get-contexts                                                                                                               [☸ minikube:default]
+CURRENT   NAME                                      CLUSTER           AUTHINFO                       NAMESPACE
+          b-k                                       b-k               b-k
+          kube-infra                                kube-infra        kubernetes-admin               fso
+          kubernetes-admin@kubeallinone             kubeallinone      kallin1
+          kubernetes-devtools-admin@kube_devtools   kube_devtools     kubernetes-devtools-admin
+*         minikube                                  minikube          minikube
+
+- recupération du context actuel :
+
+kubectl config current-context                                                                                                            [☸ minikube:default]
+minikube
+
+- changement de contexte :
+
+kubectl config use-context contexte_cible
+
+ex: 
+kubectl config use-context minikube                                                                                                          [☸ kube-infra:fso]
+Switched to context "minikube".
+
+- creation d'un context dédié ( namespace , user .. ) :
+
+ kubectl config set-context mini-system --cluster=minikube --user=minikube --namespace=kube-system
+
+on aura donc un nouveau contexte de créer pour le cluster minikube qui pointera dans le namespace kube-system 
+
+
+boogie$  kubectl config get-contexts                                                                                                               [☸ minikube:default]
+CURRENT   NAME                                      CLUSTER           AUTHINFO                       NAMESPACE
+          b-k                                       b-k               b-k
+          kube-infra                                kube-infra        kubernetes-admin               fso
+          kubernetes-admin@kubeallinone             kubeallinone      kallin1
+          kubernetes-devtools-admin@kube_devtools   kube_devtools     kubernetes-devtools-admin
+          mini-system                               minikube          minikube                       kube-system
+*         minikube                                  minikube          minikube
+
+on peut donc changer de context et l'utiliser :
+kctl config use-context mini-system                                                                                                        [☸ minikube:default]
+Switched to context "mini-system".
+ 
+boogie$ kctl config get-contexts                                                                                                            [☸ mini-system:kube-system]
+CURRENT   NAME                                      CLUSTER           AUTHINFO                       NAMESPACE
+          b-k                                       b-k               b-k                            
+          kube-infra                                kube-infra        kubernetes-admin               fso
+          kubernetes-admin@kubeallinone             kubeallinone      kallin1                        
+          kubernetes-devtools-admin@kube_devtools   kube_devtools     kubernetes-devtools-admin      
+*         mini-system                               minikube          minikube                       kube-system
+          minikube                                  minikube          minikube                       
+
+- suppression de contexte :
+
+ kubectl config delete-context contexte_a_delete
+ kubectl config delete-context mini-system
+ kubectl config delete-context mini-system                                                                                           [☸ mini-system:kube-system]
+warning: this removed your active context, use "kubectl config use-context" to select a different one
+deleted context mini-system from /home/boogie/.kube/config
+
+
