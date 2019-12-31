@@ -149,3 +149,14 @@ NOTES:
   echo Username: user
   echo Password: $(kubectl get secret --namespace intranet wordpress-compta -o jsonpath="{.data.wordpress-password}" | base64 --decode)
 
+
+- Il est possible d'avoir des difficultés pour se logguer a wordpress ( pb de mdp pour le user 'user' ).
+
+on va forcer une install en passant les params suivants : 
+
+export WORDPRESS_URL=wordpress.compta.$(minikube ip).nip.io
+
+helm install --namespace intranet --name wordpress-compta --set wordpressUsername=admin,wordpressPassword=password,mariadb.mariadbRootPassword=secretpassword --set ingress.enabled=true --set "ingress.hosts[0].name=$WORDPRESS_URL" stable/wordpress    
+
+
+on a donc ici une installation validée et fonctionnelle : on aura defini en cli les argumants (user, mdp de notre set up wordpress ..) 
