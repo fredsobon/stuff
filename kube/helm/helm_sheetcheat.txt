@@ -152,8 +152,12 @@ pour supprimer definitivement un chart :
 $ helm delete elevated-snail --purge
 
 - Configuration d'un helm chart :
+on va pouvoir consulter les differents options de nos charts et adapter nos besoins en fonctions des possibilités offertes par ces confs.
+
 
 -> consultation des options de chart :
+
+on va donc pouvoir examiner toutes les options de parametrages de notre chart avec : 
 
 $ helm inspect stable/wordpress
 
@@ -166,14 +170,108 @@ ex : pour wordpress et utilisation sur minikube :
 Une partie de l’aide évoque la manière de gérer la configuration Ingress et particulièrement les options suivantes :
 >  l ingress.enabled : booléen permettant d’activer les ressources Ingress.
 >  ingress.hosts[0].name : champ permettant de donner le nom du site web exposé sur l’extérieur (ex. :wordpress­compta.intranet.example.com).
-L’URL du site de WordPress sera stockée dans la variable d’environnement 
-WORDPRESS_URL .
-Avec Minikube, l’adresse IP de la machine se récupère à l’aide de la commande
-minikube ip .
+L’URL du site de WordPress sera stockée dans la variable d’environnement  WORDPRESS_URL .
+Avec Minikube, l’adresse IP de la machine se récupère à l’aide de la commande minikube ip .
 
 Ci­dessous un exemple d’assignation de la valeur pour un déploiement sur Minikube combiné avec nip.io :
 $ export WORDPRESS_URL=wordpress.compta.$(minikube ip).nip.io
 
+A noter qu'ici on fait un upgrade de notre chart pas une install  
+
+helm upgrade wordpress-compta stable/wordpress --set ingress.enabled=true --set "ingress.hosts[0].name=$WORDPRESS_URL"
+
+Release "wordpress-compta" has been upgraded.
+LAST DEPLOYED: Tue Dec 31 08:33:57 2019
+NAMESPACE: intranet
+STATUS: DEPLOYED
+
+RESOURCES:
+==> v1/ConfigMap
+NAME                            AGE
+wordpress-compta-mariadb        87m
+wordpress-compta-mariadb-tests  87m
+
+==> v1/Deployment
+NAME              AGE
+wordpress-compta  87m
+
+==> v1/PersistentVolumeClaim
+NAME              AGE
+wordpress-compta  87m
+
+==> v1/Pod(related)
+NAME                               AGE
+wordpress-compta-7fdb678b84-xqqgk  87m
+wordpress-compta-mariadb-0         87m
+
+==> v1/Secret
+NAME                      AGE
+wordpress-compta          87m
+wordpress-compta-mariadb  87m
+
+==> v1/Service
+NAME                      AGE
+wordpress-compta          87m
+wordpress-compta-mariadb  87m
+
+==> v1/StatefulSet
+NAME                      AGE
+wordpress-compta-mariadb  87m
+
+==> v1beta1/Ingress
+NAME              AGE
+wordpress-compta  4s
+
+
+NOTES:
+1. Get the WordPress URL:
+
+  You should be able to access your new WordPress installation through
+  http://wordpress.compta.192.168.39.172.nip.io/admin
+
+2. Login with the following credentials to see your blog
+
+  echo Username: user
+  echo Password: $(kubectl get secret --namespace intranet wordpress-compta -o jsonpath="{.data.wordpress-password}" | base64 --decode)
+
+
+
+- historique de déploiement :
+
+boogie$ helm history wordpress-compta                                                                                                              [☸ minikube:default]
+REVISION	UPDATED                 	STATUS    	CHART          	APP VERSION	DESCRIPTION     
+1       	Tue Dec 31 07:06:06 2019	SUPERSEDED	wordpress-8.0.3	5.3.1      	Install complete
+2       	Tue Dec 31 08:33:57 2019	DEPLOYED  	wordpress-8.0.3	5.3.1      	Upgrade complete
+
+- rollback :
+
+l'historisation permet de revenir a une version souhaitée avec la commande rollback 
+
+ex:  en fonction de l'historique précedent : on va pouvoir gérer le rollback à la version 1 par exemple.  
+boogie$ helm rollback wordpress-compta 1                                                                                                           [☸ minikube:default]
+Rollback was a success.
+
+la consultation de l'historique nous montre que le rollback precedent est considérer comme une "release" :
+
+boogie$ helm history wordpress-compta                                                                                                              [☸ minikube:default]
+REVISION	UPDATED                 	STATUS    	CHART          	APP VERSION	DESCRIPTION
+1       	Tue Dec 31 07:06:06 2019	SUPERSEDED	wordpress-8.0.3	5.3.1      	Install complete
+2       	Tue Dec 31 08:33:57 2019	SUPERSEDED	wordpress-8.0.3	5.3.1      	Upgrade complete
+3       	Tue Dec 31 08:49:17 2019	DEPLOYED  	wordpress-8.0.3	5.3.1      	Rollback to 1
+
+on peut donc revenir a la situation avant le rollback avec :
+
+boogie$ helm rollback wordpress-compta 2                                                                                                           [☸ minikube:default]
+Rollback was a success.
+
+et voir que le rollback du rollback est mentionné dans l'historique :
+
+boogie$ helm history wordpress-compta                                                                                                              [☸ minikube:default]
+REVISION	UPDATED                 	STATUS    	CHART          	APP VERSION	DESCRIPTION
+1       	Tue Dec 31 07:06:06 2019	SUPERSEDED	wordpress-8.0.3	5.3.1      	Install complete
+2       	Tue Dec 31 08:33:57 2019	SUPERSEDED	wordpress-8.0.3	5.3.1      	Upgrade complete
+3       	Tue Dec 31 08:49:17 2019	SUPERSEDED	wordpress-8.0.3	5.3.1      	Rollback to 1
+4       	Tue Dec 31 08:51:20 2019	DEPLOYED  	wordpress-8.0.3	5.3.1      	Rollback to 2
 
 
 - upgrade : 

@@ -78,3 +78,74 @@ Forwarding from 127.0.0.1:8080 -> 80
 Forwarding from [::1]:8080 -> 80
 
 Il est maintenant possible de se connecter à WordPress à l’aide d’un navigateur via l’adresse http://127.0.0.1:8080.
+
+
+On va biensur améliorer la config et passer par une exposition de notre service via une ressource ingress.
+On va pouvoir consulter via helm inspect stable/wordpress ou directement sur le site de helm les options dispos pour notre chart.
+
+ex pour une utilisation sur minikube : 
+Une partie de l’aide évoque la manière de gérer la configuration Ingress et particulièrement les options suivantes :
+>  l ingress.enabled : booléen permettant d’activer les ressources Ingress.
+>  ingress.hosts[0].name : champ permettant de donner le nom du site web exposé sur l’extérieur (ex. :wordpress­compta.intranet.example.com).
+L’URL du site de WordPress sera stockée dans la variable d’environnement  WORDPRESS_URL .
+Avec Minikube, l’adresse IP de la machine se récupère à l’aide de la commande minikube ip .
+
+Ci­dessous un exemple d’assignation de la valeur pour un déploiement sur Minikube combiné avec nip.io :
+$ export WORDPRESS_URL=wordpress.compta.$(minikube ip).nip.io
+
+
+A noter qu'ici on fait un upgrade de notre chart pas une install  
+
+helm upgrade wordpress-compta stable/wordpress --set ingress.enabled=true --set "ingress.hosts[0].name=$WORDPRESS_URL"
+
+Release "wordpress-compta" has been upgraded.
+LAST DEPLOYED: Tue Dec 31 08:33:57 2019
+NAMESPACE: intranet
+STATUS: DEPLOYED
+
+RESOURCES:
+==> v1/ConfigMap
+NAME                            AGE
+wordpress-compta-mariadb        87m
+wordpress-compta-mariadb-tests  87m
+
+==> v1/Deployment
+NAME              AGE
+wordpress-compta  87m
+==> v1/PersistentVolumeClaim
+NAME              AGE
+wordpress-compta  87m
+
+==> v1/Pod(related)
+NAME                               AGE
+wordpress-compta-7fdb678b84-xqqgk  87m
+wordpress-compta-mariadb-0         87m
+
+==> v1/Secret
+NAME                      AGE
+wordpress-compta          87m
+wordpress-compta-mariadb  87m
+
+==> v1/Service
+NAME                      AGE
+wordpress-compta          87m
+wordpress-compta-mariadb  87m
+
+==> v1/StatefulSet
+NAME                      AGE
+wordpress-compta-mariadb  87m
+==> v1beta1/Ingress
+NAME              AGE
+wordpress-compta  4s
+
+
+NOTES:
+1. Get the WordPress URL:
+
+  You should be able to access your new WordPress installation through
+  http://wordpress.compta.192.168.39.172.nip.io/admin
+
+2. Login with the following credentials to see your blog
+  echo Username: user
+  echo Password: $(kubectl get secret --namespace intranet wordpress-compta -o jsonpath="{.data.wordpress-password}" | base64 --decode)
+
