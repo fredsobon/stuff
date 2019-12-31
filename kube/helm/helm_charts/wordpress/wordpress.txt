@@ -1,0 +1,80 @@
+=== notes helm wordpress : ===
+
+
+pour le test on cree un namespace dédié :
+
+kubectl create namespace intranet
+
+helm install stable/wordpress --name wordpress-compta --namespace intranet
+
+
+NAME:   wordpress-compta
+LAST DEPLOYED: Tue Dec 31 07:06:06 2019
+NAMESPACE: intranet
+STATUS: DEPLOYED
+
+RESOURCES:
+==> v1/ConfigMap
+NAME                            AGE
+wordpress-compta-mariadb        0s
+wordpress-compta-mariadb-tests  0s
+
+==> v1/Deployment
+NAME              AGE
+wordpress-compta  0s
+
+==> v1/PersistentVolumeClaim
+NAME              AGE
+wordpress-compta  0s
+
+==> v1/Pod(related)
+NAME                               AGE
+wordpress-compta-7fdb678b84-xqqgk  0s
+wordpress-compta-mariadb-0         0s
+
+==> v1/Secret
+NAME                      AGE
+wordpress-compta          0s
+wordpress-compta-mariadb  0s
+
+==> v1/Service
+NAME                      AGE
+wordpress-compta          0s
+wordpress-compta-mariadb  0s
+
+==> v1/StatefulSet
+NAME                      AGE
+wordpress-compta-mariadb  0s
+
+
+NOTES:
+1. Get the WordPress URL:
+
+  NOTE: It may take a few minutes for the LoadBalancer IP to be available.
+        Watch the status with: 'kubectl get svc --namespace intranet -w wordpress-compta'
+  export SERVICE_IP=$(kubectl get svc --namespace intranet wordpress-compta --template "{{ range (index .status.loadBalancer.ingress 0) }}{{.}}{{ end }}")
+  echo "WordPress URL: http://$SERVICE_IP/"
+  echo "WordPress Admin URL: http://$SERVICE_IP/admin"
+
+2. Login with the following credentials to see your blog
+
+  echo Username: user
+  echo Password: $(kubectl get secret --namespace intranet wordpress-compta -o jsonpath="{.data.wordpress-password}" | base64 --decode)
+
+
+
+La connexion au container de WordPress va se faire à l’aide de kubectl suivie par les options suivantes :
+>l’option port-forward ,
+> le nom du pod récupéré à l’étape précédente,
+> le port d’écoute en local (8080) suivi du caractère deux points (:) suivi du port 80 correspondant au port utilisé par le
+container.
+
+Ci­dessous la commande correspondant à ces instructions :
+$ kubectl -n intranet port-forward \
+wordpress-compta-wordpress-97897c5d4-85q7b 8080:80
+
+Ci­dessous la sortie renvoyée par la commande (cette dernière ne doit pas rendre la main) :
+Forwarding from 127.0.0.1:8080 -> 80
+Forwarding from [::1]:8080 -> 80
+
+Il est maintenant possible de se connecter à WordPress à l’aide d’un navigateur via l’adresse http://127.0.0.1:8080.
