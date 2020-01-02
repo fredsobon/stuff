@@ -1,13 +1,10 @@
 === notes helm charts : ===
 
-
 https://github.com/dexidp/dex
 https://github.com/heptiolabs/gangway
 https://cert-manager.io/docs/installation/
 
-
-
-notes de setting d'authen kube en utilisant dex et gangway 
+notes de setting d'authent kube en utilisant dex et gangway et en se servant de cert-manager pour la gestion tls de nos certifs :
 
 on va générer une authent via ad ( dex > connection ad > token > dev > user ok puis gangway appli frontend qui permet a un user authentifié de recupérer sa conf kubectl ) 
 
@@ -46,7 +43,8 @@ Pour installer certmanager et notre ca :
 
 kubectl apply --validate=false -f https://raw.githubusercontent.com/jetstack/cert-manager/release-0.12/deploy/manifests/00-crds.yaml
 helm  install --name cert-manager --namespace cert-manager jetstack/cert-manager
-kubectl create secret tls lapin-env-ca-keypair --cert /tmp/lapin_env_CA.crt --key /tmp/lapin_env_CA.key --namespace cert-manager
+
+on va definir un issuer : une ca qui sera capable de signer nos certs 
 
 apiVersion: cert-manager.io/v1alpha2
 kind: ClusterIssuer
@@ -55,6 +53,84 @@ metadata:
 spec:
   ca:
     secretName: lapin-env-ca-keypair
+
+on defini un secret qui va contenir les data de notre ca contenant notre key et crt tls chiffrés.   
+
+boogie$ cat ca-secret.yaml     [☸ kubernetes-devtools-admin@kube_devtools:default]
+apiVersion: v1
+boogie$ cat ca-secret.yaml     [☸ kubernetes-devtools-admin@kube_devtools:default]
+apiVersion: v1
+kind: Secret
+metadata:
+  name: lapin-env-ca-keypair
+  namespace: cert-manager
+type: kubernetes.io/tls
+data:
+  tls.crt: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUV2VENDQTZXZ0F3SUJBZ0lKQUtLMEdIdU9xMzZwTUEwR0NTcUdTSWIzRFFFQkJRVUFNSUdhTVFzd0NRWUQKVlFRR0V3SkdVakVPTUF3R0ExVUVDQk1GVUdGeWFYTXhEakFNQmdOVkJBY1RCVkJoY21sek1ROHdEUVlEVlFRSwpFd1pOUlVWVVNVTXhFekFSQmdOVkJBc1RDbEJ5YjJSMVkzUnBiMjR4RmpBVUJnTlZCQU1URFUxRlJWUkpReUJUClUwd2dRMEV4TFRBckJna3Foa2lHOXcwQkNRRVdIbTFsWlhScFl5MXpkWEJ3YjNKMFFHMWxaWFJwWXkxamIzSncKTG1OdmJUQWVGdzB4TkRFeE1qRXdPVEl5TWpKYUZ3MHlOREV4TVRnd09USXlNakphTUlHYU1Rc3dDUVlEVlFRRwpFd0pHVWpFT01Bd0dBMVVFQ0JNRlVHRnlhWE14RGpBTUJnTlZCQWNUQlZCaGNtbHpNUTh3RFFZRFZRUUtFd1pOClJVVlVTVU14RXpBUkJnTlZCQXNUQ2xCeWIyUjFZM1JwYjI0eEZqQVVCZ05WQkFNVERVMUZSVlJKUXlCVFUwd2cKUTBFeExUQXJCZ2txaGtpRzl3MEJDUUVXSG0xbFpYUnBZeTF6ZFhCd2IzSjBRRzFsWlhScFl5MWpiM0p3TG1OdgpiVENDQVNJd0RRWUpLb1pJaHZjTkFRRUJCUUFEZ2dFUEFEQ0NBUW9DZ2dFQkFOWGlpNWpwTkJScytuQS9CRFpSClYyS1FUdjFaQitVUE1peDBBc3RMcytWbTcvUFFVcGpEa0VadzNKMGFQYjBCd01SckhmRHNjMFlWNEJ5RWNXTCsKc0x5WjYyOFFFOXpFdE5NYzg4MHV4ZkJ4b1hlVnRQWDV3ODl5bGllTkZQWVA0NDNxVUZoRnh0ZzBWSFZqb0wxcQphZzQ3YjZZTEZwc0pReDd6SWhET1htaGxLNG95dURQWFhBT3pzOXhaVHRibExjYkhKbHM4cXB3K0RoSnZjQ0FECnVsQWRCZjBBeDc0SkY4Wm83eG1mZFBVcnlwU2lCRHhoekUzNm1HYlZlRno3MTRyWkpxL0c2eHBvY0swYzdXREUKaXRCZFBEMG1TSll3SWpHdThwS0M3WXVMdmNTei9qcXUrK3BCTEMrQzFYR2pYcmlaNXB6QTJMT1MxRDdhbEZ5eApsa2NDQXdFQUFhT0NBUUl3Z2Y4d0hRWURWUjBPQkJZRUZLelFXVDhMUnluUkpsUkc4eUJZK1V2RjBkSzNNSUhQCkJnTlZIU01FZ2Njd2djU0FGS3pRV1Q4TFJ5blJKbFJHOHlCWStVdkYwZEszb1lHZ3BJR2RNSUdhTVFzd0NRWUQKVlFRR0V3SkdVakVPTUF3R0ExVUVDQk1GVUdGeWFYTXhEakFNQmdOVkJBY1RCVkJoY21sek1ROHdEUVlEVlFRSwpFd1pOUlVWVVNVTXhFekFSQmdOVkJBc1RDbEJ5YjJSMVkzUnBiMjR4RmpBVUJnTlZCQU1URFUxRlJWUkpReUJUClUwd2dRMEV4TFRBckJna3Foa2lHOXcwQkNRRVdIbTFsWlhScFl5MXpkWEJ3YjNKMFFHMWxaWFJwWXkxamIzSncKTG1OdmJZSUpBS0swR0h1T3EzNnBNQXdHQTFVZEV3UUZNQU1CQWY4d0RRWUpLb1pJaHZjTkFRRUZCUUFEZ2dFQgpBTldMS2JpZnJtOHI5ZkNRN0MreHdGd0h3YUthZUtXSlRZV29WRk41c0ZLRnIyWmZGWElKZlliYjYzSS9odElmCjduYklaR1RlRnRZNmcwWjBkSHdqOGdScHlzVEt1MmpwVUxlOW5uT3hwTHB0ZUhLWlJxS2doRVM2ZmtmMEdHSjQKc2RRZVB4Z01kWWN0UGVvYmt0UWlKbC9waCt2T0VhRmtyM1d1VnVaQU9mODNYaTZDWFlWTkJBOTJVaUNMZUZyQwp2ZXRZVDJkSlIvMmZNTjZPT2JlbGRHZ0xEZEtZY1JPUVU2ck1zRVg1WnZDOFhRZENLeXNWSkFmcHZNb29ZclhNCnFVb1djYzVmZ251c0FvREJreTdGWFhCUGlZTTVZMGl2NnJRRzN5a3lkZ09VeE5YSHJFanV2R0l4N21YQ3MvdU8KdkF2bDUwSS8vTkd4MmZteTRGWXJaTUE9Ci0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0K
+  tls.key: LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQpNSUlFb3dJQkFBS0NBUUVBMWVLTG1PazBGR3o2Y0Q4RU5sRlhZcEJPL1ZrSDVROHlMSFFDeTB1ejVXYnY4OUJTCm1NT1FSbkRjblJvOXZRSEF4R3NkOE94elJoWGdISVJ4WXY2d3ZKbnJieEFUM01TMDB4enp6UzdGOEhHaGQ1VzAKOWZuRHozS1dKNDBVOWcvamplcFFXRVhHMkRSVWRXT2d2V3BxRGp0dnBnc1dtd2xESHZNaUVNNWVhR1VyaWpLNApNOWRjQTdPejNGbE8xdVV0eHNjbVd6eXFuRDRPRW05d0lBTzZVQjBGL1FESHZna1h4bWp2R1o5MDlTdktsS0lFClBHSE1UZnFZWnRWNFhQdlhpdGttcjhickdtaHdyUnp0WU1TSzBGMDhQU1pJbGpBaU1hN3lrb0x0aTR1OXhMUCsKT3E3NzZrRXNMNExWY2FOZXVKbm1uTURZczVMVVB0cVVYTEdXUndJREFRQUJBb0lCQUREbDdUSlZSbkhSQkdSNwpFN1J6WGo0TGJmT2YwaDA5SHlSb2xXYnk5THJpa01NMkFsd29nYWlKRHZiZjAvT05IZ3dKelR1U1l6eEhyZ2YzCkE1RTFWeVNYTCtzaFN0a3pJNEFNWTNTcVY5aURzZjJML1dZcTV1aGJjeGF4dTNRUjU5MC9ENFZPMW9vQlZMbk4Kd0NidDJEZE93VlM5dmpwTm9NbkhuaWNuZHcvNGZqbkZFeTlaK2FmQWt0WTdLUjRiTXdwdXR4UDUwWVllYVVXVAphWHVWREpXalNObU16SjZCZTd5VFcrZXpNdkpJdXdtUEx1a0N1S0xPcnFGejNhb1hGNTBQWjEwNlljN0xUck5nCnBjUnpkRFNSckRMMlRoT0phWHJ2SjhzWlR2VmJVR0lqeW5OSldyMzNVN2UrL012ZXlXUFNjNGY5aTh1eFIwVHEKdU85cmFoRUNnWUVBN3k0MTh3YndqRFhNMTQ1emduWWNxb1UxZEE3SUV0VFZiNzBCR0FHM2tNQlUxdXZoZTRnNAoyYTJBdlpYejJZd3h3SUkybFBjYUZEdldMRXhRSDVpNU8yQUFRY3VMWWJnQlc0bXN4L1ViQ00vdWR2M1hXazVCClFkQTYvZkcxY2NERDQ2TkZuaCt2S2V5TEd6UDJtOFhJVFdINGdDVGpwNitsSFBrNkl3dHR0RThDZ1lFQTVPejEKREZCNDFDN1lFakpzWVFuL2RYbFhsQUtwb3UvcnRvSzdRN2U4OGNPV3pBRkJYVVlnL0t5Qzk3RzNKV3c2aER0cwpJSTFOMTRSb2dLeEJtVUFFdXIrdThNNkpvdVFNckFOeWMwZW9lTEI5UHc5U2Q0a293My9Xa0UvTHlvTmZuVmtMCkQ3S0JKTnBUS1NRWkVzQnpseHlUS1Z4c0s4aHZDbTBsbUx1RWFJa0NnWUJKbTVZYzBkRHJ4WTdoODhRV3JWVEwKSWEyK3B1SHA4Ymd4NkIvVERJdzZyd1l0RW5EVlBLb0tTN3dvSEdMc1c1bmdIZkxBUzMrcUpIUVlNL0FnbVRiQQpVQjRrSVlrbXJLTTJVWnRyK2tHMHA1RkM2NElBRjc4N2l1THN6aHRDQThvRlgzVUlZY1hkaUIrVFlwMk5lUVBZCjFNTE9aUXZ1eWo1dE9VSXNFTk5WUHdLQmdRQ3hxaXpyNTdBK2pEUm91dlZkd2xLZUt4UUs3SjRXdERpdEpueUwKSzVmWjBiL0FoK0Rnc01KOUZxMTE2bGlIRkoyOWJoaVdrdE9zeFRnTlZLSjhlekN3ZG44Z3FFb3RQdXVPdkFZZwo3YVlVTkhTZmNoYkFhcFJXVldxQ0NVdlIyVzlsUUd2VFBPZjVYKzlXYUl1RkFCTTFYWm5nYWJnUnFyWnkwdzV3Cm9HYzhjUUtCZ0cxcW1oK2Z3YzE5em1hNzJ0MEpkVkhaRjhrNXpOb0V0WEx2SUpCYjVTakxwQjkrS1BHbjFXRGwKODFZZ1JsSUZZOTRVK0U1VkRxVkxPTVRkY1V4bFl2ZU5lV1FadUllSktWbHlVY1dBZTN1OHlDN05GcEhpS24zMAp1NUNNOW41aFl0bXFzUGFrbGxqSEZsZzZGT3F2aWhNdmhOWVVDOUx6WHgxZUJpL0FXelozCi0tLS0tRU5EIFJTQSBQUklWQVRFIEtFWS0tLS0tCg==
+
+
+
+/!\ Note  on peut sans passer par cert-manager générer notre secret pour la signature de nos certifs :  
+kubectl create secret tls lapin-env-ca-keypair --cert /tmp/lapin_env_CA.crt --key /tmp/lapin_env_CA.key --namespace cert-manager
+
+
+
+
+- test de cert-manager : 
+
+
+cat <<EOF > test-resources.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cert-manager-test
+---
+apiVersion: cert-manager.io/v1alpha2
+kind: Issuer
+metadata:
+  name: test-selfsigned
+  namespace: cert-manager-test
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1alpha2
+kind: Certificate
+metadata:
+  name: selfsigned-cert
+  namespace: cert-manager-test
+spec:
+  commonName: example.com
+  secretName: selfsigned-cert-tls
+  issuerRef:
+    name: test-selfsigned
+EOF
+
+kubectl apply -f test-resources.yaml 
+
+ubectl describe certificate -n cert-manager-test
+
+...
+Spec:
+  Common Name:  example.com
+  Issuer Ref:
+    Name:       test-selfsigned
+  Secret Name:  selfsigned-cert-tls
+Status:
+  Conditions:
+    Last Transition Time:  2019-01-29T17:34:30Z
+    Message:               Certificate is up to date and has not expired
+    Reason:                Ready
+    Status:                True
+    Type:                  Ready
+  Not After:               2019-04-29T17:34:29Z
+Events:
+  Type    Reason      Age   From          Message
+  ----    ------      ----  ----          -------
+  Normal  CertIssued  4s    cert-manager  Certificate issued successfully
+
+
+
 
 
 - Update de chart :
