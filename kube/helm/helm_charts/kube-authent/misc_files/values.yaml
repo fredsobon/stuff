@@ -1,0 +1,72 @@
+certManager:
+  enabled: true
+  caIssuer: lapin-env-ca-issuer
+
+dex:
+
+  # grpc support
+  grpc: false
+
+  # https termination by dex itself
+  https: true
+
+  ports:
+    web:
+      servicePort: 443
+
+  certs:
+    web:
+      create: false
+      secret:
+        tlsName: dex-web-server-tls
+
+  config:
+    enablePasswordDB: false
+    frontend:
+      logoURL: https://www.lapin-group.com/download.php?file=/wp-content/uploads/sites/2/2015/05/logos-logo-lapin-jpg.jpg
+
+  service:
+    type: LoadBalancer
+
+
+gangway:
+
+  replicaCount: 1
+
+  gangway:
+
+    port: 8443
+
+    serveTLS: true
+
+    trustedCAPath: /etc/gangway/tls/ca.crt
+
+    # Used to specify the scope of the requested Oauth authorization.
+    scopes: ["openid", "profile", "email", "offline_access", "groups"]
+
+    # API client ID as indicated by the identity provider
+    # Env var: GANGWAY_CLIENT_ID
+    clientID: "gangway"
+
+    # The JWT claim to use as the username. This is used in UI.
+    # Default is "nickname". This is combined with the clusterName
+    # for the "user" portion of the kubeconfig.
+    # Env var: GANGWAY_USERNAME_CLAIM
+    usernameClaim: "email"
+
+  tls:
+    # Name of an existing secret containing `tls.cert` and `tls.key`.
+    # Mounted on the default tls path `/etc/gangway/tls`
+    existingSecret: "gangway-cert-tls"
+
+  livenessProbe:
+    # HTTP or HTTPS
+    scheme: HTTPS
+
+  readinessProbe:
+    # HTTP or HTTPS
+    scheme: HTTPS
+
+  service:
+    type: LoadBalancer
+    port: 443
