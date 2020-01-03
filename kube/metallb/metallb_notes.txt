@@ -1,0 +1,70 @@
+== metallb notes ==
+
+https://metallb.universe.tf/
+https://github.com/helm/charts/tree/master/stable/metallb
+
+tree                                                                                                                                                                              [☸ kubernetes-devtools-admin@kube_devtools:default]
+.
+├── charts
+│   └── metallb-0.12.0.tgz
+├── Chart.yaml
+├── helm-vars
+│   └── tools
+│       └── values.yaml
+├── README.md
+├── requirements.lock
+└── requirements.yaml
+
+
+cat requirements.yaml                                                                                                                                                             [☸ kubernetes-devtools-admin@kube_devtools:default]
+dependencies:
+- name: metallb
+  version: ^0.12.0
+  repository: https://artifact.meetic.ilius.net/artifactory/helm-remote-stable/
+  condition: metallb.enabled
+
+cat requirements.lock                                                                                                                                                             [☸ kubernetes-devtools-admin@kube_devtools:default]
+dependencies:
+- name: metallb
+  repository: https://artifact.lapin.net/artifactory/helm-remote-stable/
+  version: 0.12.0
+digest: sha256:8349ecae49d434f09cdsdsdsds21ba7c3e32695e233337f3585ca3fcf3974f4b82
+generated: "2019-11-27T19:21:07.9dsdsd+01:00"
+
+
+cat Chart.yaml                                                                                                                                                                    [☸ kubernetes-devtools-admin@kube_devtools:default]
+apiVersion: v1
+description: A Helm chart for Metallb
+home: https://metallb.universe.tf/
+name: metallb
+version: 0.0.1
+appVersion: 0.12.0
+maintainers:
+- name: lapin
+  email: lapin@lapin.net
+
+
+cat helm-vars/devtools/values.yaml                                                                                                                                                [☸ kubernetes-devtools-admin@kube_devtools:default]
+---
+metallb:
+  controller:
+    image: 
+      repository: artifact-lapin.net/metallb/controller
+
+  speaker:
+    image:
+      repository: artifact-lapin.net/metallb/speaker
+
+  configInline:
+    peers:  
+    - peer-address: 10.12.2.254
+      peer-asn: 65003
+      my-asn: 65004
+      password: blabla
+    address-pools:
+    - name: net-svc-tools
+      protocol: bgp
+      addresses:
+      - 10.123.3.0/24
+
+
