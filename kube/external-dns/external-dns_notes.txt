@@ -1,0 +1,64 @@
+
+
+
+
+L’installation du service external­dns va se faire à l’aide d’un chart Helm ( stable/external-dns ).
+Au niveau des options du chart, vous devrez spécifier les options suivantes :
+>spécification du champ
+> spécification des identifiants en fonction des fournisseurs : provider ( provider=google , azure ou aws, .... ),
+
+Afin de simplifier le déploiement, ces indications seront regroupées dans la déclaration YAML suivante :
+
+rbac:
+create: true
+provider: google # Ou azure ou aws (par défaut = aws)
+# A renseigner pour un hébergement avec Google
+google:
+project: "eni-kubernetes"
+serviceAccountSecret: "cloud-dns-key"
+# A renseigner pour un hébergement avec Azure
+azure:
+secretName: "cloud-dns-key"
+# A renseigner pour un hébergement avec Amazon
+aws:
+region:
+"eu-central-1"
+secretKey: "AKFKXXXXXXXXXXXX"
+accessKey: "YxYxYxYxYxYxYxYxYxYxYxYx"
+
+Sauvegardez ce fichier sous le nom external-dns.yaml .
+
+Le déploiement du chart se fera en respectant les indications suivantes :
+-> l’utilisation des options : upgrade --install suivies du nom à donner au chart ( external-dns ),
+-> le chart à déployer ( stable/external-dns ),
+-> l’espace de noms kube-system ( --namespace kube-system ),
+-> l’option ­f suivie du fichier YAML external-dns.yaml .
+
+Ci­dessous la commande correspondante :
+$ helm upgrade --install external-dns stable/external-dns --namespace kube-system -f external-dns.yaml
+
+Vérification du fonctionnement d’external­dns
+
+Afin de s’assurer que l’installation est correcte, consultez le journal du pod d’external­dns à l’aide de la commande
+suivante :
+$ kubectl -n kube-system logs -l app=external-dns
+
+Ci­dessous un extrait du journal d’activité du pod en cas de succès de déploiement :
+time="..." level=info msg="..."
+ERROR: logging before flag.Parse: W0422 15:25:21.110967
+1
+client_config.go:552] Neither --kubeconfig nor --master was
+specified.
+Using the inClusterConfig.
+This might not work.
+Time="..." level=info msg="Created Kubernetes client ..."
+time="..." level=info msg="Change zone: test-bob-aws"
+Le message d’erreur sur l’absence d’utilisation de l’option
+--kubeconfig
+ou
+--master
+est normal et peut
+être ignoré.
+Ici, external­dns a bien détecté la zone test­bob aws  : le cluster va maintenant gérer ses enregistrements tout seul.
+
+

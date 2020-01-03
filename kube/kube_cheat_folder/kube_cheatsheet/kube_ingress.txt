@@ -1,13 +1,68 @@
 == notes ingress : ==
 
-Ingress permet d'exposer facilement les services devant etre accessible depuis l'ex
-terrieur du cluster.
+Les applications sont déployées dans une bulle et elles ne sont pas accessibles directement depuis
+l’extérieur.
+Pour exposer ces services, on peut utiliser des règles Ingress. Ces règles permettent d’associer un hôte virtuel avec un service interne. Elles sont lues par un contrôleur Ingress qui se charge de configurer un proxy inverse qui sert de point d’entrée.
 
-on peut utilsier different ingress-controller ( ex: ngin-ingress controller )
+Ingress permet d'exposer facilement les services devant etre accessible depuis l'exterrieur du cluster.
+
+ex: ici on va definir une regle ingress qui va nous permettre de rediriger les appels au host "mailhog.192.168.122.10.nip.io" vers un backend qui portera le service mailhog sur le port 8025. On défini un service de type loadbalancer avec l'ip de notre host (ici il s'agit d'une ip de minikube) 
+
+
+/!\ : Lors de l’utilisation d’Ingress, les entrées DNS utilisent l’adresse IP de la machine Minikube combinée avec le mécanisme DNS de nip.io. Ce domaine DNS a pour particularité de répondre à toutes les résolutions DNS par l’adresse IP contenue derrière le préfixe .nip.io.
+Quelques exemples de résolution de nom avec le domaine DNS nip.io :
+-> 127.0.0.1.nip.io ­­> 127.0.0.1
+-> 192.168.0.1.nip.io ­­> 192.168.0.1
+-> entree­dns;10.10.12.1.nip.io ­­> 10.10.12.1
+Dans le cadre d’un test, ce mécanisme est suffisant. En revanche, pour un hébergement professionnel, il devient
+nécessaire de faire appel à des entrées DNS.
+
+
+On peut utiliser le projet external­dns qui  récupère les événements réclamant une création d’entrées DNS (Ingress, Service) et procède à la création automatique des enregistrements nécessaires. Ce programme supporte les API cloud de Google, Amazon ou Azure....
+
+kubectl get ing mailhog -o yaml                                                                                                               [☸ minikube:default]
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+  name: mailhog
+  namespace: default
+spec:
+  rules:
+  - host: mailhog.192.168.122.10.nip.io
+    http:
+      paths:
+      - backend:
+          serviceName: mailhog
+          servicePort: 8025
+        path: /
+status:
+  loadBalancer:
+    ingress:
+    - ip: 192.168.39.172
+
+
+L’exposition d’une application sur l’extérieur nécessite de passer par le port de service du contrôleur Ingress. À
+moins de n’avoir qu’un seul nœ ud dans le cluster Kubernetes, il est recommandé de faire passer ces accès par un répartiteur de charge.
+
+Dans le cas d’un service managé, la création de répartiteur de charge se fait automatiquement.
+
+Outre le fait d’augmenter la résilience du système, ce mécanisme permet également d’isoler les machines du cluster dans une zone inaccessible d’Internet.
+À noter qu’un proxy inverse HTTP permet de mutualiser l’accès à plusieurs sites et ainsi de maximiser l’utilisation du répartiteur de charge. En revanche, ce n’est généralement pas le cas pour d’autres protocoles (SMTP, base de données). 
+L’exposition d’un service non HTTP passera forcément par la mise en place d’un répartiteur de charge différent à chaque fois.
+Ces répartiteurs de charge ont un coût qu’il ne faut pas négliger. Attention de n’exposer que les services qui en ont réellement besoin.
+
+
+
+
+
+
+on peut utilsier different ingress-controller ( ex: nginx-ingress controller )
 
 on a diffentes section dont des args qu'on peut passer a nginx 
 : on voit ici qu'on peut mettre en place un default backend  qui va recupérer les requettes qui ne matcheront aucune regles : 
-
 
         - name: nginx-ingress-controller
           image: quay.io/kubernetes-ingress-controller/nginx-ingress-controller:0.17.1
@@ -19,9 +74,6 @@ on a diffentes section dont des args qu'on peut passer a nginx
             - --udp-services-configmap=$(POD_NAMESPACE)/udp-services
             - --publish-service=$(POD_NAMESPACE)/ingress-nginx
             - --annotations-prefix=nginx.ingress.kubernetes.io
-
-
-
 
 on peut definir le echo service pour le default backend :
 
