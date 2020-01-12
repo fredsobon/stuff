@@ -1,0 +1,318 @@
+Part I of this Deep Dive on containers introduces the idea of kernel control groups, or cgroups, and the way you can isolate, limit and monitor selected userspace applications. Here, I dive a bit deeper and focus on the next step of process isolation—that is, through containers, and more specifically, the Linux Containers (LXC) framework.
+
+Containers are about as close to bare metal as you can get when running virtual machines. They impose very little to no overhead when hosting virtual instances. First introduced in 2008, LXC adopted much of its functionality from the Solaris Containers (or Solaris Zones) and FreeBSD jails that preceded it. Instead of creating a full-fledged virtual machine, LXC enables a virtual environment with its own process and network space. Using namespaces to enforce process isolation and leveraging the kernel's very own control groups (cgroups) functionality, the feature limits, accounts for and isolates CPU, memory, disk I/O and network usage of one or more processes. Think of this userspace framework as a very advanced form of chroot.
+
+Note: LXC uses namespaces to enforce process isolation, alongside the kernel's very own cgroups to account for and limit CPU, memory, disk I/O and network usage across one or more processes.
+
+But what exactly are containers? The short answer is that containers decouple software applications from the operating system, giving users a clean and minimal Linux environment while running everything else in one or more isolated "containers". The purpose of a container is to launch a limited set of applications or services (often referred to as microservices) and have them run within a self-contained sandboxed environment.
+
+Note: the purpose of a container is to launch a limited set of applications or services and have them run within a self-contained sandboxed environment.
+
+""
+Figure 1. A Comparison of Applications Running in a Traditional Environment to Containers
+
+This isolation prevents processes running within a given container from monitoring or affecting processes running in another container. Also, these containerized services do not influence or disturb the host machine. The idea of being able to consolidate many services scattered across multiple physical servers into one is one of the many reasons data centers have chosen to adopt the technology.
+
+Container features include the following:
+
+Security: network services can be run in a container, which limits the damage caused by a security breach or violation. An intruder who successfully exploits a security hole on one of the applications running in that container is restricted to the set of actions possible within that container.
+Isolation: containers allow the deployment of one or more applications on the same physical machine, even if those applications must operate under different domains, each requiring exclusive access to its respective resources. For instance, multiple applications running in different containers can bind to the same physical network interface by using distinct IP addresses associated with each container.
+Virtualization and transparency: containers provide the system with a virtualized environment that can hide or limit the visibility of the physical devices or system's configuration underneath it. The general principle behind a container is to avoid changing the environment in which applications are running with the exception of addressing security or isolation issues.
+Using the LXC Utilities
+For most modern Linux distributions, the kernel is enabled with cgroups, but you most likely still will need to install the LXC utilities.
+
+If you're using Red Hat or CentOS, you'll need to install the EPEL repositories first. For other distributions, such as Ubuntu or Debian, simply type:
+
+
+$ sudo apt-get install lxc
+
+Now, before you start tinkering with those utilities, you need to configure your environment. And before doing that, you need to verify that your current user has both a uid and gid entry defined in /etc/subuid and /etc/subgid:
+
+
+$ cat /etc/subuid
+petros:100000:65536
+$ cat /etc/subgid
+petros:100000:65536
+
+Create the ~/.config/lxc directory if it doesn't already exist, and copy the /etc/lxc/default.conf configuration file to ~/.config/lxc/default.conf. Append the following two lines to the end of the file:
+
+
+lxc.id_map = u 0 100000 65536
+lxc.id_map = g 0 100000 65536
+
+It should look something like this:
+
+
+$ cat ~/.config/lxc/default.conf
+lxc.network.type = veth
+lxc.network.link = lxcbr0
+lxc.network.flags = up
+lxc.network.hwaddr = 00:16:3e:xx:xx:xx
+lxc.id_map = u 0 100000 65536
+lxc.id_map = g 0 100000 65536
+
+Append the following to the /etc/lxc/lxc-usernet file (replace the first column with your user name):
+
+
+petros veth lxcbr0 10
+
+The quickest way for these settings to take effect is either to reboot the node or log the user out and then log back in.
+
+Once logged back in, verify that the veth networking driver is currently loaded:
+
+
+$ lsmod|grep veth
+veth                   16384  0
+
+If it isn't, type:
+
+
+$ sudo modprobe veth
+
+You now can use the LXC utilities to download, run and manage Linux containers.
+
+Next, download a container image and name it "example-container". When you type the following command, you'll see a long list of supported containers under many Linux distributions and versions:
+
+
+$ sudo lxc-create -t download -n example-container
+
+You'll be given three prompts to pick the distribution, release and architecture. I chose the following:
+
+
+Distribution: ubuntu
+Release: xenial
+Architecture: amd64
+
+Once you make a decision and press Enter, the rootfs will be downloaded locally and configured. For security reasons, each container does not ship with an OpenSSH server or user accounts. A default root password also is not provided. In order to change the root password and log in, you must run either an lxc-attach or chroot into the container directory path (after it has been started).
+
+Start the container:
+
+
+$ sudo lxc-start -n example-container -d
+
+The -d option dæmonizes the container, and it will run in the background. If you want to observe the boot process, replace the -d with -F, and it will run in the foreground, ending at a login prompt.
+
+You may experience an error similar to the following:
+
+
+$ sudo lxc-start -n example-container -d
+lxc-start: tools/lxc_start.c: main: 366 The container
+failed to start.
+lxc-start: tools/lxc_start.c: main: 368 To get more details,
+run the container in foreground mode.
+lxc-start: tools/lxc_start.c: main: 370 Additional information
+can be obtained by setting the --logfile and --logpriority
+options.
+
+If you do, you'll need to debug it by running the lxc-start service in the foreground:
+
+
+$ sudo lxc-start -n example-container -F
+lxc-start: conf.c: instantiate_veth: 2685 failed to create veth
+ pair (vethQ4NS0B and vethJMHON2): Operation not supported
+    lxc-start: conf.c: lxc_create_network: 3029 failed to
+    create netdev
+    lxc-start: start.c: lxc_spawn: 1103 Failed to create
+    the network.
+    lxc-start: start.c: __lxc_start: 1358 Failed to spawn
+    container "example-container".
+    lxc-start: tools/lxc_start.c: main: 366 The container failed
+    to start.
+    lxc-start: tools/lxc_start.c: main: 370 Additional information
+    can be obtained by setting the --logfile and --logpriority
+    options.
+
+From the example above, you can see that the veth module probably isn't inserted. After inserting it, it resolved the issue.
+
+Anyway, open up a second terminal window and verify the status of the container:
+
+
+$ sudo lxc-info -n example-container
+Name:           example-container
+State:          RUNNING
+PID:            1356
+IP:             10.0.3.28
+CPU use:        0.29 seconds
+BlkIO use:      16.80 MiB
+Memory use:     29.02 MiB
+KMem use:       0 bytes
+Link:           vethPRK7YU
+ TX bytes:      1.34 KiB
+ RX bytes:      2.09 KiB
+ Total bytes:   3.43 KiB
+
+Another way to do this is by running the following command to list all installed containers:
+
+
+$ sudo lxc-ls -f
+NAME         STATE   AUTOSTART GROUPS IPV4      IPV6
+example-container RUNNING 0         -      10.0.3.28 -
+
+But there's a problem—you still can't log in! Attach directly to the running container, create your users and change all relevant passwords using the passwd command:
+
+
+$ sudo lxc-attach -n example-container
+root@example-container:/#
+root@example-container:/# useradd petros
+root@example-container:/# passwd petros
+Enter new UNIX password:
+Retype new UNIX password:
+passwd: password updated successfully
+
+Once the passwords are changed, you'll be able to log in directly to the container from a console and without the lxc-attach command:
+
+
+$ sudo lxc-console -n example-container
+
+If you want to connect to this running container over the network, install the OpenSSH server:
+
+
+root@example-container:/# apt-get install openssh-server
+
+Grab the container's local IP address:
+
+
+root@example-container:/# ip addr show eth0|grep inet
+    inet 10.0.3.25/24 brd 10.0.3.255 scope global eth0
+    inet6 fe80::216:3eff:fed8:53b4/64 scope link
+
+Then from the host machine and in a new console window, type:
+
+
+$ ssh 10.0.3.25
+
+Voilà! You now can ssh in to the running container and type your user name and password.
+
+On the host system, and not within the container, it's interesting to observe which LXC processes are initiated and running after launching a container:
+
+
+$ ps aux|grep lxc|grep -v grep
+root       861  0.0  0.0 234772  1368 ?        Ssl  11:01
+ ↪0:00 /usr/bin/lxcfs /var/lib/lxcfs/
+lxc-dns+  1155  0.0  0.1  52868  2908 ?        S    11:01
+ ↪0:00 dnsmasq -u lxc-dnsmasq --strict-order
+ ↪--bind-interfaces --pid-file=/run/lxc/dnsmasq.pid
+ ↪--listen-address 10.0.3.1 --dhcp-range 10.0.3.2,10.0.3.254
+ ↪--dhcp-lease-max=253 --dhcp-no-override
+ ↪--except-interface=lo --interface=lxcbr0
+ ↪--dhcp-leasefile=/var/lib/misc/dnsmasq.lxcbr0.leases
+ ↪--dhcp-authoritative
+root      1196  0.0  0.1  54484  3928 ?        Ss   11:01
+ ↪0:00 [lxc monitor] /var/lib/lxc example-container
+root      1658  0.0  0.1  54780  3960 pts/1    S+   11:02
+ ↪0:00 sudo lxc-attach -n example-container
+root      1660  0.0  0.2  54464  4900 pts/1    S+   11:02
+ ↪0:00 lxc-attach -n example-container
+
+To stop a container, type (from the host machine):
+
+
+$ sudo lxc-stop -n example-container
+
+Once stopped, verify the state of the container:
+
+
+$ sudo lxc-ls -f
+NAME         STATE   AUTOSTART GROUPS IPV4 IPV6
+example-container STOPPED 0         -      -    -
+
+$ sudo lxc-info -n example-container
+Name:           example-container
+State:          STOPPED
+
+To destroy a container completely—that is, purge it from the host system—type:
+
+
+$ sudo lxc-destroy -n example-container
+Destroyed container example-container
+
+Once destroyed, verify that it has been removed:
+
+
+$ sudo lxc-info -n example-container
+example-container doesn't exist
+
+$ sudo lxc-ls -f
+$
+
+Note: if you attempt to destroy a running container, the command will fail and inform you that the container is still running:
+
+
+$ sudo lxc-destroy -n example-container
+example-container is running
+
+A container must be stopped before it is destroyed.
+
+Advanced Configurations
+At times, it may be necessary to configure one or more containers to accomplish one or more tasks. LXC simplifies this by having the administrator modify the container's configuration file located in /var/lib/lxc:
+
+
+$ sudo su
+# cd /var/lib/lxc
+# ls
+example-container
+
+The container's parent directory will consist of at least two files: 1) the container config file and 2) the container's entire rootfs:
+
+
+# cd example-container/
+# ls
+config  rootfs
+
+Say you want to autostart the container labeled example-container on host system boot up. To do this, you'd need to append the following lines to the container's configuration file, /var/lib/lxc/example-container/config:
+
+
+# Enable autostart
+lxc.start.auto = 1
+
+After you restart the container or reboot the host system, you should see something like this:
+
+
+$ sudo lxc-ls -f
+NAME              STATE   AUTOSTART GROUPS IPV4      IPV6
+example-container RUNNING 1         -      10.0.3.25 -
+
+Notice how the AUTOSTART field is now set to "1".
+
+If, on container boot up, you want the container to bind mount a directory path living on the host machine, append the following lines to the same file:
+
+
+# Bind mount system path to local path
+lxc.mount.entry = /mnt mnt none bind 0 0
+
+With the above example and when the container gets restarted, you'll see the contents of the host's /mnt directory accessible to the container's local /mnt directory.
+
+Privileged vs. Unprivileged Containers
+You often may stumble across LXC-related content discussing the idea of a privileged container and an unprivileged container. But what are those exactly? The concept is pretty straightforward, and an LXC container can run in either configuration.
+
+By design, an unprivileged container is considered safer and more secure than a privileged one. An unprivileged container runs with a mapping of the container's root UID to a non-root UID on the host system. This makes it more difficult for attackers compromising a container to gain root privileges to the underlying host machine. In short, if attackers manage to compromise your container through, for example, a known software vulnerability, they immediately will find themselves with no rights on the host machine.
+
+Privileged containers can and will expose a system to such attacks. That's why it's good practice to run few containers in privileged mode. Identify the containers that require privileged access, and be sure to make extra efforts to update routinely and lock them down in other ways.
+
+And, What about Docker?
+I spent a considerable amount of time talking about Linux Containers, but what about Docker? It is the most deployed container solution in production. Since its initial launch, Docker has taken the Linux computing world by storm. Docker is an Apache-licensed open-source containerization technology designed to automate the repetitive task of creating and deploying microservices inside containers. Docker treats containers as if they were extremely lightweight and modular virtual machines. Initially, Docker was built on top of LXC, but it has since moved away from that dependency, resulting in a better developer and user experience. Much like LXC, Docker continues to make use of the kernel cgroup subsystem. The technology is more than just running containers, it also eases the process of creating containers, building images, sharing those built images and versioning them.
+
+Docker primarily focuses on:
+
+Portability: Docker provides an image-based deployment model. This type of portability allows for an easier way to share an application or set of services (with all of their dependencies) across multiple environments.
+Version control: a single Docker image is made up of a series of combined layers. A new layer is created whenever the image is altered. For instance, a new layer is created every time a user specifies a command, such as run or copy. Docker will reuse these layers for new container builds. Layering to Docker is its very own method of version control.
+Rollback: again, every Docker image has layers. If you don't want to use the currently running layer, you can roll back to a previous version. This type of agility makes it easier for software developers to integrate and deploy their software technology continuously.
+Rapid deployment: provisioning new hardware often can take days. And, the amount of effort and overhead to get it installed and configured is quite burdensome. With Docker, you can avoid all of that by reducing the time it takes to get an image up and running to a matter of seconds. When you're done with a container, you can destroy it just as easily.
+Fundamentally, both Docker and LXC are very similar. They both are userspace and lightweight virtualization platforms that implement cgroups and namespaces to manage resource isolation. However, there are a number of distinct differences between the two.
+
+Process Management
+
+Docker restricts containers to run as a single process. If your application consists of X number of concurrent processes, Docker will want you to run X number of containers, each with its own distinct process. This is not the case with LXC, which runs a container with a conventional init process and, in turn, can host multiple processes inside that same container. For example, if you want to host a LAMP (Linux + Apache + MySQL + PHP) server, each process for each application will need to span across multiple Docker containers.
+
+State Management
+
+Docker is designed to be stateless, meaning it doesn't support persistent storage. There are ways around this, but again, it's only necessary when the process requires it. When a Docker image is created, it will consist of read-only layers. This will not change. During runtime, if the process of the container makes any changes to its internal state, a diff between the internal state and the current state of the image will be maintained until either a commit is made to the Docker image (creating a new layer) or until the container is deleted, resulting in that diff disappearing.
+
+Portability
+
+This word tends to be overused when discussing Docker—that's because it's the single-most important advantage Docker has over LXC. Docker does a much better job of abstracting away the networking, storage and operating system details from the application. This results in a truly configuration-independent application, guaranteeing that the environment for the application always will remain the same, regardless of the machine on which it is enabled.
+
+Docker is designed to benefit both developers and system administrators. It has made itself an integral part of many DevOps (developers + operations) toolchains. Developers can focus on writing code without having to worry about the system ultimately hosting it. With Docker, there's no need to install and configure complex databases or worry about switching between incompatible language toolchain versions. Docker gives the operations staff flexibility, often reducing the number of physical systems needed to host some of the smaller and more basic applications. Docker streamlines software delivery. New features and bug/security fixes reach the customer quickly without any hassle, surprises or downtime.
+
+Summary
+Isolating processes for the sake of infrastructure security and system stability isn't as painful as it sounds. The Linux kernel provides all the necessary facilities to enable simple-to-use userspace applications, such as LXC (and even Docker), to manage micro-instances of an operating system with its local services in an isolated and sandboxed environment.
