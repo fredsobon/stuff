@@ -46,6 +46,29 @@ sudo /opt/kafka/bin/kafka-run-class.sh kafka.tools.GetOffsetShell --broker-list 
 sudo /opt/kafka/bin/kafka-run-class.sh kafka.tools.GetOffsetShell --broker-list localhost:9092 --topic mytopic --time -1
 
 
+== users : ===
+
+on peut créer des conf sécurisées par scram ( salt challenge reponse authorithy mecanism ) .
+
+On va créer des users avec des mdp qui seront stockées dans zookeeper 
+
+- creation de user avec chiffrement : 
+
+[/opt/kafka/bin] # ./kafka-configs.sh --zookeeper localhost:2181 --alter --add-config 'SCRAM-SHA-256=[password=bob-secret],SCRAM-SHA-512=[password=bob-secret]' --entity-type users --entity-name bob
+
+
+- description user :
+[/opt/kafka/bin] # ./kafka-configs.sh --zookeeper localhost:2181 --describe --entity-type users --entity-name bob
+
+
+- suppression de user :
+
+./kafka-configs.sh --zookeeper localhost:2181 --alter --delete-config 'SCRAM-SHA-512' --entity-type users --entity-name bob
+
+Configs for user-principal 'bob' are SCRAM-SHA-512=salt=cWNhNnptbWIxdXpiNW00c3AyZ2h3NXByaA==,stored_key=Rz+yfx/fa03sc9XwrNdpjR4n3TjPdJJOCl2TBcUuLL2DdOzOqoZoWxD4+nVCgD0jwVU92sjKAhrk537DyDQp8A==,server_key=972RVlD1U2GdbLjlRLvezakdnsLIWvRPedRyr2ENJO6qlE5b24vYKQO1g9m92dXqrJvmLh78RImXAWeunrhm3Q==,iterations=4096,SCRAM-SHA-256=salt=MTF2NDZpZXZsOXFqaDYwdjJocXZxNTVvaWs=,stored_key=MMVqmnhBfXVlhMHJlRWmCHu3BYDObaVm3YmD7buyK/E=,server_key=tBgug5us60e6INc4wGPQuGxO5+nBWu6yd0zLe4B4Vsc=,iterations=4096
+
+
+
 == partition ==
 
 - on peut verifier que nos topics sont bien assignés à des partitions et qu'ils sont bien répartis : 
