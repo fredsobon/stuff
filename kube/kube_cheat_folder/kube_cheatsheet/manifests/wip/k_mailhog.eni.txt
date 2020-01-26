@@ -1,0 +1,44 @@
+==== notes : ====
+
+
+- mailhog 
+dans repo stuff : stuff/kube/kube_cheat_folder/kube_cheatsheet/manifests/wip/mailhog
+ls
+custom-ressource.yaml  deployment.yaml  ingress.yaml  mailhog-utils  pvc-mailhog.yaml  pv-mailhog.yaml  service.yaml
+on recupere l'ip de notre minikube et on renseigne l'ip minikube et le service decrit dans le fichier ingress 
+minikube ip
+192.168.39.64
+/etc/hosts 
+192.168.39.64  mailhog.192.168.122.10.nip.io
+on peut atteindre l'appli mailhog dans notre navigateur 
+
+on aura une 404 sir on curl notre ip minikube 192.168.39.64
+mais on aura bien notre appli dispo en curl via notre régle ingress qui dirige vers le service qui envoi vers le pod .
+
+interrogation via jsonpath : on peut trouver l'id du container :
+
+ kubectl get pods -l app=mailhog -o \
+jsonpath="{.items[*].status.containerStatuses[*].containerID}"
+docker://7833a78cf1b13f641a05b853297bac50d2d7f056de8c95aebaabf424d1639269%
+
+
+- test d'envoi de mail pour appli : valider la persistence de données :
+
+export MHURL="https://github.com/mailhog/mhsendmail/releases"
+$ wget $MHURL/download/v0.2.0/mhsendmail_linux_amd64 \ -O mhsendmail
+Ajout des droits d’exécution sur le fichier mhsendmail :
+$ chmod +x mhsendmail
+Recopie de mhsendmail dans /usr/local/bin avec
+$ sudo cp mhsendmail /usr/local/bin/.
+
+kubectl port-forward service/mailhog 1025                                                                                                                         (⎈ minikube:default)
+Forwarding from 127.0.0.1:1025 -> 1025
+Forwarding from [::1]:1025 -> 1025
+
+on doit d'abort se connecter dans le minikube et changer les droits d'ecritures pour le repertoire de stockage sinon on a une erreur 
+minikube ssh ; sudo -i ; chmod 777 /tmp/pv-mailhog
+
+on redige un email bidon pour tester et on envoi 
+cat email.txt | mhsendmail --smtp-addr=127.0.0.1:1025
+
+on voit dans l'interface graphique de l'appli le mail test.
