@@ -1,0 +1,515 @@
+=== notes mariadb ===
+
+1/ on deploie le manifest deploiement 
+kubectl create deployment mariadb \
+--image=mariadb --dry-run \
+--output yaml > mariadb-deployment.yaml
+
+kubectl apply -f mariadb-deployment.yaml
+
+2/ on va gérer un persistent volume claim  :
+ cat pvc.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mariadb-data
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 100Mi
+
+
+on va rajouter les infos de montages, volumes dans notre déploiment ainsi que les infos de mdp nécéssare au démarrage de mysql :
+on va aussi gérer une strategie de déploiement en mode recreate : qui supprime les pods avant d'en relancer suite à une modification à appliquer : on a sinon un pb de lock en bdd :
+
+ boogie@boogieland  ~/Documents/stuff/kube/kube_cheat_folder/kube_cheatsheet/manifests/wip/mariadb   master  cat mariadb-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+ labels:
+  app: mariadb
+ name: mariadb
+spec:
+  # No rolling update: on passe par une methode de deploiement qui detruit le container avant de recréer pour eviter les acces concurents a une bdd qui ne demarre pas : cette methode est à proscrire mais sert juste à montrer un pb de lock si on recre un pod avec une startegy habituelle de Rolling update.
+ strategy:
+  type: Recreate
+ selector:
+  matchLabels:
+   app: mariadb
+ template:
+  metadata:
+   labels:
+    app: mariadb
+  spec:
+    # declaration volume cree dans un pvc au prealable :
+   volumes:
+    - name: mariadb-data
+      persistentVolumeClaim: { claimName: mariadb-data }
+   containers:
+    - image: mariadb
+      name: mariadb
+      imagePullPolicy: IfNotPresent
+      # declaration du pooint de montage pour le volume déclaré précedemment :
+      volumeMounts:
+       - mountPath: /var/lib/mysql
+         name: mariadb-data
+      # declaration de variables nécéssaires pour le demarrage de mysql
+      env:
+       - name: MYSQL_ROOT_PASSWORD
+         value: mot-de-passe-root
+         # declaration de sondes - on va lancer un shell puis la commande mysqladmin pour permettre la récuperation de la variable d'env définie auparavant : sinon elle n'est pas interprétée.
+      livenessProbe:
+       exec:
+        command:
+         - "sh"
+         - "-c"
+         - "mysqladmin status -p$MYSQL_ROOT_PASSWORD"
+      readinessProbe:
+       exec:
+        command:
+         - "sh"
+         - "-c"
+         - "mysqladmin status -p$MYSQL_ROOT_PASSWORD"
+
+
+on va se connecter en bash dans le container et lancer une commande mysql prenant en argument la valeur du password :
+
+kubectl exec -it mariadb-85847c57c9-2tl9t bash
+root@mariadb-85847c57c9-2tl9t:/# mysqladmin status -p$MYSQL_ROOT_PASSWORD
+Uptime: 42  Threads: 7  Questions: 10  Slow queries: 0  Opens: 16  Flush tables: 1  Open tables: 10  Queries per second avg: 0.238
+root@mariadb-85847c57c9-2tl9t:/#
+
+on recupere bien les infos d'uptime de la db.
+
+Afin de gérer la scalabilité sans pb on va donc devoir utiliser un statefuset :
+ prédictibilité du nom des pods,
+ assignation du stockage persistant pod par pod,
+ création des pods dans un ordre donné,
+ mise à jour des pods dans un ordre donné.
+
+ Il est fortement recommandé de disposer d’un mécanisme de création automatique des volumes persistants. Dans
+le cas contraire, l’administrateur devra réaliser toutes les déclarations d’objet de type PersistentVolume
+manuellement.
+Derniers points, les volumes persistants créés par le StatefulSet ne seront pas purgés automatiquement lors de la
+réduction du nombre de pods. Charge à l’administrateur de faire les purges nécessaires.
+
+on delete le déployement : 
+ kubectl delete deployment mariadb
+
+modification du fichier de déploiment avec :
+mariadb­deployment.yaml sauvegardez­le sous le nom de mariadb-statefulset.yaml.
+Afin de transformer la déclaration de déploiement en StatefulSet, vous devrez réaliser plusieurs opérations :
+changement du champ kind pour la valeur StatefulSet ,
+ajout d’un nom de service associé aux pods (champ serviceName à la valeur mariadb ),
+ajout d’un champ volumeClaimTemplates .
+Le champ volumeClaimTemplates sera
+un tableau d’éléments. Chaque élément reprendra les caractéristiques
+d’un volume persistant, à savoir :
+
+un champ metadata avec un champ name (à la valeur mariadb-data ),
+un champ spec reprenant les caractéristiques suivantes :
+le mode d’accès souhaité ( ReadWriteOnce ),
+la taille du stockage.
+
+
+ boogie@boogieland  ~/Documents/stuff/kube/kube_cheat_folder/kube_cheatsheet/manifests/wip/mariadb   master  cat mariadb-statefulset.yaml 
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+ labels:
+  app: mariadb
+ name: mariadb
+spec:
+ serviceName: mariadb
+ selector:
+  matchLabels:
+   app: mariadb
+ template:
+  metadata:
+   labels:
+    app: mariadb
+  spec:
+   containers:
+    - image: mariadb
+      name: mariadb
+      imagePullPolicy: IfNotPresent
+      # declaration du pooint de montage pour le volume déclaré précedemment : 
+      volumeMounts:
+       - mountPath: /var/lib/mysql
+         name: mariadb-data
+      # declaration de variables nécéssaires pour le demarrage de mysql    
+      env:
+       - name: MYSQL_ROOT_PASSWORD
+         value: mot-de-passe-root
+ # ici on declare un template de volume qui permettra a chaque pod ayant besoin de stockage d'avoir un volume dédié portant un id unique. L'object de type persistant volume claim sera créer automatiquement par le statefulset 
+ volumeClaimTemplates:
+  - metadata:
+     name: mariadb-data
+    spec:
+     accessModes: [ "ReadWriteOnce" ]
+     resources:
+      requests:
+       storage: 100Mi
+
+kubectl apply -f mariadb-statefulset.yaml
+
+
+en examinant les volumes et les persistant volume claim : on voit qu'un pvc mariadb-data-mariadb-0 a été crée automatiquement par le statefulset :
+
+kubectl get pv
+NAME                                       CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS   CLAIM                            STORAGECLASS   REASON   AGE
+pv-mailhog                                 10Mi       RWO            Retain           Bound    default/pvc-mailhog              manual                  15h
+pvc-c188ad41-f180-4686-a087-d26703765010   100Mi      RWO            Delete           Bound    default/mariadb-data-mariadb-0   standard                86s
+pvc-de46ff78-f40e-47e8-a686-93a6e5431ac4   100Mi      RWO            Delete           Bound    default/mariadb-data             standard                14m
+ boogie@boogieland  ~/Documents/stuff/kube/kube_cheat_folder/kube_cheatsheet/manifests/wip/mariadb   master  kubectl get pvc
+NAME                     STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS   AGE
+mariadb-data             Bound    pvc-de46ff78-f40e-47e8-a686-93a6e5431ac4   100Mi      RWO            standard       15m
+mariadb-data-mariadb-0   Bound    pvc-c188ad41-f180-4686-a087-d26703765010   100Mi      RWO            standard       95s
+pvc-mailhog              Bound    pv-mailhog                                 10Mi       RWO            manual         15h
+
+on peut donc supprimé l'ancien pvc mariadb-data 
+kubectl delete pvc mariadb-data
+persistentvolumeclaim "mariadb-data" deleted
+ boogie@boogieland  ~/Documents/stuff/kube/kube_cheat_folder/kube_cheatsheet/manifests/wip/mariadb   master  kubectl get pvc
+NAME                     STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS   AGE
+mariadb-data-mariadb-0   Bound    pvc-c188ad41-f180-4686-a087-d26703765010   100Mi      RWO            standard       4m27s
+pvc-mailhog              Bound    pv-mailhog                                 10Mi       RWO            manual         15h
+
+
+
+on va maintenant pouvoir scale notre appli sans pb ( plus de souci de lock comme avec un déploiment classique : )
+
+kubectl scale sts mariadb --replicas=2
+
+on voit maintenant qu'un second pvc a été crée :
+kubectl get pvc
+NAME                     STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS   AGE
+mariadb-data-mariadb-0   Bound    pvc-c188ad41-f180-4686-a087-d26703765010   100Mi      RWO            standard       6m24s
+mariadb-data-mariadb-1   Bound    pvc-cfe5afdb-e785-4f32-8742-f1b4cc140cb5   100Mi      RWO            standard       10s
+pvc-mailhog              Bound    pv-mailhog                                 10Mi       RWO            manual         15h
+
+idem pour le volume :
+kubectl get pv
+NAME                                       CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS   CLAIM                            STORAGECLASS   REASON   AGE
+pv-mailhog                                 10Mi       RWO            Retain           Bound    default/pvc-mailhog              manual                  15h
+pvc-c188ad41-f180-4686-a087-d26703765010   100Mi      RWO            Delete           Bound    default/mariadb-data-mariadb-0   standard                6m51s
+pvc-cfe5afdb-e785-4f32-8742-f1b4cc140cb5   100Mi      RWO            Delete           Bound    default/mariadb-data-mariadb-1   standard                37s
+
+
+A noter que l'ancien volume :
+pvc-de46ff78-f40e-47e8-a686-93a6e5431ac4   100Mi      RWO            Delete           Bound    default/mariadb-data             standard                14m
+ boogie@boogieland  ~/Documents/stuff/kube/kube_cheat_folder/kube_cheatsheet/manifests/wip/mariadb   master  kubectl get pvc
+a été delete avec la suppréssion précedente du pvc associé.
+
+on peut examiner plusieurs éléments en les separant par une "," : 
+ kubectl get pods,pvc -l app=mariadb
+NAME            READY   STATUS    RESTARTS   AGE
+pod/mariadb-0   1/1     Running   0          8m40s
+pod/mariadb-1   1/1     Running   0          2m26s
+
+NAME                                           STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS   AGE
+persistentvolumeclaim/mariadb-data-mariadb-0   Bound    pvc-c188ad41-f180-4686-a087-d26703765010   100Mi      RWO            standard       8m40s
+persistentvolumeclaim/mariadb-data-mariadb-1   Bound    pvc-cfe5afdb-e785-4f32-8742-f1b4cc140cb5   100Mi      RWO            standard       2m26s
+
+
+pour revenir un un seul pod :
+kubectl scale sts mariadb --replicas=1
+
+Attention cependant le pvc ne sera pas detruit automatiquement ( ce qui permet de concerver des data suite a la perte d'un pod.)
+
+kubectl get pods,pvc -l app=mariadb
+NAME            READY   STATUS    RESTARTS   AGE
+pod/mariadb-0   1/1     Running   0          11m
+
+NAME                                           STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS   AGE
+persistentvolumeclaim/mariadb-data-mariadb-0   Bound    pvc-c188ad41-f180-4686-a087-d26703765010   100Mi      RWO            standard       11m
+persistentvolumeclaim/mariadb-data-mariadb-1   Bound    pvc-cfe5afdb-e785-4f32-8742-f1b4cc140cb5   100Mi      RWO            standard       5m17s <<< on voit que le pvc est toujours présent.
+
+kubectl delete pvc mariadb-data-mariadb-1 
+persistentvolumeclaim "mariadb-data-mariadb-1" deleted
+
+
+
+- Mise en place d'une répli mysql :
+
+une base , un compte test vont être créer pour l'occas
+les champs suivats sont géré par l'image docker :
+MYSQL_DATABASE : nom de la base de données.
+MYSQL_USER : nom de l’utilisateur de base de données.
+MYSQL_PASSWORD : mot de passe de l’utilisateur.
+Ces variables se déclarent au niveau du champ env du container mariadb.
+
+on va pour bien séparer nos éléments utiliser un object de type configmap pour stocker ces infos :
+
+cat configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mariadb
+data:
+  MYSQL_DATABASE: test
+  MYSQL_USER: test
+ boogie@boogieland  ~/Documents/stuff/kube/kube_cheat_folder/kube_cheatsheet/manifests/wip/mariadb   master  kubectl apply -f configmap.yaml
+configmap/mariadb created
+
+
+on va stocker les infos plus sensibles dans un fichier secret qui va les stocker encoder en base64 :
+
+echo -n test | base64
+dGVzdA==
+
+echo -n "mot-de-passe-root" |base64
+bW90LWRlLXBhc3NlLXJvb3Q=
+
+pour decoder on peut simplement faire :
+
+echo -n "bW90LWRlLXBhc3NlLXJvb3Q=" |base64 -d
+mot-de-passe-root
+
+
+ cat secret.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mariadb
+data:
+  MYSQL_ROOT_PASSWORD: "bW90LWRlLXBhc3NlLXJvb3Q="
+  MYSQL_PASSWORD: "dGVzdA=="
+
+kubectl create -f secret.yaml
+secret/mariadb created
+
+Les objects sont prets on va les rattacher au niveau du container dans notre statefulset dans la section envFrom 
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+name: mariadb
+labels:
+app: mariadb
+spec:
+serviceName: mariadb
+selector:
+matchLabels:
+app: mariadb
+template:
+metadata:
+labels:
+app: mariadb
+spec:
+containers:
+- image: mariadb
+name: mariadb
+volumeMounts:
+- mountPath: /var/lib/mysql
+name:
+mariadb-data
+envFrom:
+- configMapRef: { name: mariadb }
+- secretRef:
+{ name: mariadb }
+livenessProbe:
+exec:
+command:
+- "sh"
+- "-c"
+- "mysqladmin status -p$MYSQL_ROOT_PASSWORD"
+readinessProbe:
+exec:
+command:
+- "sh"
+- "-c"
+- "mysqladmin status -p$MYSQL_ROOT_PASSWORD"
+volumeClaimTemplates:
+- metadata:
+name: mariadb-data
+spec:
+accessModes: [ "ReadWriteOnce" ]
+resources:
+requests:
+storage: 100Mi
+env du container mariadb.
+
+kubectl apply -f mariadb-statefulset-configmap-secret.yaml
+statefulset.apps/mariadb configured
+
+Mise en place de la replication : on passe le nombre de replicats a deux :
+kubectl scale sts mariadb --replicas=2
+
+
+- Configuration du master : 
+
+Connexion a la db :
+kubectl exec -it mariadb-0 bash
+root@mariadb-0:/#
+
+root@mariadb-0:/# mysql -u root -p$MYSQL_ROOT_PASSWORD
+Welcome to the MariaDB monitor.  Commands end with ; or \g.
+Your MariaDB connection id is 8
+Server version: 10.4.11-MariaDB-1:10.4.11+maria~bionic mariadb.org binary distribution
+
+Copyright (c) 2000, 2018, Oracle, MariaDB Corporation Ab and others.
+
+Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.
+
+MariaDB [(none)]> show status;
++--------------------------------------------------------------+--------------------------------------------------+
+| Variable_name                                                | Value                                            |
++--------------------------------------------------------------+--------------------------------------------------+
+| Aborted_clients                                              | 0                                                |
+...
+........
+
+on defini le server id qui va servir a identifier notre serveur dans la  repli :
+MariaDB [(none)]> SET GLOBAL server_id=1;
+Query OK, 0 rows affected (0.006 sec)
+
+MariaDB [(none)]>
+
+on peut vérifier le résultat :
+MariaDB [(none)]> show global variables LIKE 'server_id';
++---------------+-------+
+| Variable_name | Value |
++---------------+-------+
+| server_id     | 1     |
++---------------+-------+
+1 row in set (0.032 sec)
+
+
+on va créer un compte de replication qui doit répondre aux critères suivants :
+le compte portera le nom de replication ,
+le compte sera autorisé à se connecter depuis n’importe quel pod,
+le mot de passe sera ReplicationUser .
+
+Il est déconseillé de laisser n’importe quelle source se connecter au compte de réplication. Néanmoins, pour
+simplifier l’exercice, cet aspect ne sera pas abordé.
+Pour permettre la connexion de n’importe où, la chaîne « MACHINE SOURCE » doit prendre la valeur du caractère
+pourcentage (%).
+En reprenant ces instructions, la requête MariaDB à lancer sera la suivante :
+
+MariaDB [(none)]> create user 'replication'@'%' identified by 'ReplicationUser';
+Query OK, 0 rows affected (0.030 sec)
+
+Autre opération à réaliser : attribuer les droits de réplication à l’utilisateur. Pour réaliser cette opération,
+exécutez la commande suivante :
+MariaDB [(none)]> grant replication slave on *.* to 'replication'@'%';
+Query OK, 0 rows affected (0.008 sec)
+
+
+- configuration du slave :
+
+on se connecte au slave en shell : 
+ boogie@boogieland  ~/Documents/stuff/kube/kube_cheat_folder/kube_cheatsheet/manifests/wip/mariadb   master  kubectl exec -it mariadb-1 sh
+
+on se loggue en mysql : 
+# mysql -u root -p$MYSQL_ROOT_PASSWORD
+Welcome to the MariaDB monitor.  Commands end with ; or \g.
+Your MariaDB connection id is 8
+Server version: 10.4.11-MariaDB-1:10.4.11+maria~bionic mariadb.org binary distribution
+
+Copyright (c) 2000, 2018, Oracle, MariaDB Corporation Ab and others.
+
+Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.
+
+on defini l'id du server slave : cette fois on met à 2 :
+
+MariaDB [(none)]> SET GLOBAL server_id=2;
+Query OK, 0 rows affected (0.030 sec)
+
+
+
+- Activation de la synchro :
+
+nous allons devoir modifier activer les logs d'activités db ..sans quoi le master ne pourra pas envoyer les infos au slave.
+ceci ne se fait pas  chaud et doit etre fait au lancement de la db avec les params :
+
+ --log-bin : activation des journaux.
+ --binlog-format=row : format du journal.
+ --log-basename=master : préfixe des journaux.
+ --binlog-do-db=NOM_BASE : synchronisation de la base.
+
+la commande lancée au demarrage par docker n'est pas celle de mariadb mais celle du docker entrypoint.sh 
+Ce shell va prendre en charge un certain nombre d’opérations parmi lesquelles on retrouve :
+ l’initialisation du mot de passe root de la base de données,
+ la création de la base de données,
+ la création du compte associé à la base de données,
+le positionnement du mot de passe.
+Si des options sont passées à ce shell, ce dernier les transmettra à la commande de lancement de la base de données (ici la commande mysqld ).
+Ce mécanisme de shell docker­entrypoint.sh est assez standard et se retrouve fréquemment dans l’écosystème des images Docker.
+En prenant en compte ces remarques, le champ
+containers prendra la forme suivante :
+  containers:
+  - image: mariadb
+    name: mariadb
+    imagePullPolicy: IfNotPresent
+    command:
+      - sh
+      - -c
+      - >-
+        docker-entrypoint.sh --log-bin --binlog-format=row
+        --log-basename=master --binlog-do-db=$MYSQL_DATABASE
+
+
+kubectl get pods -l app=mariadb --watch
+NAME        READY   STATUS    RESTARTS   AGE
+mariadb-0   1/1     Running   0          107s
+mariadb-1   1/1     Running   0          117s
+
+
+
+
+on va pouvoir examiner notre répli :
+
+depus le master apres s'etre connecter en bash puis en mysql :
+
+MariaDB [(none)]> show master status \G
+*************************** 1. row ***************************
+            File: master-bin.000001
+        Position: 329
+    Binlog_Do_DB: test
+Binlog_Ignore_DB:
+1 row in set (0.009 sec)
+
+
+on va maintenant pluguer notre slave en répli :
+
+Les informations remontées sur les caractéristiques du maître (mariadb­0) vont servir pour synchroniser l’esclave (mariadb­1) à l’aide de la commande CHANGE MASTER TO .
+Cette commande prendra les paramètres suivants :
+ l’adresse DNS complète du maître ( MASTER_HOST=’mariadb-0.mariadb’ ),
+ l’utilisateur permettant la réplication ( MASTER_USER=’replication’ ),
+ le mot de passe de l’utilisateur ( MASTER_PASSWORD=’Replication-User’ ),
+ le port d’écoute ( MASTER_PORT=3306 ),
+ le fichier obtenu ci­dessus ( MASTER_LOG_FILE=’master-bin.000003’ ),
+ la position du log ( MASTER_LOG_POS=802 ),
+ le nombre de tentatives de connexion ( MASTER_CONNECT_RETRY=10 ).
+En reprenant toutes ces instructions, vous obtiendrez la requête suivante à entrer dans l’invite de commandes
+mysql du côté de l’esclave (mariadb­1) :
+
+root@mariadb-1:/# mysql -u root -p$MYSQL_ROOT_PASSWORD
+Welcome to the MariaDB monitor.  Commands end with ; or \g.
+Your MariaDB connection id is 11
+Server version: 10.4.11-MariaDB-1:10.4.11+maria~bionic-log mariadb.org binary distribution
+
+Copyright (c) 2000, 2018, Oracle, MariaDB Corporation Ab and others.
+
+Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.
+
+MariaDB [(none)]> CHANGE MASTER TO
+    -> MASTER_HOST='mariadb-0.mariadb',      <<<< pb pour la repli : remplacement par l'ip du pod du master ici : 172.17.0.10/16
+    -> MASTER_USER='replication',
+    -> MASTER_PASSWORD='ReplicationUser',
+    -> MASTER_PORT=3306,
+    -> MASTER_LOG_FILE='master-bin.000001',
+    -> MASTER_LOG_POS=329,
+    -> MASTER_CONNECT_RETRY=10;
+Query OK, 0 rows affected (0.030 sec)
+
+on demarre notre repli :
+  
+MariaDB [(none)]> start slave;
+Query OK, 0 rows affected (0.012 sec)
+
+
