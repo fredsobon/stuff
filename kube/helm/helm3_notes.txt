@@ -1,0 +1,62 @@
+=== notes helm3 : ===
+
+1/ download le binaire : 
+https://github.com/helm/helm/releases
+
+2/ decompression et install du binaire :
+tar -zxvf helm-v3.0.2-linux-amd64.tar.gz
+sudo mv linux-amd64/helm /usr/local/bin
+
+3/ ajout du repo principal de charts :
+helm repo add stable https://kubernetes-charts.storage.googleapis.com/
+
+4/ Recherche de chart dans le repo stable : 
+
+helm search repo stable |head                                                                                                                                        (⎈ minikube:default)
+NAME                                 	CHART VERSION	APP VERSION            	DESCRIPTION
+stable/acs-engine-autoscaler         	2.2.2        	2.1.1                  	DEPRECATED Scales worker nodes within agent pools
+stable/aerospike                     	0.3.2        	v4.5.0.5               	A Helm chart for Aerospike in Kubernetes
+stable/airflow                       	5.2.5        	1.10.4                 	Airflow is a platform to programmatically autho...
+stable/ambassador                    	5.3.0        	0.86.1                 	A Helm chart for Datawire Ambassador
+stable/anchore-engine                	1.4.1        	0.6.0                  	Anchore container analysis and policy evaluatio...
+...
+
+5/ install de chart :
+
+on peut mettre a jour le repo avant d'install :
+
+helm repo update
+Hang tight while we grab the latest from your chart repositories...
+...Successfully got an update from the "stable" chart repository
+Update Complete. ⎈ Happy Helming!⎈
+
+
+helm search repo stable |grep wordpress                                                                                                                              (⎈ minikube:default)
+stable/wordpress                     	8.1.2        	5.3.2                  	Web publishing platform for building blogs and ...
+
+
+
+on va essayer de toujours donner un nom au chart qu'on veut installer et aussi installer ce chart :
+
+
+helm install wordpress-compta stable/wordpress --namespace intranet                                                                                                (⎈ minikube:default)
+NAME: wordpress-compta
+LAST DEPLOYED: Tue Jan 28 10:25:17 2020
+NAMESPACE: intranet
+STATUS: deployed
+REVISION: 1
+NOTES:
+1. Get the WordPress URL:
+
+  NOTE: It may take a few minutes for the LoadBalancer IP to be available.
+        Watch the status with: 'kubectl get svc --namespace intranet -w wordpress-compta'
+  export SERVICE_IP=$(kubectl get svc --namespace intranet wordpress-compta --template "{{ range (index .status.loadBalancer.ingress 0) }}{{.}}{{ end }}")
+  echo "WordPress URL: http://$SERVICE_IP/"
+  echo "WordPress Admin URL: http://$SERVICE_IP/admin"
+
+2. Login with the following credentials to see your blog
+
+  echo Username: user
+  echo Password: $(kubectl get secret --namespace intranet wordpress-compta -o jsonpath="{.data.wordpress-password}" | base64 --decode)
+
+
