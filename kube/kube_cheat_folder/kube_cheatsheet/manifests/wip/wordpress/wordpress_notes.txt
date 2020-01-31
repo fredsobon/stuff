@@ -34,3 +34,52 @@ on peut se connecter en utilisant l'ip minikube et le node port affecté :
 http://192.168.39.214:31525/
 
 
+en examinant la doc du chart on voit qu'on peut configurer une entrée ingress :
+->ingress.enabled : booléen permettant d’activer les ressources Ingress.
+-> ingress.hosts[0].name : champ permettant de donner le nom du site web exposé sur l’extérieur (ex. : wordpress­compta.intranet.example.com).
+L’URL du site de WordPress sera stockée dans la variable d’environnement WORDPRESS_URL .
+Avec Minikube, l’adresse IP de la machine se récupère à l’aide de la commande minikube ip .
+Ci­dessous un exemple d’assignation de la valeur pour un déploiement sur Minikube combiné avec nip.io :
+$ export WORDPRESS_URL=wordpress.compta.$(minikube ip).nip.io
+
+helm upgrade wordpress-compta stable/wordpress \                                                                               (⎈ minikube:intranet)
+--set ingress.enabled=true \
+--set "ingress.hosts[0].name=$WORDPRESS_URL"
+Release "wordpress-compta" has been upgraded. Happy Helming!
+NAME: wordpress-compta
+LAST DEPLOYED: Fri Jan 31 18:51:02 2020
+NAMESPACE: intranet
+STATUS: deployed
+REVISION: 2
+NOTES:
+1. Get the WordPress URL:
+
+  You should be able to access your new WordPress installation through
+  http://wordpress.compta.192.168.39.214.nip.io/admin
+
+2. Login with the following credentials to see your blog
+
+  echo Username: user
+  echo Password: $(kubectl get secret --namespace intranet wordpress-compta -o jsonpath="{.data.wordpress-password}" | base64 --decode)
+
+on a des pb de mdp non lisible dans l'interface wordpress ..on change les credentials :
+
+helm upgrade --namespace intranet wordpress-compta --set wordpressUsername=admin,wordpressPassword=password,mariadb.mariadbRootPassword=secretpassword --set ingress.enabled=true --set "ingress.hosts[0].name=$WORDPRESS_URL" stable/wordpress
+Release "wordpress-compta" has been upgraded. Happy Helming!
+NAME: wordpress-compta
+LAST DEPLOYED: Fri Jan 31 18:55:43 2020
+NAMESPACE: intranet
+STATUS: deployed
+REVISION: 3
+NOTES:
+1. Get the WordPress URL:
+
+  You should be able to access your new WordPress installation through
+  http://wordpress.compta.192.168.39.214.nip.io/admin
+
+2. Login with the following credentials to see your blog
+
+  echo Username: admin
+  echo Password: $(kubectl get secret --namespace intranet wordpress-compta -o jsonpath="{.data.wordpress-password}" | base64 --decode)
+
+on peut se connecter sans pépin au wordpress 
