@@ -2,3 +2,94 @@ Ajout d'un reverse proxy nginx devant kafka connect pour gérer https / http ver
 
 https://github.com/purbon/nginx-reverse-proxy-kafka-connect
 
+
+
+
+
+ex: conf nginx pour reverse proxy sur kafka connect :
+
+
+1/ install de nginx : les dependances suivantes sont tirées sur centos 7.7 
+
+
+rpm -qa |grep ngi
+nginx-mod-http-perl-1.12.2-2.el7.x86_64
+nginx-mod-stream-1.12.2-2.el7.x86_64
+nginx-filesystem-1.12.2-2.el7.noarch
+nginx-mod-http-geoip-1.12.2-2.el7.x86_64
+nginx-mod-http-xslt-filter-1.12.2-2.el7.x86_64
+nginx-1.12.2-2.el7.x86_64
+nginx-all-modules-1.12.2-2.el7.noarch
+nginx-mod-mail-1.12.2-2.el7.x86_64
+nginx-mod-http-image-filter-1.12.2-2.el7.x86_64
+
+
+
+
+En laissant la conf par défaut et en ne faisant qu'ajouter le fichier suivant on peut atteindre notre ressource : 
+
+root /etc/nginx/conf.d] # cat nginx-connect-proxy.conf
+limit_conn_zone $binary_remote_addr zone=ip_addr:10m;
+
+server {
+    listen 80;
+    listen [::]:80;
+
+    # Filter access by IP
+    # ( uncomment and write down the allowed/denied IP ranges )
+    # deny   192.168.1.2;
+    # allow  2001:0db8::/32;
+    # deny   all;
+
+    # How to limite the number of connection per IP
+    limit_conn ip_addr 10;
+
+    server_name kconnect.prod.com;
+
+    add_header Allow "GET, POST, HEAD" always;
+    if ( $request_method !~ ^(GET|POST|HEAD)$ ) {
+	     return 405;
+    }
+
+    if ( $request_method = OPTIONS ) {
+      return 405;
+    }
+
+
+    location / {
+        limit_rate_after 500k;
+        proxy_pass http://kafkaconnect-01:8083/;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+  }
+
+notre serveur nous renvoie une 401 .;c'est parfait on ne fourni pas les credentials nécéssaires : 
+
+curl -ILv http://kconnect.prod.com/connectors/
+* About to connect() to kconnect.prod.com port 80 (#0)
+*   Trying 10.120.10.11...
+* Connected to kconnect.prod.com (10.120.10.11) port 80 (#0)
+> HEAD /connectors/ HTTP/1.1
+> User-Agent: curl/7.29.0
+> Host: kconnect.prod.com
+> Accept: */*
+>
+< HTTP/1.1 401 Unauthorized
+HTTP/1.1 401 Unauthorized
+< Server: nginx/1.12.2
+Server: nginx/1.12.2
+< Date: Tue, 11 Feb 2020 15:43:46 GMT
+Date: Tue, 11 Feb 2020 15:43:46 GMT
+< Content-Type: application/json
+Content-Type: application/json
+< Content-Length: 32
+Content-Length: 32
+< Connection: keep-alive
+Connection: keep-alive
+< Allow: GET, POST, HEAD
+Allow: GET, POST, HEAD
+
+
+On est ok quand on fourni les bons credentials :
+curl -u bobo:boby -X GET -H "Accept:application/json" http://kconnect.prod.com/connectors/
+["file-source","bla-jdbc-sink-TABLE1_WITHOUTTRANSFORM","source-postgres_9","-source-postgres"]
