@@ -1,0 +1,43 @@
+=== memo mode op gestion tls / ssl kafka connect tls ===
+
+1/ creation d'une ca : 
+ openssl genrsa -out root.key
+ openssl req -new -x509 -key root.key -out root.crt
+
+ 2/ import de la ca dan notre keystrore java : 
+ keytool -keystore kconnect.truststore.jks -alias CARoot -import -file root.crt
+ 
+ 3/ génération d'un cert avec les hostnames désirés : attention kafka connect impose une connection avec le hostname du serveur 
+ keytool -keystore  kconnect.keystore.jks -alias localhost -validity 365 -genkey -keyalg RSA -ext SAN=DNS:kafkaconnect02,DNS:kconnect.lapin.net
+ ls
+ keytool -keystore  kconnect.keystore.jks  -alias localhost -certreq -file kconnect.unsigned.crt
+ openssl x509 -req -CA root.crt -CAkey root.key -in kconnect.unsigned.crt -out kconnect.signed.crt -days 365 -CAcreateserial
+ ls
+ keytool -keystore kconnect.keystore.jks -alias CARoot -import -file root.crt
+ ls
+ keytool -keystore kconnect.keystore.jks -alias localhost -import -file kconnect.signed.crt
+ ls
+ cp kconnect.keystore.jks kconnect.truststore.jks /etc/kafka/
+ cd
+ cat /etc/kafka/connect-distributed.properties
+ ls -lrth /etc/kafka
+ cd /etc/kafka
+ ll
+ ls -lrth
+ rm kafka.server.keystore.jks kafka.server.truststore.jks kafka.truststore.jks worker02.keystore.jks  worker02.truststore.jks -f
+  puppet agent -t --environment kafka_connect_debezium
+ exit
+ hostnamectl 
+ history |grep hostna
+ hostnamectl set-hostname xmidcdcworker02uv
+ hname
+ hostname
+ hostname -f
+  puppet agent -t --environment kafka_connect_debezium
+ curl  -k  -u youki:youki -X GET -H "Accept:application/json" https://kconnect.svc.prod.ilius.io:8093/connectors/
+ curl  -k  -u youki:youki -X GET -H "Accept:application/json" http://kconnect.svc.prod.ilius.io:8093/connectors/
+ curl  -k  -u sds:youki -X GET -H "Accept:application/json" http://kconnect.svc.prod.ilius.io:8093/connectors/
+ curl  -k  -u youki:youki -X GET -H "Accept:application/json" https://xmidcdcworker02uv:8093/connectors/
+ curl  -k  -u youki:youki -X GET -H "Accept:application/json" https://xmidcdcworker02uv:8083/connectors/
+ curl  -k  -u youki:bob -X GET -H "Accept:application/json" https://xmidcdcworker02uv:8083/connectors/
+
