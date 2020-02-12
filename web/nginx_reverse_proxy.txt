@@ -1,0 +1,55 @@
+==== exemple de conf nginx en reverse proxy : ===
+
+on va pouvoir utiliser nginx en reverse proxy pour rediriger des appels vers un backend précis.
+dans notre exemple on va en plus gérer du tls en ajoutant une conf pour un site , ajoutant le certif et la clé du domaine dans notre conf : 
+
+cat nginx-connect-proxy.conf
+
+limit_conn_zone $binary_remote_addr zone=ip_addr:10m;
+
+server {
+    # on ecoute sur le port 443 : tls classique 
+    listen 443;
+    # on active le tls 
+    ssl on;
+    # on s'assure d'activer le tls en version recente uniquement (on n'ajoute pas les proto deprecated) 
+    ssl_protocols TLSv1.2;
+    # Permet de définir les méthodes de chiffrement à utiliser
+    ssl_ciphers "HIGH:!aNULL:!MD5:!ADH:!DH:!RC4:!RSA";
+    # Permet de forcer la connexion à utiliser la méthode de chiffrement la plus sécurisée
+    ssl_prefer_server_ciphers on;
+    # path de notre certif ssl 
+    ssl_certificate /etc/nginx/ssl/lapin.com.crt;
+    # Sélection de la clé privée associée au certificat SSL du domaine
+    ssl_certificate_key     /etc/nginx/ssl/lapin.com.key;
+    # nom de domaine 
+    server_name lapin.com;
+
+    # Filter access by IP
+    # ( uncomment and write down the allowed/denied IP ranges )
+    # deny   192.168.1.2;
+    # allow  2001:0db8::/32;
+    # deny   all;
+
+    # How to limite the number of connection per IP
+    limit_conn ip_addr 10;
+
+
+    add_header Allow "GET, POST, HEAD" always;
+    if ( $request_method !~ ^(GET|POST|HEAD)$ ) {
+	     return 405;
+    }
+
+    if ( $request_method = OPTIONS ) {
+      return 405;
+    }
+
+
+    location / {
+        limit_rate_after 500k;
+        # on défini maintenat le nom du backend et du port qui recevront la requete 
+        proxy_pass http://kafka-01:8083/;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+  }
+
