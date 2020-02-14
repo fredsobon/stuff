@@ -1,0 +1,19 @@
+= exemple rapide de creation de cert, signature par notre ca perso =
+
+!! prerequi : on part du principe qu'on a une ca perso avec laquelle on va signer notre certif !! 
+
+1/ generation de la clé priv de notre certif :  
+
+openssl genrsa -out lapin.io.key 2048
+
+2/ génération de la demande de csr en fournissant les infos de notre certificat :
+
+openssl req -new -sha256 -key lapin.io.key -subj "/C=FR/ST=Paris/O=lapin, Inc./CN=lapin.io" -out lapin.io.csr
+
+3/ signature de la demande de cert par notre propre ca pour une durée de 10ans :
+
+ openssl x509 -req -in lapin.io.csr -CA ownCA.crt -CAkey ownCA.key -CAcreateserial -out lapin.io.crt -days 3650 -sha256
+
+4/ check certif :
+
+openssl x509 -in lapin.io.crt -text -noout
