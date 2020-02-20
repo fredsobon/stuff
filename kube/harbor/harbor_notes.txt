@@ -1,0 +1,144 @@
+=== notes harbor : ===
+
+
+https://goharbor.io/docs/
+
+- on premise : standalone : 
+
+- 1 / setup :
+exemple sur centos :
+
+pre-req pour harbor de test : 2 vpu / 4gb ram / 40gb hdd
+
+sudo yum install docker-ce.x86_64
+sudo yum install docker-compose.noarch
+
+- 2 / prepa tls :
+
+pour permettre la validité des imgs et des scanns il va falloir configurer du tls pour notre conf 
+
+on génére un certif qu'on signe avec notre ca :
+
+openssl genrsa -out paasregistry.lapin.io.key 2048
+openssl req -new -sha256 -key paasregistry.lapin.io.key -subj "/C=FR/ST=Paris/O=meetic, Inc./CN=paasregistry.lapin.io" -out paasregistry.lapin.io.csr
+openssl x509 -req -in paasregistry.lapin.io.csr -CA meetic_env_CA.crt -CAkey meetic_env_CA.key -CAcreateserial -out paasregistry.lapin.io.crt -days 3650 -sha256
+openssl x509 -in  paasregistry.lapin.io.crt -text -noout
+
+
+on va ensuite copier ca , crt et clé vers le path qui sera parsé par docker 
+
+[root@zinfpaasregistry02uv ~] # ll /data/cert/
+total 16K
+-rw-r--r-- 1 root root 1,7K 20 févr. 16:16 meetic_env_CA.crt
+-rw-r--r-- 1 root root 1,3K 20 févr. 16:16 paasregistry.lapin.io.cert
+-rw-r--r-- 1 root root 1,3K 20 févr. 13:17 paasregistry.lapin.io.crt
+-rw------- 1 root root 1,7K 20 févr. 13:18 paasregistry.lapin.io.key
+
+
+
+prise en compte de notre cert : 
+
+cp /data/cert/paasregistry.lapin.io.crt /etc/pki/ca-trust/source/anchors/
+ll /etc/pki/ca-trust/source/anchors/
+
+
+
+- 3 / setup :
+
+on recupere la conf du set up en online ou offline 
+https://github.com/goharbor/harbor/releases
+
+harbor-online-installer-v1.10.1.tgz
+tar -xzvf harbor-online-installer-v1.10.1.tgz 
+cd harbor
+
+on rempli le fichier de conf harbor.yaml :
+on va rensigner à minima : le hostname / le path vers le cert et key du cert et le path des data 
+
+
+hostname: zinfpaasregistry02uv.infra.lapin.io
+
+http:
+  # port for http, default is 80. If https enabled, this port will redirect to https port
+  port: 80
+
+https:
+  # https port for harbor, default is 443
+  port: 443
+  # The path of cert and key files for nginx
+  certificate: /data/cert/paasregistry.lapin.io.crt
+  private_key: /data/cert/paasregistry.lapin.io.key
+
+harbor_admin_password: Harbor12345
+
+database:
+  # The password for the root user of Harbor DB. Change this before any production use.
+  password: root123
+  # The maximum number of connections in the idle connection pool. If it <=0, no idle connections are retained.
+  max_idle_conns: 50
+  # The maximum number of open connections to the database. If it <= 0, then there is no limit on the number of open connections.
+  # Note: the default number of connections is 100 for postgres.
+  max_open_conns: 100
+
+data_volume: /data
+
+
+
+clair:
+  # The interval of clair updaters, the unit is hour, set to 0 to disable the updaters.
+  updaters_interval: 12
+
+jobservice:
+  # Maximum number of job workers in job service
+  max_job_workers: 10
+
+notification:
+  # Maximum retry count for webhook job
+  webhook_job_max_retry: 10
+
+chart:
+  # Change the value of absolute_url to enabled can enable absolute url in chart
+  absolute_url: disabled
+
+log:
+  # options are debug, info, warning, error, fatal
+  level: info
+  # configs for logs in local storage
+  local:
+    # Log files are rotated log_rotate_count times before being removed. If count is 0, old versions are removed rather than rotated.
+    rotate_count: 50
+    # Log files are rotated only if they grow bigger than log_rotate_size bytes. If size is followed by k, the size is assumed to be in kilobytes.
+    # If the M is used, the size is in megabytes, and if G is used, the size is in gigabytes. So size 100, size 100k, size 100M and size 100G
+    # are all valid.
+    rotate_size: 200M
+    # The directory on your host that store log
+    location: /var/log/harbor
+
+  # Uncomment following lines to enable external syslog endpoint.
+  # external_endpoint:
+  #   # protocol used to transmit log to external endpoint, options is tcp or udp
+  #   protocol: tcp
+  #   # The host of external endpoint
+  #   host: localhost
+  #   # Port of external endpoint
+  #   port: 5140
+
+_version: 1.10.0
+
+proxy:
+  http_proxy:
+  https_proxy:
+  # no_proxy endpoints will appended to 127.0.0.1,localhost,.local,.internal,log,db,redis,nginx,core,portal,postgresql,jobservice,registry,registryctl,clair,chartmuseum,notary-server
+  no_proxy:
+  components:
+    - core
+    - jobservice
+    - clair
+
+
+on lance l'install : 
+
+sudo ./install.sh --with-notary --with-clair --with-chartmuseum
+
+
+on peut se conecter ensuite à l'interface harbor via un navigateur.
