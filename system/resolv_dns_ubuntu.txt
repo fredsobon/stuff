@@ -1,0 +1,48 @@
+== notes resolv dns ubuntu ==
+
+
+
+- on peut modifier via la gui la conf du dns fournie lors de notre requette dhcp 
+> wired connected -> wire settings > wired > petite roue dentées -> ipv4 > desactive dns auto -> renseigner ceux de google : 8.8.8.8, 8.8.8.4
+
+
+
+
+sous ubuntu le fichier /etc/resolv.conf renvoi vers :
+nameserver 127.0.0.53
+options edns0
+
+
+le tout est configué via systemd qui va géré avec /etc/resolvconf ...
+
+
+on a finalement une gestion qui depuis la version 18-04 utilise netplan .qui permet de configurer son dns via une conf et un utilitaire.
+netplan peut être configurer avec networkmanager ( de base ) ou avec une conf 
+
+https://netplan.io/examples
+
+ex : si le dns resolver de free ne marche plus on peut rajouter un nouveau en recuperant l'interface reseau qui fera la requette et en la rensignant dans un fichier : 
+
+root@boogieland:/etc/netplan# cat 01-network-manager-all.yaml
+# Let NetworkManager manage all devices on this system
+network:
+  version: 2
+  renderer: NetworkManager
+  ethernets:
+    enx3448ed762387:
+      nameservers:
+          addresses: [8.8.8.8]
+pour appliquer la conf :
+
+sudo netplan apply ..et on peut voir que notre conf est prise en compte avec : 
+
+root@boogieland:/etc/netplan# systemd-resolve --status | grep 'DNS Servers' -A2
+         DNS Servers: 192.168.0.254
+                      fd0f:ee:b0::1
+          DNS Domain: ~.
+--
+         DNS Servers: fd0f:ee:b0::1
+                      192.168.0.254
+                      8.8.8.8
+
+/!\ a vérifier ......pas sur 
