@@ -1,6 +1,49 @@
 === notes harbor : ===
 
 
+= usage de base : ==
+
+- push / pull image docker :
+
+on tag notre image locale buildée apres l'avoir construite d'apres un dockerfile : 
+ex :
+cat Dockerfile                                                                                                                                                   (⎈ recette:fso)
+FROM debian
+RUN apt-get update && apt-get install -y vim curl strace lsof netcat tcpdump tree net-tools
+
+docker build -t bob_helper:0.0.1 .
+
+on tag notre image pour la registry : 
+docker tag bob_helper:0.0.1 registry.lapin.io/bob/bob_helper:0.0.1
+on s'authentifie sur la registry : 
+docker login https://registry.lapin.io
+docker push registry.lapin.io/bob/bob_helper:0.0.1
+
+une fois poussée l'image apparait bein dans le projet bob sur notre registry harbor
+
+Si nous n'avons pas de certif tls /ssl valide on peut flagger notre repo comme insecure mais on peut quand meme pousser dans harbor 
+
+ cat /etc/docker/daemon.json                                                                                                                                      (⎈ recette:fso)
+{
+  "insecure-registries" : ["registry.lapin.io"]
+}
+
+
+
+- Lancement de scann de securité :
+
+Attention : biensur ceci n'est faisable que si notre harbor a acces a internet et ou qu'on dump de bdd Harbor est reinjecté manuellement dans la db de notre Harbor de prod 
+on peut scanner une images ou plusieurs images avec le scann de secu clair 
+
+dans notre projet sur harbor :
+projet/repositories/images
+on selectionne l'image que l'on veut scanner :
+et on clic sur scann ..le scann se met en queue et s'execute ..on peut des lors examiner le detail des failles en examiant le repertoire de l'image.
+
+
+
+
+
 https://goharbor.io/docs/
 
 - on premise : standalone : 
@@ -172,4 +215,40 @@ LDAP Group Membership ->memberof  <<< par default
 LDAP Scope
 
 LDAP Verify Certificate
+
+
+- synchro de repos externes :
+
+on peut pull ou push des images / charts depuis harbor : des repo externes sont maintenus ( gitlab, artifactory, docker registry ....) 
+on va pouvoir décider si on pull ou push sur harbor
+-> on cree d'abord un endpoint sur harbor 
+ex :
+
+Endpoint
+Provider
+Name gitlab.lapin.net
+Description
+Endpoint URL https://gitlab.lapin.net/
+Access ID bob
+Access Secret ••••••••
+Verify Remote Cert
+
+-> on crée en suite une repli entre ce endpoint et arbor :
+
+Replication Rule
+Name gitlab_get
+Description get content from gitlab
+Replication mode Pull-based
+Source registry gitlab.lapin.net
+
+Source resource filter
+Name:
+Tag:
+Resource:image
+Destination namespace
+Trigger Mode
+
+Override
+
+Enable rule
 
