@@ -11,4 +11,8 @@ wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-ke
 sudo apt-get update
 sudo apt-get install google-chrome-stable
 
+## set up dependencies for zoom app (conf call and video ) :
+sudo apt install libgl1-mesa-glx libxcb-xtest0
+then dpkg -I zoom pck dl from their website
 
+        
