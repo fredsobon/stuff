@@ -6,17 +6,17 @@ sudo apt install -y screen tmux tree tcpdump wireshark nmap lsof strace net-tool
 
 # retrieve repo and create main folders 
 cd /home/boogie/Documents/
-git clone git@github.com:fredsobon/stuff.git
+git clone https://github.com/fredsobon/stuff.git
 mkdir -p /home/boogie/Documents/{learn,own,work}
 
 # set chrome browser 
 sudo sh -c 'echo "deb [arch=amd64] https://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list'
 wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
 sudo apt-get update
-sudo apt-get install google-chrome-stable
+sudo apt-get install -y google-chrome-stable
 
 ## set up dependencies for zoom app (conf call and video ) :
-sudo apt install libgl1-mesa-glx libxcb-xtest0
+sudo apt install -y libgl1-mesa-glx libxcb-xtest0
 
 #then dpkg -I zoom pck dl from their website
 
@@ -25,7 +25,7 @@ sudo apt install libgl1-mesa-glx libxcb-xtest0
 
 # minikube set up - using kvm 
 
-sudo apt-get install qemu-kvm libvirt-daemon-system libvirt-clients bridge-utils
+sudo apt-get install y qemu-kvm libvirt-daemon-system libvirt-clients bridge-utils
 curl -Lo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 \
   && chmod +x minikube
 sudo cp minikube /usr/local/bin && rm minikube
