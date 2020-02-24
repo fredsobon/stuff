@@ -1,11 +1,15 @@
 #!/bin/bash
 
+# update system and retrieve pkgs 
 sudo apt update -y && sudo apt upgrade -y
-sudo apt install -y screen tmux tree tcpdump wireshark nmap lsof strace net-tools gnupg meld xlsx2csv hfsplus hfsprogs hfsutils terminator curl wget tshark keepassx  remmina visualvm vim gnome-tweak-toola git
+sudo apt install -y screen tmux tree tcpdump wireshark nmap lsof strace net-tools gnupg meld xlsx2csv hfsplus hfsprogs hfsutils terminator curl wget tshark keepassx  remmina visualvm vim gnome-tweak-tool git
 
+# retrieve repo and create main folders 
+cd /home/boogie/Documents/
+git clone git@github.com:fredsobon/stuff.git
+mkdir -p /home/boogie/Documents/{learn,own,work}
 
-sudo mkdir -p /home/boogie/Documents/{learn,own,work}
-
+# set chrome browser 
 sudo sh -c 'echo "deb [arch=amd64] https://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list'
 wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
 sudo apt-get update
@@ -13,11 +17,11 @@ sudo apt-get install google-chrome-stable
 
 ## set up dependencies for zoom app (conf call and video ) :
 sudo apt install libgl1-mesa-glx libxcb-xtest0
-then dpkg -I zoom pck dl from their website
+
+#then dpkg -I zoom pck dl from their website
 
         
-## kube section :
-
+## kube section : ##
 
 # minikube set up - using kvm 
 
@@ -53,3 +57,21 @@ sudo mv k9s /usr/local/bin
 # set up ctx and ns plugins :
 kubectl krew install ctx
 kubectl krew install ns
+
+
+## shell and prompt tweaks : ##
+
+# zsh install and set up 
+sudo apt intall zsh 
+chsh -s $(which zsh)
+
+# oh-my-zsh! setup and prompt config 
+curl -L https://raw.github.com/robbyrussell/oh-my-zsh/master/tools/install.sh | sh
+/usr/bin/zsh
+sed -i 's/robbyrussell/agnoster/' /home/boogie/.zshrc
+
+sed -i 's/KUBE_PS1_COLOR_SYMBOL="%{$fg[blue]%}"/KUBE_PS1_COLOR_SYMBOL="%{$fg[green]%}"/' /home/boogie/.oh-my-zsh/plugins/kube-ps1/kube-ps1.plugin.zsh                                         
+sed -i 's/KUBE_PS1_COLOR_CONTEXT="%{$fg[green]%}"/KUBE_PS1_COLOR_SYMBOL="%{$fg[yellow]%}"/' /home/boogie/.oh-my-zsh/plugins/kube-ps1/kube-ps1.plugin.zsh                                         
+sed -i 's/KUBE_PS1_COLOR_NS="%{$fg[cyan]%}"/KUBE_PS1_COLOR_SYMBOL="%{$fg[red]%}"/' /home/boogie/.oh-my-zsh/plugins/kube-ps1/kube-ps1.plugin.zsh                                         
+
+#sed -n '48p' -i 's/^$/RPROMPT='$(kube_ps1)'  
