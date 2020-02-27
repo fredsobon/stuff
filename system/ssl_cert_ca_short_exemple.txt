@@ -17,3 +17,109 @@ openssl req -new -sha256 -key lapin.io.key -subj "/C=FR/ST=Paris/O=lapin, Inc./C
 4/ check certif :
 
 openssl x509 -in lapin.io.crt -text -noout
+
+
+
+= Ajout de san : subject alternatives name :
+
+on peut devoir ajouter un domaine a notre certificat existant : un san .
+On va créer un fichier de conf , générer un csr, signer ce nouveau certif avec notre ca et verifier qu'il est bien pris en compte :
+
+
+1/ creation de notre fichier de conf :
+
+  cat san.conf                                                                                                                             (⎈ recette:fso)
+[req]
+default_bits = 2048
+prompt = no
+default_md = sha256
+req_extensions = req_ext
+distinguished_name = dn
+[dn]
+C = FR
+ST = Paris
+L = Paris
+O = lapin
+OU = system
+CN = registry.lapin.io
+[req_ext]
+subjectAltName = @alt_names
+[alt_names]
+DNS.1 = registry.lapin.io
+DNS.2 = repo.lapin.net
+
+
+
+2/ creation d'un nouveau csr prenant en compte notre fichier de conf :
+
+openssl req -new -key registry.lapin.io.key -out registry.lapin.io.csr -config san.conf
+
+3/ signature du csr avec notre ca : on precise qu'on utilise un fichier de conf externe (notre san.conf) et qu'on ajoute les extensions comprises dans la section req_ext de notre fichier de conf :
+ici c'est un alias qui pointe vers la section alt_names de notre fichier de conf 
+
+[req_ext]
+subjectAltName = @alt_names
+[alt_names]
+DNS.1 = registry.lapin.io
+DNS.2 = repo.lapin.net
+
+openssl x509 -req -in  registry.lapin.io.csr -CA CA.crt -CAkey CA.key -out registry.lapin.io.crt -extfile san.conf -extensions req_ext
+
+
+4/ verification de la presence de notre san dans le certif crée :
+openssl x509 -in registry.lapin.io.crt -text -noout
+
+Certificate:
+    Data:
+        Version: 3 (0x2)
+        Serial Number:
+            0b:0c:f1:cc:1e:4b:6d:0f:b1:15:00:8f:cf:67:c9:aa:4f:a9:72:da
+        Signature Algorithm: sha256WithRSAEncryption
+        Issuer: C = FR, ST = Paris, L = Paris, O = lapin, OU = sys, CN = lapin SSL CA, emailAddress = bob@lapin.net
+        Validity
+            Not Before: Feb 27 18:01:58 2020 GMT
+            Not After : Mar 28 18:01:58 2020 GMT
+        Subject: C = FR, ST = Paris, L = Paris, O = lapin, OU = sys, CN = paasregistry.lapin.io
+        Subject Public Key Info:
+            Public Key Algorithm: rsaEncryption
+                RSA Public-Key: (2048 bit)
+                Modulus:
+                    00:a1:50:6f:87:a6:e4:44:e4:4a:9f:c5:4c:e8:7d:
+                    ff:c4:89:11:a0:cd:fd:6d:12:cf:bb:73:57:0d:e5:
+                    2e:8a:31:83:35:24:b9:c4:c2:17:0f:02:7b:6e:9f:
+                    ea:b5:d7:0b:c6:e5:60:54:34:53:a9:ec:b3:22:b8:
+                    80:1e:1f:de:62:55:d5:6b:96:d7:61:ac:18:0c:f6:
+                    9e:53:58:8f:54:f9:d3:df:40:a7:5a:58:cc:88:bd:
+                    12:3c:71:9e:4c:28:61:7c:f4:8b:b8:e1:8b:46:38:
+                    4a:61:0d:f6:80:d8:69:d7:32:a5:1e:b6:ae:e7:b7:
+                    6f:12:30:92:57:1b:8e:3d:df:6a:b7:3d:c3:3d:5b:
+                    5a:18:fb:8b:c2:56:c9:3f:39:72:b8:09:0a:d1:55:
+                    8f:08:20:79:fd:72:d0:ec:c2:35:df:08:8a:19:e3:
+                    aa:b8:d7:66:d8:b1:de:14:e7:10:c2:a0:90:b5:80:
+                    64:de:4f:bf:3e:f7:2d:73:80:76:a5:9b:16:4b:55:
+                    28:3d:0f:14:e5:b3:d0:5f:f8:2f:04:d2:20:90:ed:
+                    41:10:b7:7f:a6:1b:3d:aa:3b:f1:7c:9e:22:5c:5c:
+                    dc:ac:da:43:fa:47:db:c0:30:33:75:b4:26:90:f1:
+                    ab:32:0b:11:1a:b4:e7:d2:b5:36:dc:6d:32:09:9e:
+                    f4:ef
+                Exponent: 65537 (0x10001)
+        X509v3 extensions:
+            X509v3 Subject Alternative Name: 
+                DNS:registry.lapin.io, DNS:repo.lapin.net
+    Signature Algorithm: sha256WithRSAEncryption
+         5c:c2:4d:40:2a:c9:f7:df:a7:6b:5f:af:07:0d:c3:03:4e:b2:
+         04:4d:99:4e:56:aa:ef:e9:d1:75:05:36:e8:3d:1a:bf:59:5c:
+         54:51:0e:c4:e2:23:31:f1:13:b5:4d:50:f3:9f:02:53:b4:58:
+         ad:fd:f7:ca:28:c8:f2:96:6c:0b:1b:77:4b:8c:e1:42:11:9c:
+         71:f2:5a:a4:31:1a:53:1f:73:a6:50:7e:3c:80:0d:ef:ae:f8:
+         c3:32:a4:7f:f2:68:19:ca:57:31:32:86:2f:2a:32:46:f5:dd:
+         ce:2d:47:6f:5d:5c:89:a5:12:ba:c3:6e:4e:fd:df:87:03:a8:
+         c4:73:e7:ab:2f:6f:94:4d:0c:22:56:b8:66:83:48:8e:7e:9b:
+         ad:ed:04:67:bb:03:6c:3d:23:d6:d8:9b:4d:c4:ec:5f:ca:9e:
+         a0:75:16:84:c8:ac:ad:b7:a2:02:c0:6f:7d:7c:94:8a:0f:b0:
+         d5:e2:97:cc:62:19:13:f5:05:66:00:ad:75:c4:73:29:73:c2:
+         68:c3:df:fc:dd:a8:53:55:10:7b:ee:e8:f5:b2:bf:3e:71:22:
+         52:9d:f3:14:f0:4b:9e:2a:48:ca:c5:82:61:41:31:df:ab:ca:
+         0b:26:49:18:d3:78:ff:98:bd:f6:f9:8c:96:f6:05:51:72:04:
+         01:8f:fd:d0
+
