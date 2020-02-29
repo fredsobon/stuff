@@ -2,7 +2,7 @@
 
 # update system and retrieve pkgs 
 sudo apt update -y && sudo apt upgrade -y
-sudo apt install -y screen tmux tree tcpdump wireshark nmap lsof strace net-tools gnupg meld xlsx2csv hfsplus hfsprogs hfsutils terminator curl wget tshark keepassx  remmina visualvm vim gnome-tweak-tool git exfat-fuse exfat-utils
+sudo apt install -y screen tmux tree tcpdump wireshark nmap lsof strace net-tools gnupg meld xlsx2csv hfsplus hfsprogs hfsutils terminator curl wget tshark keepassx  remmina visualvm vim gnome-tweak-tool git exfat-fuse exfat-utils fonts-powerline vlc
 
 # retrieve repo and create main folders 
 cd /home/boogie/Documents/
@@ -74,3 +74,12 @@ sed -i 's/KUBE_PS1_COLOR_SYMBOL="%{$fg[blue]%}"/KUBE_PS1_COLOR_SYMBOL="%{$fg[gre
 sed -i 's/KUBE_PS1_COLOR_CONTEXT="%{$fg[green]%}"/KUBE_PS1_COLOR_CONTEXT="%{$fg[yellow]%}"/' /home/boogie/.oh-my-zsh/plugins/kube-ps1/kube-ps1.plugin.zsh                                         
 sed -i 's/KUBE_PS1_COLOR_NS="%{$fg[cyan]%}"/KUBE_PS1_COLOR_NS="%{$fg[red]%}"/' /home/boogie/.oh-my-zsh/plugins/kube-ps1/kube-ps1.plugin.zsh                                         
 sed  '/KUBE_PS1_COLOR_NS=/ a RPROMPT=`'$(kube_ps1)\'' 
+
+# helm section :
+cd /home/boogie/Documents/ ; wget https://get.helm.sh/helm-v3.1.1-linux-amd64.tar.gz ; tar -xzvf helm-v3.1.1-linux-amd64.tar.gz ; sudo cp helm-v3.1.1-linux-amd64/linux-amd64/helm /usr/local/bin/
+helm plugin install https://github.com/futuresimple/helm-secrets
+helm plugin install https://github.com/databus23/helm-diff --version master
+
+
+
+
