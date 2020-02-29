@@ -75,7 +75,7 @@ sed -i 's/KUBE_PS1_COLOR_CONTEXT="%{$fg[green]%}"/KUBE_PS1_COLOR_CONTEXT="%{$fg[
 sed -i 's/KUBE_PS1_COLOR_NS="%{$fg[cyan]%}"/KUBE_PS1_COLOR_NS="%{$fg[red]%}"/' /home/boogie/.oh-my-zsh/plugins/kube-ps1/kube-ps1.plugin.zsh                                         
 sed  '/KUBE_PS1_COLOR_NS=/ a RPROMPT=`'$(kube_ps1)\'' 
 
-# helm section :
+# helm section - binary and plugins :
 cd /home/boogie/Documents/ ; wget https://get.helm.sh/helm-v3.1.1-linux-amd64.tar.gz ; tar -xzvf helm-v3.1.1-linux-amd64.tar.gz ; sudo cp helm-v3.1.1-linux-amd64/linux-amd64/helm /usr/local/bin/
 helm plugin install https://github.com/futuresimple/helm-secrets
 helm plugin install https://github.com/databus23/helm-diff --version master
