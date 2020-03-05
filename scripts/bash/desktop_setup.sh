@@ -4,7 +4,7 @@
 #### main conf : 
 # update system and retrieve pkgs 
 sudo apt update -y && sudo apt upgrade -y
-sudo apt install -y screen tmux tree tcpdump wireshark nmap lsof strace net-tools gnupg meld xlsx2csv hfsplus hfsprogs hfsutils terminator curl wget tshark keepassx  remmina visualvm vim gnome-tweak-tool git exfat-fuse exfat-utils fonts-powerline vlc
+sudo apt install -y screen tmux tree tcpdump wireshark nmap lsof strace net-tools gnupg meld xlsx2csv hfsplus hfsprogs hfsutils terminator curl wget tshark keepassx  remmina visualvm vim gnome-tweak-tool git exfat-fuse exfat-utils fonts-powerline vlc openssh-server python3-pip snapd
 
 # retrieve repo and create main folders 
 cd /home/boogie/Documents/
@@ -81,6 +81,7 @@ sed  '/KUBE_PS1_COLOR_NS=/ a RPROMPT=`'$(kube_ps1)\''
 cd /home/boogie/Documents/ ; wget https://get.helm.sh/helm-v3.1.1-linux-amd64.tar.gz ; tar -xzvf helm-v3.1.1-linux-amd64.tar.gz ; sudo cp helm-v3.1.1-linux-amd64/linux-amd64/helm /usr/local/bin/
 helm plugin install https://github.com/futuresimple/helm-secrets
 helm plugin install https://github.com/databus23/helm-diff --version master
+helm plugin install https://github.com/chartmuseum/helm-push
 
 
 
