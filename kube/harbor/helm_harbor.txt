@@ -1,5 +1,56 @@
 == notes set up Harbor avec helm : ==
 
+
+== short version pour minikube : ==
+
+- prerequi : ingress  dans minikube et un namespace dedié pour harbor : 
+
+minikube addons enable ingress
+kubectl create ns harbor
+
+helm repo add harbor https://helm.goharbor.io
+git clone https://github.com/goharbor/harbor-helm.git
+helm install harbor harbor/harbor -n harbor
+
+une fois deployé on recupere l'entrée de notre ingress :
+ kubectl get ing -n harbor                                                                                                                                                (⎈ minikube:harbor)
+NAME                    HOSTS                                     ADDRESS          PORTS     AGE
+harbor-harbor-ingress   core.harbor.domain,notary.harbor.domain   192.168.39.177   80, 443   125m
+
+
+on set notre fichier host : 
+
+192.168.39.177 core.harbor.domain notary.harbor.domain
+
+et on peut se logger a harbor : https://core.harbor.domain 
+admin
+Harbor12345
+
+pour utiliser harbor on peut soit recuperer le cert autosigné depuis l'interface -> projet > repositories > registry certificate et on l'ajoute comme ca
+
+sudo cp harbor.crt /usr/local/share/ca-certificates/
+sudo update-ca-certificates
+
+ou on set notre registrie en insecure
+
+on peut tester de push dans notre registry :
+
+docker run nginx 
+docker tag nginx core.harbor.domain/library
+docker push core.harbor.domain/library/nginx
+The push refers to repository [core.harbor.domain/library/nginx]
+55a77731ed26: Pushed
+71f2244bc14d: Pushed
+f2cb0ecef392: Pushed
+latest: digest: sha256:3936fb3946790d711a68c58be93628e43cbca72439079e16d154b5db216b58da size: 948
+
+on peut maintenant voir notre image dispo dans notre registry harbor minikube 
+
+
+==== detaillée : ====
+
+
+
 - ajout du repo helm : 
  helm repo add harbor https://helm.goharbor.io
 
