@@ -27,7 +27,8 @@ sudo apt install -y libgl1-mesa-glx libxcb-xtest0
 
 # minikube set up - using kvm 
 
-sudo apt-get install y qemu-kvm libvirt-daemon-system libvirt-clients bridge-utils
+sudo apt-get install y qemu-kvm libvirt-daemon-system libvirt-clients bridge-utils virt-manager
+sudo usermod -a -G libvirt $(whoami)
 curl -Lo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 \
   && chmod +x minikube
 sudo cp minikube /usr/local/bin && rm minikube
@@ -75,7 +76,7 @@ sed -i 's/robbyrussell/agnoster/' /home/boogie/.zshrc
 sed -i 's/KUBE_PS1_COLOR_SYMBOL="%{$fg[blue]%}"/KUBE_PS1_COLOR_SYMBOL="%{$fg[green]%}"/' /home/boogie/.oh-my-zsh/plugins/kube-ps1/kube-ps1.plugin.zsh                                         
 sed -i 's/KUBE_PS1_COLOR_CONTEXT="%{$fg[green]%}"/KUBE_PS1_COLOR_CONTEXT="%{$fg[yellow]%}"/' /home/boogie/.oh-my-zsh/plugins/kube-ps1/kube-ps1.plugin.zsh                                         
 sed -i 's/KUBE_PS1_COLOR_NS="%{$fg[cyan]%}"/KUBE_PS1_COLOR_NS="%{$fg[red]%}"/' /home/boogie/.oh-my-zsh/plugins/kube-ps1/kube-ps1.plugin.zsh                                         
-sed  '/KUBE_PS1_COLOR_NS=/ a RPROMPT=`'$(kube_ps1)\'' 
+sed  '/KUBE_PS1_COLOR_NS=/ a RPROMPT='$(kube_ps1)\'' 
 
 # helm section - binary and plugins :
 cd /home/boogie/Documents/ ; wget https://get.helm.sh/helm-v3.1.1-linux-amd64.tar.gz ; tar -xzvf helm-v3.1.1-linux-amd64.tar.gz ; sudo cp helm-v3.1.1-linux-amd64/linux-amd64/helm /usr/local/bin/
