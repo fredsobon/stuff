@@ -4,7 +4,7 @@
 #### main conf : 
 # update system and retrieve pkgs 
 sudo apt update -y && sudo apt upgrade -y
-sudo apt install -y screen tmux tree tcpdump wireshark nmap lsof strace net-tools gnupg meld xlsx2csv hfsplus hfsprogs hfsutils terminator curl wget tshark keepassx  remmina visualvm vim gnome-tweak-tool git exfat-fuse exfat-utils fonts-powerline vlc openssh-server python3-pip snapd qemu-kvm libvirt-daemon-system libvirt-clients bridge-utils virt-manager zsh
+sudo apt install -y screen tmux tree tcpdump wireshark nmap lsof strace net-tools gnupg meld xlsx2csv hfsplus hfsprogs hfsutils terminator curl wget tshark keepassx  remmina visualvm vim gnome-tweak-tool git exfat-fuse exfat-utils fonts-powerline vlc openssh-server python3-pip snapd qemu-kvm libvirt-daemon-system libvirt-clients bridge-utils virt-manager locate mtr zsh
 
 sudo usermod -a -G libvirt $(whoami)
 chsh -s $(which zsh)
@@ -88,6 +88,14 @@ helm plugin install https://github.com/chartmuseum/helm-push
 
 #### todo : ####
 # set up podman buildah stern docker #
+
+sudo sh -c "echo 'deb http://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/xUbuntu_19.10/ /' > /etc/apt/sources.list.d/devel:kubic:libcontainers:stable.list"
+wget -nv https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable/xUbuntu_19.10/Release.key -O- | sudo apt-key add -
+sudo apt-get update                                                                                                         (⎈ |minikube:default)
+sudo apt-get  -y install podman buildah                                                                                     (⎈ |minikube:default)
+
+
+curl -fsSLO "https://github.com/wercker/stern/releases/download/1.11.0/stern_linux_amd64" && sudo mv stern_linux_amd64 /usr/local/bin/stern && sudo chmod +x /usr/local/bin/stern
 
 /usr/bin/zsh
 
