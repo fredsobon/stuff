@@ -4,7 +4,10 @@
 #### main conf : 
 # update system and retrieve pkgs 
 sudo apt update -y && sudo apt upgrade -y
-sudo apt install -y screen tmux tree tcpdump wireshark nmap lsof strace net-tools gnupg meld xlsx2csv hfsplus hfsprogs hfsutils terminator curl wget tshark keepassx  remmina visualvm vim gnome-tweak-tool git exfat-fuse exfat-utils fonts-powerline vlc openssh-server python3-pip snapd
+sudo apt install -y screen tmux tree tcpdump wireshark nmap lsof strace net-tools gnupg meld xlsx2csv hfsplus hfsprogs hfsutils terminator curl wget tshark keepassx  remmina visualvm vim gnome-tweak-tool git exfat-fuse exfat-utils fonts-powerline vlc openssh-server python3-pip snapd qemu-kvm libvirt-daemon-system libvirt-clients bridge-utils virt-manager zsh
+
+sudo usermod -a -G libvirt $(whoami)
+chsh -s $(which zsh)
 
 # retrieve repo and create main folders 
 cd /home/boogie/Documents/
@@ -21,14 +24,10 @@ sudo apt-get install -y google-chrome-stable
 sudo apt install -y libgl1-mesa-glx libxcb-xtest0
 
 #then dpkg -I zoom pck dl from their website
-
         
 ## kube section : ##
 
 # minikube set up - using kvm 
-
-sudo apt-get install y qemu-kvm libvirt-daemon-system libvirt-clients bridge-utils virt-manager
-sudo usermod -a -G libvirt $(whoami)
 curl -Lo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 \
   && chmod +x minikube
 sudo cp minikube /usr/local/bin && rm minikube
@@ -65,24 +64,32 @@ kubectl krew install ns
 ## shell and prompt tweaks : ##
 
 # zsh install and set up 
-sudo apt install -y zsh 
-chsh -s $(which zsh)
 
 # oh-my-zsh! setup and prompt config 
 curl -L https://raw.github.com/robbyrussell/oh-my-zsh/master/tools/install.sh | sh
-/usr/bin/zsh
+(
 sed -i 's/robbyrussell/agnoster/' /home/boogie/.zshrc
+sed -i 's/plugins=(git)/plugins=(git kube-ps1)' /home/boogie/.zshrc
 
 sed -i 's/KUBE_PS1_COLOR_SYMBOL="%{$fg[blue]%}"/KUBE_PS1_COLOR_SYMBOL="%{$fg[green]%}"/' /home/boogie/.oh-my-zsh/plugins/kube-ps1/kube-ps1.plugin.zsh                                         
 sed -i 's/KUBE_PS1_COLOR_CONTEXT="%{$fg[green]%}"/KUBE_PS1_COLOR_CONTEXT="%{$fg[yellow]%}"/' /home/boogie/.oh-my-zsh/plugins/kube-ps1/kube-ps1.plugin.zsh                                         
 sed -i 's/KUBE_PS1_COLOR_NS="%{$fg[cyan]%}"/KUBE_PS1_COLOR_NS="%{$fg[red]%}"/' /home/boogie/.oh-my-zsh/plugins/kube-ps1/kube-ps1.plugin.zsh                                         
-sed  '/KUBE_PS1_COLOR_NS=/ a RPROMPT='$(kube_ps1)\'' 
-
+sed -i  '/KUBE_PS1_COLOR_NS=/ a RPROMPT='$(kube_ps1)'' /home/boogie/.oh-my-zsh/plugins/kube-ps1/kube-ps1.plugin.zsh
+)
 # helm section - binary and plugins :
-cd /home/boogie/Documents/ ; wget https://get.helm.sh/helm-v3.1.1-linux-amd64.tar.gz ; tar -xzvf helm-v3.1.1-linux-amd64.tar.gz ; sudo cp helm-v3.1.1-linux-amd64/linux-amd64/helm /usr/local/bin/
+(
+set -x ; cd "$(mktemp -d)" &&
+curl -fsSLO "https://get.helm.sh/helm-v3.1.1-linux-amd64.tar.gz" && tar -xzvf helm-v3.1.1-linux-amd64.tar.gz ; sudo cp helm-v3.1.1-linux-amd64/linux-amd64/helm /usr/local/bin/
+)
+
 helm plugin install https://github.com/futuresimple/helm-secrets
 helm plugin install https://github.com/databus23/helm-diff --version master
 helm plugin install https://github.com/chartmuseum/helm-push
+
+#### todo : ####
+# set up podman buildah stern docker #
+
+/usr/bin/zsh
 
 
 
