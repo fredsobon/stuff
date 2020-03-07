@@ -69,7 +69,7 @@ kubectl krew install ns
 curl -L https://raw.github.com/robbyrussell/oh-my-zsh/master/tools/install.sh | sh
 (
 sed -i 's/robbyrussell/agnoster/' /home/boogie/.zshrc
-sed -i 's/plugins=(git)/plugins=(git kube-ps1)' /home/boogie/.zshrc
+sed -i 's/plugins=(git)/plugins=(git kubectl kube-ps1 docker go golang python colorize)' /home/boogie/.zshrc
 
 sed -i 's/KUBE_PS1_COLOR_SYMBOL="%{$fg[blue]%}"/KUBE_PS1_COLOR_SYMBOL="%{$fg[green]%}"/' /home/boogie/.oh-my-zsh/plugins/kube-ps1/kube-ps1.plugin.zsh                                         
 sed -i 's/KUBE_PS1_COLOR_CONTEXT="%{$fg[green]%}"/KUBE_PS1_COLOR_CONTEXT="%{$fg[yellow]%}"/' /home/boogie/.oh-my-zsh/plugins/kube-ps1/kube-ps1.plugin.zsh                                         
