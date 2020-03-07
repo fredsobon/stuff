@@ -220,3 +220,53 @@ Nous n’avons donc pas à la configurer sur le parent :
 Conclusion
 Si vous choisissez d’utiliser les IPs externes seules, vous devrez gérer le positionnement local des IPs sur vos parents et gérer le routage vers celles-ci à la main.
 
+
+=== notes 2 : =
+I wanted to test out MetalLB's capabilities and thought that running it on a local Minikube cluster would be a good way to check it out. Turns out it was so easy, I thought I must have done something wrong, but it worked on the first try! Since I don't have any BGP capabilities in my home lab, I went with the L2 configuration, but since it's a single node anyway that should not matter.
+First, I installed Minikube using the "none" driver so it runs directly inside the local Docker. This will ensure that the MetalLB containers can modify the bare metal system's IP tables instead of the IP tables running inside of a VM.
+
+# minikube start --vm-driver=none --kubernetes-version=v1.11.0
+
+Next, install MetalLB
+
+# kubectl apply -f https://raw.githubusercontent.com/google/metallb/v0.7.3/manifests/metallb.yaml
+
+After MetalLB is installed, you need to upload a ConfigMap to tell MetalLB about your configuration and what floating IP addresses to use.
+
+https://raw.githubusercontent.com/google/metallb/v0.7.3/manifests/example-layer2-config.yaml
+
+Here's the configuration I used. My home network runs on the standard 192.168.1.0/24 subnet and I had my DHCP server exclude 210-250 so MetalLB could use them.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: metallb-system
+  name: config
+data:
+  config: |
+    address-pools:
+    - name: my-ip-space
+      protocol: layer2
+      addresses:
+      - 192.168.1.210-192.168.1.250
+
+After creating your ConfigMap, upload it to your cluster.
+
+# kubectl apply -f metallb-config.yaml
+
+To test it, set up a load balanced service to verify the functionality. Minikube installs the Kubernetes dashboard by default so we can use that. Edit the kubernetes-dashboard service and change service type from ClusterIP to LoadBalancer (should be near the end of the file).
+
+# kubectl edit service -n kube-system kubernetes-dashboard
+
+You can then see that MetalLB assigned one of your floating IP addresses to the service.
+
+# kubectl get services --all-namespaces
+NAMESPACE     NAME                   TYPE           CLUSTER-IP       EXTERNAL-IP     PORT(S)         AGE
+default       kubernetes             ClusterIP      10.96.0.1        <none>          443/TCP         25m
+kube-system   kube-dns               ClusterIP      10.96.0.10       <none>          53/UDP,53/TCP   25m
+kube-system   kubernetes-dashboard   LoadBalancer   10.108.122.116   192.168.1.210   80:30979/TCP    24m
+
+You can then open the IP address in your web browser and view the dashboard. Try it from another machine on your LAN to verify that your local system is proxy ARPing for the LB address!
+
+
+
