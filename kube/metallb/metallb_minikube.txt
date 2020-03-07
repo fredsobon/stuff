@@ -1,0 +1,222 @@
+==== tp exemple metallb minikube : ===
+https://www.objectif-libre.com/fr/blog/2018/01/08/kubernetes-et-les-ips-externes-services-et-metallb/
+
+Exploration des IPs externes dans kubernetes
+
+Ce tutorial a pour sujet les objets services présents dans kubernetes. Je me concentrerai sur les IP externes sur des déploiements bare metal (c’est déjà géré pour des déploiements cloud) pour en montrer le fonctionnement. Ensuite, je présenterai le nouveau projet Metallb qui peut éviter l’utilisation des IP externes et vous simplifier la vie.
+
+Préparation de l’environnement
+Pour suivre ce tutoriel, vous aurez besoin d’un minikube fonctionnel. Les commandes qui suivent fonctionnent sur Ubuntu 16.04:
+
+(sur votre pc) $ sudo apt-get update && sudo apt-get install -y virtualbox curl
+(sur votre pc) $ curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.24.1/minikube-linux-amd64 && chmod +x minikube && sudo mv minikube /usr/local/bin/
+(sur votre pc) $ minikube start --memory 4096
+Vous devriez avoir une installation kubernetes fonctionnelle.
+
+Pour être sûr que tout fonctionne, vous pouvez lancer :
+
+(sur votre pc) $ kubectl get no
+NAME STATUS AGE VERSION
+minikube Ready 15h v1.8.0
+Si minikube est prêt, vous pouvez poursuivre.
+
+Entrons dans le vif du sujet.
+
+Les IPs externes
+Tout d’abord, nous avons besoin d’un déploiement et d’un service pour jouer avec :
+
+(sur votre pc) $ kubectl run nginx --image=nginx --port=80 --replicas=3
+(sur votre pc) $ kubectl expose deployment nginx --type NodePort
+Vous pouvez continuer quand les pods sont démarrés :
+
+(sur votre pc) $ kubectl get po -o wide
+NAME READY STATUS RESTARTS AGE IP NODE
+nginx-85dfb4bc54-9vjhn 1/1 Running 1 17h 172.17.0.3 minikube
+nginx-85dfb4bc54-hxcql 1/1 Running 1 17h 172.17.0.4 minikube
+nginx-85dfb4bc54-l2jxp 1/1 Running 1 17h 172.17.0.8 minikube
+Il est temps de regarder d’un peu plus près le service :
+
+(sur votre pc) $ kubectl get svc nginx
+NAME CLUSTER-IP EXTERNAL-IP PORT(S) AGE
+nginx 10.99.239.22 <nodes> 80:30916/TCP 8s
+A ce stade, aucune IP externe n’est configurée.
+
+Configurons-la :
+
+(sur votre pc) $ kubectl patch svc nginx --patch '{"spec": {"externalIPs": ["10.22.0.0"]}}'
+(sur votre pc) $ kubectl get svc nginx
+NAME CLUSTER-IP EXTERNAL-IP PORT(S) AGE
+nginx 10.99.239.22 10.22.0.0 80:30916/TCP 48s
+Nous avons maintenant une IP externe associée à notre service.
+
+Toutefois, nous savons que nous ne pouvons pas joindre cette IP depuis l’extérieur du cluster.
+
+Testons si cela fonctionne depuis l’intérieur :
+
+(sur votre pc) $ minikube ssh
+(sur minikube) $ curl http://10.22.0.0
+curl: (7) Failed to connect to 10.22.0.0 port 80: Network is unreachable
+Cela ne fonctionne pas. Mais :
+
+(sur minikube) $ curl http://10.99.239.22
+<!DOCTYPE html>
+<html>
+<head>
+<title>Welcome to nginx!</title>
+<style>
+ body {
+ width: 35em;
+ margin: 0 auto;
+ font-family: Tahoma, Verdana, Arial, sans-serif;
+ }
+</style>
+</head>
+<body>
+<h1>Welcome to nginx!</h1>
+Ça marche ! Cependant, ce n’est pas la CLUSTER-IP que nous voulons utiliser, mais une IP externe.
+
+Ajoutons donc ce qui manque :
+
+(sur minikube) $ sudo ip a a 10.22.0.0 dev lo
+Et maintenant :
+
+(sur minikube) $ curl http://10.22.0.0
+<!DOCTYPE html>
+<html>
+<head>
+<title>Welcome to nginx!</title>
+<style>
+ body {
+ width: 35em;
+ margin: 0 auto;
+ font-family: Tahoma, Verdana, Arial, sans-serif;
+ }
+</style>
+</head>
+<body>
+<h1>Welcome to nginx!</h1>
+Notre IP externe fonctionne. Mais comment ?
+
+(sur minikube) $ sudo iptables-save |grep "10.22.0.0"
+-A KUBE-SERVICES -d 10.22.0.0/32 -p tcp -m comment --comment "default/nginx: external IP" -m tcp --dport 80 -j KUBE-MARK-MASQ
+-A KUBE-SERVICES -d 10.22.0.0/32 -p tcp -m comment --comment "default/nginx: external IP" -m tcp --dport 80 -m physdev ! --physdev-is-in -m addrtype ! --src-type LOCAL -j KUBE-SVC-4N57TFCL4MD7ZTDA
+-A KUBE-SERVICES -d 10.22.0.0/32 -p tcp -m comment --comment "default/nginx: external IP" -m tcp --dport 80 -m addrtype --dst-type LOCAL -j KUBE-SVC-4N57TFCL4MD7ZTDA
+La première règle iptables envoie les paquets dans la cible KUBE-MARK-MASQ qui contient :
+
+(sur minikube) $ sudo iptables-save |grep "A KUBE-MARK-MASQ"
+-A KUBE-MARK-MASQ -j MARK --set-xmark 0x4000/0x4000
+Cette partie n’est pas importante pour notre sujet.
+
+La deuxième règle ne fonctionne que pour les paquets qui viennent d’autres pods. Elle permet donc de gérer les communications internes.
+
+La dernière règle est utilisée quand les communications viennent de l’extérieur du cluster. Dans notre cas, depuis le parent minikube.
+
+(sur minikube) $ sudo iptables-save|grep "A KUBE-SVC-4N57TFCL4MD7ZTDA"
+-A KUBE-SVC-4N57TFCL4MD7ZTDA -m comment --comment "default/nginx:" -m statistic --mode random --probability 0.33332999982 -j KUBE-SEP-RETR7JMLNGKOJSQK
+-A KUBE-SVC-4N57TFCL4MD7ZTDA -m comment --comment "default/nginx:" -m statistic --mode random --probability 0.50000000000 -j KUBE-SEP-UZXILYFQQ2IZUWN5
+-A KUBE-SVC-4N57TFCL4MD7ZTDA -m comment --comment "default/nginx:" -j KUBE-SEP-Z5JB7O4CUBWMYZUU
+Nous voyons que c’est elle qui répartit le trafic entre les pods. Par exemple, « KUBE-SEP-RETR7JMLNGKOJSQK »:
+
+(sur minikube) $ sudo iptables-save|grep "A KUBE-SEP-RETR7JMLNGKOJSQK"
+-A KUBE-SEP-RETR7JMLNGKOJSQK -s 172.17.0.3/32 -m comment --comment "default/nginx:" -j KUBE-MARK-MASQ
+-A KUBE-SEP-RETR7JMLNGKOJSQK -p tcp -m comment --comment "default/nginx:" -m tcp -j DNAT --to-destination 172.17.0.3:80
+
+(sur votre pc) $ kubectl get po -o wide
+NAME READY STATUS RESTARTS AGE IP NODE
+nginx-85dfb4bc54-9vjhn 1/1 Running 1 17h 172.17.0.3 minikube
+nginx-85dfb4bc54-hxcql 1/1 Running 1 17h 172.17.0.4 minikube
+nginx-85dfb4bc54-l2jxp 1/1 Running 1 17h 172.17.0.8 minikube
+Ici, la cible est le pod qui a pour IP 172.17.0.3.
+
+Tout l’astuce est là : quand on ajoute une IP externe à un service, k8s ajoute les règles iptables sur tous les parents pour l’exposer, et cela suffit Le cluster ne gère pas la configuration de l’IP externe par défaut.
+
+Nous venons donc d’apprendre comment fonctionnent les IPs externes sur k8s.
+
+Le problème reste que si vous souhaitez les utiliser, vous devez gérer plusieurs choses :
+
+1. Ajouter l’IP sur un nœud
+2. Router l’IP vers le bon nœud
+3. Potentiellement ajouter une entrée DNS
+ 
+
+Metallb
+Metallb est un nouveau projet « open sourcé » par Google fin 2017. Son but est de gérer des IPs externes sur des déploiements bare-metal de kubernetes.
+
+Metallb va ajouter les règles iptables sur les parents et faire l’annonce de l’IP aux routeurs en utilisant le protocole BGP.
+
+Faisons le ménage sur notre environnement de test :
+
+(sur votre pc) $ kubectl delete svc nginx
+service "nginx" deleted
+Et configurons metallb:
+
+(sur votre pc) $ kubectl apply -f https://raw.githubusercontent.com/google/metallb/v0.2.1/manifests/metallb.yaml
+namespace "metallb-system" created
+clusterrole "metallb-system:controller" created
+clusterrole "metallb-system:bgp-speaker" created
+role "config-watcher" created
+serviceaccount "controller" created
+serviceaccount "bgp-speaker" created
+clusterrolebinding "metallb-system:controller" created
+clusterrolebinding "metallb-system:bgp-speaker" created
+rolebinding "config-watcher" created
+deployment "controller" created
+daemonset "bgp-speaker" created
+Pour vérifier que tout fonctionne :
+
+(sur votre pc) $ kubectl get po -n metallb-system
+NAME READY STATUS RESTARTS AGE
+bgp-speaker-w7cn6 1/1 Running 0 55s
+controller-7fb5785458-ls9vp 1/1 Running 0 55s
+Nous pouvons maintenant configurer le service:
+
+(sur votre pc) $ cat <<EOF > config-metallb.yml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+ namespace: metallb-system
+ name: config
+data:
+ config: |
+ peers:
+ - peer-address: 10.0.0.1
+ peer-asn: 100
+ my-asn: 42
+ address-pools:
+ - name: default
+ cidr:
+ - 192.168.10.0/24
+ advertisements:
+ - aggregation-length: 32
+EOF
+Dans la partie « peers », on déclare la liste de nos routeurs BGP qui apprendront les routes. Ensuite, on configure les différentes plages d’adresses qui seront utilisées pour nos services.
+
+(sur votre pc) $ kubectl create -f config-metallb.yml 
+configmap "config" created
+Pour que ce tutoriel reste simple, restons concentrés sur les IPs externes.
+
+Si vous souhaitez vérifier les annonces BGP, vous pouvez configurer un autre serveur avec Bird par exemple.
+
+(sur votre pc) $ kubectl expose deployment nginx --type LoadBalancer
+(sur votre pc) $ kubectl get svc nginx
+NAME CLUSTER-IP EXTERNAL-IP PORT(S) AGE
+nginx 10.96.58.234 192.168.10.0 80:32116/TCP 26s
+(sur votre pc) $ minikube ssh
+(sur minikube) $ curl http://192.168.10.0
+(sur minikube) $ sudo iptables-save |grep "192.168.10.0"
+-A KUBE-SERVICES -d 192.168.10.0/32 -p tcp -m comment --comment "default/nginx: loadbalancer IP" -m tcp --dport 80 -j KUBE-FW-4N57TFCL4MD7ZTDA
+(on minikube) $ sudo iptables-save |grep "A KUBE-FW-4N57TFCL4MD7ZTDA"
+-A KUBE-FW-4N57TFCL4MD7ZTDA -m comment --comment "default/nginx: loadbalancer IP" -j KUBE-MARK-MASQ
+-A KUBE-FW-4N57TFCL4MD7ZTDA -m comment --comment "default/nginx: loadbalancer IP" -j KUBE-SVC-4N57TFCL4MD7ZTDA
+-A KUBE-FW-4N57TFCL4MD7ZTDA -m comment --comment "default/nginx: loadbalancer IP" -j KUBE-MARK-DROP
+La règle « -A KUBE-SERVICES -d 192.168.10.0/32 -p tcp -m comment –comment « default/nginx: loadbalancer IP » -m tcp –dport 80 -j KUBE-FW-4N57TFCL4MD7ZTDA » est un peu différente des règles précédentes car elle autorise que l’IP ne soit pas portée localement.
+
+Nous n’avons donc pas à la configurer sur le parent :
+
+(sur minikube) $ sudo ip a|grep -E "192.168.10.0|10.22.0.0"
+ inet 10.22.0.0/32 scope global lo
+(sur minikube) $ curl http://192.168.10.0
+
+Conclusion
+Si vous choisissez d’utiliser les IPs externes seules, vous devrez gérer le positionnement local des IPs sur vos parents et gérer le routage vers celles-ci à la main.
+
