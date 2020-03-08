@@ -1,0 +1,95 @@
+=== notes set up harbor avec helm : ===
+
+https://blogs.vmware.com/cloudnative/2019/06/12/demonstrating-certificate-management-by-deploying-harbor-with-an-ssl-endpoint/
+
+
+= creation partie ssl : 
+- creation de la ca :
+openssl genrsa  -out rootCA.key 4096
+
+- creation et signature du certif de la ca :
+openssl req -x509 -new -nodes -key rootCA.key -sha256 -days 1024 -out rootCA.crt
+
+- creation du certif tls pour notre harbor :
+-> generation de la cle de notre domaine :
+openssl genrsa -out registry.lapin.io.key 2048
+-> creation de la csr du domaine :
+openssl req -new -key registry.lapin.io.key -out registry.lapin.io.csr
+-> genearation du certif :
+openssl x509 -req -in registry.lapin.io.csr -CA rootCA.crt -CAkey rootCA.key -CAcreateserial -out registry.lapin.io.crt -days 5000 -sha256
+Signature ok
+subject=C = fr, ST = paris, L = paris, O = bob, OU = sys, CN = registry.lapin.io, emailAddress = bob@localhost.com
+Getting CA Private Key
+-> verif du certificat :
+ boogie@boogie-stuff  ~/Documents/work/harbor/files  openssl x509 -in registry.lapin.io.crt -text -noout |more                 (⎈ minikube:default)
+Certificate:
+    Data:
+        Version: 1 (0x0)
+        Serial Number:
+            59:bf:29:7d:54:c7:99:e7:90:f8:f4:4d:90:9e:cb:a9:ab:7a:3b:d0
+        Signature Algorithm: sha256WithRSAEncryption
+        Issuer: C = fr, ST = paris, L = paris, O = bob, OU = sys, CN = bob.ca, emailAddress = bob@localhost.net
+        Validity
+            Not Before: Mar  8 17:28:35 2020 GMT
+            Not After : Nov 15 17:28:35 2033 GMT
+        Subject: C = fr, ST = paris, L = paris, O = bob, OU = sys, CN = registry.lapin.io, emailAddress = bob@localhost.com
+        Subject Public Key Info:
+            Public Key Algorithm: rsaEncryption
+                RSA Public-Key: (2048 bit)
+                Modulus:
+                    00:c0:ce:76:32:ed:f2:e9:bc:b3:c9:12:e8:4b:a8:
+..
+= helm : =
+
+- ajout du repo helm :
+helm repo add harbor https://helm.goharbor.io
+
+notes install harbor helm : 
+
+-- tls creation secret kube : 
+Pour une utilisation en production, spécifiez les propres valeurs de votre organisation pour le paramètre -subj :
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+    -out aks-ingress-tls.crt \
+    -keyout aks-ingress-tls.key \
+    -subj "/CN=demo.azure.com/O=aks-ingress-tls"
+
+Créer le secret Kubernetes pour le certificat TLS
+Pour autoriser Kubernetes à utiliser le certificat TLS et la clé privée pour le contrôleur d’entrée, vous devez créer et utiliser un secret. Le secret est défini une seule fois et utilise le certificat et le fichier de clé créés à l’étape précédente. Vous référencez ensuite ce secret lorsque vous définissez les routes d’entrée.
+L’exemple suivant crée un nom de secret aks-ingress-tls :
+kubectl create secret tls aks-ingress-tls \
+    --namespace ingress-basic \
+    --key aks-ingress-tls.key \
+    --cert aks-ingress-tls.crt    
+
+
+helm install -n demo-harbor \
+    https://github.com/goharbor/harbor-helm/tarball/1.0.1 \
+    --set expose.ingress.hosts.core=harbor.demo.example.com \
+    --set expose.ingress.annotations.'kubernetes\.io/ingress\.class'=contour \
+    --set expose.ingress.annotations.'certmanager\.k8s\.io/cluster-issuer'=letsencrypt-prod \
+    --set externalURL=https://harbor.demo.example.com \
+    --set expose.tls.secretName=demo-harbor-harbor-ingress-cert \
+    --set notary.enabled=false
+
+
+- creation du secret pour notre tls dans kube :
+dans le repertoire qui contient nos cert et key :
+
+kubectl create secret tls registry-tls --namespace harbor --key registry.lapin.io.key --cert registry.lapin.io.crt
+secret/registry-tls created
+
+verif de notre secret :
+kubectl get secrets registry-tls -o yaml                                   (⎈ minikube:harbor)
+apiVersion: v1
+data:
+  tls.crt: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUVpekNDQW5NQ0ZGbS9LWDFVeDVubmtQajBUWkNleTZtcmVqdlFNQTBHQ1NxR1NJYjNEUUVCQ3dVQU1Id3gKQ3pBSkJnTlZCQVlUQW1aeU1RNHdEQVlEVlFRSURBVndZWEpwY3pFT01Bd0dBMVVFQnd3RmNHRnlhWE14RERBSwpCZ05WQkFvTUEySnZZakVNTUFvR0ExVUVDd3dEYzNsek1ROHdEUVlEVlFRRERBWmliMkl1WTJFeElEQWVCZ2txCmhraUc5dzBCQ1FFV0VXSnZZa0JzYjJOaGJHaHZjM1F1Ym1WME1CNFhEVEl3TURNd09ERTNNamd6TlZvWERUTXoKTVRFeE5URTNNamd6TlZvd2dZY3hDekFKQmdOVkJBWVRBbVp5TVE0d0RBWURWUVFJREFWd1lYSnBjekVPTUF3RwpBMVVFQnd3RmNHRnlhWE14RERBS0JnTlZCQW9NQTJKdllqRU1NQW9HQTFVRUN3d0RjM2x6TVJvd0dBWURWUVFECkRCRnlaV2RwYzNSeWVTNXNZWEJwYmk1cGJ6RWdNQjRHQ1NxR1NJYjNEUUVKQVJZUlltOWlRR3h2WTJGc2FHOXoKZEM1amIyMHdnZ0VpTUEwR0NTcUdTSWIzRFFFQkFRVUFBNElCRHdBd2dnRUtBb0lCQVFEQXpuWXk3ZkxwdkxQSgpFdWhMcUxkNzJoeHc2Y2dwQnQ1bDQ0MnF5SlZJa1NXOEY5bVhGaU9Yd2VMTUdhNzNZZVlDVXFYMGltRmhuNlpCCmxPWUpiWlJFajhKNnNidmVNbkxtMktDRUh0Skd4NmhUQnZKUS9lZHlZcHFCNTkxU2FqSFkzTTdmbmJWbzQveHAKZkQ2ZjA2ZHFhZzc3ZWlsV3drU09TblNJMnJqdXRETU44U0dVV05ycVdsUDc3dGxvc0sxTE0yOCtMdCtxSnFOZAo3VmJUM0lIdms1MFU1bnB5Y2x0VVF6bDBZMEcrdnV4enNLVlMzZ1d3SEp3blZZZnJuM2JMVlVXcVVMTEV4azZHCkp5Um01ZVRWRzlxUk93aEQ3ZVpxaTRBMHhVQ1d5MUx6Qm5SamtoOWV5U3g2cGpvN0EyellSYXEyMGo5VzFZQ1EKbWZORzBKQmpBZ01CQUFFd0RRWUpLb1pJaHZjTkFRRUxCUUFEZ2dJQkFLL01aREFNclc2bTlOOS9vYVZrYVVnTApaYTNUdkJpL1FNbmRNRjl6Qkg1VVEvaFpvM1ZLOS9GVW5maDY0S0pSeDdGNHIvWktGcWRJWGhCczJkSFhBejM0CmZLRExzMHFKT0pGVWVPOGNBU2ZUWGNyOHQ5SUQ4ZzFQOHZjTmhZSng3ZEc1ckNlVEQ4ZjZnU3BFRkFybXRqenMKTS91UkNJMzlGMG5vZkZLa3RjaHMrUkJhWlpnR0VzdzZsUU02eGtDemlnS0xRdSsxck9kOWtJQzZOVWNqWnRzYgpsaW1EMG5QbW5ENFQ3V0grdElySURPUUQrbklPdTd3Y0NHUGNmUXVxRy9udDFrRHFqa0hSdlZxSExhL1pSYnJhCnN2Z3VObjlIUDBEVVA3ajBZamYzMFBqVksvenBaTkNDODNZbHFWN1ZTN0pUNEZFcU1DUlFidjVKMXh4SjgxWXYKK0FZdnp5YXFHc01XTlcycVNxZ0t0d21OSTg2bnVURFd1bXVTS1lpUHlHS01CSXFmSUdpWEdJWmdRSGU2SHFWaApvY29BK1ZFL1ZOOFc4SzhsUVdhRzNDaUh1YjBldWpxaWczZjUvUWRkNlIydFhiejdkckZUU2hMcFNXODRBajRVCldnejF6WERIVU8yUnJXZDhLZlZzVUpHcG1XT0dWRm9YWlJjN29hOXg3R2MwZHdBc1YyQkxnSElMcnFEUUl2bDYKNGNvKzkvYlI2ajdoMHp3c2lFczhVdGhsSkh4b0VTeXMxNjE5bHN3UFhRMTRObVlHWThCVmpidDZiY0ZYNzlaZApkbWl0Wi9Pc3E4MXpwSUkxdzgvYW1vRUpqOHRVTkU5aXBSNHNBTVl2em5yTkM1eiszTTRPdWdvMXRnSWU3ZzRqCjEzaTZXNElzbGcrYU9LN3RHbzRCCi0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0K
+  tls.key: LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQpNSUlFb3dJQkFBS0NBUUVBd001Mk11M3k2Ynl6eVJMb1M2aTNlOW9jY09uSUtRYmVaZU9OcXNpVlNKRWx2QmZaCmx4WWpsOEhpekJtdTkySG1BbEtsOUlwaFlaK21RWlRtQ1cyVVJJL0Nlckc3M2pKeTV0aWdoQjdTUnNlb1V3YnkKVVAzbmNtS2FnZWZkVW1veDJOek8zNTIxYU9QOGFYdytuOU9uYW1vTyszb3BWc0pFamtwMGlOcTQ3clF6RGZFaApsRmphNmxwVCsrN1phTEN0U3pOdlBpN2ZxaWFqWGUxVzA5eUI3NU9kRk9aNmNuSmJWRU01ZEdOQnZyN3NjN0NsClV0NEZzQnljSjFXSDY1OTJ5MVZGcWxDeXhNWk9oaWNrWnVYazFSdmFrVHNJUSszbWFvdUFOTVZBbHN0Uzh3WjAKWTVJZlhza3NlcVk2T3dOczJFV3F0dEkvVnRXQWtKbnpSdENRWXdJREFRQUJBb0lCQVFDQ1c1VkMvZXFjNmY3TQpWa0pFMVQrcE4yQy9YdkQ3L0M3bHlLS0I4N2dySmlmVE1uVGxXQXlja0hSYzlvaDdyZThyWnVIWm9xNFFxVFpwClpOamJTd0ZTRWJpMTUvRlRXOXlnQTVzVGVSdEd5N3NjMTdlQjF3bGpKeE83L1I2QW1GZzNmYU5KUVlIajl6RXoKeU5NMmtJM0N2dzUrTEt4Q2ducURrZ2VVZC8xTk5kQXlHcmxTazJQSCtzeHZQazFYdzRMbVJxZ0pVWjl1aHBPTApOaXRTdzYzbWJrb3dCNXpYUXIyS3JrN3UyZWNFREJyMnUwSEl6ZmM4WDhVNjEyZDFldmFVUG5KVDlvbjFUUEJ3CmdhVGhBTWYzOWZrdnEzbVhocnRscGpYU3hjS3JSa3QwVGRPQ1RrUmZ0aXB6cU1ZTTE2a25wSjRQRnhqWWk1Y20KZVpyT3BKaVJBb0dCQU9XRG41N1R1RTRhTVRUb1YrRHp3V1hMVlZ1SldvSWN1akhBL2JZanJqalR0TWk3b21JdApoOHEzMFZROVc2SUdBZlVHYkgrZmh5dDljdGtVdHdpK05ReEZJSytLZHdCSzV3cVFZSGhDeUovZTlLQzliNWdkCmhlOVh3dmhBZmJNcndiY0NBSnhXYTltck1kLzhWU0pLTVY2R3J4VVBaYS9TampPOE5zM3RJNC9sQW9HQkFOY08KYU1rbU50VHJjRU5LSFFFdUxjUEFTZmE2Q0FBTWhEazI2MFMwazlPaEIxTjJnRTE1aDBTK29CVXZOcnYyVk1VSAo1TEJXSm1iMVdNT1p5UXBYRkpYbjkwaTZHcC82UGhOTE5vRTcyYVRvMnBORHhSbEROZk13VHZuYmRqelc1Yi82CldoR3Z6Rjd0RmRrRHBHMzFQMnh3RlVObFhvaUVOOTFOQkVMQmw4cW5Bb0dBREgzb2Z5MkkxMzluZERpOUo3bzgKcVh5eXJhUEJNRm05N0oxVGNjbHBYeUJ1czRvNjRWc1hDL3FMUXlsL3hrYkxibm1tQ0NBM3JDOU13L0h6c0Y4aAo1Z1FSTGx5NzgyRWdTQnZwbEVJV1IxVk1QVDl5Um5ZODV2VUE0S0FwOTBtSFpwMk9TUFFQTks2enJUdy9xZmtkCnpNWkoyenlXVFVhSmhObFdwa2lrNmQwQ2dZQWU0Mlh2aGpxWDZGME9mU1dmVnNlaDl3dG9rWjIyakJXdHRoS2kKb3FFYzQyTU8vTlUreTNhL1MvWG9OUWpTaEhYMmVzVEJBdzZ1K1F4UHc5WFpVMXFVa1dXMkgyelZqM2E5QksrRwpibGM3VldxWGZrTmY5b1JZTXBjVlVnMHdmZGt2OHNCZkMvWDVxR25iNnFjQ1dCaE05ZWhIN3RaZUcwZCsxS0lKCkNJOUp2d0tCZ0c0TlFhTXdKdW9NaTZxVFovVlJObnA0QWF4cEhhOVQrSnVMYWo5L3lITy9oL09GbkMyY01WRnMKdHpTaDU2c1FpMkk3dEMvSEwrcnJmbHhidnRwZmhMWFpkT3ZrYTVXRGVpdUM3T1pFUk1STW5pV0JicUF1VGRDaApOVlV1amp1dnpzZGtiSzNaVFozQlNwZUhOU3NlNGE2WkRvbklrQmVPQmNHQ2tMRTU2Ti9kCi0tLS0tRU5EIFJTQSBQUklWQVRFIEtFWS0tLS0tCg==
+kind: Secret
+metadata:
+  creationTimestamp: "2020-03-08T18:25:10Z"
+  name: registry-tls
+  namespace: harbor
+  resourceVersion: "19526"
+  selfLink: /api/v1/namespaces/harbor/secrets/registry-tls
+  uid: b2f50a52-4bdd-40f3-982e-02b391bcf268
+
