@@ -71,7 +71,8 @@ helm install -n demo-harbor \
     --set expose.tls.secretName=demo-harbor-harbor-ingress-cert \
     --set notary.enabled=false
 
-
+- creation de notre namespace dedie :
+kubectel create ns harbor 
 - creation du secret pour notre tls dans kube :
 dans le repertoire qui contient nos cert et key :
 
@@ -92,4 +93,32 @@ metadata:
   resourceVersion: "19526"
   selfLink: /api/v1/namespaces/harbor/secrets/registry-tls
   uid: b2f50a52-4bdd-40f3-982e-02b391bcf268
+
+
+- Data renseignées / remplacées  dans fichier values :
+
+# link on portal to download the certificate of CA
+# These files will be generated automatically if the "secretName" is not set
+secretName: "registry-tls"
+   ingress:
+     hosts:
++      core: core.registry.lapin.io
++      notary: notary.registry.lapin.io
+# If Harbor is deployed behind the proxy, set it as the URL of proxy
++externalURL: https://core.registry.lapin.io
+
+- on lance l'installation 
+helm install harbor harbor/harbor
+
+helm install harbor harbor/harbor                                            (⎈ minikube:harbor)
+NAME: harbor
+LAST DEPLOYED: Sun Mar  8 19:45:46 2020
+NAMESPACE: harbor
+STATUS: deployed
+REVISION: 1
+TEST SUITE: None
+NOTES:
+Please wait for several minutes for Harbor deployment to complete.
+Then you should be able to visit the Harbor portal at https://core.harbor.domain.
+For more details, please visit https://github.com/goharbor/harbor.
 
