@@ -79,7 +79,7 @@ sed -i  '/KUBE_PS1_COLOR_NS=/ a RPROMPT='$(kube_ps1)'' /home/boogie/.oh-my-zsh/p
 # helm section - binary and plugins :
 (
 set -x ; cd "$(mktemp -d)" &&
-curl -fsSLO "https://get.helm.sh/helm-v3.1.1-linux-amd64.tar.gz" && tar -xzvf helm-v3.1.1-linux-amd64.tar.gz ; sudo cp helm-v3.1.1-linux-amd64/linux-amd64/helm /usr/local/bin/
+curl -fsSLO "https://get.helm.sh/helm-v3.1.1-linux-amd64.tar.gz" && tar -xzvf helm-v3.1.1-linux-amd64.tar.gz ; sudo cp linux-amd64/helm /usr/local/bin/
 )
 
 helm plugin install https://github.com/futuresimple/helm-secrets
