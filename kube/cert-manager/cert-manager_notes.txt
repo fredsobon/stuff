@@ -137,3 +137,92 @@ c'est ok on voit que notre cert de test est bien généré.On peut delete la res
 kubectl delete -f test-resources.yaml
 
 
+
+===== utilisation : ===
+
+on va pouvoir utiliser cert-manager pour gérer nos certs. 
+Il va nous falloir créer des ca ( ex: notre ca private pour signer les certifs )
+Tous les certificats cert-manager ont besoin d'une ca.
+On va donc devoir créer des issuers (local à un namespace) ou un clusterissuer( tous les namespaces pourront être associés à cette ca) 
+
+on genere donc une ca priv et pour l'exemple une suite de fichier pour un cert registru.lapi.io 
+ls 
+registry.lapin.io.crt  registry.lapin.io.csr  registry.lapin.io.key  rootCA.crt  rootCA.key  rootCA.srl
+
+on va donc dans un premier temps pousser en tant que secret nos ca.cert et ca.key  : certif et clé de notre ca perso dans kube. On le fait dans le namespace cert-manager 
+
+kubectl create secret tls ca-priv --namespace cert-manager --key rootCA.key --cert rootCA.crt
+secret/ca-priv created
+
+On va maintenant créer une ressource de type clusterissuer pour permettre a certmanager de signer les certif avec notre ca priv
+
+apiVersion: cert-manager.io/v1alpha2
+kind: ClusterIssuer
+metadata:
+  name: ca-issuer
+spec:
+  ca:
+    secretName: ca-priv
+
+ kctl create -f ca-issuer.yaml                                                                                 (⎈ |minikube:cert-manager)
+clusterissuer.cert-manager.io/ca-issuer created
+
+on check et on voit que notre conf est ok :
+ kubectl get  clusterissuers.cert-manager.io -o wide
+NAME        READY   STATUS                AGE
+ca-issuer   True    Signing CA verified   73s
+
+on est maintenant pret a utiliser cert-manager 
+
+- Creation de certificat :
+
+on va créer une ressource qui va nous permettre de générer une csr qui sera donc signée par notre ca et qu permettra d'avoir un certificat tls 
+
+registry.lapin.io.yaml
+
+apiVersion: cert-manager.io/v1alpha2
+kind: Certificate
+metadata:
+  name: registry.lapin.io
+  namespace: harbor
+spec:
+  # Secret names are always required.
+  secretName: ca-priv
+  duration: 5160h # 90d
+  renewBefore: 3600h # 15d
+  organization:
+  - bob
+  # The use of the common name field has been deprecated since 2000 and is
+  # discouraged from being used.
+  commonName: registry.lapin.io
+  isCA: false
+  keySize: 2048
+  keyAlgorithm: rsa
+  keyEncoding: pkcs1
+  usages:
+    - server auth
+    - client auth
+  # At least one of a DNS Name, USI SAN, or IP address is required.
+  dnsNames:
+  - registry.lapin.io
+  - core.registry.lapin.io
+  - notary.registry.lapin.io
+  # Issuer references are always required.
+  issuerRef:
+    name: ca-issuer
+    # We can reference ClusterIssuers by changing the kind here.
+    # The default value is Issuer (i.e. a locally namespaced Issuer)
+    kind: ClusterIssuer
+    # This is optional since cert-manager will default to this value however
+    # if you are using an external issuer, change this to that issuer group.
+    group: cert-manager.io
+
+On va donc creer notre ressource :
+ kctl create -f registry.lapin.io.yaml
+certificate.cert-manager.io/registry.lapin.io created
+
+Peut de temps apres cert-manager a signé notre certif et on est ok :
+kctl get certificate
+NAME                READY   SECRET         AGE
+registry.lapin.io   True    registry-tls   102s
+
