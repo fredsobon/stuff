@@ -1,0 +1,139 @@
+== notes : ===
+
+https://github.com/jetstack/cert-manager.git
+
+
+1/ set up cert manager avec Helm : 
+
+- on cree un namespace 
+kubectl create namespace cert-manager
+- on installe les crds( customs ressources definitions) nécéssaires : 
+kubectl apply --validate=false -f https://raw.githubusercontent.com/jetstack/cert-manager/v0.13.1/deploy/manifests/00-crds.yaml
+customresourcedefinition.apiextensions.k8s.io/certificaterequests.cert-manager.io created
+customresourcedefinition.apiextensions.k8s.io/certificates.cert-manager.io created
+customresourcedefinition.apiextensions.k8s.io/challenges.acme.cert-manager.io created
+customresourcedefinition.apiextensions.k8s.io/clusterissuers.cert-manager.io created
+customresourcedefinition.apiextensions.k8s.io/issuers.cert-manager.io created
+customresourcedefinition.apiextensions.k8s.io/orders.acme.cert-manager.io created
+
+- on ajoute le repo helm de cert-manager : 
+helm repo add jetstack https://charts.jetstack.io
+
+- on update le chart : 
+helm repo update                                                                                                                          (⎈ |minikube:default)
+Hang tight while we grab the latest from your chart repositories...
+...Successfully got an update from the "harbor" chart repository
+...Successfully got an update from the "jetstack" chart repository
+Update Complete. ⎈ Happy Helming!⎈
+
+- install :
+ helm install cert-manager jetstack/cert-manager --namespace cert-manager --version v0.13.1                                              (⎈ |minikube:default)
+NAME: cert-manager
+LAST DEPLOYED: Fri Mar 13 10:18:36 2020
+NAMESPACE: cert-manager
+STATUS: deployed
+REVISION: 1
+TEST SUITE: None
+NOTES:
+cert-manager has been deployed successfully!
+
+In order to begin issuing certificates, you will need to set up a ClusterIssuer
+or Issuer resource (for example, by creating a 'letsencrypt-staging' issuer).
+
+More information on the different types of issuers and how to configure them
+can be found in our documentation:
+
+https://docs.cert-manager.io/en/latest/reference/issuers.html
+
+For information on how to configure cert-manager to automatically provision
+Certificates for Ingress resources, take a look at the `ingress-shim`
+documentation:
+
+https://docs.cert-manager.io/en/latest/reference/ingress-shim.html
+
+- check post install :
+kubectl get pods --namespace cert-manager                                                                                                 (⎈ |minikube:default)
+NAME                                       READY   STATUS    RESTARTS   AGE
+cert-manager-7cb745cb4f-bhfkq              1/1     Running   0          27s
+cert-manager-cainjector-778cc6bd68-bzd5v   1/1     Running   0          27s
+cert-manager-webhook-69894d5869-2ss6g      1/1     Running   0          27s
+
+2/ test de validite de l'installation 
+
+on creer un issuer :
+
+cat <<EOF > test-resources.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cert-manager-test
+---
+apiVersion: cert-manager.io/v1alpha2
+kind: Issuer
+metadata:
+  name: test-selfsigned
+  namespace: cert-manager-test
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1alpha2
+kind: Certificate
+metadata:
+  name: selfsigned-cert
+  namespace: cert-manager-test
+spec:
+  dnsNames:
+    - example.com
+  secretName: selfsigned-cert-tls
+  issuerRef:
+    name: test-selfsigned
+EOF
+
+
+on applique notre manifest :
+kubectl apply -f test-resources.yaml                                                                                                      (⎈ |minikube:default)
+namespace/cert-manager-test created
+issuer.cert-manager.io/test-selfsigned created
+certificate.cert-manager.io/selfsigned-cert created
+
+on examine que le cert est bien généré :
+kubectl describe certificate -n cert-manager-test                                                                                         (⎈ |minikube:default)
+Name:         selfsigned-cert
+Namespace:    cert-manager-test
+Labels:       <none>
+Annotations:  kubectl.kubernetes.io/last-applied-configuration:
+                {"apiVersion":"cert-manager.io/v1alpha2","kind":"Certificate","metadata":{"annotations":{},"name":"selfsigned-cert","namespace":"cert-mana...
+API Version:  cert-manager.io/v1alpha2
+Kind:         Certificate
+Metadata:
+  Creation Timestamp:  2020-03-13T09:22:20Z
+  Generation:          1
+  Resource Version:    114373
+  Self Link:           /apis/cert-manager.io/v1alpha2/namespaces/cert-manager-test/certificates/selfsigned-cert
+  UID:                 895ffe3d-4838-4af5-8283-c16929fc1999
+Spec:
+  Dns Names:
+    example.com
+  Issuer Ref:
+    Name:       test-selfsigned
+  Secret Name:  selfsigned-cert-tls
+Status:
+  Conditions:
+    Last Transition Time:  2020-03-13T09:22:20Z
+    Message:               Certificate is up to date and has not expired
+    Reason:                Ready
+    Status:                True
+    Type:                  Ready
+  Not After:               2020-06-11T09:22:20Z
+Events:
+  Type    Reason        Age   From          Message
+  ----    ------        ----  ----          -------
+  Normal  GeneratedKey  26s   cert-manager  Generated a new private key
+  Normal  Requested     26s   cert-manager  Created new CertificateRequest resource "selfsigned-cert-504566127"
+  Normal  Issued        26s   cert-manager  Certificate issued successfully
+
+
+c'est ok on voit que notre cert de test est bien généré.On peut delete la ressource.
+kubectl delete -f test-resources.yaml
+
+
