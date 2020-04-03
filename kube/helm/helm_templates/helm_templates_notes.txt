@@ -1,0 +1,99 @@
+=== notes sur template helm : ===
+
+
+= base : 
+
+-> les directives des templates sont entourées de {{ }}
+-> les valeurs pasées dans les templates peuvent être vues comme des objects de "namespace" séparés par des .
+L'object de top namespace est le .
+L'objet par ex  {{ .Release.Name }} veut donc dire qu'on commence au top niveau "." puis on cherche l'objet "Release" puis on examine dans celui-ci l'objet "Name" 
+
+- repertoire template va héberger les templates 
+de base on peut mettre des fichiers plats sans variables : ils seront injectés tels quels dans kube.
+
+ex simple : 
+helm create mychart
+
+cat mychart/templates/configmap.yaml                                                                                                             (⎈ |minikube:default)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-configmap
+data:
+  myvalue: "hello world!"
+
+quand on install le chart : on lui donne un nom de release : ce nom sera récupérer par helm et injecté dans notre conf . on peut le voir avec : 
+
+helm get manifest clunky-serval                                                                                                                (⎈ |minikube:default)
+---
+# Source: mychart/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: clunky-serval-configmap
+data:
+  myvalue: "hello world!"
+
+
+- Dry run : 
+on peut tester le rendu du templating sans installer  : c'est une très bonne habitude à prendre.
+on va donc tester sans installer. Attention s'il n'y a pas d'erreur cela ne veut pas dire que tout sera quand même ok dans kube.
+
+helm install --debug --dry-run lapin-nain ./mychart
+
+install.go:158: [debug] Original chart version: ""
+install.go:175: [debug] CHART PATH: /home/boogie/Documents/lab/helm/mychart
+
+NAME: lapin-nain
+LAST DEPLOYED: Fri Apr  3 14:08:21 2020
+NAMESPACE: default
+STATUS: pending-install
+REVISION: 1
+TEST SUITE: None
+USER-SUPPLIED VALUES:
+{}
+
+COMPUTED VALUES:
+affinity: {}
+fullnameOverride: ""
+image:
+  pullPolicy: IfNotPresent
+  repository: nginx
+imagePullSecrets: []
+ingress:
+  annotations: {}
+  enabled: false
+  hosts:
+  - host: chart-example.local
+    paths: []
+  tls: []
+nameOverride: ""
+nodeSelector: {}
+podSecurityContext: {}
+replicaCount: 1
+resources: {}
+securityContext: {}
+service:
+  port: 80
+  type: ClusterIP
+serviceAccount:
+  annotations: {}
+  create: true
+  name: null
+tolerations: []
+
+HOOKS:
+MANIFEST:
+---
+# Source: mychart/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: lapin-nain-configmap
+data:
+  myvalue: "hello world!"
+
+
+
+
+
