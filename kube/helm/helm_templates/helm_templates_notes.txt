@@ -94,6 +94,183 @@ data:
   myvalue: "hello world!"
 
 
+= Values :
+
+c'est un object build-in de helm.
+On va pouvoir injecter les valeurs présentes dans ce fichier dans les templates.
+Il y a un ordre de priorité : du moins important au prioritaire :
+-> values.yaml : à la racine du chart
+-> repo_parent/values.yaml : valeurs dans un fichiers values dans un rep
+-> values dans les fichiers passés en argument en cli : helm install -f myvals.yaml ./mychart)
+-> values overridées en cli : helm install --set foo=bar ./mychart
 
 
+ex : 
+cat values.yaml
+favoriteDrink: coffee
 
+cat templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-configmap
+data:
+  myvalue: "hello world!"
+  drink: {{ .Values.favoriteDrink }}
+
+
+On peut overrider la conf :
+ex : on cree un rep parent et on passe en argument le fichier values :
+cat mychart/helm_vars/values.yaml 
+favoriteDrink: jasmin
+
+helm upgrade --dry-run --debug bob mychart -f mychart/helm_vars/values.yaml
+..
+data:
+  myvalue: "hello world!"
+  drink: jasmin
+
+/!\ attention si on a plusieurs fichiers en arguments : les valeurs du dernier fichier seront celle écrites dans le template.
+
+
+si on passe une autre valeur en cli ..elle sera prioritaire : 
+helm install --dry-run --debug --set favoriteDrink=slurm good-puppy
+helm upgrade --dry-run --debug bob mychart -f mychart/helm_vars/values.yaml --set favoriteDrink=tea
+..
+data:
+  myvalue: "hello world!"
+  drink: tea
+
+
+= fonctions et pipeline :
+
+Il est parfois utile de pouvoir appliquer des modifs a des data qu'on recoit depuis le fichier values.
+On va pouvoir utiliser des fonctions de templating ( go ) 
+
+ex : on va vouloir quotter le texte de nos valeurs : 
+
+cat mychart/values.yaml 
+favorite:
+  drink: coffee
+  food: pizza
+
+on utilise la fonction quote dans la section de notre template : 
+
+cat mychart/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-configmap
+data:
+  myvalue: "hello world!"
+  drink: {{ quote .Values.favorite.drink }}
+  food: {{ quote .Values.favorite.food }}
+
+on aura donc en résultat notre texte entouré de guillemets 
+data:
+  myvalue: "hello world!"
+  drink: "coffee"
+  food: "pizza"
+
+https://godoc.org/text/template
+https://masterminds.github.io/sprig/
+
+- pipeline :
+
+comme dans unix on va pouvoir utiliser des pipelines et donc passer des fonctions après le pipe : c'est même la méthode recommandée :  
+
+on pourra donc modifier le template précédent en utilisant la syntaxe suivante :
+
+cat mychart/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-configmap
+data:
+  myvalue: "hello world!"
+  drink: {{ .Values.favorite.drink |quote }}
+  food: {{  .Values.favorite.food | quote }}
+Le résultat sera le même 
+..
+data:
+  myvalue: "hello world!"
+  drink: "coffee"
+  food: "pizza"
+
+On peut même chainer les pipe :
+
+ex on passe en majuscule une des deux valeurs :
+
+cat mychart/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-configmap
+data:
+  myvalue: "hello world!"
+  drink: {{ .Values.favorite.drink |quote }}
+  food: {{  .Values.favorite.food | quote |upper }}
+
+nous donnera :
+data:
+  myvalue: "hello world!"
+  drink: "coffee"
+  food: "PIZZA"
+
+on peut utiliser des fonctions qui prennent plusieurs arguments :
+ex : repetition de therme 
+repeat num
+
+cat mychart/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-configmap
+data:
+  myvalue: "hello world!"
+  drink: {{ .Values.favorite.drink |repeat 2 | quote }}
+  food: {{  .Values.favorite.food | quote |upper }}
+
+nous donne :
+data:
+  myvalue: "hello world!"
+  drink: "coffeecoffee"
+  food: "PIZZA"
+
+
+- Fonction default : c'est une des fonctions les plus utilisée dans helm :
+Cette fonction va nous permette de définir une valeur par défault dans notre template si une valeur est oubliée 
+ex : on défini un fruite par défault dans le template :
+  ....
+  drink: {{ .Values.favorite.drink |repeat 2 | quote }}
+  food: {{  .Values.favorite.food | quote |upper }}
+  fruit: {{ .Values.favorite.fruit |default "ananas" |quote }}
+
+
+on peut donc avoir une valeur si la clé n'est pas définie dans le values :
+
+cat values.yaml                                                                                                                     (⎈ |minikube:default)
+favorite:
+  drink: coffee
+  food: pizza
+...
+
+  myvalue: "hello world!"
+  drink: "coffeecoffee"
+  food: "PIZZA"
+  fruit: "ananas"
+
+on aura une valeur si la clé est à null dans le values :
+
+favorite:
+  drink: coffee
+  food: pizza
+  fruit: null
+....
+  myvalue: "hello world!"
+  drink: "coffeecoffee"
+  food: "PIZZA"
+  fruit: "ananas"
+
+Operators et  functions
+pour les  templates, les  operators (eq, ne, lt, gt, and, or and so on) sont implémentés comme des fonctions. Dans les pipe les operations peuvent être groupées ((, et )).
