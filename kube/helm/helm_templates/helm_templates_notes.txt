@@ -274,3 +274,64 @@ favorite:
 
 Operators et  functions
 pour les  templates, les  operators (eq, ne, lt, gt, and, or and so on) sont implémentés comme des fonctions. Dans les pipe les operations peuvent être groupées ((, et )).
+
+
+= Flow control : =
+
+on va pouvoir définir la maniere dont sont générés les templates avec des structures dédiées :
+- if / else : blocs conditionnels 
+- with : specification d'un scope.
+- range : boucle ( comme un for each)
+on a en plus des structures particulières : 
+- define declares a new named template inside of your template
+- template imports a named template
+- block declares a special kind of fillable template area
+
+- if / else 
+
+{{ if PIPELINE }}
+  # Do something
+{{ else if OTHER PIPELINE }}
+  # Do something else
+{{ else }}
+  # Default case
+{{ end }}
+
+
+Notice that we’re now talking about pipelines instead of values. The reason for this is to make it clear that control structures can execute an entire pipeline, not just evaluate a value.
+
+A pipeline is evaluated as false if the value is:
+
+a boolean false
+a numeric zero
+an empty string
+a nil (empty or null)
+an empty collection (map, slice, tuple, dict, array)
+Under all other conditions, the condition is true.
+
+Let’s add a simple conditional to our ConfigMap. We’ll add another setting if the drink is set to coffee:
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-configmap
+data:
+  myvalue: "Hello World"
+  drink: {{ .Values.favorite.drink | default "tea" | quote }}
+  food: {{ .Values.favorite.food | upper | quote }}
+  {{ if eq .Values.favorite.drink "coffee" }}mug: true{{ end }}
+Since we commented out drink: coffee in our last example, the output should not include a mug: true flag. But if we add that line back into our values.yaml file, the output should look like this:
+
+# Source: mychart/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: eyewitness-elk-configmap
+data:
+  myvalue: "Hello World"
+  drink: "coffee"
+  food: "PIZZA"
+  mug: true
+
+
+
