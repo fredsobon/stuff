@@ -6,3 +6,18 @@ kctl get po --all-namespaces --sort-by=.status.phase
 
 on peut ensuite filtrer par état précis : 
 kctl get po --all-namespaces --sort-by=.status.phase |grep Crash  
+
+
+
+== test debug crash pod php : ==
+on peut pour essayer de voir comment se passe le traitement d'une requette php , se logger dans un pod puis charger des var pour executer une requette et voir le retour en cli :
+
+root@ws-contact app]# env -i REQUEST_METHOD="GET" REQUEST_URI="/$(echo ws-contact  | cut -d'-' -f2)/monitoring/test" PHP_AUTH_USER="kubernetes" PHP_AUTH_PW="kubernetes" SCRIPT_FILENAME="/var/www/app/web/app.php" cgi-fcgi -bind -connect localhost:9000
+X-Powered-By: PHP/7.1.8
+Cache-Control: no-cache, private
+Date: Mon, 06 Apr 2020 12:03:49 GMT
+Content-Type: application/json
+X-Route-Pattern: /contact/monitoring/test/{checkid}
+X-Cache-Hit: 0
+X-Cache-Miss: 0
+{"service_name":"ws-contact","checks":[{"checkName":"PHP Extensions Health Check","message":"OK","status":0,"status_name":"check_result_ok"}]}
