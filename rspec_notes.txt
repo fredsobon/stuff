@@ -1,0 +1,180 @@
+=== notes rspec ===
+
+
+https://www.tutorialspoint.com/rspec/index.htm
+
+= RSpec Environment : 
+First of all, you will need to install Ruby on your computer.
+
+ruby -v
+You should see the below output that looks similar to this −
+
+ruby 2.2.3p173 (2015-08-18 revision 51636) [x64-mingw32]
+The examples in this tutorial will use Ruby 2.2.3 but any version of Ruby higher than 2.0.0 will suffice. Next, we need to install the RSpec gem for your Ruby installation. A gem is a Ruby library which you can use in your own code. In order to install a gem, you need to use the gem command.
+
+Let’s install the Rspec gem now. Go back to your cmd.exe Window and type the following −
+gem install rspec
+gem install rspec 
+
+mkdir rspec_tutorial
+cd rspec_tutorial
+mkdir spec
+We are going to store our RSpec files in this folder. RSpec files are known as “specs”. If this seems confusing to you, you can think of a spec file as a test file. RSpec uses the term “spec” which is a short form for “specification”.
+
+RSpec is designed to make it clear whether the target code is behaving correctly, in other words following the specification.
+
+Let’s return to our Hello World code. Open a text editor and add the following code −
+
+class HelloWorld
+
+   def say_hello
+      "Hello World!"
+   end
+
+end
+
+Next, save this to a file named hello_world_spec.rb in the spec folder that you created above. Now back in your cmd.exe window, run this command −
+
+describe HelloWorld do
+   context “When testing the HelloWorld class” do
+
+      it "should say 'Hello World' when we call the say_hello method" do
+         hw = HelloWorld.new
+         message = hw.say_hello
+         expect(message).to eq "Hello World!"
+      end
+
+   end
+end
+
+rspec spec spec\hello_world_spec.rb
+When the command completes, you should see output that looks like this −
+
+Finished in 0.002 seconds (files took 0.11101 seconds to load)
+1 example, 0 failures
+Congratulations, you just created and ran your first RSpec unit test!
+
+= rspec - syntax :
+
+we are testing the functionality of the HelloWorld class. This of course, is a very simple class that contains only one method say_hello().
+
+Here is the RSpec code again −
+
+describe HelloWorld do
+   context “When testing the HelloWorld class” do
+
+      it "The say_hello method should return 'Hello World'" do
+         hw = HelloWorld.new
+         message = hw.say_hello
+         expect(message).to eq "Hello World!"
+      end
+
+   end
+end
+
+->  The describe Keyword
+The word describe is an RSpec keyword. It is used to define an “Example Group”. You can think of an “Example Group” as a collection of tests. The describe keyword can take a class name and/or string argument. You also need to pass a block argument to describe, this will contain the individual tests, or as they are known in RSpec, the “Examples”. The block is just a Ruby block designated by the Ruby do/end keywords.
+
+-> The context Keyword
+The context keyword is similar to describe. It too can accept a class name and/or string argument. You should use a block with context as well. The idea of context is that it encloses tests of a certain type.
+
+For example, you can specify groups of Examples with different contexts like this −
+
+context “When passing bad parameters to the foobar() method”
+context “When passing valid parameters to the foobar() method”
+context “When testing corner cases with the foobar() method”
+The context keyword is not mandatory, but it helps to add more details about the examples that it contains.
+
+-> The it Keyword
+The word it is another RSpec keyword which is used to define an “Example”. An example is basically a test or a test case. Again, like describe and context, it accepts both class name and string arguments and should be used with a block argument, designated with do/end. In the case of it, it is customary to only pass a string and block argument. The string argument often uses the word “should” and is meant to describe what specific behavior should happen inside the it block. In other words, it describes that expected outcome is for the Example.
+
+Note the it block from our HelloWorld Example −
+
+it "The say_hello method should return 'Hello World'" do
+The string makes it clear what should happen when we call say hello on an instance of the HelloWorld class. This part of the RSpec philosophy, an Example is not just a test, it’s also a specification (a spec). In other words, an Example both documents and tests the expected behavior of your Ruby code.
+
+-> The expect Keyword
+The expect keyword is used to define an “Expectation” in RSpec. This is a verification step where we check, that a specific expected condition has been met.
+
+From our HelloWorld Example, we have −
+
+expect(message).to eql "Hello World!"
+The idea with expect statements is that they read like normal English. You can say this aloud as “Expect the variable message to equal the string ‘Hello World’”. The idea is that its descriptive and also easy to read, even for non-technical stakeholders such as project managers.
+
+-> The to keyword
+The to keyword is used as part of expect statements. Note that you can also use the not_to keyword to express the opposite, when you want the Expectation to be false. You can see that to is used with a dot, expect(message).to, because it actually just a regular Ruby method. In fact, all of the RSpec keywords are really just Ruby methods.
+
+-> The eql keyword
+The eql keyword is a special RSpec keyword called a Matcher. You use Matchers to specify what type of condition you are testing to be true (or false).
+
+In our HelloWorld expect statement, it is clear that eql means string equality. Note that, there are different types of equality operators in Ruby and consequently different corresponding Matchers in RSpec.
+
+
+= rspec - writing : 
+
+we will create a new Ruby class, save it in its own file and create a separate spec file to test this class.
+
+First, in our new class, it is called StringAnalyzer. It’s a simple class that, you guessed it, analyzes strings. Our class has only one method has_vowels? which as its names suggests, returns true if a string contains vowels and false if it doesn’t. Here’s the implementation for StringAnalyzer −
+
+class StringAnalyzer
+   def has_vowels?(str)
+      !!(str =~ /[aeio]+/i)
+   end
+end
+
+
+
+rspec only runs files whose names end in “_spec.rb”. write a file string_analyzer_spec.rb in the spec folder
+
+require 'string_analyzer'
+
+describe StringAnalyzer do
+   context "With valid input" do
+
+      it "should detect when a string contains vowels" do
+         sa = StringAnalyzer.new
+         test_string = 'uuu'
+         expect(sa.has_vowels? test_string).to be true
+      end
+
+      it "should detect when a string doesn't contain vowels" do
+         sa = StringAnalyzer.new
+         test_string = 'bcdfg'
+         expect(sa.has_vowels? test_string).to be false
+      end
+
+   end
+end
+Now, run rspec spec again, you should see output that looks like this −
+
+F.
+Failures:
+
+   1) StringAnalyzer With valid input should detect when a string contains vowels
+      Failure/Error: expect(sa.has_vowels? test_string).to be true
+         expected true
+            got false
+      # ./spec/string_analyzer_spec.rb:9:in `block (3 levels) in <top (required)>'
+
+Finished in 0.015 seconds (files took 0.12201 seconds to load)
+2 examples, 1 failure
+
+Failed examples:
+rspec ./spec/string_analyzer_spec.rb:6 # StringAnalyzer With valid
+   input should detect when a string contains vowels
+
+Do you see what just happened? Our spec failed because we have a bug in StringAnalyzer. The bug is simple to fix, open up string_analyzer.rb
+
+in a text editor and change this line:
+!!(str =~ /[aeio]+/i)
+to this:
+!!(str =~ /[aeiou]+/i)
+
+Now, save the changes you just made in string_analyizer.rb and run the rspec spec command again, you should now see output that looks like −
+
+..
+Finished in 0.002 seconds (files took 0.11401 seconds to load)
+2 examples, 0 failures
+
+Congratulations, the examples (tests) in your spec file are now passing. We fixed a bug in the regular expression which has vowels method but our tests are far from complete.
+
