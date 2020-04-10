@@ -283,9 +283,9 @@ on va pouvoir définir la maniere dont sont générés les templates avec des st
 - with : specification d'un scope.
 - range : boucle ( comme un for each)
 on a en plus des structures particulières : 
-- define declares a new named template inside of your template
-- template imports a named template
-- block declares a special kind of fillable template area
+- define : declares  un nouveu template nommé au sein de notre template.
+- template : import un nouveau template nommé.
+- block : declares a certain type de template que l'on peut remplir
 
 - if / else 
 
@@ -297,10 +297,8 @@ on a en plus des structures particulières :
   # Default case
 {{ end }}
 
-
-Notice that we’re now talking about pipelines instead of values. The reason for this is to make it clear that control structures can execute an entire pipeline, not just evaluate a value.
-
-A pipeline is evaluated as false if the value is:
+Pour info : si ici on specifie le mot PIPELINE c'est pour accentuer le fait que notre structure de controle if/else fonctionne sur les valeurs évaluées mais aussi sur les pipeline
+Un pipeline est evalué à false si il a comme valeur :
 
 a boolean false
 a numeric zero
@@ -309,8 +307,7 @@ a nil (empty or null)
 an empty collection (map, slice, tuple, dict, array)
 Under all other conditions, the condition is true.
 
-Let’s add a simple conditional to our ConfigMap. We’ll add another setting if the drink is set to coffee:
-
+On va donc ajouter a notre configmap un test si la valeur de notre drink est coffee :
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -321,6 +318,7 @@ data:
   food: {{ .Values.favorite.food | upper | quote }}
   {{ if eq .Values.favorite.drink "coffee" }}mug: true{{ end }}
 Since we commented out drink: coffee in our last example, the output should not include a mug: true flag. But if we add that line back into our values.yaml file, the output should look like this:
+Si dans notre fichier values nous n'avons pas la présence de drink nous n'aurons rien, si la valeur de drink vaut coffee alors mug: true apparaitra.
 
 # Source: mychart/templates/configmap.yaml
 apiVersion: v1
