@@ -331,5 +331,95 @@ data:
   food: "PIZZA"
   mug: true
 
+- Gestion des espaces dans le template : 
 
+La ligne du template précédent est assez difficile a lire : 
+  {{ if eq .Values.favorite.drink "coffee" }}mug: true {{ end }}
+on pourrait vouloir aérer l'ecriture avec un bloc comme suivant :
+... 
+data:
+  myvalue: "hello world!"
+  food: {{ .Values.favorite.food | upper | quote }}
+  fruit: {{ .Values.favorite.fruit | default "ananas" }}
+  {{ if eq .Values.favorite.drink "coffee" }}
+    mug: true 
+  {{ end }}
+une erreur de formatage de yaml apparait : 
+Error: UPGRADE FAILED: YAML parse error on mychart/templates/configmap.yaml: error converting YAML to JSON: yaml: line 10: mapping values are not allowed in this context
+helm.go:75: [debug] error converting YAML to JSON: yaml: line 10: mapping values are not allowed in this context
+
+si on réindente notre code en decalant mug comme suivant :
+..
+  fruit: {{ .Values.favorite.fruit | default "ananas" }}
+  {{ if eq .Values.favorite.drink "coffee" }}
+  mug: true
+  {{ end }}
+on obtient une sortie avec une ligne vide en plus :
+  myvalue: "hello world!"
+  food: "PIZZA"
+  fruit: ananas
+
+  mug: true
+
+c'est lié a la gestion des espaces : helm dans le templating remplace les éléments entre {{  }} mais laisse les espaces intacts.
+Yaml etant très strict dans la gestion des espaces il va falloir être très attentif.
+
+helm permet de gérer les espaces avec la syntaxe : "{{- " et " -}}". 
+
+avec "{{-"  tous les espaces blancs à la fin sont supprimés du texte précédant immédiatement. 
+avec "-}}" tous les espaces blancs de tête sont supprimés du texte immédiatement suivant. 
+Dans ces marqueurs de trim, l'espace ASCII doit être présent; "{{-3}}" est analysé comme une action contenant le nombre -3.
+
+Attention a toujours ajouter un espace apres le - de  {{-  (ex: "{{- 3" signifie supprimer les espaces a gauche. "{{-3" siginifie affiche "-3"
+
+plus d'info : https://godoc.org/text/template
+
+
+Attention : un retour chariot / newline est un espace.
+
+en modifiant notre template comme tel 
+  fruit: {{ .Values.favorite.fruit | default "ananas" }}
+  {{-  if eq .Values.favorite.drink "coffee" }}
+  mug: true
+  {{ end }}
+on a donc un affichage correct :
+  food: "PIZZA"
+  fruit: ananas
+  mug: true
+
+Attention a ne pas abuser des {{- et -} qui supprime les caracteres d'espace à gauche et à droite.
+ex : 
+ drink: {{- .Values.favorite.drink | default "tea" | quote -}}
+ food: {{ .Values.favorite.food | upper | quote }}
+va nous donner : 
+..
+  drink:"coffee"food: "PIZZA"
+
+- Fonction ident :
+on va pour plus de facilité pouvoir specifier directement l'indentation voulue avec la fonction ident.
+ident nombre
+{{ indent 2 "mug:true" }}
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-configmap
+data:
+  myvalue: "Hello World"
+  food: {{  .Values.favorite.food | upper | quote }}
+  drink: {{ .Values.favorite.drink | default "tea" | quote }}
+  {{-  if eq .Values.favorite.drink "coffee" }}
+{{ indent 2 "mug: bob" }}
+  {{  end }}
+
+nous donnera donc : 
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bob-configmap
+data:
+  myvalue: "Hello World"
+  food: "PIZZA"
+  drink: "coffee"
+  mug: bob
 
