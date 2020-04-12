@@ -1,0 +1,154 @@
+=== go ===
+
+= intro :
+2009 google . pour des besoins de performances et un code maintenable.
+très utilisé : api-server + tooling ( tradtionnelement en bash et python )
+language static et compilé : temps de compilation très rapide, syntaxe proche du C et garbage collector intégré. Gere le parallélisme.
+mise en prod ne nécéssite que de pousser un binaire.
+
+= set up :
+golang.org
+on download la derniere version dispo 
+
+go  ls                                                                                                                                                 (⎈ |minikube:default)
+go1.14.2.linux-amd64.tar.gz
+on décompresse l'archive dans le rep /usr/local par ex 
+sudo tar -C /usr/local -xzvf go1.14.2.linux-amd64.tar.gz
+un check de l'install : 
+ls /usr/local/go                                                                                                                                 (⎈ |minikube:default)
+api  AUTHORS  bin  CONTRIBUTING.md  CONTRIBUTORS  doc  favicon.ico  lib  LICENSE  misc  PATENTS  pkg  README.md  robots.txt  SECURITY.md  src  test  VERSION
+boogie@boogieland  ~/Documents/lab/go  ls /usr/local/go/bin                                                                                                                               (⎈ |minikube:default)
+go  gofmt
+
+on va rajouter le binaire dans notre path 
+vi ~/.profile ou ~/.bashrc ou ~.zshrc ...
+..
+export PATH=$PATH:/usr/local/go/bin
+
+on lance un shell et on test le set up :
+go version                                                                                                                                                        (⎈ |minikube:default)
+go version go1.14.2 linux/amd64
+
+on va installer git pour qu'on puisse dl des plugins go 
+On créer un rep go puis dans celui ci un rep src pour stocker les sources.
+
+mkdir go && mkdir go/src                                                                                                                                  (⎈ |minikube:default)
+ tree go                                                                                                                                                   (⎈ |minikube:default)
+go
+└── src
+
+1 directory, 0 files
+On va ensuite définir notre GOPATH : pour indiquer à go l'endroit ou on va trouver tout le nécéssaire
+ex : on ajoute dasn .zshrc 
+
+# Go path :
+export GOPATH=$HOME/Documents/go
+on lance un shell et on test le path :
+zsh  
+ boogie@boogieland  ~  echo $GOPATH                                                                                                                                                        (⎈ |minikube:default)
+/home/boogie/Documents/go
+
+
+- setup d'éditeur de code :
+
+on utilise visualstudiocode
+ex :
+https://code.visualstudio.com/docs/?dv=linux64_deb
+sudo dpkg -i code_1.44.0-1586345345_amd64.deb        
+
+on lance l'editeur : visual studio code
+on selectionne l'onglet permettant de charger des plugins : on cherche go -> on installe le plugin de gestion du language go -> une fois installer un onglet go apparait dans les menus de l'appli.
+
+on va créer un repertoire de projet dans notre GOPATH/src 
+ex : cd $GOPATH ; mkdir src/helloworld
+Dans visual on ouvre un nouveau rep ( open folder > on pointe dans le rep helloworld)
+dans le projet helloworld depuis visual on créer un nouveau fichier :
+main.go
+package main
+
+> des pop up arrivent en bas  a droite : c'est des plugins sup à installer : on clic sur "install all"
+
+visual :
+
+partie gauche explorateur de fichiers (que l'on peut masquer)
+on peut créer un workspace qui va contenir tout nos projets go : ce qui sera pratique pour naviguer plus facilement.
+
+= bases : 
+
+/!attention!\ Go est case sensitive.
+
+cd $GOPATH && cd src && mkdir -p training.go/helloworld
+dans visual ouvrir le rep 
+on creer un fichier 
+main.go 
+
+package main
+import "fmt"
+func main() {
+	fmt.Println("Hello Gophers! This is a message from golang course.")
+}
+On va executer notre programme ( ex : depuis visual on a on onglet editeur qui nous permet de tester) 
+go run main.go               
+Hello Gophers! This is a message from golang course.
+
+Dans ce cas on a fait l'étape de compilation et execution en une seule fois.
+On va pouvoir compiler avec la commande go build 
+go build                                                                                  
+ boogie@boogieland  ~/Documents/go/src/training.go/helloworld  ls                      
+helloworld  main.go
+on voit qu'on a maintenant un fichier executable binaire go helloworld de present dans notre rep.
+./helloworld                                       
+Hello Gophers! This is a message from golang course.
+L'etape de compilation va permettre de parser le code source et le transformer en code source machine en faisant des tests
+Les types de variables sont vérifiées.
+
+- structure : on va analyser les différentes sections de notre programme go :  
+
+-> packages: 
+
+"package main"
+
+La ligne doit toujours etre présente et seul le nom du package va changer ( main , out ...)
+Le package est une unité logique dans laquelle on réunit les symboles, fonctions : une sorte de module de code source. Quand on fait des programmes complexes on veut séparer notre code en module.
+( ex : entrées /sorties; ecran; logique métier ...)
+C'est un nom logique : on peut organiser cela comme on veut (ce n'est pas un rep physique sur le hdd).
+
+Le package main va exister dans tous les programmes car il défini le point d'entrée de tous les programmes.
+On aura toujours une fonction main a executer dans un fichier de package main.
+
+Si on fait une bibliotheque go : celle ci pourra etre importer au sein d'un programme go : on aura pas besoin de package main de définie
+Une bonne pratique est de nommer le package comme le nom du rep qu'il l'heberge.
+ex : on créer un rep (input) qui va contenir tous les appels entrées sorties de notre programme.) 
+un rep input 
+puis un fichier keyboard.go 
+keyboard.go
+
+package input
+func keyboard () {
+  ....
+}
+
+on pourra ajouter un fichier mouse.go
+
+mouse.go
+
+package input
+func mouse () {
+  ....
+}
+
+on poura même ajouter un fichier portant le nom de notre package qui donnera des idées sur la logique de notre package :
+
+input.go
+
+package input
+func input() {
+...
+}
+si on doit ecrire un fichier qui doit s'executer on ecrira un fichier main.go avec un package main et une fonction main.
+
+-> import :
+
+import "fmt"
+
+
