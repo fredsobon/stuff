@@ -45,3 +45,435 @@ git sans params nous donne l'équivalent de git --help
 = utilisation de base de git : 
 
 
+- notions git :
+
+- repo /depo : on va transformer un rep sur notre poste pour le transformer en repo git. 
+le repo git contiendra differentes informations 
+
+un dossier caché .git est crée à la creation du depot avec la commande git init.
+ce dossier caché va contenir les informations permettant de traiter le dossier comme un repo git.
+- l'historique 
+- la zone d'index 
+- ensemble d'info pour le fonctionnement de git.
+
+3 grandes phases d'enregistrement des modifs d'un projet dans git :
+
+-> dossier de travail : on modifie notre code dans un repertoire
+
+
+-> zone d'index : va contenir toutes le modifs que veut garder et selectionner et les ajouter. Celles ci seront mises "en packet" et injectées dans l'historique git.
+on peut désindexer des modifs ( elles retourneront dans notre zone / dossier de travail. 
+
+-> une fois qu'on a selectionner nos modifs on va pouvoir les historiser en les commitant dans le dépot local.
+
+- creation de repo :
+
+pour utiliser git on créer un repo :
+mkdir mon_site_web && cd mon_site_web
+
+git init    
+Initialized empty Git repository in /home/boogie/Documents/lab/worksop_git/mon_site_web/.git/
+
+- mise en place du projet :
+
+on ajoute un fichier  hello.html et un style.css
+
+avec git status on voit que deux fichiers sont présents dans le repo mais pas suivi par git :
+
+ boogie@boogieland  ~/Documents/lab/workshop_git/mon_site_web   master  git status
+On branch master
+
+No commits yet
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+
+	hello.html
+	sty.css
+
+nothing added to commit but untracked files present (use "git add" to track)
+
+
+on va donc ajouter les fichiers pour qu'il soient intégrés dans la zone d'index  de git.
+
+git add <fichier> va indexer les fichiers dans notre repo
+
+git add hello.html style.css
+
+on verifie avec git status :
+
+git st
+On branch master
+
+No commits yet
+
+Changes to be committed:
+  (use "git rm --cached <file>..." to unstage)
+
+	new file:   hello.html
+	new file:   style.css
+
+
+pour désindexer un fichier ( le sortir de la zone d'index pour supprimer des modifs par exemple.) 
+
+git reset <fichier>
+
+git reset hello.html
+on verifie avec git status la nouvelle modif :
+
+git status 
+On branch master
+
+No commits yet
+
+Changes to be committed:
+  (use "git rm --cached <file>..." to unstage)
+
+	new file:   style.css
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+
+	hello.html
+
+
+on remet le fichier hello.html dans la zone d'index 
+git add . ( on met toutes les modifs de la zone de travail dans la zone d'index.)
+
+- Commit :
+
+maintenant que nos fichiers sont dans la zone d'index on va réaliser un commit.
+
+git commit -m "message" 
+
+on va ajouter un message précisant le detail en général de notre commit.
+ git commit -m "mon premier commit"
+[master (root-commit) 9778b53] mon premier commit
+ 2 files changed, 102 insertions(+)
+ create mode 100644 hello.html
+ create mode 100644 style.css
+
+on check on voit que notre rep de travail est clean 
+
+git status
+On branch master
+nothing to commit, working tree clean
+
+on modifie notre fichier hello.html pour ajouter en lign 16 l'instruction chargeant le style graphique : top-banner :
+
+      <div id=top-banner>
+on recharge la page html et on voit un un style plus graphique.
+
+un git status nous montre que le fichier a été modifié 
+
+on va pouvoir examiner les differences entre les modif du workspace et celle enregistrées dans le depot avec la commande git diff
+
+git diff <nomdefichier1....>  : on examine les diffs entre notre fichier modifié dans le workspace et le fichier enregistré dans le repo
+
+ou 
+git diff pour voir toutes les modifs entre le workspace et le repo
+
+
+git diff hello.html
+
+
+diff --git a/hello.html b/hello.html
+index ada4889..e55a02e 100644
+--- a/hello.html
++++ b/hello.html
+@@ -13,9 +13,9 @@
+        <body>
+
+                <!-- TITRE -->
+-               <div>
++               <div id=top-banner>^M
+                        Bienvenue dans cette formation GIT !
+                </div>
+
+        </body>
+-</html>
+\ No newline at end of file
++</html>^M
+
+on ajoute nos modifs 
+git add hello.html
+on check 
+git diff : ne nous renvoie plus de diff entre notre zone d'index et notre repo
+
+on peut voir les modifs en cours dans la zone d'indexage avec :
+
+git diff --cached 
+
+diff --git a/hello.html b/hello.html
+index ada4889..e55a02e 100644
+--- a/hello.html
++++ b/hello.html
+@@ -13,9 +13,9 @@
+        <body>
+
+                <!-- TITRE -->
+-               <div>
++               <div id=top-banner>^M
+                        Bienvenue dans cette formation GIT !
+                </div>
+
+        </body>
+-</html>
+\ No newline at end of file
++</html>^M
+(END)
+
+
+..on retouvre bien les modifs effectuées.
+
+on commit nos modifs avec un bon message : 
+git commit -m 'ajout du top banner'
+[master 2b4c399] ajout du top banner
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+
+= historique git :
+
+l'historique d'un repo git correspond a un ensemble de vcommit reliés ensemble par un pointer.
+un ensemble de commit reliés entre eux constitue une branche. 
+Tout projet à une branche principale nommée "master"
+
+un commit comporte 
+un id de 40 caracteres appellés sha1
+un ensemble de modif
+commentaire decrivant le commit
+infos sur l'auteur
+date de creation
+liste des cha1 de son ou ses parents.
+
+- tag :
+
+notion tres importante dans git :
+un tag est un intitulé suivi d'un pointeur vers un commit
+(intitule / sha1)
+
+Toutes les branches de git possede un tag a son nom : branche master possede un tag master
+La particularité de ces tag de branche est qu'il pointent toujours sur le dernier commit de la branche ( si notre branche est au commit "d" et qu'on ajoute des données : le tag de la branche suivra et sera donc au commit "e"
+
+on peut créer des tags sur un commit et ces tags personnels eux ne suivent pas l'evolution de la branche.
+
+
+Git gere aussi un autre pointeur "head"
+le commit sur lequel nous travaillons en ce moment.
+
+- afficher nos commits :
+
+git log 
+
+on peut voir les différentes info (head : on voit sur quel commit on est en ce moment, on voit la date , les modifs , l'auteur ..et biensur le num de commit.)
+
+
+commit 73bb937fba2790ad40c577c3ebbcd1ce59c00731 (HEAD -> master)
+Author: fredsobon <frederic.sobon@gmail.com>
+Date:   Mon Apr 13 17:47:55 2020 +0200
+
+    add comment in block
+
+commit 99d3be156546500cc59705c96acf3df3e4ed9a74
+Author: fredsobon <frederic.sobon@gmail.com>
+Date:   Mon Apr 13 17:46:09 2020 +0200
+
+    add comment in block
+
+commit 2b4c3993793ae41d394d047013aaed517005ce96
+Author: fredsobon <frederic.sobon@gmail.com>
+Date:   Mon Apr 13 17:42:24 2020 +0200
+
+    ajout du top banner
+
+commit 9778b533e448535ec30bbb8c0b26e224e1969d6c
+Author: fredsobon <frederic.sobon@gmail.com>
+Date:   Mon Apr 13 17:28:30 2020 +0200
+
+    mon premier commit
+
+on peut afficher un nombre voulu de commit :
+git log -n nombre voulu 
+
+
+git log -n 2 
+
+commit 73bb937fba2790ad40c577c3ebbcd1ce59c00731 (HEAD -> master)
+Author: fredsobon <frederic.sobon@gmail.com>
+Date:   Mon Apr 13 17:47:55 2020 +0200
+
+    add comment in block
+
+commit 99d3be156546500cc59705c96acf3df3e4ed9a74
+Author: fredsobon <frederic.sobon@gmail.com>
+Date:   Mon Apr 13 17:46:09 2020 +0200
+
+    add comment in block
+
+- afficher le contenu d'un commit :
+
+on recupere le num de commit qui nous interresse puis :
+
+git show numcommit
+
+
+git show 99d3be156546500cc59705c96acf3df3e4ed9a74
+
+commit 99d3be156546500cc59705c96acf3df3e4ed9a74
+Author: fredsobon <frederic.sobon@gmail.com>
+Date:   Mon Apr 13 17:46:09 2020 +0200
+
+    add comment in block
+
+diff --git a/hello.html b/hello.html
+index e55a02e..127fe4d 100644
+--- a/hello.html
++++ b/hello.html
+@@ -16,6 +16,9 @@
+                <div id=top-banner>
+                        Bienvenue dans cette formation GIT !
+                </div>
++                <div>^M
++                        <p> "hello boogieman !!</p>     ^M
++                </div>^M
+
+        </body>
+   <html>      
+
+   
+on peut aussi afficher les modif en utilisant les tags a la place des num de commit 
+
+ex :
+git show master 
+
+commit 73bb937fba2790ad40c577c3ebbcd1ce59c00731 (HEAD -> master)
+Author: fredsobon <frederic.sobon@gmail.com>
+Date:   Mon Apr 13 17:47:55 2020 +0200
+
+    add comment in block
+
+diff --git a/hello.html b/hello.html
+index 127fe4d..c417846 100644
+--- a/hello.html
++++ b/hello.html
+@@ -17,7 +17,7 @@
+                        Bienvenue dans cette formation GIT !
+                </div>
+                 <div>
+-                        <p> "hello boogieman !!</p>
++                        <p> "hello boogieman !!"</p>     ^M
+                 </div>
+
+
+- Navigation dans l'historique :
+
+on va pouvoir se deplacer dans l'historique de git 
+
+git checkout <numdecommit>
+
+ex: si on se deplace dans le deuxieme commit ( apres avoir trouver le num de commit avec git log ) 
+git checkout 2b4c3993793ae41d394d047013aaed517005ce96
+Note: checking out '2b4c3993793ae41d394d047013aaed517005ce96'.
+
+You are in 'detached HEAD' state. You can look around, make experimental
+changes and commit them, and you can discard any commits you make in this
+state without impacting any branches by performing another checkout.
+
+If you want to create a new branch to retain commits you create, you may
+do so (now or later) by using -b with the checkout command again. Example:
+
+  git checkout -b <new-branch-name>
+
+HEAD is now at 2b4c399 ajout du top banner
+
+On voit maintenant que head pointe sur le num de commit voulu ( on a voyagé dans le temps.)
+
+Si on fait un git log nous n'aurons que les deux premiers commits en historique : ce qui est normal vu que c'a n'existe pas encore. )
+git log affiche les commits avant le tag HEAD
+
+pour revenir dans la versin la plus recente on va pouvoir donc faire 
+
+git checkout master
+
+- Creation et utilisation de tag :
+
+pour naviguer plus facilement dans l'historique on va pouvoir utiliser des tags.
+
+on va pouvoir utiliser les tags pour identifier précisement un commit : ex site v.0.01, V1 , V2.4 ..
+
+pour tagger un commit : on le repere (git log) , on se met dedans git checkout numcommit
+
+git checkout 2b4c3993793ae41d394d047013aaed517005ce96
+
+git tag nomdutag
+
+git tag bob
+
+en faisant un git log on a l'info du tag crée qui apparait bien :
+
+
+commit 2b4c3993793ae41d394d047013aaed517005ce96 (HEAD, tag: bob)
+Author: fredsobon <frederic.sobon@gmail.com>
+Date:   Mon Apr 13 17:42:24 2020 +0200
+
+    ajout du top banner
+
+commit 9778b533e448535ec30bbb8c0b26e224e1969d6c
+Author: fredsobon <frederic.sobon@gmail.com>
+Date:   Mon Apr 13 17:28:30 2020 +0200
+
+    mon premier commit
+
+
+pour changer le nom du tafg on peut supprimer le tag qui nous gène :
+
+git tag --delete nomdetag
+
+git tag --delete bob
+Deleted tag 'bob' (was 2b4c399)
+
+on remet un nom de tag plus précis : ( on peut donner un message pour information avec "-m" )
+
+git tag monsite-v1 -m "la premiere version du site"
+
+commit 2b4c3993793ae41d394d047013aaed517005ce96 (HEAD, tag: monsite-v1)
+Author: fredsobon <frederic.sobon@gmail.com>
+Date:   Mon Apr 13 17:42:24 2020 +0200
+
+    ajout du top banner
+
+commit 9778b533e448535ec30bbb8c0b26e224e1969d6c
+Author: fredsobon <frederic.sobon@gmail.com>
+Date:   Mon Apr 13 17:28:30 2020 +0200
+
+    mon premier commit
+
+on retourne dans le commit master 
+
+pour voir la liste des tags :
+
+
+git tag 
+
+
+monsite-v1
+
+on peut maintenant retourner dans le commit voulu avec le tag :
+git checkout monsite-v1
+Note: checking out 'monsite-v1'.
+
+You are in 'detached HEAD' state. You can look around, make experimental
+changes and commit them, and you can discard any commits you make in this
+state without impacting any branches by performing another checkout.
+
+If you want to create a new branch to retain commits you create, you may
+do so (now or later) by using -b with the checkout command again. Example:
+
+  git checkout -b <new-branch-name>
+
+HEAD is now at 2b4c399 ajout du top banner
+
+
+= github :
+
+
