@@ -489,8 +489,324 @@ ex: sur un forum on peut donner un gist pour se faire aider
 
 ex creer un gist :
 
--> donner un nom : hello_world.py
+-> donner un nom pour le bout de code "Hello World !"
+-> on ajoute le nom du fichier en précisant l'extension ( c'est important cela active la coloration syntaxique.) : ex : hello_world.py 
 -> mettre dans le champ dédié le bout de code
 print("hello jazzyworld !!")
+-> puis créer secret ou public gist.
+
+on peut updater le code , on voit les modifs dans le champ revision, on peut partager le code via un lien etc...
+on peut selectionner le lien du gist une fois avoir choisi embded 
+
+et coller ce lien dans un doc html de notre repo par exemple :
+                <!-- gist -->
+                <h1> my gist </h1>
+                <div>
+                <p><script src="https://gist.github.com/boogie777/2c9f483ae5313705cde9085cc39ba1f3.js"></script></p>
+                </div>
+
+
+en affichant la page dans le navigateur on aura la possibilité de voir le code et des indications de github sur notre page web créée
+
+- creation de repo :
+on creer un repo
+
+
+on peut ajouter un readme, le fichier .gitignore dans lequel on va ignorer des fichiers inutiles dans le repo
+une fois créee on peut utiliser les onglets : dont settings ( utilisation ou nom de wiki , hooks - script executé : ex quand on commit un script est lancé ..., etc ...)
+
+- exploration de repo github :
+
+ex : si on browse le contenu d'un repo 
+ex vim :
+on a l'onglet code qui permet d'examiner le code, les tags , l'historique 
+
+on peut examiner en cliquant sur l'onglet commits les différents commits : on peut voir le commentaire du commit, le sha1 du commit et en cliquant sur celui ci : le detail du commit , le sha1 du parent etc ...
+
+
+on peut voir la liste des branches 
+
+on peut voir l'onglet release : une release correspond a un tag posé sur le projet . on peut voir le num de commit correspondant au tag.
+
+on peut voir les différents contributeurs au projet.
+
+- utilisation des issues :
+
+va servir a remonter les différents pb rencontrés sur le projet, ou proposition d'evolution du projet
+on peut filter les taches 
+
+on peut crer un issue , associer un label afin de trier plus facilement notre issue
+on peut indiquer le num d'issue correspondant a un fix dans notre commit
+
+- pull request :
+on va pouvoir proposer des évolutions d'un projet sur lequel on a pas les droits d'ecriture.
+
+cela ce passe en plusieurs etapes :
+
+-> fork : on duplique le projet : on peut donc ecrire faire des commits dans ce projet.
+-> pull request : une fois qu'on a fait notre modif : on l'envoi au proprietaire du projet pour qu'il valide la modif dans le repo original.
+
+examen de pull request : on clic sur l'onglet pull request d'un projet
+
+un pull request est un peu comme un issue : il est composé d'un titre , d'un id.
+on peut voir des conversations etc ..
+
+pour créer une pull request on doit d'abord faire un fork : en clicant sur fork github crée une copie du projet et la met dans notre compte github : on a donc un nouveau repo dans notre arbo de projets.
+
+= Utilisation d'un repo distant :
+
+on va donc utiliser github 
+on va pouvoir avoir une sauvegarde du repo et pouvoir travailler en equipe.
+
+on va avoir un type de modele distribué : tout le code sera sur chaque poste des users du projet
+on va donc pouvoir cloner le repo ( on a donc tous les commits présents ) 
+
+- cloner un repo :
+
+on va recup notre repo distant :
+
+git clone remote_folder 
+
+ depot distant ( origin )              depot local
+   
+   master >   C         git clone       master              C
+              B                         origin/master       B
+              A                                             A
+  
+on a lors du clone l'ajout automatique du remote qui sera donc origin  
+on a donc dans le repo local 2 tags 
+-> master : qui nous montre ou est le dernier commit de notre repo local
+-> origin/master : qui nous montre ou est le dernier commit sur notre repo distant
+
+git clone https://github.com/boogie777/draft_website.git
+
+on va modifier notre user et mailadress pour gérer notre conf avec le repo distant
+
+git config user.name "boogie777"
+git config user.email jazz77777@gmail.com
+
+un check du .git/config nous montre la conf : 
+
+[core]
+        repositoryformatversion = 0
+        filemode = true
+        bare = false
+        logallrefupdates = true
+[remote "origin"]
+        url = https://github.com/boogie777/draft_website.git
+        fetch = +refs/heads/*:refs/remotes/origin/*
+[branch "master"]
+        remote = origin
+        merge = refs/heads/master
+[user]
+        name = boogie777
+        email = jazz77777@gmail.com
+
+on peut voir la liste des remotes dans notre rep cloné :
+ git remote -v                                                                                      
+origin	https://github.com/boogie777/draft_website.git (fetch)
+origin	https://github.com/boogie777/draft_website.git (push)
+
+on voit qu'on va recup les modif sur le remote (fetch) et pousser nos modifs sur le distants push 
+
+on peut voir les infos du repo remote : 
+git remote show origin                                                                             
+* remote origin
+  Fetch URL: https://github.com/boogie777/draft_website.git
+  Push  URL: https://github.com/boogie777/draft_website.git
+  HEAD branch: master
+  Remote branch:
+    master tracked
+  Local branch configured for 'git pull':
+    master merges with remote master
+  Local ref configured for 'git push':
+    master pushes to master (up to date)
+
+
+on a cloner le repo distant mais celui ci est vide 
+un depot remote est un pointeur vers un autre repos qui va nous servir de référence.
+
+notre premier repo de travail : contenant notre code ne porte pas le meme nom que le repo distant : on renomme notre repo local comme le disant : mv mon_site_web draft_website
+
+pour ajouter un repo remote on peut utiliser les commandes suivantes  :
+
+git remote add origin https://github.com/boogie777/draft_website.git
+ boogie@boogieland  ~/Documents/lab/workshop_git/mon_site_web   master  git remote -v
+origin	https://github.com/boogie777/draft_website.git (fetch)
+origin	https://github.com/boogie777/draft_website.git (push)
+
+
+- envoi des commits de notre repo initial sur le repo distant :
+
+git push -u origin master  
+Username for 'https://github.com': boogie777
+Password for 'https://boogie777@github.com': 
+Enumerating objects: 5, done.
+Counting objects: 100% (5/5), done.
+Delta compression using up to 8 threads
+Compressing objects: 100% (4/4), done.
+Writing objects: 100% (4/4), 1.26 KiB | 1.26 MiB/s, done.
+Total 4 (delta 0), reused 0 (delta 0)
+To https://github.com/boogie777/draft_website.git
+   258e058..0d3ee27  master -> master
+
+/!\ des problemes sont apparus ( du fait d'une premiere copie des fichiers de code dans le rep clone puis poussés sur origin : quand on a voulu pousser les fichiers de notre repo original renommé le push n'a pas pu se faire : on a été obligés de forcer le push 
+git push -u origin master -f
+Username for 'https://github.com': boogie777
+Password for 'https://boogie777@github.com':
+Enumerating objects: 22, done.
+Counting objects: 100% (22/22), done.
+Delta compression using up to 8 threads
+Compressing objects: 100% (22/22), done.
+Writing objects: 100% (22/22), 2.80 KiB | 1.40 MiB/s, done.
+Total 22 (delta 6), reused 0 (delta 0)
+remote: Resolving deltas: 100% (6/6), done.
+To https://github.com/boogie777/draft_website.git
+ + 0d3ee27...fd801fb master -> master (forced update)
+Branch 'master' set up to track remote branch 'master' from 'origin'.
+
+si on examine le repo sur github : nos modifs sont bien poussées ..
+
+Attention les tags initiaux ont disparus car ils ne sont pas poussés sur le remote 
+
+pour pousser un tag de notre repo local vers origin :
+on le selectionnet et on passe la commande :
+
+git push origin montag 
+
+ex: 
+git tag 
+mon_site_v2
+monsite-v1
+
+git push origin monsite-v1
+Username for 'https://github.com': boogie777
+Password for 'https://boogie777@github.com':
+Enumerating objects: 1, done.
+Counting objects: 100% (1/1), done.
+Writing objects: 100% (1/1), 174 bytes | 174.00 KiB/s, done.
+Total 1 (delta 0), reused 0 (delta 0)
+To https://github.com/boogie777/draft_website.git
+
+on a maintenant sur notre remote github notre tag de présent .
+
+on selectionne l'onglet branche et la on voit branche / tag : on selectionne tag : et on voit notre tag monsite-v1 de présent.
+
+
+on peut pousser tous les tags avec la commandes :
+git push origin ( qui peut etre facultatif puisque git va utiliser origin de base ) --tags 
+-> tous nos tags sont visibles sur github désormais.
+
+
+on a pour la suite deux repos :
+
+draft_website : le repo mon_site_web renommé
+draft_website.old : le clone de notre remote que l'on a aussi renommé 
+
+
+- recuperation des modifs distantes en local :
+
+on va pouvoir avoir des commits sur le repo distant non présentes sur le local 
+ex: 
+  remote                                         local
+
+  master >  D                                   
+            C                                     master  > C
+            B                                 origin/master B
+            A                                               A
+
+on va utiliser la commande fetch qui permettra d'avoir le repo local à jour avec le distant 
+dans ce cas on aura 
+  git fetch 
+
+  remote                                         local
+
+  master >  D                                origin/master> D
+            C                                     master  > C
+            B                                               B
+            A                                               A
+
+on voit que notre branche master locale elle n'est pas à jour 
+on va utiliser donc la commande git pull et on aura : 
+
+  remote                                         local
+
+                                             master
+  master >  D                                origin/master> D
+            C                                               C
+            B                                               B
+            A                                               A
+
+
+on peut faire un git pull directement ( cette commande comporte  un git fetch intégré)  
+
+
+si on va dans notre repo draft_website.old et qu'on fait un fecth : on récupere bien les modifs présentes sur le remote ( dont les tags poussés depuis le repo draft_website ) 
+git fetch
+remote: Enumerating objects: 23, done.
+remote: Counting objects: 100% (23/23), done.
+remote: Compressing objects: 100% (17/17), done.
+remote: Total 23 (delta 6), reused 23 (delta 6), pack-reused 0
+Unpacking objects: 100% (23/23), done.
+From https://github.com/boogie777/draft_website
+ + 0d3ee27...fd801fb master     -> origin/master  (forced update)
+ * [new tag]         mon_site_v2 -> mon_site_v2
+ * [new tag]         monsite-v1  -> monsite-v1
+
+
+
+on peut avoir un souci avec l'impossibilité de pull ( pb de méconnaissance de repos entre eux : dans notre cas draft_website.old et draft_website qui ont le meme remote ) :
+solution : 
+git pull origin master --allow-unrelated-histories
+git pull origin master --allow-unrelated-histories
+From https://github.com/boogie777/draft_website
+ * branch            master     -> FETCH_HEAD
+Auto-merging hello.html
+CONFLICT (add/add): Merge conflict in hello.html
+Automatic merge failed; fix conflicts and then commit the result.
+
+
+on a un conflit dans le fichier hello.html suite à une modif faite et poussée depuis le repo draft_website .on modifie le fichier dans la branche draft_website.old pour fixer le conflit puis add et commit 
+git commit -am 'fix conflict in hello.html'
+
+[master cc460fd] up
+ boogie@boogieland  ~/Documents/lab/workshop_git/draft_website.old   master  git pull origin master --allow-unrelated-histories
+From https://github.com/boogie777/draft_website
+ * branch            master     -> FETCH_HEAD
+Already up to date.
+
+
+un git log permet de voir que l'historique des modifs est bien présents dans notre repo local.
+
+- commit avec issue link :
+
+on peut créer un issue sur le remote.
+sur notre repos local on va corriger notre code puis dans notre commit indiquer le num d'issue présent sur le remote correspondant au fix :
+
+ex: 
+git commit -am '#1: add dummy readme'
+
+on pousse et on voit sur github le commit et un lien vers l'issue directement clicable.
+on peut donc ensuite fermer l'issue dans l'interface github quand notre bug est fixé
+
+quand on va dans le repo draft_website on peut récup les modifs avec un git pull 
+ git pull
+remote: Enumerating objects: 16, done.
+remote: Counting objects: 100% (16/16), done.
+remote: Compressing objects: 100% (10/10), done.
+remote: Total 14 (delta 1), reused 14 (delta 1), pack-reused 0
+Unpacking objects: 100% (14/14), done.
+From https://github.com/boogie777/draft_website
+   fd801fb..9641fa8  master     -> origin/master
+Updating fd801fb..9641fa8
+Fast-forward
+ README.md | 3 +++
+ 1 file changed, 3 insertions(+)
+ create mode 100644 README.md
+
+on est donc à jour.
+
+
+=  Travail en équipes : 
 
 
