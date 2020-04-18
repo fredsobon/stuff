@@ -809,4 +809,388 @@ on est donc à jour.
 
 =  Travail en équipes : 
 
+- plusieurs methodes de travai en equipes. il en existe de très nombreuses. en voii quelques unes.
+
+->   centralisée :
+            repot central
+   dev1         dev2       dev3
+Chacun des devs va travailler sur son env local et pousser dans le repos centralisé. LEs modifs faites par chacuns des devs pourront être récup par tous les autres.
+C'est ce qu'on a fait precedemment :
+    repo central sur github   
+draft_website                                   draft_website.old
+(avec user bob dans .git/config                 avec boogie777 comme user dans .git/config
+
+-> gestion d'integration : c'est celle qui est utilisée quand on fait des pull requests ( donc que les dev n'ont pas les droits d'ecriture sur le repo central )
+        repo central distant      dev1 fork        dev2 fork
+         integration                 dev1              dev2
+ on a un repo central 
+ des devs recupere le repo central en local: ils dev et poussent un fork dans le repos distants 
+ un integrateur va recupérer tous les forks et  valider le code des fork , fusionner le tout et pousser dans le repo central.
+
+-> gestion dictateur  
+cela ressemble a la gestion d'integration mais en rajoutant un etage de plus :
+        dictateur           repo central  
+
+        lieutenant1       lieutenant2
+
+          dev1              dev2
+on va avoir un repo central 
+des devs vont recup le repo faire leur amélioration pousser vers des repos de lieutenant qui chacun seront responsable d'un fonctionnalité du repo principale
+les lieutenant enverront au dictateur qui fusionnera les travaux des lieutenant et enverra au repo central
+
+- gestion des modifications :
+
+A plusieurs il va etre compliquer de gérer toutes les mises a jours. Des outils sont à dipos pour git
+-> git log
+-> git show numcommit 
+-> git diff
+
+d'autre outil existe 
+
+git blame nomdefichier : nous donne toutes les infos voulues 
+
+git blame hello.html
+
+^9778b53 (fredsobon 2020-04-13 17:28:30 +0200  1) <!DOCTYPE html>
+^9778b53 (fredsobon 2020-04-13 17:28:30 +0200  2) <html lang="fr">
+^9778b53 (fredsobon 2020-04-13 17:28:30 +0200  3)     <head>
+^9778b53 (fredsobon 2020-04-13 17:28:30 +0200  4)         <meta charset="utf-8">
+fd801fbd (fredsobon 2020-04-18 11:44:23 +0200  5)         <title>dummy page</title>
+^9778b53 (fredsobon 2020-04-13 17:28:30 +0200  6)         <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+^9778b53 (fredsobon 2020-04-13 17:28:30 +0200  7)
+^9778b53 (fredsobon 2020-04-13 17:28:30 +0200  8)               <link rel="stylesheet" href="style.css">
+^9778b53 (fredsobon 2020-04-13 17:28:30 +0200  9)
+
+on voit le sha1 du dernier commit 
+on voit le num de ligne de notre fichier 
+si le commit commence par ^ c'est que le fichier a été créee avec ce commit
+
+on peut filtrer la sortie de git blame :
+
+-> ex: afficher les lignes 1 à 5 de notre historique de fichier 
+git blame -L 1,5 hello.html
+
+^9778b53 (fredsobon 2020-04-13 17:28:30 +0200 1) <!DOCTYPE html>
+^9778b53 (fredsobon 2020-04-13 17:28:30 +0200 2) <html lang="fr">
+^9778b53 (fredsobon 2020-04-13 17:28:30 +0200 3)     <head>
+^9778b53 (fredsobon 2020-04-13 17:28:30 +0200 4)         <meta charset="utf-8">
+fd801fbd (fredsobon 2020-04-18 11:44:23 +0200 5)         <title>dummy page</title>
+
+
+on eut afficher les modif d'un fichier a partir d'une ligne suivie du nombre de ligne désiré 
+ex : afficher le blame d'un fichier à partie de la ligne 2 suivie de 3 autres lignes : 
+
+git blame -L 2,+3 hello.html
+
+^9778b53 (fredsobon 2020-04-13 17:28:30 +0200 2) <html lang="fr">
+^9778b53 (fredsobon 2020-04-13 17:28:30 +0200 3)     <head>
+^9778b53 (fredsobon 2020-04-13 17:28:30 +0200 4)         <meta charset="utf-8">
+
+
+- Filtrer le contenu de nos commits :
+
+on va pouvoir volontairement ignorer la synchro dans git de certains rep, fichiers.
+Pour cela on alimente le fichier .gitignore de ce que l'on veut exlure de nos synchros.
+
+ex : mkdir tmp && cd tmp && echo "add misc content" > todo.txt
+on va ajouter  dans notre fichier gitignore ce qu'on veut exclure 
+ex :
+cat .gitignore
+tmp/todo.txt
+
+...le fichier todo.txt ne sera donc pas versionné i pri en compte pour nos commits : quand on push le commot sur github ..seul le fichier .gitignore apparait 
+
+- Mettre de coté des modifs en cours 
+
+on va pouvoir mettre de coté des modifs en cours
+
+ex :
+avec git checkout on peut revenir a une version de commit anterrieur pour debuger par exemple : si on a des modifs en cours dans notre workspace on sera bloqué.
+Il va falloir mettre de coté nos modifs en cours dans une zone spéciale la zone de stash 
+
+ex : on va dans le repos draft_website.old 
+git pull ( on recupere le fichier .gitignore poussé recemment dans le repo central depuis le repo draft_website. 
+
+ex on ajoute une autre exeption a notre .gitignore 
+cat .gitignore
+tmp/todo.txt
+tmp/*
+
+si on veut retourner a une version anterrieure au projet ex sur le tag v3 
+on a une erreur : 
+git checkout v3
+error: Your local changes to the following files would be overwritten by checkout:
+	.gitignore
+Please commit your changes or stash them before you switch branches.
+Aborting
+
+on voit que la modif locale doit être gérée 
+
+on va la mettre dans la zone de stash 
+
+git stash save "modif de gitignore"
+Saved working directory and index state On master: modif de gitignore
+
+
+on peut lister les fichiers mis de coté dans la zone de stah avec :
+
+git stash list 
+
+stash@{0}: On master: modif de gitignore
+
+
+on peut examiner le stash :
+
+git stash show num_de_stash
+
+git stash show 0 
+ .gitignore | 1 +
+ 1 file changed, 1 insertion(+)
+
+on peut donc maintenant aller dans notre commit / tag voulu :
+
+git checkout v3
+Note: checking out 'v3'.
+
+You are in 'detached HEAD' state. You can look around, make experimental
+changes and commit them, and you can discard any commits you make in this
+state without impacting any branches by performing another checkout.
+
+If you want to create a new branch to retain commits you create, you may
+do so (now or later) by using -b with the checkout command again. Example:
+
+  git checkout -b <new-branch-name>
+
+HEAD is now at af539ef #2: add dummy img
+
+on peut revenir dans notre commit actuel :
+
+git checkout master 
+
+et on va pouvoir réinjecter nos fichiers mis de coté avec la commande git stah pop num_index_pop
+git stash pop 0
+
+git stash pop 0
+On branch master
+Your branch is up to date with 'origin/master'.
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git checkout -- <file>..." to discard changes in working directory)
+
+	modified:   .gitignore
+
+no changes added to commit (use "git add" and/or "git commit -a")
+Dropped refs/stash@{0} (35f34bbad0dfa9f8d837e609cb05623b94262234)
+
+un git status nous montre qu'on a bien recup les modifs qui avaient été mises de coté :
+
+git st
+On branch master
+Your branch is up to date with 'origin/master'.
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git checkout -- <file>..." to discard changes in working directory)
+
+	modified:   .gitignore
+
+no changes added to commit (use "git add" and/or "git commit -a")
+
+
+- Merge de fichiers :
+
+merge : fusionner deux versions de même fichiers 
+
+en travaillant en // sur un même repo on peut avoir des soucis 
+
+ex: on a modifier le fichier .gitignore du repos draft_website.old , on a pousser la conf sur le repo global
+si on modifie sur le repo draft_website le fichier .gitignore sans avoir recup les diffs faites avant on va avoir un souci : un conflit 
+
+cat .gitignore
+tmp/todo.txt
+*.txt
+
+
+on a donc en faisant un git pull un souci puisque la ligne 2 du fichier est differente entre notre repo global et le local . Git ne peut pas fusionner les diff 
+
+git pull
+remote: Enumerating objects: 5, done.
+remote: Counting objects: 100% (5/5), done.
+remote: Compressing objects: 100% (1/1), done.
+remote: Total 3 (delta 1), reused 3 (delta 1), pack-reused 0
+Unpacking objects: 100% (3/3), done.
+From https://github.com/boogie777/draft_website
+   35a6ab6..0a784df  master     -> origin/master
+Updating 35a6ab6..0a784df
+error: Your local changes to the following files would be overwritten by merge:
+	.gitignore
+Please commit your changes or stash them before you merge.
+Aborting
+
+on va donc faire un stash pour mettre de coté notre taf en cours 
+git stash 
+Saved working directory and index state WIP on master: 35a6ab6 add .gitignore content file
+
+si on fait un git pull c'a passe par contre en faisant un git stash pop 0 on a toujours un conflict 
+
+git pull
+Updating 35a6ab6..0a784df
+Fast-forward
+ .gitignore | 1 +
+ 1 file changed, 1 insertion(+)
+ boogie@boogieland  ~/Documents/lab/workshop_git/draft_website   master  git stash pop
+Auto-merging .gitignore
+CONFLICT (content): Merge conflict in .gitignore
+
+on va devoir faire le merge manuellement 
+
+on va editer le fichier et modifier le fichier 
+
+on supprime les lignes ajoutées par git et faire notre modif 
+tmp/todo.txt
+<<<<<<< Updated upstream
+tmp/*
+=======
+*.txt
+>>>>>>> Stashed changes
+
+
+cat .gitignore
+tmp/todo.txt
+tmp/*
+*.txt
+
+
+maintenant on commit et on add et c'est ok 
+
+
+- Merge de commits : 
+
+on va pouvoir avoir des soucis sur le merge de commits 
+ex : dev1 modif le commit c , cree donc un commit d qu'il pousse sur le repo 
+dev2 modifie le commit c , cree un commit e : lorqu'il pousse sur le repo central il a une erreur puisqu'il n'a pas récup les modifs recentes. Le commit qu'il veut pousser n'a donc pas le même parent que sur le repo central : on a un conflit. 
+Il va falloir que dev2 recup les modifs du repo et merge son commit 
+
+ex: on modifie sur e repo draft_website.old le fichier .gitignore 
+cat .gitignore
+tmp/todo.txt
+tmp/*
+*.xml
+
+
+nous n'avons pas nos modifs recentes 
+
+git commit -am 'exclude xml files'
+[master 4bbc28a] exclude xml files
+ 1 file changed, 1 insertion(+)
+
+ git push
+Username for 'https://github.com': boogie777
+Password for 'https://boogie777@github.com':
+To https://github.com/boogie777/draft_website.git
+ ! [rejected]        master -> master (fetch first)
+error: failed to push some refs to 'https://github.com/boogie777/draft_website.git'
+hint: Updates were rejected because the remote contains work that you do
+hint: not have locally. This is usually caused by another repository pushing
+hint: to the same ref. You may want to first integrate the remote changes
+hint: (e.g., 'git pull ...') before pushing again.
+hint: See the 'Note about fast-forwards' in 'git push --help' for details.
+
+on recupere le commit distant avec le git pull mais on a toujours le conflit 
+
+git pull
+remote: Enumerating objects: 5, done.
+remote: Counting objects: 100% (5/5), done.
+remote: Compressing objects: 100% (1/1), done.
+remote: Total 3 (delta 1), reused 3 (delta 1), pack-reused 0
+Unpacking objects: 100% (3/3), done.
+From https://github.com/boogie777/draft_website
+   0a784df..ee4a716  master     -> origin/master
+Auto-merging .gitignore
+CONFLICT (content): Merge conflict in .gitignore
+Automatic merge failed; fix conflicts and then commit the result.
+
+cat .gitignore
+tmp/todo.txt
+tmp/*
+<<<<<<< HEAD
+*.xml
+=======
+*.txt
+>>>>>>> ee4a716187b0372b323f0f8283287f60ea8660f0
+
+
+on regle le conflit 
+cat .gitignore
+tmp/todo.txt
+tmp/*
+*.xml
+*.txt
+
+
+si on veut annuller nos modifs : 
+git merge --abord 
+on reviens dans l'etat de notre repos avant le pull 
+
+
+on commit et on push 
+ie@boogieland  ~/Documents/lab/workshop_git/draft_website.old   master ●✚ >M<  git commit -am 'fix conflict and push '
+[master e7c224c] fix conflict and push
+ boogie@boogieland  ~/Documents/lab/workshop_git/draft_website.old   master  git push
+Username for 'https://github.com': boogie777
+Password for 'https://boogie777@github.com':
+Enumerating objects: 10, done.
+Counting objects: 100% (10/10), done.
+Delta compression using up to 8 threads
+Compressing objects: 100% (4/4), done.
+Writing objects: 100% (6/6), 598 bytes | 598.00 KiB/s, done.
+Total 6 (delta 2), reused 0 (delta 0)
+remote: Resolving deltas: 100% (2/2), completed with 1 local object.
+To https://github.com/boogie777/draft_website.git
+   ee4a716..e7c224c  master -> master
+
+
+Avec cette méthode on fixe les soucis mais l'historique de notre repos va être polluer par des commits qui ne sont dédiés qu'a fixer des merges et qui n'apportent rien . Quand une equipe de dev augmente il faut gagner en lisibilité.
+
+
+- Rebase :
+
+il est plus propre d'utiliser un rebase pour avoir un historique plus propre et facile a suivre ainsi que des commits utiles .
+
+on va deplacer les commits : on deplace un pointeur du commit c vers le commit d par exemple.
+
+
+
+dans le repo draft_website 
+
+git commit -am 'delete file'
+[master 34d7ea8] delete file
+ 1 file changed, 1 deletion(-)
+
+
+on va pouvoir recup la version sur le repo distant avec le pull suivi de rebase
+
+ git pull --rebase
+remote: Enumerating objects: 10, done.
+remote: Counting objects: 100% (10/10), done.
+remote: Compressing objects: 100% (2/2), done.
+remote: Total 6 (delta 2), reused 6 (delta 2), pack-reused 0
+Unpacking objects: 100% (6/6), done.
+From https://github.com/boogie777/draft_website
+   ee4a716..e7c224c  master     -> origin/master
+First, rewinding head to replay your work on top of it...
+Applying: delete file
+Using index info to reconstruct a base tree...
+M	.gitignore
+Falling back to patching base and 3-way merge...
+Auto-merging .gitignore
+
+on a cette fois aucun probleme ( la ligne 1 a été supprimée contrairement aux autres fois )
+on a de plus un historique beaucoup plus clair puisqu'il n'y a pas de commit de merge.
+
+
+= Les branches : 
+
+
 
