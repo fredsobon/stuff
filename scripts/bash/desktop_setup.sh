@@ -103,6 +103,7 @@ sudo apt-get  -y install podman buildah                                         
 # stern : logger for kube :
 curl -fsSLO "https://github.com/wercker/stern/releases/download/1.11.0/stern_linux_amd64" && sudo mv stern_linux_amd64 /usr/local/bin/stern && sudo chmod +x /usr/local/bin/stern
 
+#
 /usr/bin/zsh
 
 
