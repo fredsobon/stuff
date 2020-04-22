@@ -1,283 +1,263 @@
-==== helm sheetcheat : ===
+=== cheatsheet helm : ===
 
-- install :
+= setup :
+on dowload la version qui nous interresse : 
+https://github.com/helm/helm/releases
+ex: 
+on decompresse puis on place le binaire dans le path désiré :
+tar -zxvf helm-v3.0.0-linux-amd64.tar.gz
+mv linux-amd64/helm /usr/local/bin/helm
+on test : 
+helm help
 
--> helm2 :
-$ wget https://storage.googleapis.com/kubernetes-helm/helm-v2.13.0-linux-amd64.tar.gz
-$ tar xfvz helm-v2.13.0-linux-amd64.tar.gz
-$ sudo cp helm /usr/local/bin/helm
-$ helm
+= search :
+recherche de charts : 
 
-tiller : appli server : nécésscite des droits au niveau cluster : on créer un service account et on lui occtroi les droits nécéssaires :
+helm search repo
+helm search hub wordpress
 
 
+= repo : 
+
+- ajout de repo :
+
+helm repo add repo 
+$ helm repo add brigade https://brigadecore.github.io/charts
+"brigade" has been added to your repositories
+
+$ helm search repo brigade
+NAME                        	CHART VERSION	APP VERSION	DESCRIPTION
+brigade/brigade             	1.3.2        	v1.2.1     	Brigade provides event-driven scripting of Kube...
+brigade/brigade-github-app  	0.4.1        	v0.2.1     	The Brigade GitHub App, an advanced gateway for...
+....
+
+$ helm repo list
+
+- update :
+pour mettre à jour nos repos :
+
+helm repo update
+
+- suppression de repo :
+
+helm repo remove 
+
+
+- Update des dépendance de repos ( chart umbrella )
+
+on va pouvoir installer / mettre à jour un chart qui dépend d'autres charts quand on a un chart umbrella et donc une section dependancies dans notre fichier Chart.yaml :
+
+helm dependency update
+
+
+
+
+= install :
+
+helm install va nous permettre d'installer un chart : en lui donnant le nom d'une release et en précisant le chart qu'on veut installer 
+
+$ helm install happy-panda stable/mariadb
+Fetched stable/mariadb-0.3.0 to /Users/mattbutcher/Code/Go/src/helm.sh/helm/mariadb-0.3.0.tgz
+happy-panda
+Last Deployed: Wed Sep 28 12:32:28 2016
+Namespace: default
+Status: DEPLOYED
+
+- On peut installer une archive locale : 
+helm install foo foo-0.1.1.tgz
+
+- On peut installer un rep de chart décompressé : 
+helm install foo path/to/foo
+
+-On peut installer un chart en donnant le path de notre url : 
+helm install foo https://example.com/charts/foo-1.2.3.tgz
+
+
+= status d'une install :
+
+helm status happy-panda
+Last Deployed: Wed Sep 28 12:32:28 2016
+Namespace: default
+Status: DEPLOYED
+
+= Examen des valeurs overriable dans notre chart :
+on va pouvoir examiner toutes les valeurs que l'on va pouvoir personaliser dans notre chart.
+
+helm show values
+
+on peut overrider par exemple nos valeurs dans un fichier qu'on passe en conf :
+ex : 
+$ echo '{mariadbUser: user0, mariadbDatabase: user0db}' > config.yaml
+$ helm install -f config.yaml stable/mariadb --generate-name
+
+on peut overrider de deux manieres :
+- -f : on injecte nos données dans un fichier de conf en yaml
+- --set : on va overrider en cli :
+ex : 
+--set name=value
+--set a=b,c=d  : plusieurs données séparées par des ,
+
+--set outer.inner=value  : on chaine les valeurs d'un hash 
+ex : 
+outer:
+  inner: value
+
+--set name={a, b, c} : on peut overrider une liste :
+ex :
+name:
+  - a
+  - b
+  - c
+
+--set servers[0].port=80  : on parse le tableau :
+
+servers:
+  - port: 80
+
+--set servers[0].port=80,servers[0].host=example : valeurs multiples 
+
+servers:
+  - port: 80
+    host: example
+
+--set name=value1\,value2 : on protoge des caractères si besoin 
+ex: 
+name: "value1,value2"    
+
+
+
+= recup en local d'un chart : 
+
+on peut dowload un chart en local :
+$helm pull bob/mysql 
+$ls
+mysql-5.7.7.tgz
+
+
+
+= upgrade :
+
+- bien sur on va pouvoir tester avant de déployer le rendu avec un dry-run : 
+
+ex :
+helm upgrade harbor-1st-release --dry-run --debug harbor/ -f harbor/helm_vars/dev/values.yaml
+
+on va pouvoir mettre a jour notre charts :
+un nouveau fichier yaml contenant : 
+mariadbUser: user1
+
+$ helm upgrade -f panda.yaml happy-panda stable/mariadb
+
+Fetched stable/mariadb-0.3.0.tgz to /Users/mattbutcher/Code/Go/src/helm.sh/helm/mariadb-0.3.0.tgz
+happy-panda has been upgraded. Happy Helming!
+Last Deployed: Wed Sep 28 12:47:54 2016
+Namespace: default
+
+On peut voir les valeurs modifiées de notre chart avec : 
+helm get values happy-panda
+mariadbUser: user1
+
+
+= rollback :
+
+si on a un souci dans notre appli on peut rollback :
+helm rollback release  num_version_voulue
+helm rollback happy-panda 1
+
+= numero de version : 
+
+On peut voir les num de version avec :
+helm history release
+
+= Desinstallation de release :
+
+$ helm uninstall happy-panda
+
+Si on veut conserver un historique :
+helm uninstall --keep-history
+
+= creation de chart : 
+
+- creation :
+
+$ helm create bob-workflow
+Creating bob-workflow
+
+on a donc maintenant un chart  ./bob-workflow qu'on peut modifier et dont on peut travailler les templates. 
+
+- lint :
+une fois qu'on a modifier nos charts on peut faire un check avec :
+helm lint .
+
+on peut linter plusieurs fichiers pour s'assurer de la syntaxe : 
+
+helm lint -f values.yaml -f helm_vars/integration/values.yaml
+
+
+- packaging :
+quand tout sera ok on pourra packager notre chart :
+$ helm package bob-workflow
+bob-workflow-0.1.0.tgz
+
+et donc installer notre chart :
+$ helm install bob-workflow ./bob-workflow-0.1.0.tgz
+
+
+- debug et dry run :
+
+on peut tester en dry-run l'installation d'un chart qui générera la sortie de nos templates pour vérifier les valeurs recues et le résulat final sans installer : 
+
+helm install --debug --dry-run lapin-nain ./mychart 
+
+install.go:158: [debug] Original chart version: ""
+install.go:175: [debug] CHART PATH: /home/boogie/Documents/lab/helm/mychart
+
+NAME: lapin-nain
+LAST DEPLOYED: Fri Apr  3 14:08:21 2020
+NAMESPACE: default
+STATUS: pending-install
+REVISION: 1
+TEST SUITE: None
+USER-SUPPLIED VALUES:
+{}
+
+COMPUTED VALUES:
+affinity: {}
+fullnameOverride: ""
+image:
+  pullPolicy: IfNotPresent
+  repository: nginx
+imagePullSecrets: []
+ingress:
+  annotations: {}
+  enabled: false
+  hosts:
+  - host: chart-example.local
+    paths: []
+  tls: []
+nameOverride: ""
+nodeSelector: {}
+podSecurityContext: {}
+replicaCount: 1
+resources: {}
+securityContext: {}
+service:
+  port: 80
+  type: ClusterIP
+serviceAccount:
+  annotations: {}
+  create: true
+  name: null
+tolerations: []
+
+HOOKS:
+MANIFEST:
+---
+# Source: mychart/templates/configmap.yaml
 apiVersion: v1
-kind: ServiceAccount
+kind: ConfigMap
 metadata:
-name: tiller
-namespace: kube-system
-
-kubectl apply -f tiller-account.yaml
-
-kind: ClusterRoleBinding
-metadata:
- name: tiller-cluster-rule
-roleRef:
-apiGroup: rbac.authorization.k8s.io
-kind: ClusterRole
-name: cluster-admin
-subjects:
- - kind: ServiceAccount
-   name: tiller
-   namespace: kube-system
-
-kubectl apply -f role-binding.yaml
-
-initialisation de tiller : 
-helm init --service-account tiller
-
-
-- suppression de tiller (helm 2) 
-
-helm reset
-
-
-- Recherche de package (chart en language helm) :
-
-$ helm search wordpress
-
-Dans le jargon de Helm, on parle d’un chart pour désigner un paquet.
-Ci­dessous le résultat tronqué de cette commande :
-
-NAME CHART VERSION APP VERSION DESCRIPTION
-contrib/wordpress 5.2.5 5.1.0 Web publishing ...
-stable/wordpress 5.2.5 5.1.0 Web publishing ...
-
-Cette sortie remonte plusieurs informations :
-->  le nom des packages préfixé par le nom du dépôt associé,
-->  la version du package,
-->  la version du logiciel présent dans le package,
-->  une description du chart helm.
-
-- Mise à jour des repos ( informations situées dans ~/.helm ) 
-
-$ helm repo upodate
-
-- Installation d'un package :
-
-l’installation d’un package avec Helm se fait avec la commande helm suivie des options suivantes :
-->  le verbe install 
-->  le nom du paquet/chart à installer ( stable/wordpress ).
-
-
-$ helm install stable/wordpress
-
-
-Dans le cas de Helm 3, il est nécessaire de spécifier un nom avec l’option
---name pour le chart :
-$ helm install stable/wordpress --name my-wordpress-chart
-
-
-/!\ : bonne pratique d'install :
-
-->  utilisation d’un namespace adéquat,
-->  utilisation d’un nom cohérent.( un nom random est sinon utilisé.) 
-
-ex: 
-$ kubectl create namespace intranet
-$ helm install stable/wordpress --name wordpress-compta --namespace intranet
-
-- upgrade de chart installé :
-
-$ helm upgrade wordpress-compta stable/wordpress --namespace intranet
-
-/!\ Attention cette commande aura un comportement différent en fonction de l'etat du systeme ( chart deja installé, ou install initiale via cette commande). Il pourrait être judicieux d'utiliser une commande qui gère toujours de manière identique le setup de l'appli :
-
-$ helm upgrade --install wordpress-compta stable/wordpress --namespace intranet
-
-
-- Listing des charts installés :
-
-$ helm ls
-
-Et ci­dessous le résultat tronqué de cette commande :
-
-NAME REVISION UPDATE STATUS CHART
-elevated-snail 1 Sat ... DEPLOYED wordpress-x ...
-...
-wordpress-compta 1 Sat ... DEPLOYED wordpress-x ...
-Il s’agit d’un tableau qui va contenir un certain nombre d’informations :
-> NAME : nom du chart.
-> REVISION : numéro de révision du chart déployé (ex. : 1, 2...).
-> UPDATE : date de la dernière mise à jour.
-> STATUS : statut du chart (ex. : DEPLOYED, FAILED).
-> CHART : chart déployé avec sa version (ex. : wordpress­5.2.0).
-> APP VERSION : version de l’application déployée (ex. : 5.1.0).
-> NAMESPACE : namespace dans lequel est déployé le chart.
-
-- Suppression d'un deploiement :
-
-Il peut être nécéssaire de supprimer le déploiement d'une appli déployée plusieurs fois : on peut préciser le nom de l'appli cible que l'on veut delete :
-
-$ helm delete elevated-snail
-
-- Annulation de la suppression :
-
-$ helm ls --all
-Ci­dessous le résultat tronqué de cette commande :
-NAME REVISION UPDATE STATUS CHART
-elevated-snail 1 Sat ... DELETED wordpress-x ...
-...
-wordpress-compta 1 Sat ... DEPLOYED wordpress-x ...
-Helm a bien supprimé les éléments dans le cluster Kubernetes, mais garde une trace du package.
-
-En réalité, il reste un type d’objet : les volumes persistants qui ont été créés à l’aide d’un StatefulSet. C’est ici le cas
-avec la base de données MariaDB. Ce comportement est normal du fait que le volume persistant n’est pas un objet
-créé par Helm.
-Il est possible de revenir en arrière en utilisant la commande
->l’option
-> le nom du package ( elevated-snail ),
-> un numéro de révision (ici la seule version disponible : 1).
-helm suivie des options suivantes :
-
-rollback ,
-Ci­dessous la commande complète :
-
-$ helm rollback elevated-snail 1
-
-- Purge d'un chart :
-
-pour supprimer definitivement un chart :
-
-$ helm delete elevated-snail --purge
-
-- Configuration d'un helm chart :
-on va pouvoir consulter les differents options de nos charts et adapter nos besoins en fonctions des possibilités offertes par ces confs.
-
-
--> consultation des options de chart :
-
-on va donc pouvoir examiner toutes les options de parametrages de notre chart avec : 
-
-$ helm inspect stable/wordpress
-
-La sortie est tres verbeuse : Une alternative est de se rendre sur le site GitHub contenant la référence de ces charts.
-Dans notre cas par ex : https://github.com/helm/charts/tree/master/stable
-
-On peut donc etudier les options de configuration de publication 
-ex : pour wordpress et utilisation sur minikube :
-
-Une partie de l’aide évoque la manière de gérer la configuration Ingress et particulièrement les options suivantes :
->  l ingress.enabled : booléen permettant d’activer les ressources Ingress.
->  ingress.hosts[0].name : champ permettant de donner le nom du site web exposé sur l’extérieur (ex. :wordpress­compta.intranet.example.com).
-L’URL du site de WordPress sera stockée dans la variable d’environnement  WORDPRESS_URL .
-Avec Minikube, l’adresse IP de la machine se récupère à l’aide de la commande minikube ip .
-
-Ci­dessous un exemple d’assignation de la valeur pour un déploiement sur Minikube combiné avec nip.io :
-$ export WORDPRESS_URL=wordpress.compta.$(minikube ip).nip.io
-
-A noter qu'ici on fait un upgrade de notre chart pas une install  
-
-helm upgrade wordpress-compta stable/wordpress --set ingress.enabled=true --set "ingress.hosts[0].name=$WORDPRESS_URL"
-
-Release "wordpress-compta" has been upgraded.
-LAST DEPLOYED: Tue Dec 31 08:33:57 2019
-NAMESPACE: intranet
-STATUS: DEPLOYED
-
-RESOURCES:
-==> v1/ConfigMap
-NAME                            AGE
-wordpress-compta-mariadb        87m
-wordpress-compta-mariadb-tests  87m
-
-==> v1/Deployment
-NAME              AGE
-wordpress-compta  87m
-
-==> v1/PersistentVolumeClaim
-NAME              AGE
-wordpress-compta  87m
-
-==> v1/Pod(related)
-NAME                               AGE
-wordpress-compta-7fdb678b84-xqqgk  87m
-wordpress-compta-mariadb-0         87m
-
-==> v1/Secret
-NAME                      AGE
-wordpress-compta          87m
-wordpress-compta-mariadb  87m
-
-==> v1/Service
-NAME                      AGE
-wordpress-compta          87m
-wordpress-compta-mariadb  87m
-
-==> v1/StatefulSet
-NAME                      AGE
-wordpress-compta-mariadb  87m
-
-==> v1beta1/Ingress
-NAME              AGE
-wordpress-compta  4s
-
-
-NOTES:
-1. Get the WordPress URL:
-
-  You should be able to access your new WordPress installation through
-  http://wordpress.compta.192.168.39.172.nip.io/admin
-
-2. Login with the following credentials to see your blog
-
-  echo Username: user
-  echo Password: $(kubectl get secret --namespace intranet wordpress-compta -o jsonpath="{.data.wordpress-password}" | base64 --decode)
-
-
-
-- historique de déploiement :
-
-boogie$ helm history wordpress-compta                                                                                                              [☸ minikube:default]
-REVISION	UPDATED                 	STATUS    	CHART          	APP VERSION	DESCRIPTION     
-1       	Tue Dec 31 07:06:06 2019	SUPERSEDED	wordpress-8.0.3	5.3.1      	Install complete
-2       	Tue Dec 31 08:33:57 2019	DEPLOYED  	wordpress-8.0.3	5.3.1      	Upgrade complete
-
-- rollback :
-
-l'historisation permet de revenir a une version souhaitée avec la commande rollback 
-
-ex:  en fonction de l'historique précedent : on va pouvoir gérer le rollback à la version 1 par exemple.  
-boogie$ helm rollback wordpress-compta 1                                                                                                           [☸ minikube:default]
-Rollback was a success.
-
-la consultation de l'historique nous montre que le rollback precedent est considérer comme une "release" :
-
-boogie$ helm history wordpress-compta                                                                                                              [☸ minikube:default]
-REVISION	UPDATED                 	STATUS    	CHART          	APP VERSION	DESCRIPTION
-1       	Tue Dec 31 07:06:06 2019	SUPERSEDED	wordpress-8.0.3	5.3.1      	Install complete
-2       	Tue Dec 31 08:33:57 2019	SUPERSEDED	wordpress-8.0.3	5.3.1      	Upgrade complete
-3       	Tue Dec 31 08:49:17 2019	DEPLOYED  	wordpress-8.0.3	5.3.1      	Rollback to 1
-
-on peut donc revenir a la situation avant le rollback avec :
-
-boogie$ helm rollback wordpress-compta 2                                                                                                           [☸ minikube:default]
-Rollback was a success.
-
-et voir que le rollback du rollback est mentionné dans l'historique :
-
-boogie$ helm history wordpress-compta                                                                                                              [☸ minikube:default]
-REVISION	UPDATED                 	STATUS    	CHART          	APP VERSION	DESCRIPTION
-1       	Tue Dec 31 07:06:06 2019	SUPERSEDED	wordpress-8.0.3	5.3.1      	Install complete
-2       	Tue Dec 31 08:33:57 2019	SUPERSEDED	wordpress-8.0.3	5.3.1      	Upgrade complete
-3       	Tue Dec 31 08:49:17 2019	SUPERSEDED	wordpress-8.0.3	5.3.1      	Rollback to 1
-4       	Tue Dec 31 08:51:20 2019	DEPLOYED  	wordpress-8.0.3	5.3.1      	Rollback to 2
-
-
-- upgrade : 
-
-on va pouvoir updater notre chart suite a une modif par exemple dans le value d'une arbo : 
-helm  upgrade MY_APP  -f helm_vars/ENV/values.yaml .
-ex: 
-helm  upgrade authent -f helm_vars/production/values.yaml .
+  name: lapin-nain-configmap
+data:
+  myvalue: "hello world!"
 

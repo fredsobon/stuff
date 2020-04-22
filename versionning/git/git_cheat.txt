@@ -76,6 +76,21 @@ $ git commit --amend -m "Add an author/email comment"
 
 on ne verra pas de trace dans les logs du commit initial.
 
+
+== annulation de modif : ==
+
+on peut vouloir supprimer nos modifs apres avoir fait un add et un commit :
+
+-> on supprime la modif du commit : 
+git reset values.yaml                                
+Modifications non indexées après reset :
+M	values.yaml
+
+-> une fois que c'est fais si on veut supprimer toutes nos modifs : on va recupérer le fichier "original" du repo :
+git checkout -- values.yaml
+
+
+on aura notre repo propre et les modifs faites desormais inexistantes.
 == rename ==
 
 git mv oldname newname
@@ -612,6 +627,49 @@ on voit que notre historique reste propre et aligné et qu'il n'y a pas de pollu
 * 207a57d 2018-09-24 | up [fredsobon]
 * 22f1f09 2018-09-25 | up for rebase (new_branch) [fredsobon]
 * d37dcf8 2018-09-24 | up [fredsobon]
+
+
+- rebase interractif : 
+
+on va pouvoir merger differents commit au sein d'une branche pour supprimer des commentaires de trop dans l'historique git 
+
+git rebase -i num_de_commit : on va prendre comme point de depart un num de commit qui nous interresse puis ensuite de maniere interactive choisir de merger les commits au sein de ce commit pour avoir un historique propre :
+
+ex : on a une fenetre  interractive : 
+git rebase -i 179f8d7e838a65991baa0e5dfc95641a8703d71 
+
+pick d410499b0 misspell
+pick e508c7abd misspell
+pick 6ef1970ce comment unless for test
+pick 308fbf864 cleanup
+
+# Rebase 1519fdf06..308fbf864 onto 1519fdf06 (4 commands)
+#
+# Commands:
+# p, pick <commit> = use commit
+# r, reword <commit> = use commit, but edit the commit message
+# e, edit <commit> = use commit, but stop for amending
+# s, squash <commit> = use commit, but meld into previous commit
+# f, fixup <commit> = like "squash", but discard this commit's log message
+# x, exec <command> = run command (the rest of the line) using shell
+# b, break = stop here (continue rebase later with 'git rebase --continue')
+# d, drop <commit> = remove commit
+# l, label <label> = label current HEAD with a name
+# t, reset <label> = reset HEAD to a label
+# m, merge [-C <commit> | -c <commit>] <label> [# <oneline>]
+
+
+on va donc modifier les commits qu'on veut en prefixant part un f nos lignes afin de les mergers dans la branche et supprimer les commentaires de commit :
+
+f d410499b0 misspell
+f e508c7abd misspell
+f 6ef1970ce comment unless for test
+f 308fbf864 cleanup
+git rebase -i 179f8d7e838a65991baa0e5dfc95641a8703d714                                            
+Une fois qu'on a fini notre action c'est bon : 
+
+Successfully rebased and updated refs/heads/working_perso_branch
+
 
 
 == stash == 

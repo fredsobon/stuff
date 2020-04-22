@@ -1,0 +1,154 @@
+=== notes ex workflow : helm ci ==
+
+creation de branche git , recup de chart, modification de notre chart adaptation a nos besoins , commit de nos conf , declenchant la ci puis si pas d'erreur le push dans la branche master  
+
+1/ 
+creer un nouveau repo gitlab
+graphite-mt : graphite metrik tank
+
+git@gitlab.lapin.io:prod/helm-charts/graphite-mt.git
+
+2/ ajout des repo helm pour recup les sources 
+
+helm repo add repo-remote-stable https://repo.lapin.net/artifactory/helm-remote-stable/ --username bob
+helm repo add repo-remote-testing https://repo.lapin.net/artifactory/helm-remote-testing/ --username bob
+
+
+helm search repo graphite                                                                               
+
+NAME                                  	CHART VERSION	APP VERSION	DESCRIPTION
+remote-incubator/graphite 	0.5.0        	1.1.5-4    	Graphite metrics server
+remote-stable/graphite    	0.2.2        	1.1.5-3    	DEPRECATED! - Graphite metrics server
+
+3/ recup du helm en local / modif de conf avec declaration de nouvelle variable et valeur : 
+
+helm pull remote-incubator/graphite
+
+un chart dans une registry est un tar.gz 
+ls                                                                                                         (⎈ recette:kube-system)
+graphite-0.5.0.tgz  README.md
+
+on decompresse : 
+tar -xzvf graphite-0.5.0.tgz
+
+tree graphite                                                                                              (⎈ recette:kube-system)
+graphite
+├── Chart.yaml
+├── OWNERS
+├── README.md
+├── templates
+│   ├── configmap-statsd.yaml
+│   ├── configmap.yaml
+│   ├── _helpers.tpl
+│   ├── ingress.yaml
+│   ├── NOTES.txt
+│   ├── pvc.yaml
+│   ├── service.yaml
+│   └── statefulset.yaml
+└── values.yaml
+
+on suppose qu'on va devoir faire une modif ..donc forke le chart :
+ex : on doit exposer une variable dans un configset : et ce n'es pas prevu de base 
+on va ajouter notre param dans les variables du template du statefulset : 
+
+ex: 
+
+templates/statefulset.yaml
+        env:
+        ...
+        - name: "BOB_VAR"
+          value: {{ .Values.graphiteMt.custom }}
+         ...
+
+on pourra donc dans notre fichier values global ou relatif à nos stages ..definir la valeur que l'on veur sur cette nouvelle clé 
+
+cat values.yaml
+# Default values for graphite.
+graphiteMt:
+  custom: toto
+image:
+  repository: artifact-docker-infra.lapin.net/graphite-mt
+  tag: latest
+  pullPolicy: IfNotPresent
+
+
+
+4/ mise en place de la ci : 
+a chaque modif on veut faire des checks dans notre ci 
+
+un cree un fichier .gitlab.ci.yaml 
+plusieurs stages : 
+1/ on lint
+2/ on check le template 
+3/ on package
+4/ on push 
+
+k/repos_work/ilius-graphite-mt   master  cat .gitlab-ci.yml                                                                                         (⎈ recette:kube-system)
+variables:
+  CI_DEBUG_TRACE: "false"
+  FROMIMAGE: artifact-docker-infra.lapin.net/debian/helm
+  FROMIMAGEVERSION: latest
+  HELM_BASE_REPO: https://artifact.lapin.net/artifactory
+  HELM_REPO: helm-ilius-local
+
+stages:
+  - lint
+  - template
+  - package
+  - push
+
+.common: &common
+  tags:
+    - infraci
+  image: ${FROMIMAGE}
+
+before_script:
+  - helm version
+  - helm repo add "${HELM_REPO}"-incubator "${HELM_BASE_REPO}"/"${HELM_REPO}"-incubator/ --username "${CONTAINER_REGISTRY_USER}" --password "${CONTAINER_REGISTRY_PWD}"
+  - helm repo add "${HELM_REPO}"-stable "${HELM_BASE_REPO}"/"${HELM_REPO}"-stable/ --username "${CONTAINER_REGISTRY_USER}" --password "${CONTAINER_REGISTRY_PWD}"
+
+lint:
+  stage: lint
+  <<: *common
+  script:
+    - helm lint . -f helm_vars/ci/values.yaml
+
+template:
+  stage: template
+  <<: *common
+  script:
+    - helm dependency list
+    - helm dependency update
+    - RELEASE_SUFFIX=$(echo ${CI_COMMIT_REF_NAME} | tr '[:upper:]' '[:lower:]')
+    #- helm secrets template . --name ${RELEASE_SUFFIX}-${CI_PIPELINE_ID} --namespace ${RELEASE_SUFFIX}-${CI_PIPELINE_ID} -f helm_vars/ci/values.yaml -f helm_vars/ci/secrets.ci.yaml
+    - helm template ${RELEASE_SUFFIX}-${CI_PIPELINE_ID} . --namespace ${RELEASE_SUFFIX}-${CI_PIPELINE_ID} -f helm_vars/ci/values.yaml
+
+package:
+  stage: package
+  <<: *common
+  script:
+    - helm dependency list
+    - helm dependency update
+    - helm package .
+  artifacts:
+    when: on_success
+    expire_in: 1 day
+    paths:
+      - "*.tgz"
+
+push:
+  stage: push
+  <<: *common
+  only:
+    - master
+  script:
+    - helm repo list
+    - helm push-artifactory *.tgz "${HELM_REPO}"-incubator || true
+    - CHARTVERSION=$(awk '/^version:/ {print $2}' Chart.yaml)
+    - helm search "${HELM_REPO}"-incubator/"${CI_PROJECT_NAME}" | awk '/'"${CI_PROJECT_NAME}"'/ && ($2 != '"${CHARTVERSION}"') {exit 1}'
+
+
+on fait nos modif -> on pousse
+on link un runner a notre repo 
+
+

@@ -1,28 +1,39 @@
 #!/bin/bash
 
+
+#### main conf : 
+# update system and retrieve pkgs 
 sudo apt update -y && sudo apt upgrade -y
 sudo apt install -y screen tmux tree tcpdump wireshark nmap lsof strace net-tools gnupg meld xlsx2csv hfsplus hfsprogs hfsutils terminator curl wget tshark keepassx  remmina visualvm vim gnome-tweak-toola git docker.io
 
 sudo addgroup boogie docker
 
 sudo mkdir -p /home/boogie/Documents/{learn,own,work,lab}
+sudo apt install -y screen tmux tree tcpdump wireshark nmap lsof strace net-tools gnupg meld xlsx2csv hfsplus hfsprogs hfsutils terminator curl wget tshark keepassx  remmina visualvm vim gnome-tweak-tool git exfat-fuse exfat-utils fonts-powerline vlc openssh-server python3-pip snapd qemu-kvm libvirt-daemon-system libvirt-clients bridge-utils virt-manager locate mtr zsh
 
+sudo usermod -a -G libvirt $(whoami)
+chsh -s $(which zsh)
+
+# retrieve repo and create main folders 
+cd /home/boogie/Documents/
+git clone https://github.com/fredsobon/stuff.git
+mkdir -p /home/boogie/Documents/{learn,own,work}
+
+# set chrome browser 
 sudo sh -c 'echo "deb [arch=amd64] https://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list'
 wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
 sudo apt-get update
-sudo apt-get install google-chrome-stable
+sudo apt-get install -y google-chrome-stable
 
 ## set up dependencies for zoom app (conf call and video ) :
 sudo apt install libgl1-mesa-glx libxcb-xtest0
 #then dpkg -I zoom pck dl from their website
 
+#then dpkg -I zoom pck dl from their website
         
-## kube section :
-
+## kube section : ##
 
 # minikube set up - using kvm 
-
-sudo apt-get install qemu-kvm libvirt-daemon-system libvirt-clients bridge-utils
 curl -Lo minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 \
   && chmod +x minikube
 sudo cp minikube /usr/local/bin && rm minikube
@@ -54,3 +65,46 @@ sudo mv k9s /usr/local/bin
 # set up ctx and ns plugins :
 kubectl krew install ctx
 kubectl krew install ns
+
+
+## shell and prompt tweaks : ##
+
+# zsh install and set up 
+
+# oh-my-zsh! setup and prompt config 
+curl -L https://raw.github.com/robbyrussell/oh-my-zsh/master/tools/install.sh | sh
+(
+sed -i 's/robbyrussell/agnoster/' /home/boogie/.zshrc
+sed -i 's/plugins=(git)/plugins=(git kubectl kube-ps1 docker go golang python colorize)' /home/boogie/.zshrc
+
+sed -i 's/KUBE_PS1_COLOR_SYMBOL="%{$fg[blue]%}"/KUBE_PS1_COLOR_SYMBOL="%{$fg[green]%}"/' /home/boogie/.oh-my-zsh/plugins/kube-ps1/kube-ps1.plugin.zsh                                         
+sed -i 's/KUBE_PS1_COLOR_CONTEXT="%{$fg[green]%}"/KUBE_PS1_COLOR_CONTEXT="%{$fg[yellow]%}"/' /home/boogie/.oh-my-zsh/plugins/kube-ps1/kube-ps1.plugin.zsh                                         
+sed -i 's/KUBE_PS1_COLOR_NS="%{$fg[cyan]%}"/KUBE_PS1_COLOR_NS="%{$fg[red]%}"/' /home/boogie/.oh-my-zsh/plugins/kube-ps1/kube-ps1.plugin.zsh                                         
+sed -i  '/KUBE_PS1_COLOR_NS=/ a RPROMPT='$(kube_ps1)'' /home/boogie/.oh-my-zsh/plugins/kube-ps1/kube-ps1.plugin.zsh
+)
+# helm section - binary and plugins :
+(
+set -x ; cd "$(mktemp -d)" &&
+curl -fsSLO "https://get.helm.sh/helm-v3.1.1-linux-amd64.tar.gz" && tar -xzvf helm-v3.1.1-linux-amd64.tar.gz ; sudo cp linux-amd64/helm /usr/local/bin/
+)
+
+helm plugin install https://github.com/futuresimple/helm-secrets
+helm plugin install https://github.com/databus23/helm-diff --version master
+helm plugin install https://github.com/chartmuseum/helm-push
+
+#### todo : ####
+# set up podman buildah stern docker #
+
+sudo sh -c "echo 'deb http://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/xUbuntu_19.10/ /' > /etc/apt/sources.list.d/devel:kubic:libcontainers:stable.list"
+wget -nv https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable/xUbuntu_19.10/Release.key -O- | sudo apt-key add -
+sudo apt-get update                                                                                                         (⎈ |minikube:default)
+sudo apt-get  -y install podman buildah                                                                                     (⎈ |minikube:default)
+
+
+curl -fsSLO "https://github.com/wercker/stern/releases/download/1.11.0/stern_linux_amd64" && sudo mv stern_linux_amd64 /usr/local/bin/stern && sudo chmod +x /usr/local/bin/stern
+
+/usr/bin/zsh
+
+
+
+

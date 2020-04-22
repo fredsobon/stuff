@@ -1,0 +1,95 @@
+== notes podman : ==
+
+https://france.devoteam.com/devoblog/la-migration-vers-podman-est-elle-la-solution-pour-se-passer-de-docker/
+
+- setup : 
+https://podman.io/getting-started/installation
+
+on recupere la version de notre os  qu'on set en variable pour definir le path du repo a definir puis on install le package : 
+
+VERSION_ID=$(grep -i version_id /etc/os-release |awk -F= '{print $2}' |tr -d \")
+sudo sh -c "echo 'deb http://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/xUbuntu_${VERSION_ID}/ /' > /etc/apt/sources.list.d/devel:kubic:libcontainers:stable.list"
+wget -nv https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable/xUbuntu_${VERSION_ID}/Release.key -O- | sudo apt-key add -
+sudo apt-get update -qq
+sudo apt-get -qq -y install podman
+
+
+podman --help
+
+- Commandes :
+
+ podman images                                                                                                                           (⎈ recette:fso)
+REPOSITORY                TAG      IMAGE ID       CREATED       SIZE
+docker.io/library/nginx   latest   2073e0bcb60e   3 weeks ago   131 MB
+
+podman run docker.io/library/nginx
+
+podman ps                                                                                                                               (⎈ recette:fso)
+CONTAINER ID  IMAGE                           COMMAND               CREATED        STATUS            PORTS  NAMES
+37a27462836e  docker.io/library/nginx:latest  nginx -g daemon o...  7 seconds ago  Up 7 seconds ago         dreamy_agnesi
+
+
+podman rm 37a27462836e                                                                                                                  (⎈ recette:fso)
+37a27462836e6672248f32f691ee144252f19db8e17154fb0028a988b0459c33
+
+
+podman ps -a                                                                                                                            (⎈ recette:fso)
+CONTAINER ID  IMAGE  COMMAND  CREATED  STATUS  PORTS  NAMES
+
+
+- images 
+podman images                                                                                                                                                     (⎈ microk8s:default)
+REPOSITORY                                             TAG           IMAGE ID       CREATED      SIZE
+registry.lapin.io/lapin/debian-helm                  3.1.1         51b7fa9e218e   2 days ago   386 MB
+
+- tag d'images 
+exemple l'mage precédente est taggué a vec une version sup : 3.2.0
+
+podman tag 51b7fa9e218e registry.lapin.io/lapin/debian-helm:3.2.0
+
+podman images                                                                                                                                                     (⎈ microk8s:default)
+REPOSITORY                                             TAG           IMAGE ID       CREATED      SIZE
+registry.lapin.io/debian-helm                  3.1.1         51b7fa9e218e   2 days ago   386 MB
+registry.lapin.io/debian-helm                  3.2.0         51b7fa9e218e   2 days ago   386 MB
+
+- push :
+
+on pourra donc push notre image maintenant :
+podman push 51b7fa9e218e docker://registry.lapin.io/fso/debian-helm:3.2.0
+
+
+podman push nginx docker://registry.lapin.io/lapin/nginx:latest                                                                                                      (⎈ recette:fso)
+Getting image source signatures
+Copying blob 22439467ad99 skipped: already exists  
+Copying blob 488dfecc21b1 skipped: already exists  
+Copying blob b4a29beac87c [--------------------------------------] 0.0b / 0.0b
+Writing manifest to image destination
+Storing signatures
+
+
+- definition de  registry :
+
+on va pouvoir definir une ou des registry 
+ex :
+cat /etc/containers/registries.conf                                                                                                                               (⎈ microk8s:default)
+[registries.search]
+registries = ['registry.lapin.io','docker.io', 'quay.io']
+
+
+- pull images : 
+podman pull registry.lapin.io/lapin/debian-helm:3.1.1
+
+
+- Setting d'env local :
+
+on va pouvoir definir nos conf pour un user dédié sur une machine (laptop, server ..)
+
+-> les containers sont présents : 
+ls ~/.local/share/containers/storage
+
+-> la conf user :
+~/.config/containers
+
+
+
+registries.conf

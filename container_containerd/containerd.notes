@@ -1,0 +1,106 @@
+Container Runtimes:
+
+Simply said, container runtimes are software that facilitate the containers to run. Historically, there were many runtimes that used to have their own formats of containers. This approach  has proven to be difficult as the users don’t have the ability to adopt new container runtimes or port from existing ones with ease.
+
+The Open Container Initiative:
+A bunch of tech giants came together to form The Open Container Initiative, which has defined some standards in the  container ecosystem that has enabled the users to work with different runtimes with a standard OCI format.
+
+Many of the container runtimes can now work with OCI standards. Due to this standardization, many new container runtimes are getting the support they weren’t getting before this standardization.
+
+Before talking about Containerd:
+There are two levels of container runtimes: high-level container runtimes and low-level container runtimes. Containerd is a high-level container runtime that uses Runc (a low-level container runtime) by default, but can be configured to use others as well.
+
+￼
+
+Containerd:
+According to the official GitHub repo  “Containerd is an industry-standard container runtime with an emphasis on simplicity and robustness and portability.”
+
+Since, I don’t want to copy and be done with it, I would like to define it this way: “Containerd is one of the most extensible, well-architected and optimal runtimes focused on simplicity that is meant to be embedded into a larger ecosystem.”
+
+To be clear, and before we start,  Containerd does not build images; it just consumes them. For a clearer picture, check out the scope of Containerd in the official Github repo.
+
+Containerd History:
+The Containerd is born out of the monolithic Docker, and is included in Docker,  from Docker 1.11.
+Kubernetes supports the use of Containerd as a runtime from Kubernetes 1.10 and above.
+
+ Let’s get to Command line
+Installation:
+Follow the official docs for installing Containerd; or if you’re using Ubuntu, just install Containerd with apt.
+
+Interacting with Containerd:
+Since, the official docs for Containerd use the client package to get you started, we’ll stick to the ctr tool in this article. The ctr tool is easier to get started for beginners because they don’t have to  bother with code.
+
+Demo:
+Once you’ve installed Containerd, follow along with the commands listed below.
+
+ 
+
+In this Demo we’ll see how we could use the ctr tool to interact with Containerd to manage and run containers. We’ll fetch the hello-world image, run a container with that image, delete that image and, finally, delete the container as well.
+
+
+=== cmds : ===
+
+#ctr
+
+Let’s start by pulling an image
+
+# ctr image pull docker.io/library/hello-world
+
+This would give you an error saying you missed an object, because Containerd requires you to specify the object like the command below:
+
+# ctr image pull docker.io/library/hello-world:latest
+
+You can replace object with whatever is available like ‘alpine’
+
+Let’s try listing the image to confirm
+
+# ctr image ls
+
+This can be a bit unfriendly, so try the following command:
+
+#ctr image ls -q
+
+The above command will give only the image name and nothing else.
+
+Now that we’ve got our image, we need to run a container.
+
+#ctr container create docker.io/library/hello-world:latest demo
+
+This would create a container with container id, ‘demo’, based on the image that we pulled.
+
+There are a few things to notice here: The output is not redirected to the CLI by default. Unlike Docker, we need to use the full path with the object every time we use a container image. Also, the image needs to be pulled before being able to run a container.
+
+We can list the containers created with the command below:
+
+#ctr container list
+
+You can see the demo container listed. You can even use -q to get just the container names.
+
+Now to delete the image.
+
+#ctr image remove docker.io/library/hello-world:latest
+
+This would delete the image. What would happen to your container?
+
+#ctr container list
+
+Your container would still be running. This is because containerd works on references, and in this case, the image is no longer being referenced as an image but it is still being referenced by the container (as a snapshot), so it wouldn’t be deleted as long as it’s being referenced.
+
+You’ll get a better picture when learning about snapshots, which would be a topic for another article.
+
+For now, we’ll delete the image.
+
+#ctr container remove demo
+
+Please leave a comment with any suggestions.
+
+References:
+You can use the below links to explore further:
+
+https://containerd.io
+
+https://opencontainers.github.io/org/introduction
+
+https://developers.redhat.com/blog/2018/02/22/container-terminology-practical-introduction/
+
+https://github.com/containerd/containerd

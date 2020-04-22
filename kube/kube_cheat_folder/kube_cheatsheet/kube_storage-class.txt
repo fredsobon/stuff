@@ -1,0 +1,143 @@
+=== notes storage class : ===
+
+Le travail nécessaire à la mise en place d’un volume persistant implique plusieurs operations :
+-> une déclaration pour indiquer que de l’espace disque est disponible ( pv ) 
+-> une déclaration pour pouvoir s’accaparer un espace disque ( pvc )
+-> une action manuelle pour positionner les droits sur les répertoires ( ajout mount ,volume dans deployment )
+Heureusement pour l’administrateur, ce travail de déclaration n’est pas nécessaire. Il est possible de passer par un
+gestionnaire automatique de volume persistant : les objets StorageClass (ou son raccourci sc ).
+Ces objets vont se charger d’intercepter les demandes de volumes persistants ( PersistentVolumeClaim ) et
+de réaliser automatiquement les actions suivantes :
+-> création de l’objet PersistentVolume ,
+-> attribution des droits ad­hoc.
+Autre point, un cluster Kubernetes peut faire appel à plusieurs classes de stockage offrant plusieurs niveaux de
+services, comme par exemple :
+-> une classe ssd pour des disques rapides de type SSD,
+-> une classe hdd pour des disques durs classiques de type HDD,
+-> une classe nfs pour pouvoir partager un espace disque entre plusieurs pods.
+
+Charge à vous ensuite de créer le type de disque nécessaire en fonction des besoins des utilisateurs.
+Ainsi, une application réclamant des disques rapides pourra demander des disques SSD, tandis qu’une autre
+prendra des disques traditionnels afin de réduire les coûts de stockage.
+
+minikube embarque sa classe de storage :
+
+kubectl get storageclass                                    [☸ minikube:default]
+NAME                 PROVISIONER                AGE
+standard (default)   k8s.io/minikube-hostpath   6h48m
+
+Ici classe de stockage porte le nom "standard" et cette dernière est définie par défaut. Autre point, le mécanisme d’approvisionnement porte le nom de k8s.io/minikube-hostpath
+
+kubectl describe sc standard                                [☸ minikube:default]
+Name:                  standard
+IsDefaultClass:        Yes
+Annotations:           storageclass.kubernetes.io/is-default-class=true
+Provisioner:           k8s.io/minikube-hostpath
+Parameters:            <none>
+AllowVolumeExpansion:  <unset>
+MountOptions:          <none>
+ReclaimPolicy:         Delete
+VolumeBindingMode:     Immediate
+Events:                <none>
+
+Comme tout autre objet dans Kubernetes, les classes de stockage peuvent porter des annotations ou des labels.
+Ici,la classe standard porte l’annotation class=true en faisant ainsi la classe par défaut.
+Si un objet storageclass.beta.kubernetes.io/is-default-PersistentVolumeClaim ne précise rien, cette dernière sera utilisée.
+
+Les différentes familles
+Actuellement, il existe trois types de gestionnaires de volume :
+->les gestionnaires intégrés au code de Kubernetes,
+-> les gestionnaires s’appuyant sur FlexVolume ( en voie de diparition )
+->les gestionnaires s’appuyant sur l’interface CSI.
+
+Actuellement, le type CSI (Container Storage Interface) est la méthode recommandée pour écrire de nouveaux pilotes.
+Ce type CSI est un standard permettant d’écrire des pilotes de gestion de volume pour des systèmes d’orchestration de containers (COS pour Container Orchestration Systems).
+L’autre standard (FlexVolume) existe depuis la version 1.2 de Kubernetes, mais n’évoluera plus. Il s’appuie sur un
+mécanisme d’exécution de commandes. Ces commandes doivent être installées sur les machines constituant le
+cluster Kubernetes.
+
+Au début du projet, les pilotes de volume faisaient partie intégrante du code source de Kubernetes.
+Malheureusement, ce type d’organisation entraîne certaines contraintes :
+->mise à jour impossible d’un plugin sans changer la version de Kubernetes,
+->les mainteneurs de Kubernetes étaient responsables d’un code difficile à tester,
+->un bug sur un gestionnaire de disque pouvait faire crasher Kubernetes,
+->les gestionnaires d’espaces disque avaient les mêmes droits que les composants principaux de Kubernetes (pouvant
+entraîner des problèmes de sécurité),
+->le développement d’un pilote devait forcément être intégré comme une brique open source.
+
+Partant de ce constat, la communauté autour de Kubernetes a fait le choix de sortir les gestionnaires de volume
+de la branche principale du code source. Ces gestionnaires sont maintenant en dehors du code de Kubernetes.
+En anglais, ces deux types de gestionnaires sont référencés par le terme in­tree lorsqu’ils sont présents avec le
+code de Kubernetes, et ceux en dehors par le terme out­of­tree
+
+= mode d'acces :
+Un volume persistant peut être accédé à l’aide de plusieurs modes :
+
+ReadWriteOnce : montage de l’espace disque sur un pod à la fois.
+ReadOnlyMany : lecture seule sur plusieurs pods à la fois.
+ReadWriteMany : montage en lecture­écriture dans plusieurs pods à la fois.
+
+Au niveau des sorties de la commande
+ReadWriteOnce : RWO
+ReadOnlyMany : RXO
+ReadWriteMany : RWX
+
+ex: 
+Pilote                  Mode d’accès Nom du pilote  
+AWSElasticBlockStore    RWO          kubernetes.io/aws­ebs  
+CephFS                  RW, RXO et RWX ceph.com/cephfs
+
+= Liste des pilotes chargés
+Pour obtenir la liste des pilotes chargés dans un nœ ud Kubernetes, consultez la sortie du démon Kubelet.
+
+# journalctl -u kubelet | grep "plugins.go"
+
+sur minikube on ne voit rien de spécial :
+Dec 08 11:37:11 minikube kubelet[2415]: I1208 11:37:11.502051    2415 plugins.go:100] No cloud provider specified.
+Dec 08 11:37:12 minikube kubelet[2467]: I1208 11:37:12.393978    2467 plugins.go:100] No cloud provider specified.
+
+Déclaration d’une classe de stockage
+a. Structure de la déclaration
+Tout comme pour un déploiement, la déclaration d’une classe de stockage se fait à l’aide d’un fichier au format
+YAML. Le fichier devra contenir les champs suivants :
+
+apiVersion : doit prendre la valeur storage.k8s.io/v1 .
+kind : doit prendre la valeur StorageClass .
+metadata : doit contenir un champ name (hdd, sdd, nfs, etc.).
+parameters : paramètres optionnels (type, encrypted).
+provisioner : nom du pilote de gestion de volume.
+reclaimPolicy : politique à appliquer par défaut sur les objets PersistentVolume en cas de suppression de l’objet PersistentVolumeClaim associé.
+volumeBindingMode : politique pour la création des volumes (par défaut immédiat).
+
+Exemple de déclaration
+
+Dans l’exemple qui va suivre, vous allez créer une classe de stockage respectant les indications suivantes :
+la classe portera le nom hdd ,
+le stockage se fera à l’aide du service de stockage de Minikube ( k8s.io/minikube-hostpath ),
+la suppression de l’objet PVC entraînera celle du PV,
+la politique de création sera immédiate.
+
+Si vous faites tourner cet exemple en dehors de Minikube, il sera nécessaire de changer la valeur du champ provisioner (par exemple : kubernetes.io/host-path ).
+
+La déclaration ci­dessous correspond à ces indications :
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+name: hdd
+provisioner: k8s.io/minikube-hostpath
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+
+Test de création automatique d’un volume persistant
+Toutes ces déclarations peuvent sembler de prime abord complexes. Néanmoins, sans ce mécanisme, l’utilisateur
+doit réaliser les opérations suivantes :
+
+Création du volume disque (dans une baie, création de répertoire, etc.)
+Attribution des droits (chmod)
+Création d’un objet PV faisant la référence au volume ou à l’emplacement du répertoire
+Création d’un objet PVC référençant le PV
+
+Suite à l’ajout de la classe de stockage, l’utilisateur n’aura plus qu’à créer un objet PVC.
+
+
+

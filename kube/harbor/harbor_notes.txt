@@ -1,5 +1,8 @@
 === notes harbor : ===
 
+https://itnext.io/need-a-container-image-registry-and-helm-chart-repository-go-harbor-b0c0d4eafd3b
+https://ruzickap.github.io/k8s-harbor/#requirements
+
 
 = usage de base : ==
 
@@ -28,6 +31,42 @@ Si nous n'avons pas de certif tls /ssl valide on peut flagger notre repo comme i
   "insecure-registries" : ["registry.lapin.io"]
 }
 
+- Utilisation avec buildah : 
+
+-on peut pull une image :
+buildah pull nginx                                                                                                                                                (⎈ recette:fso)
+
+- listing images : 
+buildah images                                                                                                                                                    (⎈ recette:fso)
+REPOSITORY                TAG      IMAGE ID       CREATED       SIZE
+docker.io/library/nginx   latest   2073e0bcb60e   3 weeks ago   131 MB
+
+
+- push registry : 
+buildah push --tls-verify=false nginx docker://registry.lapin.io/fso/nginx:latest                                                                             (⎈ recette:fso)
+Getting image source signatures
+Copying blob 22439467ad99 done  
+Copying blob b4a29beac87c done  
+Copying blob 488dfecc21b1 done  
+Copying config 2073e0bcb6 done  
+Writing manifest to image destination
+Storing signatures
+
+
+= Ajout helm : = 
+
+on va pouvoir pousser un helm buildé sur notre machine dans harbor : 
+ helm create cerebro
+ helm package ./cerebro
+
+
+helm3 :
+
+
+helm repo add registry --username $HELM_REPO_USERNAME --password $HELM_REPO_PASSWORD  https://registry.lapin.io/chartrepo/lapin
+helm push  .  registry
+helm repo update
+helm search repo registry/cerebro
 
 
 - Lancement de scann de securité :
@@ -39,9 +78,6 @@ dans notre projet sur harbor :
 projet/repositories/images
 on selectionne l'image que l'on veut scanner :
 et on clic sur scann ..le scann se met en queue et s'execute ..on peut des lors examiner le detail des failles en examiant le repertoire de l'image.
-
-
-
 
 
 https://goharbor.io/docs/
@@ -76,6 +112,20 @@ total 16K
 -rw-r--r-- 1 root root 1,3K 20 févr. 16:16 paasregistry.lapin.io.cert
 -rw-r--r-- 1 root root 1,3K 20 févr. 13:17 paasregistry.lapin.io.crt
 -rw------- 1 root root 1,7K 20 févr. 13:18 paasregistry.lapin.io.key
+
+Le docker daemon interprete les fichiers crt comme des certif de CA et les fichiers cert comme des certif clients : il faut donc convertir le crt en cert :
+openssl x509 -inform PEM -in paasregistry.lapin.io.crt -out passregistry.lapin.io.cert
+
+on copie ensuite les fichiers cert, key et ca dans l'arbo des certif docker de notre host en creant le repertoire dédié auparavant :
+
+ tree /etc/docker/
+/etc/docker/
+├── certs.d
+│   └── registry.lapin.io
+│       ├── CA.crt
+│       ├── registry.lapin.io.cert
+│       └── registry.lapin.io.key
+└── key.json
 
 
 
@@ -187,6 +237,21 @@ sudo ./install.sh --with-notary --with-clair --with-chartmuseum
 on peut se conecter ensuite à l'interface harbor via un navigateur.
 
 
+
+= Api : =
+
+Harbor expose une api qui permet de facilement interragir avec l'apli :
+
+On doit préciser à curl un header   avec le format application/json 
+ex : ici on essayer de trouver un user se nommant lapin en se connectant a distance à l'api harbor avec un user authorisé : 
+
+curl -u bob:xxx -X GET "https://registry.lapin.io/api/users/search?username=lapin" -H "accept: application/json"                                          (⎈ recette:fso)
+[
+  {
+    "user_id": 3,
+    "username": "lapin"
+  }
+]%
 
 = Configuration : =
 

@@ -1,0 +1,37 @@
+
+- set up ubuntu : 
+. /etc/os-release
+sudo sh -c "echo 'deb http://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/x${ID^}_${VERSION_ID}/ /' > /etc/apt/sources.list.d/devel:kubic:libcontainers:stable.list"
+wget -nv https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable/x${ID^}_${VERSION_ID}/Release.key -O Release.key
+sudo apt-key add - < Release.key
+sudo apt-get update -qq
+sudo apt-get -qq -y install buildah
+
+. /etc/os-release
+ sudo sh -c "echo 'deb http://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/xUbuntu_19.10/ /' > /etc/apt/sources.list.d/devel:kubic:libcontainers:stable.list"
+ wget -nv https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable/xUbuntu_19.10/Release.key -O Release.key
+ sudo apt-key add - < Release.key
+ sudo apt-get update -qq
+ sudo apt-get -qq -y install buildah
+
+-on peut pull une image :
+buildah pull nginx                                                                                                                                                (⎈ recette:fso)
+
+- listing images :
+buildah images                                                                                                                                                    (⎈ recette:fso)
+REPOSITORY                TAG      IMAGE ID       CREATED       SIZE
+docker.io/library/nginx   latest   2073e0bcb60e   3 weeks ago   131 MB
+
+
+- push registry :
+buildah push --tls-verify=false nginx docker://registry.lapin.io/lapin/nginx:latest                                                                             (⎈ recette:fso)
+Getting image source signatures
+Copying blob 22439467ad99 done
+Copying blob b4a29beac87c done
+Copying blob 488dfecc21b1 done
+Copying config 2073e0bcb6 done
+Writing manifest to image destination
+Storing signatures
+
+- On va pouvoir pousser une image buildée avec un format full oci dans une registry comme harbor qui ne prend pas les images autre qu'au format docker (au moment de l'écriture de cette phrase) :
+buildah push --tls-verify=false --format=docker 4a65abb7bf5a registry.lapin.io/lapin/debian-slim:0.0.1

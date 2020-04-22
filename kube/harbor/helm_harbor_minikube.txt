@@ -1,0 +1,105 @@
+== notes set up Harbor avec helm : ==
+
+
+== short version pour minikube : ==
+
+- prerequi : ingress  dans minikube et un namespace dedié pour harbor : 
+
+minikube addons enable ingress
+kubectl create ns harbor
+
+helm repo add harbor https://helm.goharbor.io
+git clone https://github.com/goharbor/harbor-helm.git
+helm install harbor harbor/harbor -n harbor
+
+une fois deployé on recupere l'entrée de notre ingress :
+ kubectl get ing -n harbor                                                                                                                                                (⎈ minikube:harbor)
+NAME                    HOSTS                                     ADDRESS          PORTS     AGE
+harbor-harbor-ingress   core.harbor.domain,notary.harbor.domain   192.168.39.177   80, 443   125m
+
+
+on set notre fichier host : 
+
+192.168.39.177 core.harbor.domain notary.harbor.domain
+
+et on peut se logger a harbor : https://core.harbor.domain 
+admin
+Harbor12345
+
+pour utiliser harbor on peut soit recuperer le cert autosigné depuis l'interface -> projet > repositories > registry certificate et on l'ajoute comme ca
+
+sudo cp harbor.crt /usr/local/share/ca-certificates/
+sudo update-ca-certificates
+
+ou on set notre registrie en insecure
+
+on peut tester de push dans notre registry :
+
+docker run nginx 
+docker tag nginx core.harbor.domain/library
+docker push core.harbor.domain/library/nginx
+The push refers to repository [core.harbor.domain/library/nginx]
+55a77731ed26: Pushed
+71f2244bc14d: Pushed
+f2cb0ecef392: Pushed
+latest: digest: sha256:3936fb3946790d711a68c58be93628e43cbca72439079e16d154b5db216b58da size: 948
+
+on peut maintenant voir notre image dispo dans notre registry harbor minikube 
+
+
+==== detaillée : ====
+
+
+
+- ajout du repo helm : 
+ helm repo add harbor https://helm.goharbor.io
+
+- Config pour exposition du service harbor :
+-> ingress controller 
+-> **ClusterIP**: Exposes the service on a cluster-internal IP. Choosing this value makes the service only reachable from within the cluster.
+-> NodePort: Exposes the service on each Node’s IP at a static port (the NodePort). You’ll be able to contact the NodePort service, from outside the cluster, by requesting NodeIP:NodePort.
+-> LoadBalancer: Exposes the service externally using a cloud provider’s load balancer.
+
+- Config de l'url externe :
+
+The external URL for Harbor core service is used to:
+-> populate the docker/helm commands showed on portal
+-> populate the token service URL returned to docker/notary client
+
+Format: protocol://domain[:port]. Usually:
+
+if expose the service via Ingress, the domain should be the value of expose.ingress.hosts.core
+
+if expose the service via ClusterIP, the domain should be the value of expose.clusterIP.name
+
+if expose the service via NodePort, the domain should be the IP address of one Kubernetes node
+
+if expose the service via LoadBalancer, set the domain as your own domain name and add a CNAME record to map the domain name to the one you got from the cloud provider
+
+If Harbor is deployed behind the proxy, set it as the URL of proxy.
+
+- Configure the way how to persistent data
+Disable: The data does not survive the termination of a pod.
+
+Persistent Volume Claim(default): A default StorageClass is needed in the Kubernetes cluster to dynamic provision the volumes. Specify another StorageClass in the storageClass or set existingClaim if you have already existing persistent volumes to use.
+
+External Storage(only for images and charts): For images and charts, the external storages are supported: azure, gcs, s3 swift and oss.
+
+Configure the secrets
+Secret keys: Secret keys are used for secure communication between components. Fill core.secret, jobservice.secret and registry.secret to configure.
+
+Certificates:
+
+notary: Used for authentication during communications. Fill notary.secretName to configure. Notary server certificate must be issued with notary service name as subject alternative name.
+
+core: Used for token encryption/decryption. Fill core.secretName to configure.
+
+Secrets and certificates must be setup to avoid changes on every Helm upgrade (see: #107).
+
+- Installation :
+helm install my-release harbor/harbor
+
+- Désitallation :
+helm uninstall my-release
+
+

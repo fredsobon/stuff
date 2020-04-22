@@ -1,0 +1,165 @@
+=== notes sonobuoy : ===
+
+https://sonobuoy.io/
+
+https://github.com/cncf/k8s-conformance/blob/master/instructions.md
+
+
+Pour customiser nos tests ( import d'imgs) 
+https://cormachogan.com/2019/07/24/validating-kubernetes-cluster-conformance-with-sonobuoy/
+
+sonobuoy va permettre de lancer des tests e2e (end to end) sur nos clusters kube.
+Il utilise les test kubernetes
+On peut donc certifier la validité de notre conf kube
+
+1/ install  :
+
+$ VERSION=0.16.1 OS=linux && \
+    curl -L "https://github.com/vmware-tanzu/sonobuoy/releases/download/v${VERSION}/sonobuoy_${VERSION}_${OS}_amd64.tar.gz" --output $HOME/bin/sonobuoy.tar.gz && \
+    tar -xzf $HOME/bin/sonobuoy.tar.gz -C $HOME/bin && \
+    chmod +x $HOME/bin/sonobuoy && \
+    rm $HOME/bin/sonobuoy.tar.gz
+
+
+
+
+Attention : plusieurs images hébergéses sur le net sont à utiliser .;si nous n'avons pas acces ..il va falloir les mettre dans notre registry,  préparer la conf sous forme de yaml de sonobuoy et l'appliquer avec kubectl ..
+
+une fois nos ressources créer on peut utiliser sonobuoy :
+
+sonobuoy gen --config
+on copie la sortie standart yaml dans un fichier et on lance les objects kube :
+
+kubectl create -f sonobuoy.yaml
+
+
+2/ lancer un test de conformité kube ( conformance) 
+
+sonobuoy run -
+
+sonobuoy run --wait : test rapide pour valider la conf kube 
+
+on peut lancer des tests en fonctions des plugins desirés (e2e ou systemd) 
+
+# Run just the e2e plugin
+$ sonobuoy run --plugin e2e
+
+# Run your custom plugin and the systemd-logs gatherer
+$ sonobuoy run --plugin customPlugin.yaml --plugin systemd-logs
+
+
+3/ pour analyser les résultats : 
+
+a la fin du test on peut recupérer le fichier de test : 
+
+sonobuoy retrieve                                       
+201911281800_sonobuoy_d4bb2757-bf92-4ec0-8958-7e85e3d85cdc.tar.gz
+
+results=$(sonobuoy retrieve)
+sonobuoy results $results
+
+tarball=201911281800_sonobuoy_d4bb2757-bf92-4ec0-8958-7e85e3d85cdc.tar.gz
+
+sonobuoy results $tarball --plugin systemd-logs         [☸ kube-infra:fso]
+Plugin: systemd-logs
+Status: passed
+Total: 6
+Passed: 6
+Failed: 0
+Skipped: 0
+
+boogie$ sonobuoy results $tarball --plugin e2e                  [☸ kube-infra:fso]
+Plugin: e2e
+Status: failed
+Total: 1
+Passed: 0
+Failed: 1
+Skipped: 0
+
+Failed tests:
+BeforeSuite
+
+
+
+on peut avoir différents mode d'analyse :
+
+
+sonobuoy results $tarball --mode=detailed  <<< detail complet 
+
+on peut filtrer l'exam de nos resultats sur un type de plugin et une recherche de pattern.
+ex : ici on cherche le detail du resultat failed du plugin end to end (e2e) :
+
+sonobuoy results $tarball --plugin e2e --mode detailed | jq 'select(.status=="failed")'
+
+4/ pour cleaner 
+sonobuoy delete --wait
+
+5/ monitoring des tests : 
+
+$ sonobuoy status                                       
+         PLUGIN     STATUS   RESULT   COUNT
+            e2e    running                1
+   systemd-logs   complete                6
+
+Sonobuoy is still running. Runs can take up to 60 minutes.
+
+
+sonobuoy status --json 
+
+{"plugins":[{"plugin":"e2e","node":"global","status":"complete","result-status":"failed","result-counts":{"failed":1}},{"plugin":"systemd-logs","node":"zinfpaasmaster01bv","status":"complete","result-status":"passed","result-counts":{"passed":6}},{"
+
+sonobuoy status --json |jq .                            [☸ kube-infra:fso]
+{
+  "plugins": [
+    {
+      "plugin": "e2e",
+      "node": "global",
+      "status": "complete",
+      "result-status": "failed",
+      "result-counts": {
+        "failed": 1
+      }
+
+
+
+
+
+on peut exminer les logs :
+
+sonobuoy logs 
+
+
+
+====
+
+Prerequisites
+Access to an up-and-running Kubernetes cluster. If you do not have a cluster, we recommend following the AWS Quickstart for Kubernetes instructions.
+
+An admin kubeconfig file, and the KUBECONFIG environment variable set.
+
+For some advanced workflows it may be required to have kubectl installed. See installing via Homebrew (MacOS) or building the binary (Linux).
+
+The sonobuoy images subcommand requires Docker to be installed. See installing Docker.
+
+Getting Started
+To launch conformance tests (ensuring CNCF conformance) and wait until they are finished run:
+
+sonobuoy run --wait
+Note: Using --mode quick will significantly shorten the runtime of Sonobuoy. It runs just a single test, helping to quickly validate your Sonobuoy and Kubernetes configuration.
+
+Get the results from the plugins (e.g. e2e test results):
+
+results=$(sonobuoy retrieve)
+Inspect results for test failures. This will list the number of tests failed and their names:
+
+sonobuoy results $results
+Note: The results command has lots of useful options for various situations. See the results page for more details.
+
+You can also extract the entire contents of the file to get much more detailed data about your cluster.
+
+Sonobuoy creates a few resources in order to run and expects to run within its own namespace.
+
+Deleting Sonobuoy entails removing its namespace as well as a few cluster scoped resources.
+results=$(sonobuoy retrieve)
+
+sonobuoy delete --wait

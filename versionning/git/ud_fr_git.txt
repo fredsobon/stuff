@@ -1,0 +1,1838 @@
+=== git udemy fr ===
+
+= intro : 
+on va versionnier : historiser notre code.
+historiquement on copiait nos fichiers pour backuper. il n'y avait pas de metadata (auteur, date ....).On a ensuite ajouter des bdd. Viennent ensuitee les veritables vcs : on centralise les projets sur un repo central. Si on a le serveur hs : pls personne ne peut travailler.
+On va ensuite avoir les systeme distribuer : on recupere tous les projets en local sur notre poste : on en dépend plus d'un seul server.
+git : libre et distribué.
+gihub heberge la plupart des projets de code.
+
+= set up : 
+
+linux :
+sudo apt install git-all ( on install git et les applis graphiques rattachées à git.)
+
+config : 
+on va renseigner le nm et mailbox de notre conf git 
+
+git config --global 
+
+> on configure l'ensemble des infos pour nos projets 
+
+git config --global user.name="boogie"
+git config --global user.mail="boogie@lapin.net"
+
+check :
+
+on peut examiner la conf global de notre setting git avec : 
+git config --global --list 
+
+user.name=boogie
+user.email=boogie@lapin.net
+core.editor=vim
+diff.tool=meld
+alias.co=checkout
+alias.br=branch
+alias.st=status
+alias.unstage=reset --soft HEAD^
+alias.com=commit
+alias.com-am=commit -am
+
+on voit dans notre example que la conf globale comporte des éléments supplementaires comm des alias , l'editeur de texte par default utilisé avec git , l'outil de diff utilisé dans git ...
+
+git sans params nous donne l'équivalent de git --help
+
+= utilisation de base de git : 
+
+
+- notions git :
+
+- repo /depo : on va transformer un rep sur notre poste pour le transformer en repo git. 
+le repo git contiendra differentes informations 
+
+un dossier caché .git est crée à la creation du depot avec la commande git init.
+ce dossier caché va contenir les informations permettant de traiter le dossier comme un repo git.
+- l'historique 
+- la zone d'index 
+- ensemble d'info pour le fonctionnement de git.
+
+3 grandes phases d'enregistrement des modifs d'un projet dans git :
+
+-> dossier de travail : on modifie notre code dans un repertoire
+
+
+-> zone d'index : va contenir toutes le modifs que veut garder et selectionner et les ajouter. Celles ci seront mises "en packet" et injectées dans l'historique git.
+on peut désindexer des modifs ( elles retourneront dans notre zone / dossier de travail. 
+
+-> une fois qu'on a selectionner nos modifs on va pouvoir les historiser en les commitant dans le dépot local.
+
+- creation de repo :
+
+pour utiliser git on créer un repo :
+mkdir mon_site_web && cd mon_site_web
+
+git init    
+Initialized empty Git repository in /home/boogie/Documents/lab/worksop_git/mon_site_web/.git/
+
+- mise en place du projet :
+
+on ajoute un fichier  hello.html et un style.css
+
+avec git status on voit que deux fichiers sont présents dans le repo mais pas suivi par git :
+
+ boogie@boogieland  ~/Documents/lab/workshop_git/mon_site_web   master  git status
+On branch master
+
+No commits yet
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+
+	hello.html
+	sty.css
+
+nothing added to commit but untracked files present (use "git add" to track)
+
+
+on va donc ajouter les fichiers pour qu'il soient intégrés dans la zone d'index  de git.
+
+git add <fichier> va indexer les fichiers dans notre repo
+
+git add hello.html style.css
+
+on verifie avec git status :
+
+git st
+On branch master
+
+No commits yet
+
+Changes to be committed:
+  (use "git rm --cached <file>..." to unstage)
+
+	new file:   hello.html
+	new file:   style.css
+
+
+pour désindexer un fichier ( le sortir de la zone d'index pour supprimer des modifs par exemple.) 
+
+git reset <fichier>
+
+git reset hello.html
+on verifie avec git status la nouvelle modif :
+
+git status 
+On branch master
+
+No commits yet
+
+Changes to be committed:
+  (use "git rm --cached <file>..." to unstage)
+
+	new file:   style.css
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+
+	hello.html
+
+
+on remet le fichier hello.html dans la zone d'index 
+git add . ( on met toutes les modifs de la zone de travail dans la zone d'index.)
+
+- Commit :
+
+maintenant que nos fichiers sont dans la zone d'index on va réaliser un commit.
+
+git commit -m "message" 
+
+on va ajouter un message précisant le detail en général de notre commit.
+ git commit -m "mon premier commit"
+[master (root-commit) 9778b53] mon premier commit
+ 2 files changed, 102 insertions(+)
+ create mode 100644 hello.html
+ create mode 100644 style.css
+
+on check on voit que notre rep de travail est clean 
+
+git status
+On branch master
+nothing to commit, working tree clean
+
+on modifie notre fichier hello.html pour ajouter en lign 16 l'instruction chargeant le style graphique : top-banner :
+
+      <div id=top-banner>
+on recharge la page html et on voit un un style plus graphique.
+
+un git status nous montre que le fichier a été modifié 
+
+on va pouvoir examiner les differences entre les modif du workspace et celle enregistrées dans le depot avec la commande git diff
+
+git diff <nomdefichier1....>  : on examine les diffs entre notre fichier modifié dans le workspace et le fichier enregistré dans le repo
+
+ou 
+git diff pour voir toutes les modifs entre le workspace et le repo
+
+
+git diff hello.html
+
+
+diff --git a/hello.html b/hello.html
+index ada4889..e55a02e 100644
+--- a/hello.html
++++ b/hello.html
+@@ -13,9 +13,9 @@
+        <body>
+
+                <!-- TITRE -->
+-               <div>
++               <div id=top-banner>^M
+                        Bienvenue dans cette formation GIT !
+                </div>
+
+        </body>
+-</html>
+\ No newline at end of file
++</html>^M
+
+on ajoute nos modifs 
+git add hello.html
+on check 
+git diff : ne nous renvoie plus de diff entre notre zone d'index et notre repo
+
+on peut voir les modifs en cours dans la zone d'indexage avec :
+
+git diff --cached 
+
+diff --git a/hello.html b/hello.html
+index ada4889..e55a02e 100644
+--- a/hello.html
++++ b/hello.html
+@@ -13,9 +13,9 @@
+        <body>
+
+                <!-- TITRE -->
+-               <div>
++               <div id=top-banner>^M
+                        Bienvenue dans cette formation GIT !
+                </div>
+
+        </body>
+-</html>
+\ No newline at end of file
++</html>^M
+(END)
+
+
+..on retouvre bien les modifs effectuées.
+
+on commit nos modifs avec un bon message : 
+git commit -m 'ajout du top banner'
+[master 2b4c399] ajout du top banner
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+
+= historique git :
+
+l'historique d'un repo git correspond a un ensemble de vcommit reliés ensemble par un pointer.
+un ensemble de commit reliés entre eux constitue une branche. 
+Tout projet à une branche principale nommée "master"
+
+un commit comporte 
+un id de 40 caracteres appellés sha1
+un ensemble de modif
+commentaire decrivant le commit
+infos sur l'auteur
+date de creation
+liste des cha1 de son ou ses parents.
+
+- tag :
+
+notion tres importante dans git :
+un tag est un intitulé suivi d'un pointeur vers un commit
+(intitule / sha1)
+
+Toutes les branches de git possede un tag a son nom : branche master possede un tag master
+La particularité de ces tag de branche est qu'il pointent toujours sur le dernier commit de la branche ( si notre branche est au commit "d" et qu'on ajoute des données : le tag de la branche suivra et sera donc au commit "e"
+
+on peut créer des tags sur un commit et ces tags personnels eux ne suivent pas l'evolution de la branche.
+
+
+Git gere aussi un autre pointeur "head"
+le commit sur lequel nous travaillons en ce moment.
+
+- afficher nos commits :
+
+git log 
+
+on peut voir les différentes info (head : on voit sur quel commit on est en ce moment, on voit la date , les modifs , l'auteur ..et biensur le num de commit.)
+
+
+commit 73bb937fba2790ad40c577c3ebbcd1ce59c00731 (HEAD -> master)
+Author: fredsobon <frederic.sobon@gmail.com>
+Date:   Mon Apr 13 17:47:55 2020 +0200
+
+    add comment in block
+
+commit 99d3be156546500cc59705c96acf3df3e4ed9a74
+Author: fredsobon <frederic.sobon@gmail.com>
+Date:   Mon Apr 13 17:46:09 2020 +0200
+
+    add comment in block
+
+commit 2b4c3993793ae41d394d047013aaed517005ce96
+Author: fredsobon <frederic.sobon@gmail.com>
+Date:   Mon Apr 13 17:42:24 2020 +0200
+
+    ajout du top banner
+
+commit 9778b533e448535ec30bbb8c0b26e224e1969d6c
+Author: fredsobon <frederic.sobon@gmail.com>
+Date:   Mon Apr 13 17:28:30 2020 +0200
+
+    mon premier commit
+
+on peut afficher un nombre voulu de commit :
+git log -n nombre voulu 
+
+
+git log -n 2 
+
+commit 73bb937fba2790ad40c577c3ebbcd1ce59c00731 (HEAD -> master)
+Author: fredsobon <frederic.sobon@gmail.com>
+Date:   Mon Apr 13 17:47:55 2020 +0200
+
+    add comment in block
+
+commit 99d3be156546500cc59705c96acf3df3e4ed9a74
+Author: fredsobon <frederic.sobon@gmail.com>
+Date:   Mon Apr 13 17:46:09 2020 +0200
+
+    add comment in block
+
+- afficher le contenu d'un commit :
+
+on recupere le num de commit qui nous interresse puis :
+
+git show numcommit
+
+
+git show 99d3be156546500cc59705c96acf3df3e4ed9a74
+
+commit 99d3be156546500cc59705c96acf3df3e4ed9a74
+Author: fredsobon <frederic.sobon@gmail.com>
+Date:   Mon Apr 13 17:46:09 2020 +0200
+
+    add comment in block
+
+diff --git a/hello.html b/hello.html
+index e55a02e..127fe4d 100644
+--- a/hello.html
++++ b/hello.html
+@@ -16,6 +16,9 @@
+                <div id=top-banner>
+                        Bienvenue dans cette formation GIT !
+                </div>
++                <div>^M
++                        <p> "hello boogieman !!</p>     ^M
++                </div>^M
+
+        </body>
+   <html>      
+
+   
+on peut aussi afficher les modif en utilisant les tags a la place des num de commit 
+
+ex :
+git show master 
+
+commit 73bb937fba2790ad40c577c3ebbcd1ce59c00731 (HEAD -> master)
+Author: fredsobon <frederic.sobon@gmail.com>
+Date:   Mon Apr 13 17:47:55 2020 +0200
+
+    add comment in block
+
+diff --git a/hello.html b/hello.html
+index 127fe4d..c417846 100644
+--- a/hello.html
++++ b/hello.html
+@@ -17,7 +17,7 @@
+                        Bienvenue dans cette formation GIT !
+                </div>
+                 <div>
+-                        <p> "hello boogieman !!</p>
++                        <p> "hello boogieman !!"</p>     ^M
+                 </div>
+
+
+- Navigation dans l'historique :
+
+on va pouvoir se deplacer dans l'historique de git 
+
+git checkout <numdecommit>
+
+ex: si on se deplace dans le deuxieme commit ( apres avoir trouver le num de commit avec git log ) 
+git checkout 2b4c3993793ae41d394d047013aaed517005ce96
+Note: checking out '2b4c3993793ae41d394d047013aaed517005ce96'.
+
+You are in 'detached HEAD' state. You can look around, make experimental
+changes and commit them, and you can discard any commits you make in this
+state without impacting any branches by performing another checkout.
+
+If you want to create a new branch to retain commits you create, you may
+do so (now or later) by using -b with the checkout command again. Example:
+
+  git checkout -b <new-branch-name>
+
+HEAD is now at 2b4c399 ajout du top banner
+
+On voit maintenant que head pointe sur le num de commit voulu ( on a voyagé dans le temps.)
+
+Si on fait un git log nous n'aurons que les deux premiers commits en historique : ce qui est normal vu que c'a n'existe pas encore. )
+git log affiche les commits avant le tag HEAD
+
+pour revenir dans la versin la plus recente on va pouvoir donc faire 
+
+git checkout master
+
+- Creation et utilisation de tag :
+
+pour naviguer plus facilement dans l'historique on va pouvoir utiliser des tags.
+
+on va pouvoir utiliser les tags pour identifier précisement un commit : ex site v.0.01, V1 , V2.4 ..
+
+pour tagger un commit : on le repere (git log) , on se met dedans git checkout numcommit
+
+git checkout 2b4c3993793ae41d394d047013aaed517005ce96
+
+git tag nomdutag
+
+git tag bob
+
+en faisant un git log on a l'info du tag crée qui apparait bien :
+
+
+commit 2b4c3993793ae41d394d047013aaed517005ce96 (HEAD, tag: bob)
+Author: fredsobon <frederic.sobon@gmail.com>
+Date:   Mon Apr 13 17:42:24 2020 +0200
+
+    ajout du top banner
+
+commit 9778b533e448535ec30bbb8c0b26e224e1969d6c
+Author: fredsobon <frederic.sobon@gmail.com>
+Date:   Mon Apr 13 17:28:30 2020 +0200
+
+    mon premier commit
+
+
+pour changer le nom du tafg on peut supprimer le tag qui nous gène :
+
+git tag --delete nomdetag
+
+git tag --delete bob
+Deleted tag 'bob' (was 2b4c399)
+
+on remet un nom de tag plus précis : ( on peut donner un message pour information avec "-m" )
+
+git tag monsite-v1 -m "la premiere version du site"
+
+commit 2b4c3993793ae41d394d047013aaed517005ce96 (HEAD, tag: monsite-v1)
+Author: fredsobon <frederic.sobon@gmail.com>
+Date:   Mon Apr 13 17:42:24 2020 +0200
+
+    ajout du top banner
+
+commit 9778b533e448535ec30bbb8c0b26e224e1969d6c
+Author: fredsobon <frederic.sobon@gmail.com>
+Date:   Mon Apr 13 17:28:30 2020 +0200
+
+    mon premier commit
+
+on retourne dans le commit master 
+
+pour voir la liste des tags :
+
+
+git tag 
+
+
+monsite-v1
+
+on peut maintenant retourner dans le commit voulu avec le tag :
+git checkout monsite-v1
+Note: checking out 'monsite-v1'.
+
+You are in 'detached HEAD' state. You can look around, make experimental
+changes and commit them, and you can discard any commits you make in this
+state without impacting any branches by performing another checkout.
+
+If you want to create a new branch to retain commits you create, you may
+do so (now or later) by using -b with the checkout command again. Example:
+
+  git checkout -b <new-branch-name>
+
+HEAD is now at 2b4c399 ajout du top banner
+
+
+= github :
+
+plateforme en ligne pour herberger les depots git.
+
+pull request : proposition d'amelioration de code pour un repo qui n'est pas à la base le notre. 
+
+gist : partage de bout de code.
+
+- gist :
+
+outil permettant de partager du code 
+ex: sur un forum on peut donner un gist pour se faire aider 
+
+ex creer un gist :
+
+-> donner un nom pour le bout de code "Hello World !"
+-> on ajoute le nom du fichier en précisant l'extension ( c'est important cela active la coloration syntaxique.) : ex : hello_world.py 
+-> mettre dans le champ dédié le bout de code
+print("hello jazzyworld !!")
+-> puis créer secret ou public gist.
+
+on peut updater le code , on voit les modifs dans le champ revision, on peut partager le code via un lien etc...
+on peut selectionner le lien du gist une fois avoir choisi embded 
+
+et coller ce lien dans un doc html de notre repo par exemple :
+                <!-- gist -->
+                <h1> my gist </h1>
+                <div>
+                <p><script src="https://gist.github.com/boogie777/2c9f483ae5313705cde9085cc39ba1f3.js"></script></p>
+                </div>
+
+
+en affichant la page dans le navigateur on aura la possibilité de voir le code et des indications de github sur notre page web créée
+
+- creation de repo :
+on creer un repo
+
+
+on peut ajouter un readme, le fichier .gitignore dans lequel on va ignorer des fichiers inutiles dans le repo
+une fois créee on peut utiliser les onglets : dont settings ( utilisation ou nom de wiki , hooks - script executé : ex quand on commit un script est lancé ..., etc ...)
+
+- exploration de repo github :
+
+ex : si on browse le contenu d'un repo 
+ex vim :
+on a l'onglet code qui permet d'examiner le code, les tags , l'historique 
+
+on peut examiner en cliquant sur l'onglet commits les différents commits : on peut voir le commentaire du commit, le sha1 du commit et en cliquant sur celui ci : le detail du commit , le sha1 du parent etc ...
+
+
+on peut voir la liste des branches 
+
+on peut voir l'onglet release : une release correspond a un tag posé sur le projet . on peut voir le num de commit correspondant au tag.
+
+on peut voir les différents contributeurs au projet.
+
+- utilisation des issues :
+
+va servir a remonter les différents pb rencontrés sur le projet, ou proposition d'evolution du projet
+on peut filter les taches 
+
+on peut crer un issue , associer un label afin de trier plus facilement notre issue
+on peut indiquer le num d'issue correspondant a un fix dans notre commit
+
+- pull request :
+on va pouvoir proposer des évolutions d'un projet sur lequel on a pas les droits d'ecriture.
+
+cela ce passe en plusieurs etapes :
+
+-> fork : on duplique le projet : on peut donc ecrire faire des commits dans ce projet.
+-> pull request : une fois qu'on a fait notre modif : on l'envoi au proprietaire du projet pour qu'il valide la modif dans le repo original.
+
+examen de pull request : on clic sur l'onglet pull request d'un projet
+
+un pull request est un peu comme un issue : il est composé d'un titre , d'un id.
+on peut voir des conversations etc ..
+
+pour créer une pull request on doit d'abord faire un fork : en clicant sur fork github crée une copie du projet et la met dans notre compte github : on a donc un nouveau repo dans notre arbo de projets.
+
+= Utilisation d'un repo distant :
+
+on va donc utiliser github 
+on va pouvoir avoir une sauvegarde du repo et pouvoir travailler en equipe.
+
+on va avoir un type de modele distribué : tout le code sera sur chaque poste des users du projet
+on va donc pouvoir cloner le repo ( on a donc tous les commits présents ) 
+
+- cloner un repo :
+
+on va recup notre repo distant :
+
+git clone remote_folder 
+
+ depot distant ( origin )              depot local
+   
+   master >   C         git clone       master              C
+              B                         origin/master       B
+              A                                             A
+  
+on a lors du clone l'ajout automatique du remote qui sera donc origin  
+on a donc dans le repo local 2 tags 
+-> master : qui nous montre ou est le dernier commit de notre repo local
+-> origin/master : qui nous montre ou est le dernier commit sur notre repo distant
+
+git clone https://github.com/boogie777/draft_website.git
+
+on va modifier notre user et mailadress pour gérer notre conf avec le repo distant
+
+git config user.name "boogie777"
+git config user.email jazz77777@gmail.com
+
+un check du .git/config nous montre la conf : 
+
+[core]
+        repositoryformatversion = 0
+        filemode = true
+        bare = false
+        logallrefupdates = true
+[remote "origin"]
+        url = https://github.com/boogie777/draft_website.git
+        fetch = +refs/heads/*:refs/remotes/origin/*
+[branch "master"]
+        remote = origin
+        merge = refs/heads/master
+[user]
+        name = boogie777
+        email = jazz77777@gmail.com
+
+on peut voir la liste des remotes dans notre rep cloné :
+ git remote -v                                                                                      
+origin	https://github.com/boogie777/draft_website.git (fetch)
+origin	https://github.com/boogie777/draft_website.git (push)
+
+on voit qu'on va recup les modif sur le remote (fetch) et pousser nos modifs sur le distants push 
+
+on peut voir les infos du repo remote : 
+git remote show origin                                                                             
+* remote origin
+  Fetch URL: https://github.com/boogie777/draft_website.git
+  Push  URL: https://github.com/boogie777/draft_website.git
+  HEAD branch: master
+  Remote branch:
+    master tracked
+  Local branch configured for 'git pull':
+    master merges with remote master
+  Local ref configured for 'git push':
+    master pushes to master (up to date)
+
+
+on a cloner le repo distant mais celui ci est vide 
+un depot remote est un pointeur vers un autre repos qui va nous servir de référence.
+
+notre premier repo de travail : contenant notre code ne porte pas le meme nom que le repo distant : on renomme notre repo local comme le disant : mv mon_site_web draft_website
+
+pour ajouter un repo remote on peut utiliser les commandes suivantes  :
+
+git remote add origin https://github.com/boogie777/draft_website.git
+ boogie@boogieland  ~/Documents/lab/workshop_git/mon_site_web   master  git remote -v
+origin	https://github.com/boogie777/draft_website.git (fetch)
+origin	https://github.com/boogie777/draft_website.git (push)
+
+
+- envoi des commits de notre repo initial sur le repo distant :
+
+git push -u origin master  
+Username for 'https://github.com': boogie777
+Password for 'https://boogie777@github.com': 
+Enumerating objects: 5, done.
+Counting objects: 100% (5/5), done.
+Delta compression using up to 8 threads
+Compressing objects: 100% (4/4), done.
+Writing objects: 100% (4/4), 1.26 KiB | 1.26 MiB/s, done.
+Total 4 (delta 0), reused 0 (delta 0)
+To https://github.com/boogie777/draft_website.git
+   258e058..0d3ee27  master -> master
+
+/!\ des problemes sont apparus ( du fait d'une premiere copie des fichiers de code dans le rep clone puis poussés sur origin : quand on a voulu pousser les fichiers de notre repo original renommé le push n'a pas pu se faire : on a été obligés de forcer le push 
+git push -u origin master -f
+Username for 'https://github.com': boogie777
+Password for 'https://boogie777@github.com':
+Enumerating objects: 22, done.
+Counting objects: 100% (22/22), done.
+Delta compression using up to 8 threads
+Compressing objects: 100% (22/22), done.
+Writing objects: 100% (22/22), 2.80 KiB | 1.40 MiB/s, done.
+Total 22 (delta 6), reused 0 (delta 0)
+remote: Resolving deltas: 100% (6/6), done.
+To https://github.com/boogie777/draft_website.git
+ + 0d3ee27...fd801fb master -> master (forced update)
+Branch 'master' set up to track remote branch 'master' from 'origin'.
+
+si on examine le repo sur github : nos modifs sont bien poussées ..
+
+Attention les tags initiaux ont disparus car ils ne sont pas poussés sur le remote 
+
+pour pousser un tag de notre repo local vers origin :
+on le selectionnet et on passe la commande :
+
+git push origin montag 
+
+ex: 
+git tag 
+mon_site_v2
+monsite-v1
+
+git push origin monsite-v1
+Username for 'https://github.com': boogie777
+Password for 'https://boogie777@github.com':
+Enumerating objects: 1, done.
+Counting objects: 100% (1/1), done.
+Writing objects: 100% (1/1), 174 bytes | 174.00 KiB/s, done.
+Total 1 (delta 0), reused 0 (delta 0)
+To https://github.com/boogie777/draft_website.git
+
+on a maintenant sur notre remote github notre tag de présent .
+
+on selectionne l'onglet branche et la on voit branche / tag : on selectionne tag : et on voit notre tag monsite-v1 de présent.
+
+
+on peut pousser tous les tags avec la commandes :
+git push origin ( qui peut etre facultatif puisque git va utiliser origin de base ) --tags 
+-> tous nos tags sont visibles sur github désormais.
+
+
+on a pour la suite deux repos :
+
+draft_website : le repo mon_site_web renommé
+draft_website.old : le clone de notre remote que l'on a aussi renommé 
+
+
+- recuperation des modifs distantes en local :
+
+on va pouvoir avoir des commits sur le repo distant non présentes sur le local 
+ex: 
+  remote                                         local
+
+  master >  D                                   
+            C                                     master  > C
+            B                                 origin/master B
+            A                                               A
+
+on va utiliser la commande fetch qui permettra d'avoir le repo local à jour avec le distant 
+dans ce cas on aura 
+  git fetch 
+
+  remote                                         local
+
+  master >  D                                origin/master> D
+            C                                     master  > C
+            B                                               B
+            A                                               A
+
+on voit que notre branche master locale elle n'est pas à jour 
+on va utiliser donc la commande git pull et on aura : 
+
+  remote                                         local
+
+                                             master
+  master >  D                                origin/master> D
+            C                                               C
+            B                                               B
+            A                                               A
+
+
+on peut faire un git pull directement ( cette commande comporte  un git fetch intégré)  
+
+
+si on va dans notre repo draft_website.old et qu'on fait un fecth : on récupere bien les modifs présentes sur le remote ( dont les tags poussés depuis le repo draft_website ) 
+git fetch
+remote: Enumerating objects: 23, done.
+remote: Counting objects: 100% (23/23), done.
+remote: Compressing objects: 100% (17/17), done.
+remote: Total 23 (delta 6), reused 23 (delta 6), pack-reused 0
+Unpacking objects: 100% (23/23), done.
+From https://github.com/boogie777/draft_website
+ + 0d3ee27...fd801fb master     -> origin/master  (forced update)
+ * [new tag]         mon_site_v2 -> mon_site_v2
+ * [new tag]         monsite-v1  -> monsite-v1
+
+
+
+on peut avoir un souci avec l'impossibilité de pull ( pb de méconnaissance de repos entre eux : dans notre cas draft_website.old et draft_website qui ont le meme remote ) :
+solution : 
+git pull origin master --allow-unrelated-histories
+git pull origin master --allow-unrelated-histories
+From https://github.com/boogie777/draft_website
+ * branch            master     -> FETCH_HEAD
+Auto-merging hello.html
+CONFLICT (add/add): Merge conflict in hello.html
+Automatic merge failed; fix conflicts and then commit the result.
+
+
+on a un conflit dans le fichier hello.html suite à une modif faite et poussée depuis le repo draft_website .on modifie le fichier dans la branche draft_website.old pour fixer le conflit puis add et commit 
+git commit -am 'fix conflict in hello.html'
+
+[master cc460fd] up
+ boogie@boogieland  ~/Documents/lab/workshop_git/draft_website.old   master  git pull origin master --allow-unrelated-histories
+From https://github.com/boogie777/draft_website
+ * branch            master     -> FETCH_HEAD
+Already up to date.
+
+
+un git log permet de voir que l'historique des modifs est bien présents dans notre repo local.
+
+- commit avec issue link :
+
+on peut créer un issue sur le remote.
+sur notre repos local on va corriger notre code puis dans notre commit indiquer le num d'issue présent sur le remote correspondant au fix :
+
+ex: 
+git commit -am '#1: add dummy readme'
+
+on pousse et on voit sur github le commit et un lien vers l'issue directement clicable.
+on peut donc ensuite fermer l'issue dans l'interface github quand notre bug est fixé
+
+quand on va dans le repo draft_website on peut récup les modifs avec un git pull 
+ git pull
+remote: Enumerating objects: 16, done.
+remote: Counting objects: 100% (16/16), done.
+remote: Compressing objects: 100% (10/10), done.
+remote: Total 14 (delta 1), reused 14 (delta 1), pack-reused 0
+Unpacking objects: 100% (14/14), done.
+From https://github.com/boogie777/draft_website
+   fd801fb..9641fa8  master     -> origin/master
+Updating fd801fb..9641fa8
+Fast-forward
+ README.md | 3 +++
+ 1 file changed, 3 insertions(+)
+ create mode 100644 README.md
+
+on est donc à jour.
+
+
+=  Travail en équipes : 
+
+- plusieurs methodes de travai en equipes. il en existe de très nombreuses. en voii quelques unes.
+
+->   centralisée :
+            repot central
+   dev1         dev2       dev3
+Chacun des devs va travailler sur son env local et pousser dans le repos centralisé. LEs modifs faites par chacuns des devs pourront être récup par tous les autres.
+C'est ce qu'on a fait precedemment :
+    repo central sur github   
+draft_website                                   draft_website.old
+(avec user bob dans .git/config                 avec boogie777 comme user dans .git/config
+
+-> gestion d'integration : c'est celle qui est utilisée quand on fait des pull requests ( donc que les dev n'ont pas les droits d'ecriture sur le repo central )
+        repo central distant      dev1 fork        dev2 fork
+         integration                 dev1              dev2
+ on a un repo central 
+ des devs recupere le repo central en local: ils dev et poussent un fork dans le repos distants 
+ un integrateur va recupérer tous les forks et  valider le code des fork , fusionner le tout et pousser dans le repo central.
+
+-> gestion dictateur  
+cela ressemble a la gestion d'integration mais en rajoutant un etage de plus :
+        dictateur           repo central  
+
+        lieutenant1       lieutenant2
+
+          dev1              dev2
+on va avoir un repo central 
+des devs vont recup le repo faire leur amélioration pousser vers des repos de lieutenant qui chacun seront responsable d'un fonctionnalité du repo principale
+les lieutenant enverront au dictateur qui fusionnera les travaux des lieutenant et enverra au repo central
+
+- gestion des modifications :
+
+A plusieurs il va etre compliquer de gérer toutes les mises a jours. Des outils sont à dipos pour git
+-> git log
+-> git show numcommit 
+-> git diff
+
+d'autre outil existe 
+
+git blame nomdefichier : nous donne toutes les infos voulues 
+
+git blame hello.html
+
+^9778b53 (fredsobon 2020-04-13 17:28:30 +0200  1) <!DOCTYPE html>
+^9778b53 (fredsobon 2020-04-13 17:28:30 +0200  2) <html lang="fr">
+^9778b53 (fredsobon 2020-04-13 17:28:30 +0200  3)     <head>
+^9778b53 (fredsobon 2020-04-13 17:28:30 +0200  4)         <meta charset="utf-8">
+fd801fbd (fredsobon 2020-04-18 11:44:23 +0200  5)         <title>dummy page</title>
+^9778b53 (fredsobon 2020-04-13 17:28:30 +0200  6)         <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+^9778b53 (fredsobon 2020-04-13 17:28:30 +0200  7)
+^9778b53 (fredsobon 2020-04-13 17:28:30 +0200  8)               <link rel="stylesheet" href="style.css">
+^9778b53 (fredsobon 2020-04-13 17:28:30 +0200  9)
+
+on voit le sha1 du dernier commit 
+on voit le num de ligne de notre fichier 
+si le commit commence par ^ c'est que le fichier a été créee avec ce commit
+
+on peut filtrer la sortie de git blame :
+
+-> ex: afficher les lignes 1 à 5 de notre historique de fichier 
+git blame -L 1,5 hello.html
+
+^9778b53 (fredsobon 2020-04-13 17:28:30 +0200 1) <!DOCTYPE html>
+^9778b53 (fredsobon 2020-04-13 17:28:30 +0200 2) <html lang="fr">
+^9778b53 (fredsobon 2020-04-13 17:28:30 +0200 3)     <head>
+^9778b53 (fredsobon 2020-04-13 17:28:30 +0200 4)         <meta charset="utf-8">
+fd801fbd (fredsobon 2020-04-18 11:44:23 +0200 5)         <title>dummy page</title>
+
+
+on eut afficher les modif d'un fichier a partir d'une ligne suivie du nombre de ligne désiré 
+ex : afficher le blame d'un fichier à partie de la ligne 2 suivie de 3 autres lignes : 
+
+git blame -L 2,+3 hello.html
+
+^9778b53 (fredsobon 2020-04-13 17:28:30 +0200 2) <html lang="fr">
+^9778b53 (fredsobon 2020-04-13 17:28:30 +0200 3)     <head>
+^9778b53 (fredsobon 2020-04-13 17:28:30 +0200 4)         <meta charset="utf-8">
+
+
+- Filtrer le contenu de nos commits :
+
+on va pouvoir volontairement ignorer la synchro dans git de certains rep, fichiers.
+Pour cela on alimente le fichier .gitignore de ce que l'on veut exlure de nos synchros.
+
+ex : mkdir tmp && cd tmp && echo "add misc content" > todo.txt
+on va ajouter  dans notre fichier gitignore ce qu'on veut exclure 
+ex :
+cat .gitignore
+tmp/todo.txt
+
+...le fichier todo.txt ne sera donc pas versionné i pri en compte pour nos commits : quand on push le commot sur github ..seul le fichier .gitignore apparait 
+
+- Mettre de coté des modifs en cours 
+
+on va pouvoir mettre de coté des modifs en cours
+
+ex :
+avec git checkout on peut revenir a une version de commit anterrieur pour debuger par exemple : si on a des modifs en cours dans notre workspace on sera bloqué.
+Il va falloir mettre de coté nos modifs en cours dans une zone spéciale la zone de stash 
+
+ex : on va dans le repos draft_website.old 
+git pull ( on recupere le fichier .gitignore poussé recemment dans le repo central depuis le repo draft_website. 
+
+ex on ajoute une autre exeption a notre .gitignore 
+cat .gitignore
+tmp/todo.txt
+tmp/*
+
+si on veut retourner a une version anterrieure au projet ex sur le tag v3 
+on a une erreur : 
+git checkout v3
+error: Your local changes to the following files would be overwritten by checkout:
+	.gitignore
+Please commit your changes or stash them before you switch branches.
+Aborting
+
+on voit que la modif locale doit être gérée 
+
+on va la mettre dans la zone de stash 
+
+git stash save "modif de gitignore"
+Saved working directory and index state On master: modif de gitignore
+
+
+on peut lister les fichiers mis de coté dans la zone de stah avec :
+
+git stash list 
+
+stash@{0}: On master: modif de gitignore
+
+
+on peut examiner le stash :
+
+git stash show num_de_stash
+
+git stash show 0 
+ .gitignore | 1 +
+ 1 file changed, 1 insertion(+)
+
+on peut donc maintenant aller dans notre commit / tag voulu :
+
+git checkout v3
+Note: checking out 'v3'.
+
+You are in 'detached HEAD' state. You can look around, make experimental
+changes and commit them, and you can discard any commits you make in this
+state without impacting any branches by performing another checkout.
+
+If you want to create a new branch to retain commits you create, you may
+do so (now or later) by using -b with the checkout command again. Example:
+
+  git checkout -b <new-branch-name>
+
+HEAD is now at af539ef #2: add dummy img
+
+on peut revenir dans notre commit actuel :
+
+git checkout master 
+
+et on va pouvoir réinjecter nos fichiers mis de coté avec la commande git stah pop num_index_pop
+git stash pop 0
+
+git stash pop 0
+On branch master
+Your branch is up to date with 'origin/master'.
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git checkout -- <file>..." to discard changes in working directory)
+
+	modified:   .gitignore
+
+no changes added to commit (use "git add" and/or "git commit -a")
+Dropped refs/stash@{0} (35f34bbad0dfa9f8d837e609cb05623b94262234)
+
+un git status nous montre qu'on a bien recup les modifs qui avaient été mises de coté :
+
+git st
+On branch master
+Your branch is up to date with 'origin/master'.
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git checkout -- <file>..." to discard changes in working directory)
+
+	modified:   .gitignore
+
+no changes added to commit (use "git add" and/or "git commit -a")
+
+
+- Merge de fichiers :
+
+merge : fusionner deux versions de même fichiers 
+
+en travaillant en // sur un même repo on peut avoir des soucis 
+
+ex: on a modifier le fichier .gitignore du repos draft_website.old , on a pousser la conf sur le repo global
+si on modifie sur le repo draft_website le fichier .gitignore sans avoir recup les diffs faites avant on va avoir un souci : un conflit 
+
+cat .gitignore
+tmp/todo.txt
+*.txt
+
+
+on a donc en faisant un git pull un souci puisque la ligne 2 du fichier est differente entre notre repo global et le local . Git ne peut pas fusionner les diff 
+
+git pull
+remote: Enumerating objects: 5, done.
+remote: Counting objects: 100% (5/5), done.
+remote: Compressing objects: 100% (1/1), done.
+remote: Total 3 (delta 1), reused 3 (delta 1), pack-reused 0
+Unpacking objects: 100% (3/3), done.
+From https://github.com/boogie777/draft_website
+   35a6ab6..0a784df  master     -> origin/master
+Updating 35a6ab6..0a784df
+error: Your local changes to the following files would be overwritten by merge:
+	.gitignore
+Please commit your changes or stash them before you merge.
+Aborting
+
+on va donc faire un stash pour mettre de coté notre taf en cours 
+git stash 
+Saved working directory and index state WIP on master: 35a6ab6 add .gitignore content file
+
+si on fait un git pull c'a passe par contre en faisant un git stash pop 0 on a toujours un conflict 
+
+git pull
+Updating 35a6ab6..0a784df
+Fast-forward
+ .gitignore | 1 +
+ 1 file changed, 1 insertion(+)
+ boogie@boogieland  ~/Documents/lab/workshop_git/draft_website   master  git stash pop
+Auto-merging .gitignore
+CONFLICT (content): Merge conflict in .gitignore
+
+on va devoir faire le merge manuellement 
+
+on va editer le fichier et modifier le fichier 
+
+on supprime les lignes ajoutées par git et faire notre modif 
+tmp/todo.txt
+<<<<<<< Updated upstream
+tmp/*
+=======
+*.txt
+>>>>>>> Stashed changes
+
+
+cat .gitignore
+tmp/todo.txt
+tmp/*
+*.txt
+
+
+maintenant on commit et on add et c'est ok 
+
+
+- Merge de commits : 
+
+on va pouvoir avoir des soucis sur le merge de commits 
+ex : dev1 modif le commit c , cree donc un commit d qu'il pousse sur le repo 
+dev2 modifie le commit c , cree un commit e : lorqu'il pousse sur le repo central il a une erreur puisqu'il n'a pas récup les modifs recentes. Le commit qu'il veut pousser n'a donc pas le même parent que sur le repo central : on a un conflit. 
+Il va falloir que dev2 recup les modifs du repo et merge son commit 
+
+ex: on modifie sur e repo draft_website.old le fichier .gitignore 
+cat .gitignore
+tmp/todo.txt
+tmp/*
+*.xml
+
+
+nous n'avons pas nos modifs recentes 
+
+git commit -am 'exclude xml files'
+[master 4bbc28a] exclude xml files
+ 1 file changed, 1 insertion(+)
+
+ git push
+Username for 'https://github.com': boogie777
+Password for 'https://boogie777@github.com':
+To https://github.com/boogie777/draft_website.git
+ ! [rejected]        master -> master (fetch first)
+error: failed to push some refs to 'https://github.com/boogie777/draft_website.git'
+hint: Updates were rejected because the remote contains work that you do
+hint: not have locally. This is usually caused by another repository pushing
+hint: to the same ref. You may want to first integrate the remote changes
+hint: (e.g., 'git pull ...') before pushing again.
+hint: See the 'Note about fast-forwards' in 'git push --help' for details.
+
+on recupere le commit distant avec le git pull mais on a toujours le conflit 
+
+git pull
+remote: Enumerating objects: 5, done.
+remote: Counting objects: 100% (5/5), done.
+remote: Compressing objects: 100% (1/1), done.
+remote: Total 3 (delta 1), reused 3 (delta 1), pack-reused 0
+Unpacking objects: 100% (3/3), done.
+From https://github.com/boogie777/draft_website
+   0a784df..ee4a716  master     -> origin/master
+Auto-merging .gitignore
+CONFLICT (content): Merge conflict in .gitignore
+Automatic merge failed; fix conflicts and then commit the result.
+
+cat .gitignore
+tmp/todo.txt
+tmp/*
+<<<<<<< HEAD
+*.xml
+=======
+*.txt
+>>>>>>> ee4a716187b0372b323f0f8283287f60ea8660f0
+
+
+on regle le conflit 
+cat .gitignore
+tmp/todo.txt
+tmp/*
+*.xml
+*.txt
+
+
+si on veut annuller nos modifs : 
+git merge --abord 
+on reviens dans l'etat de notre repos avant le pull 
+
+
+on commit et on push 
+ie@boogieland  ~/Documents/lab/workshop_git/draft_website.old   master ●✚ >M<  git commit -am 'fix conflict and push '
+[master e7c224c] fix conflict and push
+ boogie@boogieland  ~/Documents/lab/workshop_git/draft_website.old   master  git push
+Username for 'https://github.com': boogie777
+Password for 'https://boogie777@github.com':
+Enumerating objects: 10, done.
+Counting objects: 100% (10/10), done.
+Delta compression using up to 8 threads
+Compressing objects: 100% (4/4), done.
+Writing objects: 100% (6/6), 598 bytes | 598.00 KiB/s, done.
+Total 6 (delta 2), reused 0 (delta 0)
+remote: Resolving deltas: 100% (2/2), completed with 1 local object.
+To https://github.com/boogie777/draft_website.git
+   ee4a716..e7c224c  master -> master
+
+on va donc se retrouver avec la situation suivante dans l'historique de git :
+dev1 et dev 2 travaille chacun de leur coté ( dev1 créer un commit d , dev2 crée un commit e ) : 
+
+
+   dev 1                 repo central                           dev2
+
+       d                                                        e
+ 
+       c                        c                               c
+
+
+       b                        b                               b
+
+       a                        a                               a
+
+
+dev1 va pousser son ommit sur le repo central 
+
+
+   dev 1                 repo central                           dev2
+
+       d       push >           d                               e
+ 
+       c                        c                               c
+
+
+       b                        b                               b
+
+       a                        a                               a
+
+
+dev 2 n' pas recup les modifs du repo central et veut pousser son commit 
+on a une erreur car le repo de dev2 n'est pas à jour 
+
+   dev 1                 repo central                           dev2
+
+       d                        d        < push mais erreur     e
+ 
+       c                        c                               c
+
+
+       b                        b                               b
+
+       a                        a                               a
+
+
+dev2 doit pull les modifs
+
+
+   dev 1                 repo central                           dev2
+
+
+
+
+       d                        d          > pull               e   d
+ 
+       c                        c                               c
+
+
+       b                        b                               b
+
+       a                        a                               a
+
+
+dev2 va fixer si besoin les conflits et on va avoir un commit de merge f qui va prendre en compte toutes les modifs dans le repo de dev2 
+
+   dev 1                 repo central                           dev2
+
+
+                                                                f
+
+       d                        d                               e   d
+ 
+       c                        c                               c
+
+
+       b                        b                               b
+
+       a                        a                               a
+
+
+
+dev2 va pouvoir pousser ses modifs dans le repo central qui contiendra donc les maj et l'historique 
+
+   dev 1                 repo central                           dev2
+
+                               
+                                f                      <push    f
+
+       d                        e  d                            e   d
+ 
+       c                        c                               c
+
+
+       b                        b                               b
+
+       a                        a                               a
+
+
+Avec cette méthode on fixe les soucis mais l'historique de notre repos va être polluer par des commits qui ne sont dédiés qu'a fixer des merges et qui n'apportent rien . Quand une equipe de dev augmente il faut gagner en lisibilité.
+
+
+- Rebase :
+
+il est plus propre d'utiliser un rebase pour avoir un historique plus propre et facile a suivre ainsi que des commits utiles .
+
+on va deplacer les commits : on deplace un pointeur du commit c vers le commit d par exemple.
+
+dans le repo draft_website 
+
+git commit -am 'delete file'
+[master 34d7ea8] delete file
+ 1 file changed, 1 deletion(-)
+
+on va pouvoir recup la version sur le repo distant avec le pull suivi de rebase
+
+ git pull --rebase
+remote: Enumerating objects: 10, done.
+remote: Counting objects: 100% (10/10), done.
+remote: Compressing objects: 100% (2/2), done.
+remote: Total 6 (delta 2), reused 6 (delta 2), pack-reused 0
+Unpacking objects: 100% (6/6), done.
+From https://github.com/boogie777/draft_website
+   ee4a716..e7c224c  master     -> origin/master
+First, rewinding head to replay your work on top of it...
+Applying: delete file
+Using index info to reconstruct a base tree...
+M	.gitignore
+Falling back to patching base and 3-way merge...
+Auto-merging .gitignore
+
+on a cette fois aucun probleme ( la ligne 1 a été supprimée contrairement aux autres fois )
+on a de plus un historique beaucoup plus clair puisqu'il n'y a pas de commit de merge.
+
+
+on va donc se retrouver avec la situation suivante dans l'historique de git :
+dev1 et dev 2 travaille chacun de leur coté ( dev1 créer un commit d , dev2 crée un commit e ) : 
+
+   dev 1                 repo central                           dev2
+
+       d                                                        e
+ 
+       c                        c                               c
+
+
+       b                        b                               b
+
+       a                        a                               a
+
+
+dev1 va pousser son ommit sur le repo central 
+
+
+   dev 1                 repo central                           dev2
+
+       d       push >           d                               e
+ 
+       c                        c                               c
+
+
+       b                        b                               b
+
+       a                        a                               a
+
+
+dev 2 n' pas recup les modifs du repo central et veut pousser son commit 
+on a une erreur car le repo de dev2 n'est pas à jour 
+
+   dev 1                 repo central                           dev2
+
+       d                        d        < push mais erreur     e
+ 
+       c                        c                               c
+
+
+       b                        b                               b
+
+       a                        a                               a
+
+
+dev2 doit pull les modifs
+
+
+   dev 1                 repo central                           dev2
+
+
+
+
+       d                        d          > pull               e   d
+ 
+       c                        c                               c
+
+
+       b                        b                               b
+
+       a                        a                               a
+
+
+contrairement à la version de merge cette fois ci nous allons utiliser la methode de rebase qui va permettre de déplacer le commit e au dessus du commit d afin d'avoir un historique linéaire. 
+ceci est possible tout simplement parce que les commits disposent de pointeurs vers leur parents : c'est ca qui nous permet de modifier l'historique.
+   pull -rebase
+
+   dev 1                 repo central                           dev2
+
+
+                                                                e
+
+       d                        d     pull --rebase             d
+ 
+       c                        c                               c
+
+
+       b                        b                               b
+
+       a                        a                               a
+
+
+on aura peut être des conflits a régler mais ceci sera plus propre.
+
+dev2 va pouvoir pousser ses modifs dans le repo central qui contiendra donc les maj et l'historique. nous aurons un historique plus propre linéaire et nous n'avons pas de commit de merge qui n'apportent pas de valeur ajouter au code de l'appli.
+
+   dev 1                 repo central                           dev2
+
+                               
+                                e                      <push    e
+
+       d                        d                            d
+ 
+       c                        c                               c
+
+
+       b                        b                               b
+
+       a                        a                               a
+
+
+
+
+
+
+
+= Les branches : 
+
+une branche est un enchainement de commit : on connait la branche master qui comporte le dernier commit de notre enchainement de commit
+
+  master    d
+            c
+            b
+            a
+on peut faire partir une branche depuis n'importe quel commit 
+
+master<-d
+        c
+        b   ->   branche 1
+        a
+une branche va comporter un tag ( comme dans notre branche master) et on va pouvoir naviger grace à la commande checkout dans les commits de nos branches.
+
+on va pouvoir developper entierement de maniere independante par rapport a la branche master.
+on pourra tester les dev depuis les branches pour valider le bon fonctionnement avant de pousser dans le repos master.
+
+on aura donc deux methodes pour pousser dans le master :
+- merge : 
+ 
+       master   d  f    branche1
+                c  e
+                b /       
+                a
+
+on va merger les commits de la branche1 dans master . on aura un nouveau commit de merge et l'historique
+        master  g\
+                d  f    branche1
+                c  e
+                b /       
+                a
+
+ 
+- rebase : 
+
+
+       master   d  f    branche1
+                c  e
+                b /       
+                a
+
+on va rebase les commits les commits de la branche seront déplacés sur la branche master : 
+            
+                f
+        master  e
+                d  
+                c  
+                b        
+                a
+
+- creation de branche : 
+
+git branche nom_de_branche
+
+git branch branch_a_merge
+
+  branch_a_merge
+* master
+
+pour se deplacer dans la branche :
+git checkout nom_de_branche 
+
+git checkout branch_a_merge
+Switched to branch 'branch_a_merge'
+
+on va faire une modif dans notre code.
+quand on veut pousser sur le repo git signale un pb :
+
+git commit -am 'add git cmd' && git push
+[branch_a_merge 76721f3] add git cmd
+ 1 file changed, 5 insertions(+)
+fatal: The current branch branch_a_merge has no upstream branch.
+To push the current branch and set the remote as upstream, use
+
+    git push --set-upstream origin branch_a_merge
+
+en effet la branche n'est présente qu'en local .
+on va donc creer un lien entre notre branche locale et notre branche sur le repo distant 
+
+ git push --set-upstream origin branch_a_merge
+Username for 'https://github.com': boogie777
+Password for 'https://boogie777@github.com':
+Enumerating objects: 5, done.
+Counting objects: 100% (5/5), done.
+Delta compression using up to 8 threads
+Compressing objects: 100% (3/3), done.
+Writing objects: 100% (3/3), 334 bytes | 334.00 KiB/s, done.
+Total 3 (delta 2), reused 0 (delta 0)
+remote: Resolving deltas: 100% (2/2), completed with 2 local objects.
+remote:
+remote: Create a pull request for 'branch_a_merge' on GitHub by visiting:
+remote:      https://github.com/boogie777/draft_website/pull/new/branch_a_merge
+remote:
+To https://github.com/boogie777/draft_website.git
+ * [new branch]      branch_a_merge -> branch_a_merge
+Branch 'branch_a_merge' set up to track remote branch 'branch_a_merge' from 'origin'.
+
+git cree notre branche sur le repo distant et lie notre branche locale avec la branche du repo distant.
+
+maintenant on peut refaire une modif et pousser directement sans pb :
+git commit -am 'add nex cmd' && git push
+[branch_a_merge 88a38fb] add nex cmd
+ 1 file changed, 1 insertion(+)
+Username for 'https://github.com': boogie777
+Password for 'https://boogie777@github.com':
+Enumerating objects: 5, done.
+Counting objects: 100% (5/5), done.
+Delta compression using up to 8 threads
+Compressing objects: 100% (3/3), done.
+Writing objects: 100% (3/3), 297 bytes | 297.00 KiB/s, done.
+Total 3 (delta 2), reused 0 (delta 0)
+remote: Resolving deltas: 100% (2/2), completed with 2 local objects.
+To https://github.com/boogie777/draft_website.git
+   76721f3..88a38fb  branch_a_merge -> branch_a_merge
+
+
+la branche est visible sur notre repo distant
+
+
+- Recuperation de branche d'un repo distant 
+
+dans notre branche draft_website.old 
+nous n'avons qu'une seule branche : master
+on va donc recupérer notre nouvelle branche :
+
+si on fait un git pull ou fetch on voit la nouvelle branche :
+
+git pull
+remote: Enumerating objects: 8, done.
+remote: Counting objects: 100% (8/8), done.
+remote: Compressing objects: 100% (4/4), done.
+remote: Total 6 (delta 4), reused 4 (delta 2), pack-reused 0
+Unpacking objects: 100% (6/6), done.
+From https://github.com/boogie777/draft_website
+ * [new branch]      branch_a_merge -> origin/branch_a_merge
+Already up to date.
+
+mais git ne synchronise pas la branche automatiquement 
+on voit avec git branch que nous n'avons que la branche master
+
+git branch
+
+*master
+
+git branch -a nous permet de voir toutes les branches :
+
+* master
+  remotes/origin/HEAD -> origin/master
+  remotes/origin/branch_a_merge
+  remotes/origin/master
+
+on va se deplacer dans notre nouvelle branche :
+git checkout branch_a_merge
+Branch 'branch_a_merge' set up to track remote branch 'branch_a_merge' from 'origin'.
+Switched to a new branch 'branch_a_merge'
+
+dans ce cas git basculle dans la branche distante et la synchronize en local 
+on a donc maintenant deux branches en local :
+git branch
+* branch_a_merge
+  master
+
+les deux branches (local et remote ) seront maintenant liées et un push local se fera bien dans la branch remote
+on peut modif notre code et pousser :
+git commit -am 'add new cmd - log' && git push
+[branch_a_merge 2b73e23] add new cmd - log
+ 1 file changed, 1 insertion(+)
+Username for 'https://github.com': boogie777
+Password for 'https://boogie777@github.com':
+Enumerating objects: 5, done.
+Counting objects: 100% (5/5), done.
+Delta compression using up to 8 threads
+Compressing objects: 100% (3/3), done.
+Writing objects: 100% (3/3), 306 bytes | 306.00 KiB/s, done.
+Total 3 (delta 2), reused 0 (delta 0)
+remote: Resolving deltas: 100% (2/2), completed with 2 local objects.
+To https://github.com/boogie777/draft_website.git
+   88a38fb..2b73e23  branch_a_merge -> branch_a_merge
+
+- Copier un commit d'une branche à une autre branche : cherry pick 
+
+on va pouvoir injecter dans une branche un commit fait dans une autre (ex : fix secu ayant été poussée dans la branche master et qu'il est nécéssaire d'avoir dans notre branche de travail )
+ex: on veut recup le commit c dans notre branche1 : 
+  
+  master   d   f
+           c   e    branche1 
+           b     
+           a
+
+               c 
+  master   d   f
+           c   e    branche1 
+           b     
+           a
+
+
+on va dans notre exemple recup dans la branche master le commit de la branche branch_a_merge.
+on recupere le num de commit en examinant le log de la branche 
+
+git log nom_de_branche
+
+git log branche_a_merge
+commit 2b73e23335d5eb7d7c76a4ccd9293ce462864fcc (origin/branch_a_merge, branch_a_merge)
+Author: boogie777 <jazz77777@gmail.com>
+Date:   Sun Apr 19 12:00:59 2020 +0200
+
+    add new cmd - log.
+    on recupere le num de commit en examinant le log de la branche 
+
+    git log nom_de_branche
+
+    git log branche_a_merge
+    commit 2b73e23335d5eb7d7c76a4ccd9293ce462864fcc (origin/branch_a_merge, branch_a_merge)
+    Author: boogie777 <jazz77777@gmail.com>
+    Date:   Sun Apr 19 12:00:59 2020 +0200
+
+        add new cmd - log
+
+.
+on recupere le num de commit en examinant le log de la branche : on veut le commit qui correspond a l'ajout des cmds git dans notre page html : 
+
+git log nom_de_branche
+
+..
+git log branche_a_merge
+commit 76721f37a9caf827ce96797abcad7ee8c6738d7f
+Author: bob <jazz77777@gmail.com>
+Date:   Sun Apr 19 11:44:08 2020 +0200
+
+    add git cmd
+
+on injecte donc dans notre branche master le commit  désiré de notre branche branch_a_merge
+
+git cherry-pick 76721f37a9caf827ce96797abcad7ee8c6738d7f
+[master ad09a12] add git cmd
+ Author: bob <jazz77777@gmail.com>
+ Date: Sun Apr 19 11:44:08 2020 +0200
+ 1 file changed, 5 insertions(+)
+
+on a maintenant dansl'historique de notre branche master l'ajout du commit :
+
+
+- merge entre deux branches :
+
+on va pouvoit merger des modifs d'une branche dans une autre branche.
+
+ex : 
+on veut merger dans la branche master les modifs de notre branche branche_a_merge 
+
+on se positionne dans la branche au sein de laquelle on veut récupérer les modifs :
+
+git checkout master 
+et on va merger avec la commande 
+
+git merge <nom_de_branche_qu'on veut merger>
+
+git merge branch_a_merger
+
+on peut avoir un conflit :
+
+git merge branch_a_merge
+Auto-merging hello.html
+CONFLICT (content): Merge conflict in hello.html
+Automatic merge failed; fix conflicts and then commit the result.
+
+on va editer et corriger manuellement le / les fichiers qui posent probleme 
+on corrige notre code et on push 
+git commit -am 'fix conflict - merge branch branch_a_merger master' && git push
+
+comme pour les merges classiques on va avoir un commit de merge pas vraiment utile et un historique un peu dévié.
+
+
+- rebase :
+
+on va pouvoir rebase nos branches de maniere à avoir un historique plus clean 
+le rebase est plus complique que le merge 
+-> methode :
+on se place dans la branche qui comporte les modifs à pousser 
+
+- on a nos deux branches : 
+
+    master   d                    f  branche1
+             c                    e 
+             b
+             a
+    
+
+- on se positionne dans la branche : 
+  git checkout branche1 
+
+
+    master   d                    f  branche1
+             c                    e 
+             b
+             a
+
+             
+   puis on va rebase la branche master depuis notre branche  qui va donc déplacer l'ensemble des commits sur la branche master : 
+on prend tous les commits de notre branche dans la branche master 
+
+   git rebase master 
+
+             f    branche1 / HEAD    
+             e
+   
+    master   d                   
+             c                     
+             b
+             a
+
+
+- on va maintenant se deplacer sur la branche master : 
+
+   git checkout master 
+
+
+             f    branche1    
+             e
+   
+head /master d                   
+             c                     
+             b
+             a
+
+
+et on va maintenant merger notre branche 
+on va donc maitenant merger les commits de notre branche dans master et déplacer le pointer de master sur les derniers commits issus de la fusion des commits de notre branch : 
+
+
+git merge branche : 
+
+             f    branche1  / master  
+             e
+   
+head         d                   
+             c                     
+             b
+             a
+
+on a donc les commits de la branche qui sont maintenant dans la branche master. les deux pointeurs de branche qui sont au meme niveau et nous n'avons pas de commit de merge inutile et un historique propre.
+
+
+- on peut creer une branche et se positionner automatiquement dans celle ci avec 
+
+git checkout -b ma_nouvelle_branche
+
+on choisi un commit ancien dans la branche master :
+git log 
+on se positionne dedans 
+git checkout num commit
+on cree une branche  depuis notre commit selectionné 
+git checkout -b branche_a_rebase
+on ajoute du code dans une branche 
+vi hello.html
+git commit -am 'add git init'
+on rebase notre branche master
+git rebase master
+First, rewinding head to replay your work on top of it...
+Applying: add git init
+Using index info to reconstruct a base tree...
+M	hello.html
+Falling back to patching base and 3-way merge...
+Auto-merging hello.html
+CONFLICT (content): Merge conflict in hello.html
+error: Failed to merge in the changes.
+Patch failed at 0001 add git init
+hint: Use 'git am --show-current-patch' to see the failed patch
+
+Resolve all conflicts manually, mark them as resolved with
+"git add/rm <conflicted_files>", then run "git rebase --continue".
+You can instead skip this commit: run "git rebase --skip".
+To abort and get back to the state before "git rebase", run "git rebase --abort".
+
+on peut avoir des conflicts, on fix 
+
+on voir que git propose plusieurs solutions :
+git rebase --continue  : on peut continuer en ajoutant malgré les warnings les fichiers problematiques : on va au préalable fixer nos conflits 
+git rebase --skip  : on peut ignorer notre commit : ce qui va permettre de continuer mais sans prendre en compte le code que l'on a developpé
+git rebase --abort  : on va annuler notre rebase et revenir à l'etat antérrieur.
+
+
+on fixe nos conflicts , on ajoute le fichier et on reprend le rebase avec l'option --continue
+
+git rebase --continue
+Applying: add git init
+
+on va maintenant aller dans la branche master 
+git checkout master 
+et on merge 
+git merge branche_a_rebase
+Updating 06c232d..6082a4d
+Fast-forward
+ hello.html | 1 +
+ 1 file changed, 1 insertion(+)
+
+- suppression de branche : 
+
+on doit se positionner en dehors de la branche a supprimer 
+git checkout master 
+
+git branche -d branche_a_delete
+git branch -d branche_a_delete
+warning: deleting branch 'branche_a_delete' that has been merged to
+         'refs/remotes/origin/branche_a_delete', but not yet merged to HEAD.
+Deleted branch branche_a_delete (was 94f2f58).
+
+quand on verifie on s'apercoit que la branche n'est plus présente en local mais toujours sur le repos distant :
+  branch_a_merge
+  branche_a_rebase
+* master
+  remotes/origin/HEAD -> origin/master
+  remotes/origin/branch_a_merge
+  remotes/origin/branche_a_delete
+  remotes/origin/master
+
+
+pour supprimer une branche distante :
+
+git push origin --delete <ma branche a delete>
+
+git push origin --delete branche_a_delete
+Username for 'https://github.com': boogie777
+Password for 'https://boogie777@github.com': 
+To https://github.com/boogie777/draft_website.git
+ - [deleted]         branche_a_delete
+
+un check des branches nous permet de vérifier que le delete est bien fait sur le remote :
+  branch_a_merge
+  branche_a_rebase
+* master
+  remotes/origin/HEAD -> origin/master
+  remotes/origin/branch_a_merge
+  remotes/origin/master
+
+
+= interface graphique 
+
+avec l'install de git-all
+
+on a a la possibilité d'utiliser une gui intégrée :
+git gui 
+
+

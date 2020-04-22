@@ -1,0 +1,107 @@
+=== logrotate : ===
+
+ logrotate is configured using the main configuration file, or the logrotate configuration folder. The configuration file usually holds the global configuration and the pointer to the configuration folder. In common Linux distributions such as Ubuntu and Debian, the logrotate configuration file can be found:
+ 
+/etc/logrotate.conf
+And the configuration folder can be found:
+
+/etc/logrotate.d/
+
+The configuration folder is usually where you would add new log file configurations which are unique for a particular log file, or set of log files. For example, if you were to add a new log rotation action for the Ubuntu package manager apt, you may use something like below:
+
+vi /etc/logrotate.d/apt
+/var/log/apt/term.log {
+  rotate 12
+  monthly
+  compress
+  missingok
+  notifempty
+}
+/var/log/apt/history.log {
+  rotate 12
+  monthly
+  compress
+  missingok
+  notifempty
+}
+logrotate runs each day by default, and is invoked using the daily cron job. The below subject detail the common components of creating a logrotate configuration file.
+
+= Create a new empty template
+To create a new logrotate configuration file, you need to create a new file in /etc/logrotate.d/. You will then need to add a reference to the log files you wish to rotate. This can be directly to a single file or use pattern matching to match a group of log files. The below example matches all log files in /var/log/myapp/ which have a .log extension.
+
+/var/log/myapp/*.log {
+
+}
+You will need to add further commands to this template before it becomes useful. Further commands will be added inside the { and } tags.
+
+= Rotate based on log file size
+Use the size keyword to rotate the log file when it exceeded a given file size. The below example rotates a file when it reaches 10 KB.
+
+/var/log/myapp/*.log {
+  size 10k
+}
+
+= Rotate based on time (Month, Week or Day)
+You can rotate logs using the monthly, weekly or daily keyword to create a new log based on duration. The keywords explain them selves, and they can be used in conjunction with the size keyword to rotate on which ever criteria is met first.
+
+/var/log/myapp/*.log {
+  size 10k
+  weekly
+}
+
+= Limit how many log files are kept after rotation by number
+The rotate keyword allows you to specify how many old, rotated, log files are kept before logrotate deletes them. The rotate keyword requires an integer to specify how many old log files are kept.
+
+/var/log/myapp/*.log {
+  size 10k
+  weekly
+  rotate 8
+}
+The above example will keep 8 old log files.
+
+= Limit how many files are kept after rotation by date
+You can specify how long to keep rotated files using the maxage keyword. Any rotated log files which are older than maxage will be deleted. The below example will keep rotated log files for 56 days.
+
+/var/log/myapp/*.log {
+  size 10k
+  weekly
+  maxage 56
+}
+= Compress rotated log files
+Log files which have been rotated can be compressed to save disk space. Gzip is used by default.
+
+/var/log/myapp/*.log {
+  size 10k
+  weekly
+  rotate 8
+  compress
+}
+You can change the default gzip compression to another format by specifying the compresscmd command and a different executable to use. The below example changes the compression format to bzip2 for better file compression.
+
+/var/log/myapp/*.log {
+  size 10k
+  weekly
+  rotate 8
+  compress
+  compresscmd /bin/bzip2
+}
+
+= Ignore missing log files
+If a log file does not exist when logrotate is running then an error will be thrown. You can use the keyword missingok to avoid this scenario and instruct logrotate to ignore the log file if it does not exist.
+
+/var/log/myapp/*.log {
+  size 10k
+  weekly
+  rotate 8
+  missingok
+}
+
+= Continue writing to the same log file after rotation
+Usually when a log file is rotated the log file is moved to a new location. Some applications may throw an error, and others may continue to write to the relocated file. The copytruncate keyword copies all the log in the file to a new file and then truncates the original file. This keeps the original log file in place and also allows rotation to continue.
+
+/var/log/myapp/*.log {
+  size 10k
+  weekly
+  rotate 8
+  copytruncate
+}

@@ -1,0 +1,425 @@
+=== notes sur template helm : ===
+
+
+= base : 
+
+-> les directives des templates sont entourées de {{ }}
+-> les valeurs pasées dans les templates peuvent être vues comme des objects de "namespace" séparés par des .
+L'object de top namespace est le .
+L'objet par ex  {{ .Release.Name }} veut donc dire qu'on commence au top niveau "." puis on cherche l'objet "Release" puis on examine dans celui-ci l'objet "Name" 
+
+- repertoire template va héberger les templates 
+de base on peut mettre des fichiers plats sans variables : ils seront injectés tels quels dans kube.
+
+ex simple : 
+helm create mychart
+
+cat mychart/templates/configmap.yaml                                                                                                             (⎈ |minikube:default)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-configmap
+data:
+  myvalue: "hello world!"
+
+quand on install le chart : on lui donne un nom de release : ce nom sera récupérer par helm et injecté dans notre conf . on peut le voir avec : 
+
+helm get manifest clunky-serval                                                                                                                (⎈ |minikube:default)
+---
+# Source: mychart/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: clunky-serval-configmap
+data:
+  myvalue: "hello world!"
+
+
+- Dry run : 
+on peut tester le rendu du templating sans installer  : c'est une très bonne habitude à prendre.
+on va donc tester sans installer. Attention s'il n'y a pas d'erreur cela ne veut pas dire que tout sera quand même ok dans kube.
+
+helm install --debug --dry-run lapin-nain ./mychart
+
+install.go:158: [debug] Original chart version: ""
+install.go:175: [debug] CHART PATH: /home/boogie/Documents/lab/helm/mychart
+
+NAME: lapin-nain
+LAST DEPLOYED: Fri Apr  3 14:08:21 2020
+NAMESPACE: default
+STATUS: pending-install
+REVISION: 1
+TEST SUITE: None
+USER-SUPPLIED VALUES:
+{}
+
+COMPUTED VALUES:
+affinity: {}
+fullnameOverride: ""
+image:
+  pullPolicy: IfNotPresent
+  repository: nginx
+imagePullSecrets: []
+ingress:
+  annotations: {}
+  enabled: false
+  hosts:
+  - host: chart-example.local
+    paths: []
+  tls: []
+nameOverride: ""
+nodeSelector: {}
+podSecurityContext: {}
+replicaCount: 1
+resources: {}
+securityContext: {}
+service:
+  port: 80
+  type: ClusterIP
+serviceAccount:
+  annotations: {}
+  create: true
+  name: null
+tolerations: []
+
+HOOKS:
+MANIFEST:
+---
+# Source: mychart/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: lapin-nain-configmap
+data:
+  myvalue: "hello world!"
+
+
+= Values :
+
+c'est un object build-in de helm.
+On va pouvoir injecter les valeurs présentes dans ce fichier dans les templates.
+Il y a un ordre de priorité : du moins important au prioritaire :
+-> values.yaml : à la racine du chart
+-> repo_parent/values.yaml : valeurs dans un fichiers values dans un rep
+-> values dans les fichiers passés en argument en cli : helm install -f myvals.yaml ./mychart)
+-> values overridées en cli : helm install --set foo=bar ./mychart
+
+
+ex : 
+cat values.yaml
+favoriteDrink: coffee
+
+cat templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-configmap
+data:
+  myvalue: "hello world!"
+  drink: {{ .Values.favoriteDrink }}
+
+
+On peut overrider la conf :
+ex : on cree un rep parent et on passe en argument le fichier values :
+cat mychart/helm_vars/values.yaml 
+favoriteDrink: jasmin
+
+helm upgrade --dry-run --debug bob mychart -f mychart/helm_vars/values.yaml
+..
+data:
+  myvalue: "hello world!"
+  drink: jasmin
+
+/!\ attention si on a plusieurs fichiers en arguments : les valeurs du dernier fichier seront celle écrites dans le template.
+
+
+si on passe une autre valeur en cli ..elle sera prioritaire : 
+helm install --dry-run --debug --set favoriteDrink=slurm good-puppy
+helm upgrade --dry-run --debug bob mychart -f mychart/helm_vars/values.yaml --set favoriteDrink=tea
+..
+data:
+  myvalue: "hello world!"
+  drink: tea
+
+
+= fonctions et pipeline :
+
+Il est parfois utile de pouvoir appliquer des modifs a des data qu'on recoit depuis le fichier values.
+On va pouvoir utiliser des fonctions de templating ( go ) 
+
+ex : on va vouloir quotter le texte de nos valeurs : 
+
+cat mychart/values.yaml 
+favorite:
+  drink: coffee
+  food: pizza
+
+on utilise la fonction quote dans la section de notre template : 
+
+cat mychart/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-configmap
+data:
+  myvalue: "hello world!"
+  drink: {{ quote .Values.favorite.drink }}
+  food: {{ quote .Values.favorite.food }}
+
+on aura donc en résultat notre texte entouré de guillemets 
+data:
+  myvalue: "hello world!"
+  drink: "coffee"
+  food: "pizza"
+
+https://godoc.org/text/template
+https://masterminds.github.io/sprig/
+
+- pipeline :
+
+comme dans unix on va pouvoir utiliser des pipelines et donc passer des fonctions après le pipe : c'est même la méthode recommandée :  
+
+on pourra donc modifier le template précédent en utilisant la syntaxe suivante :
+
+cat mychart/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-configmap
+data:
+  myvalue: "hello world!"
+  drink: {{ .Values.favorite.drink |quote }}
+  food: {{  .Values.favorite.food | quote }}
+Le résultat sera le même 
+..
+data:
+  myvalue: "hello world!"
+  drink: "coffee"
+  food: "pizza"
+
+On peut même chainer les pipe :
+
+ex on passe en majuscule une des deux valeurs :
+
+cat mychart/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-configmap
+data:
+  myvalue: "hello world!"
+  drink: {{ .Values.favorite.drink |quote }}
+  food: {{  .Values.favorite.food | quote |upper }}
+
+nous donnera :
+data:
+  myvalue: "hello world!"
+  drink: "coffee"
+  food: "PIZZA"
+
+on peut utiliser des fonctions qui prennent plusieurs arguments :
+ex : repetition de therme 
+repeat num
+
+cat mychart/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-configmap
+data:
+  myvalue: "hello world!"
+  drink: {{ .Values.favorite.drink |repeat 2 | quote }}
+  food: {{  .Values.favorite.food | quote |upper }}
+
+nous donne :
+data:
+  myvalue: "hello world!"
+  drink: "coffeecoffee"
+  food: "PIZZA"
+
+
+- Fonction default : c'est une des fonctions les plus utilisée dans helm :
+Cette fonction va nous permette de définir une valeur par défault dans notre template si une valeur est oubliée 
+ex : on défini un fruite par défault dans le template :
+  ....
+  drink: {{ .Values.favorite.drink |repeat 2 | quote }}
+  food: {{  .Values.favorite.food | quote |upper }}
+  fruit: {{ .Values.favorite.fruit |default "ananas" |quote }}
+
+
+on peut donc avoir une valeur si la clé n'est pas définie dans le values :
+
+cat values.yaml                                                                                                                     (⎈ |minikube:default)
+favorite:
+  drink: coffee
+  food: pizza
+...
+
+  myvalue: "hello world!"
+  drink: "coffeecoffee"
+  food: "PIZZA"
+  fruit: "ananas"
+
+on aura une valeur si la clé est à null dans le values :
+
+favorite:
+  drink: coffee
+  food: pizza
+  fruit: null
+....
+  myvalue: "hello world!"
+  drink: "coffeecoffee"
+  food: "PIZZA"
+  fruit: "ananas"
+
+Operators et  functions
+pour les  templates, les  operators (eq, ne, lt, gt, and, or and so on) sont implémentés comme des fonctions. Dans les pipe les operations peuvent être groupées ((, et )).
+
+
+= Flow control : =
+
+on va pouvoir définir la maniere dont sont générés les templates avec des structures dédiées :
+- if / else : blocs conditionnels 
+- with : specification d'un scope.
+- range : boucle ( comme un for each)
+on a en plus des structures particulières : 
+- define : declares  un nouveu template nommé au sein de notre template.
+- template : import un nouveau template nommé.
+- block : declares a certain type de template que l'on peut remplir
+
+- if / else 
+
+{{ if PIPELINE }}
+  # Do something
+{{ else if OTHER PIPELINE }}
+  # Do something else
+{{ else }}
+  # Default case
+{{ end }}
+
+Pour info : si ici on specifie le mot PIPELINE c'est pour accentuer le fait que notre structure de controle if/else fonctionne sur les valeurs évaluées mais aussi sur les pipeline
+Un pipeline est evalué à false si il a comme valeur :
+
+a boolean false
+a numeric zero
+an empty string
+a nil (empty or null)
+an empty collection (map, slice, tuple, dict, array)
+Under all other conditions, the condition is true.
+
+On va donc ajouter a notre configmap un test si la valeur de notre drink est coffee :
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-configmap
+data:
+  myvalue: "Hello World"
+  drink: {{ .Values.favorite.drink | default "tea" | quote }}
+  food: {{ .Values.favorite.food | upper | quote }}
+  {{ if eq .Values.favorite.drink "coffee" }}mug: true{{ end }}
+Since we commented out drink: coffee in our last example, the output should not include a mug: true flag. But if we add that line back into our values.yaml file, the output should look like this:
+Si dans notre fichier values nous n'avons pas la présence de drink nous n'aurons rien, si la valeur de drink vaut coffee alors mug: true apparaitra.
+
+# Source: mychart/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: eyewitness-elk-configmap
+data:
+  myvalue: "Hello World"
+  drink: "coffee"
+  food: "PIZZA"
+  mug: true
+
+- Gestion des espaces dans le template : 
+
+La ligne du template précédent est assez difficile a lire : 
+  {{ if eq .Values.favorite.drink "coffee" }}mug: true {{ end }}
+on pourrait vouloir aérer l'ecriture avec un bloc comme suivant :
+... 
+data:
+  myvalue: "hello world!"
+  food: {{ .Values.favorite.food | upper | quote }}
+  fruit: {{ .Values.favorite.fruit | default "ananas" }}
+  {{ if eq .Values.favorite.drink "coffee" }}
+    mug: true 
+  {{ end }}
+une erreur de formatage de yaml apparait : 
+Error: UPGRADE FAILED: YAML parse error on mychart/templates/configmap.yaml: error converting YAML to JSON: yaml: line 10: mapping values are not allowed in this context
+helm.go:75: [debug] error converting YAML to JSON: yaml: line 10: mapping values are not allowed in this context
+
+si on réindente notre code en decalant mug comme suivant :
+..
+  fruit: {{ .Values.favorite.fruit | default "ananas" }}
+  {{ if eq .Values.favorite.drink "coffee" }}
+  mug: true
+  {{ end }}
+on obtient une sortie avec une ligne vide en plus :
+  myvalue: "hello world!"
+  food: "PIZZA"
+  fruit: ananas
+
+  mug: true
+
+c'est lié a la gestion des espaces : helm dans le templating remplace les éléments entre {{  }} mais laisse les espaces intacts.
+Yaml etant très strict dans la gestion des espaces il va falloir être très attentif.
+
+helm permet de gérer les espaces avec la syntaxe : "{{- " et " -}}". 
+
+avec "{{-"  tous les espaces blancs à la fin sont supprimés du texte précédant immédiatement. 
+avec "-}}" tous les espaces blancs de tête sont supprimés du texte immédiatement suivant. 
+Dans ces marqueurs de trim, l'espace ASCII doit être présent; "{{-3}}" est analysé comme une action contenant le nombre -3.
+
+Attention a toujours ajouter un espace apres le - de  {{-  (ex: "{{- 3" signifie supprimer les espaces a gauche. "{{-3" siginifie affiche "-3"
+
+plus d'info : https://godoc.org/text/template
+
+
+Attention : un retour chariot / newline est un espace.
+
+en modifiant notre template comme tel 
+  fruit: {{ .Values.favorite.fruit | default "ananas" }}
+  {{-  if eq .Values.favorite.drink "coffee" }}
+  mug: true
+  {{ end }}
+on a donc un affichage correct :
+  food: "PIZZA"
+  fruit: ananas
+  mug: true
+
+Attention a ne pas abuser des {{- et -} qui supprime les caracteres d'espace à gauche et à droite.
+ex : 
+ drink: {{- .Values.favorite.drink | default "tea" | quote -}}
+ food: {{ .Values.favorite.food | upper | quote }}
+va nous donner : 
+..
+  drink:"coffee"food: "PIZZA"
+
+- Fonction ident :
+on va pour plus de facilité pouvoir specifier directement l'indentation voulue avec la fonction ident.
+ident nombre
+{{ indent 2 "mug:true" }}
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-configmap
+data:
+  myvalue: "Hello World"
+  food: {{  .Values.favorite.food | upper | quote }}
+  drink: {{ .Values.favorite.drink | default "tea" | quote }}
+  {{-  if eq .Values.favorite.drink "coffee" }}
+{{ indent 2 "mug: bob" }}
+  {{  end }}
+
+nous donnera donc : 
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bob-configmap
+data:
+  myvalue: "Hello World"
+  food: "PIZZA"
+  drink: "coffee"
+  mug: bob
+

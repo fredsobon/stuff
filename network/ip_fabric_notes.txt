@@ -1,0 +1,178 @@
+==== notes fabric reseau : ==
+
+L'evolution des dc imposent des modifs : vont intervenir les fabrics 
+nous avons type de design / topologies
+
+on veut etre le plus efficace 
+span leef ?
+
+reduire latence et redondance.
+
+full mesh : tout le monde est interconnecté 
+> tres cher a du mal a grossir
+
+spine leaf ( CLOS ) 
+design equidistant / easy to scale 
+>> le meilleur compromis : cout performance
+
+
+-> leaf : switch sur lesquels ont branches les serveurs
+tous les services sont pluggués sur les leaf
+on peut avoir des leaf specialisés (ex connection avec l'exterrrieur : border leaf)
+
+-> spine : equipement sur lequel on branche les leafs 
+le spine n'est pas l'qyuvalent d'un coeur de reseau
+on ne termine pas les services sur les spine
+il permet juste l'interconnection avec les leafs.
+Le spine n'est pas la gateway
+
+on peut meme ajouter un etage de spine pour des gros réseau : on aura des spine qui recevront des connextions de spine.
+
+
+= underlay :
+
+est le protocole qui va s'occuper du transport sur notre topology reseau
+il est défini au debut de la mise en place du reseau ..on y touche plus apres .
+
+
+- si on est en L2 ( mac adresse sur tout le lan ) 
+
+on peut mettre 2 spine ( maximum) 
+puis brancher des leafs 
+on utilise dans ce cas un protocole proprietaire : mlag
+on doit relier les 2 spine
+
+- 1 pod : 
+un mini datacenter dedié : spine + leaf
+
+LE L3 est defini sur le spine
+
+
+
+- si on est en L3 :
+
+
+le l3 se fait au niveau du leaf : on reduit les consequence de probleme
+tous les liens sont en l3
+ont 
+
+un protocole de routage va etre utilisé : il y a en a plusieurs 
+
+- BGP : 
+ebgp est le préféré.
+on peut scale facilement (bgp tourne sur internet) 
+plus facile a troubleshooter
+rfc7938 : bgp 
+
+ebgp 
+
+on va mettre tous les spine dans un AS
+on va mettre chaque leaf dans un AS
+
+on va monter du peering entre tout le monde.
+
+il n'y a pas d'echange bgp entre les leafs 
+il n'y a pas d'echange bgp entre les spine
+
+seuls les routes sont echangées entre les leafs et spine.
+
+choix des num as :
+en classique on est limité a 1023
+
+on peut sinon passer sur des as numbers etendus ( facebook, google etc..)
+
+
+underlay :
+on construit un reseau L3 
+
+
+= Overlay :
+
+la couche de service : la plus importante
+elle s'appui sur la couche de transport mais elle est décorellée .
+tant qu'un chemin est dispo pas de pb.
+
+on peut ajouter supprimer des leafs , services .. sans faire beacuoup de manip :
+
+c'est l'avantage des fabrics
+
+
+- comment faire du L2 dans une fabric.
+une fabric L3 nativement ne gere pas du L2
+
+on peut devoir continuer a avoir du L2 ( exemple basculle vrrp de keepalived ( mac adresse sont nécéssaire) : comment faire .
+
+Il faut encapsuler le traffic L2 dans du L3 
+un va mettre en tunnel le L2 dans du L3 
+
+vxlan est une encapsulation dans udp 
+
+un equipement qui fait du vxlan est un vtep (?)
+
+il faut des equipements dédiés avec des ASICs avancées
+
+= Bgp - Evpn :
+
+on va ammener un controle plane pour l'overlay 
+ex pour le vxlan et le datacenter
+
+rfc 7432 << attention ecris pour mpls (crée a la base pour cela)
+rfc 8365  
+
+ethernet vpn 
+
+nouvelle famille d'adresse pour bgp
+permet d'echanger des adresses mac entre vtep
+on peut aussi echanger des ip entre vtep
+
+on doit être unique sur notre route evpn 
+pour garantir on ajoute un rd route distinghisher pour différencier des routes identiques qui proviennet d'env différents
+
+route target : on va definir des regles quand on recoit ou on emet des routes ( pour etre sur de recevoir ce qu'on veut .) 
+
+on va apprendre que les routes qui nouys interresse .
+
+pour calculer les routes les rfc proposent des methodes d'automatisation 
+
+
+Evpn va utiliser des adresses uniques
+qui va se baser sur des AFI et SAFI 
+on va vouloir transporter plusieurs informations ( mac , ip ..)
+
+comme on ne peut pas faire la diff entre mac et ip dans evpn car bloqué par AFI et SAFI (normes anciennes qui ne peuvent pas avoir plusieurs categories )
+
+on ajoute un nouvel element :
+route -type 
+
+on va annoncer avec des types : 
+RT2 -> mac  mac avec ip pour host et vtep qui fait l'annonce
+RT3 -> multicast (info de propagation) donner l'annonce des vtep 
+RT5 -> ip 
+au minimum
+
+
+
+
+=== fonctionnement : ==
+
+
+   s1             s2
+
+  l1               l2              l3
+ vlan1 vlan2       vlan1           vlan3
+  vm1 vm2           vm3            vm4
+
+
+
+ le leaf sont des vtep et annoncent des infos des vms 
+ ex : si vm1 veut parler avec vm3 l1 envoit au spine une route 3 au spines
+tout le monde envoit les infos pour la découverte du reseau
+
+vm1 veut parler avec vm3 arp > l1 enregistre la mac de vm1 
+l1 envoie a S1 s2 sous forme vxlan 
+s1 et s2 envoie vers les leafs comportant le vlan de la vm (il est appri au debut)
+l2 renvoit la requette vers vm3 
+
+
+
+
