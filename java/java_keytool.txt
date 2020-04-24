@@ -1,0 +1,106 @@
+=== notes sur keytool java - gestion tls /ssl java ===
+
+Keytool is a tool used by Java systems to configure and manipulate Keystores. The following are a list of  commands that allow you to generate a new Java  keystore file, create a CSR, import certificates, convert, and check keystores.
+
+
+== CA creation 
+
+The following Linux commands create a self-signed root CA. They are run by the dbadmin user on the Linux command line of one of the Vertica nodes.
+
+Generate a private key named root.key.
+
+$ openssl genrsa -out root.key
+Generating RSA private key, 2048 bit long modulus
+..............................................................................
+............................+++
+...............+++
+e is 65537 (0x10001)
+Generating a self-signed root CA named root.crt.
+
+$ openssl req -new -x509 -key root.key -out root.crt
+You are about to be asked to enter information that will be incorporated
+into your certificate request.
+What you are about to enter is what is called a Distinguished Name or a DN.
+There are quite a few fields but you can leave some blank
+For some fields there will be a default value,
+If you enter '.', the field will be left blank.
+-----
+Country Name (2 letter code) [AU]:US
+State or Province Name (full name) [Some-State]:MA
+Locality Name (eg, city) []:Cambridge
+Organization Name (eg, company) [Internet Widgits Pty Ltd]:My Company
+Organizational Unit Name (eg, section) []:
+Common Name (e.g. server FQDN or YOUR name) []:*.mycompany.com
+Email Address []:myemail@mycompany.com
+Change permissions on the files to prevent others from reading the root key, and preventing changes to the root certificate.
+
+$ ls
+root.crt  root.key
+$ chmod 600 root.key
+$ chmod 644 root.crt
+
+
+
+=  Generating:
+
+Generate a Java keystore and key pair:
+keytool -genkey -alias mydomain -keyalg RSA -keystore keystore.jks -keysize 2048
+
+Generate a certificate signing request (CSR) for an existing Java keystore:
+keytool -certreq -alias mydomain -keystore keystore.jks -file mydomain.csr
+
+Generate a keystore and self-signed certificate:
+keytool -genkey -keyalg RSA -alias selfsigned -keystore keystore.jks -storepass password -validity 360 -keysize 2048
+
+= Importing:
+
+Import a intermediate CA certificate to an existing Java keystore:
+keytool -import -trustcacerts -alias intermediate -file intermediate.crt -keystore keystore.jks
+
+Import a root CA certificate to an existing Java keystore:
+keytool -import -trustcacerts -alias root -file root.crt -keystore keystore.jks
+
+Import a signed SSL primary certificate to an existing Java keystore:
+keytool -import -trustcacerts -alias mydomain -file mydomain.crt -keystore keystore.jks
+Java Keytool Commands for Conversion:
+If you need to change the type of keystore.
+
+= PFX keystore to JKS keystore:
+
+keytool -importkeystore -srckeystore mypfxfile.pfx -srcstoretype pkcs12 -destkeystore newjkskeystore.jks -deststoretype JKS
+JKS keystore to PFX keystore:
+keytool -importkeystore -srckeystore myjksfile.jks -srcstoretype JKS -deststoretype PKCS12 -destkeystore newpfxkeystore.pfx
+
+
+= Java Keytool Commands for Checking:
+If you need to check the information within a certificate, or Java keystore, use these commands.
+
+Check a stand-alone certificate:
+keytool -printcert -v -file mydomain.crt
+
+Check which certificates are in a Java keystore:
+keytool -list -v -keystore keystore.jks
+
+Check a particular keystore entry using an alias:
+keytool -list -v -keystore keystore.jks -alias mydomain
+
+
+= Other Java Keytool Commands:
+
+Delete a certificate from a Java Keytool keystore:
+keytool -delete -alias mydomain -keystore keystore.jks
+
+Change a Java keystore password:
+keytool -storepasswd -new newstorepass -keystore keystore.jks
+
+Export a certificate from a keystore:
+keytool -export -alias mydomain -file mydomain.crt -keystore keystore.jks
+
+List Trusted CA Certs:
+keytool -list -v -keystore $JAVA_HOME/jre/lib/security/cacerts
+
+Import New CA into Trusted Certs:
+keytool -import -trustcacerts -file /path/to/ca/ca.pem -alias mydomain -keystore $JAVA_HOME/jre/lib/security/cacerts
+
+
+If you need to convert your keystore from one environment to another such as… A tomcat system that uses keystores .jks and move it over to a Apache system or IIS system it is usually easier to just generate a new CSR keypair from those respective systems and perform a reissue of the certificate. Although there is a way to convert by using OpenSSL

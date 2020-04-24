@@ -1,0 +1,24 @@
+#!/bin/bash
+
+user=${1}
+host=${2}
+bastion="${3}"
+wallix="${4:-wallix}"
+tmux_session="$(basename $0)_${host}_$RANDOM"
+
+if ! which tmux > /dev/null
+then
+    echo "Error: tmux not found ! Exiting..." >&2
+    exit 1
+fi
+
+if tmux has-session -t $tmux_session 2>/dev/null
+then
+    tmux attach -t $tmux_session
+else
+    tmux new -s $tmux_session "\
+( while true; do sleep 600; tmux send-keys -t $tmux_session ' '; done ) & \
+ka_pid=\$! & \
+ssh -t -A ${user}@${wallix} ${user}@${bastion}:SSH ssh -t -A ${host}; \
+kill \$ka_pid"
+fi
