@@ -1,25 +1,25 @@
 #!/bin/bash
 
 #### main conf : 
+
 # update system and retrieve pkgs 
 sudo apt update -y && sudo apt upgrade -y
 
-sudo mkdir -p /home/boogie/Documents/{learn,own,work,lab}
-sudo apt install -y screen tmux tree tcpdump wireshark nmap lsof strace net-tools gnupg meld xlsx2csv hfsplus hfsprogs hfsutils terminator curl wget tshark keepassx  remmina visualvm vim gnome-tweak-tool git exfat-fuse exfat-utils fonts-powerline vlc openssh-server python3-pip snapd qemu-kvm libvirt-daemon-system libvirt-clients bridge-utils virt-manager locate mtr zsh docker.io
-
-sudo addgroup boogie docker
-sudo usermod -a -G libvirt $(whoami)
-
-# retrieve repo and create main folders 
-cd /home/boogie/Documents/
-git clone https://github.com/fredsobon/stuff.git
-mkdir -p /home/boogie/Documents/{learn,own,work}
-
-# set chrome browser 
+# add repos for requested apps : chrome / podman - buildah
 sudo sh -c 'echo "deb [arch=amd64] https://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list'
 wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
-sudo apt-get update
-sudo apt-get install -y google-chrome-stable
+sudo sh -c "echo 'deb http://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/xUbuntu_19.10/ /' > /etc/apt/sources.list.d/devel:kubic:libcontainers:stable.list"
+wget -nv https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable/xUbuntu_19.10/Release.key -O- | sudo apt-key add -
+
+# create folders 
+mkdir -p /home/boogie/Documents/{learn,own,work,lab}
+
+# misc packets 
+sudo apt install -y screen tmux tree tcpdump wireshark nmap lsof strace net-tools gnupg meld xlsx2csv hfsplus hfsprogs hfsutils terminator curl wget tshark keepassx  remmina visualvm vim gnome-tweak-tool git exfat-fuse exfat-utils fonts-powerline vlc openssh-server python3-pip snapd qemu-kvm libvirt-daemon-system libvirt-clients bridge-utils virt-manager locate mtr zsh docker.io google-chrome-stable podman buildah 
+
+# adjust perm for some apps : 
+sudo addgroup boogie docker
+sudo usermod -a -G libvirt $(whoami)
 
 ## set up dependencies for zoom app (conf call and video ) :
 sudo apt install libgl1-mesa-glx libxcb-xtest0
@@ -69,12 +69,6 @@ helm plugin install https://github.com/futuresimple/helm-secrets
 helm plugin install https://github.com/databus23/helm-diff --version master
 helm plugin install https://github.com/chartmuseum/helm-push
 
-# set up podman buildah stern docker #
-
-sudo sh -c "echo 'deb http://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/xUbuntu_19.10/ /' > /etc/apt/sources.list.d/devel:kubic:libcontainers:stable.list"
-wget -nv https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable/xUbuntu_19.10/Release.key -O- | sudo apt-key add -
-sudo apt-get update 
-sudo apt-get  -y install podman buildah
 # stern : logger for kube :
 curl -fsSLO "https://github.com/wercker/stern/releases/download/1.11.0/stern_linux_amd64" && sudo mv stern_linux_amd64 /usr/local/bin/stern && sudo chmod +x /usr/local/bin/stern
 
