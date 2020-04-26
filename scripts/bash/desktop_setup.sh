@@ -92,5 +92,25 @@ sed -i  '/KUBE_PS1_COLOR_NS=/ a RPROMPT='$(kube_ps1)'' /home/boogie/.oh-my-zsh/p
 
 # to do : set up zoom
 
-
-
+# set up go :
+#on download la derniere version dispo
+#on décompresse l'archive dans le rep /usr/local par ex
+#sudo tar -C /usr/local -xzvf go1.14.2.linux-amd64.tar.gz
+#un check de l'install :
+#ls /usr/local/go
+#on va rajouter le binaire dans notre path 
+#vi ~/.profile ou ~/.bashrc ou ~.zshrc ...
+#..
+#export PATH=$PATH:/usr/local/go/bin
+#go version 
+#go version go1.14.2 linux/amd64
+#creation du gopath qui servira a heberger les projets :
+#mkdir go && mkdir go/src
+## Go path :
+#export GOPATH=$HOME/Documents/go
+#on utilise visualstudiocode
+#ex :
+#https://code.visualstudio.com/docs/?dv=linux64_deb
+#sudo dpkg -i code_1.44.0-1586345345_amd64.deb
+#
+##
