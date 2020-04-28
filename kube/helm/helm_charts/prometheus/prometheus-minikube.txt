@@ -1,0 +1,71 @@
+=== notes prometheus sur minikube : ===
+
+
+minikube start --memory=4096                                                                                                      [☸ |N/A:default]
+😄  minikube v1.9.2 on Ubuntu 20.04
+✨  Using the kvm2 driver based on user configuration
+👍  Starting control plane node m01 in cluster minikube
+🔥  Creating kvm2 VM (CPUs=2, Memory=4096MB, Disk=20000MB) ...
+🐳  Preparing Kubernetes v1.18.0 on Docker 19.03.8 ...
+🌟  Enabling addons: default-storageclass, storage-provisioner
+🏄  Done! kubectl is now configured to use "minikube"
+
+
+
+
+helm pull stable/prometheus-operator
+
+
+
+ boogie@boogieland  ~/Documents/lab/prometheus/minikube_prom  kctl create ns prom                                                                                                          [☸ |minikube:default]
+namespace/prom created
+
+ boogie@boogieland  ~/Documents/lab/prometheus/minikube_prom  cat prometheus-operator.yaml                                                                                                 [☸ |minikube:default]
+alertmanager:
+ ingress:
+   enabled: true
+   annotations:
+     kubernetes.io/ingress.class: nginx
+   hosts:
+   - "alertmanager.boogie7.net"
+
+grafana:
+  persistence:
+    enabled: false
+  ingress:
+    enabled: true
+    annotations:
+      kubernetes.io/ingress.class: nginx
+    hosts:
+      - "grafana.boogie7.net"
+
+coreDns:
+  enabled: true
+
+kubeDns:
+  enabled: false
+
+
+
+
+boogie@boogieland  ~/Documents/lab/prometheus/minikube_prom  helm install -n prom monitor prometheus-operator -f prometheus-operator.yaml                                                 [☸ |minikube:default]
+manifest_sorter.go:192: info: skipping unknown hook: "crd-install"
+manifest_sorter.go:192: info: skipping unknown hook: "crd-install"
+manifest_sorter.go:192: info: skipping unknown hook: "crd-install"
+manifest_sorter.go:192: info: skipping unknown hook: "crd-install"
+manifest_sorter.go:192: info: skipping unknown hook: "crd-install"
+manifest_sorter.go:192: info: skipping unknown hook: "crd-instal"
+NAME: monitor
+LAST DEPLOYED: Tue Apr 28 20:23:44 2020
+NAMESPACE: prom
+STATUS: deployed
+REVISION: 1
+NOTES:
+The Prometheus Operator has been installed. Check its status by running:
+  kubectl --namespace prom get pods -l "release=monitor"
+
+Visit https://github.com/coreos/prometheus-operator for instructions on how
+to create & configure Alertmanager and Prometheus instances using the Operator.
+
+
+
