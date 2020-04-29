@@ -1,43 +1,22 @@
-===  notes terraform : ===
+== notes install terraform : ==
 
+on recupere la version qui nous interresse sur le site :
+https://www.terraform.io/downloads.html
 
-= install : =
+on dezip l'archive :
 
-ajout repo debian :
+unzip terraform_0.12.24_linux_amd64.zip
 
-wget -q -O - https://tjend.github.io/repo_terraform/repo_terraform.key | sudo apt-key add -
-echo "deb [arch=amd64] https://tjend.github.io/repo_terraform stable main" > /etc/apt/sources.list.d/terraform.list
-apt update 
-apt install terraform
+on deplace le binaire terraform de l'archive dans un path de notre machine :
+sudo mv terraform /usr/local/bin
 
+on source notre env si besoin 
+source .zshrc
 
-=  ex simple : pregeneration de certif pour cluster kube avec utilisation du module : https://github.com/kubernetes-incubator/bootkube =
+on test la bonne install du binaire :
+terraform -v                                                                                                                                                        [☸ |minikube:default]
+Terraform v0.12.24
 
-le but es tde générer la conf pour instancier un cluster kube. notre exemple lui va juste concerner la creation de certificats ssl nécéssaires aux éléments du cluster :
-
-1/ on copie le fichier terraform.tfvars.example en terraform.tfvars qui sert de base a terraform pour builder nos conf.
-On va alimenter les variables avec nos valeurs dans le fichier :
-
-cat terraform.tfvars
-cluster_name = "boogie"
-api_servers = ["master01.boogie.io","master02u.boogie.io", "master03.boogie.io"]
-etcd_servers = ["etcd01.boogie.io", "etcd02.boogie.io", "etcd03.boogie.io"]
-asset_dir = "assets/k8s_boogie"
-networking = "flannel"
-service_cidr = "10.10.5.0/24"
-apiserver_vip = ["10.10.5.1"]
-etcd_ca_organization = "Etcd_boogie"
-kube_ca_organization = "Kube_boogie"
-
-
-2/ on va instancier la config de notre conf , faire et un dry run et l'appliquer : 
-
-terraform init
-terraform get -update
-terraform plan
-terraform apply
-
---> toute notre conf va etre crée et dispo dans le repertoire assets/k8s_boogie
 
 
 
