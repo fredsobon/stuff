@@ -41,14 +41,38 @@ to create & configure Alertmanager and Prometheus instances using the Operator.
 3/ on va définir des valeurs dans notre arbo pour overrider la conf et faire nos settings : 
 
 on examine la lecture du charts et des options 
-Pour pouvoir acceder au service à l'exterrieur du cluster : il va falloir créer un service de type Loadbalancer 
+pour pouvoir acceder au differentes apps ( prometheus, alertmanager, grafana) : on va définir des services de type externalIPs.
+
+on va examiner les ip présentes sur notre minikube et en prendre une différente de la sortie de minikube ip pour garder l'ip de managment minikube dans notre cas : 
+ minikube ip
+192.168.39.114
 
 
-cat prometheus-operator.yaml 
+' _ ` _ `\| |/' _ `\| || , <  ( ) ( )| '_`\  /'__`\
+| ( ) ( ) || || ( ) || || |\`\ | (_) || |_) )(  ___/
+(_) (_) (_)(_)(_) (_)(_)(_) (_)`\___/'(_,__/'`\____)
+
+$ ip a
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
+    link/ether 5c:69:3c:d1:37:ff brd ff:ff:ff:ff:ff:ff
+    inet 192.168.122.170/24 brd 192.168.122.255 scope global dynamic eth0
+       valid_lft 2884sec preferred_lft 2884sec
+3: eth1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
+    link/ether fc:6f:5e:8d:60:de brd ff:ff:ff:ff:ff:ff
+    inet 192.168.39.114/24 brd 192.168.39.255 scope global dynamic eth1
+       valid_lft 2884sec preferred_lft 2884sec
+
+
+
+cat ../prometheus-operator.yaml                                                                             [☸ |minikube:prom]
 prometheus:
   service:
-   # loadBalancerIP: 192.168.39.114
-    type: LoadBalancer  <<< on defini notre service comme loadbalancer
+    externalIPs: 
+    - 192.168.122.170
 
 alertmanager:
  ingress:
@@ -57,6 +81,9 @@ alertmanager:
      kubernetes.io/ingress.class: nginx
    hosts:
    - "alertmanager.boogie7.net"
+ service:
+   externalIPs:
+   - 192.168.122.170
 
 grafana:
   persistence:
@@ -67,9 +94,9 @@ grafana:
       kubernetes.io/ingress.class: nginx
     hosts:
       - "grafana.boogie7.net"
-
-    service:
-      loadBalancerIP: 192.168.39.114
+  service:
+    externalIPs: 
+    - 192.168.122.170
 coreDns:
   enabled: true
 
@@ -77,22 +104,34 @@ kubeDns:
   enabled: false
 
 
+
 Une fois que c'est installé :
 helm upgrade monitor . -f ../prometheus-operator.yaml
 
 
 on va examiner les services qui tournent : 
- boogie@boogieland  ~/Documents/lab/prometheus/minikube_prom  kctl -n prom get svc                                                                                                          [☸ |minikube:prom]
-NAME                                      TYPE           CLUSTER-IP       EXTERNAL-IP   PORT(S)                      AGE
-alertmanager-operated                     ClusterIP      None             <none>        9093/TCP,9094/TCP,9094/UDP   40h
-monitor-grafana                           ClusterIP      10.103.213.36    <none>        80/TCP                       40h
-monitor-kube-state-metrics                ClusterIP      10.102.31.123    <none>        8080/TCP                     40h
-monitor-prometheus-node-exporter          ClusterIP      10.105.53.132    <none>        9100/TCP                     40h
-monitor-prometheus-operato-alertmanager   ClusterIP      10.109.71.132    <none>        9093/TCP                     40h
-monitor-prometheus-operato-operator       ClusterIP      10.106.182.128   <none>        8080/TCP,443/TCP             40h
-monitor-prometheus-operato-prometheus     LoadBalancer   10.97.152.3      <pending>     9090:30437/TCP               40h
-prometheus-operated                       ClusterIP      None             <none>        9090/TCP                     40h
- boogie@boogieland  ~/Documents/lab/prometheus/minikube_prom 
+
+kctl get svc                                                                                                [☸ |minikube:prom]
+NAME                                      TYPE        CLUSTER-IP       EXTERNAL-IP       PORT(S)                      AGE
+alertmanager-operated                     ClusterIP   None             <none>            9093/TCP,9094/TCP,9094/UDP   47h
+monitor-grafana                           ClusterIP   10.103.213.36    192.168.122.170   80/TCP                       47h
+monitor-kube-state-metrics                ClusterIP   10.102.31.123    <none>            8080/TCP                     47h
+monitor-prometheus-node-exporter          ClusterIP   10.105.53.132    <none>            9100/TCP                     47h
+monitor-prometheus-operato-alertmanager   ClusterIP   10.109.71.132    192.168.122.170   9093/TCP                     47h
+monitor-prometheus-operato-operator       ClusterIP   10.106.182.128   <none>            8080/TCP,443/TCP             47h
+monitor-prometheus-operato-prometheus     ClusterIP   10.107.29.15     192.168.122.170   9090/TCP                     8m19s
+prometheus-operated                       ClusterIP   None             <none>            9090/TCP                     47h
+
+
+on pourra donc dans un navigateur atteindre respectivement : grafana , prometheus et alertmanager : 
+192.168.122.170:3000
+192.168.122.170:9090
+192.168.122.170:9093
+
+
+
+=== Methode annexe d'acces externe : 
+on peut décider de définir des  services de type loadbalancer dans notre conf 
 
 on va qu'on a un service de type loadbalancer de créer avec une ip cluster ip mais une ip EXTERNAL-IP toujours en pending : c'est normal dans notre cas aucun élément ne peut déclencher l'attribution de l'ip externe (on pourrait passer par metallb ou autre ) mais dans minikube cela reste sommaire pour des tests.
 
