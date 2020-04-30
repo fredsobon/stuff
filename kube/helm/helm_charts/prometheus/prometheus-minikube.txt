@@ -1,6 +1,5 @@
 === notes prometheus sur minikube : ===
 
-
 minikube start --memory=4096                                                                                                      [☸ |N/A:default]
 😄  minikube v1.9.2 on Ubuntu 20.04
 ✨  Using the kvm2 driver based on user configuration
@@ -10,45 +9,15 @@ minikube start --memory=4096                                                    
 🌟  Enabling addons: default-storageclass, storage-provisioner
 🏄  Done! kubectl is now configured to use "minikube"
 
-
-
+1/ on recupere en local le chart prometheus :
 
 helm pull stable/prometheus-operator
 
-
-
+2/ creation de namespace et install du chart : 
  boogie@boogieland  ~/Documents/lab/prometheus/minikube_prom  kctl create ns prom                                                                                                          [☸ |minikube:default]
 namespace/prom created
 
- boogie@boogieland  ~/Documents/lab/prometheus/minikube_prom  cat prometheus-operator.yaml                                                                                                 [☸ |minikube:default]
-alertmanager:
- ingress:
-   enabled: true
-   annotations:
-     kubernetes.io/ingress.class: nginx
-   hosts:
-   - "alertmanager.boogie7.net"
-
-grafana:
-  persistence:
-    enabled: false
-  ingress:
-    enabled: true
-    annotations:
-      kubernetes.io/ingress.class: nginx
-    hosts:
-      - "grafana.boogie7.net"
-
-coreDns:
-  enabled: true
-
-kubeDns:
-  enabled: false
-
-
-
-
-boogie@boogieland  ~/Documents/lab/prometheus/minikube_prom  helm install -n prom monitor prometheus-operator -f prometheus-operator.yaml                                                 [☸ |minikube:default]
+helm install -n prom monitor prometheus-operator -f prometheus-operator.yaml                                                 [☸ |minikube:default]
 manifest_sorter.go:192: info: skipping unknown hook: "crd-install"
 manifest_sorter.go:192: info: skipping unknown hook: "crd-install"
 manifest_sorter.go:192: info: skipping unknown hook: "crd-install"
@@ -67,5 +36,79 @@ The Prometheus Operator has been installed. Check its status by running:
 Visit https://github.com/coreos/prometheus-operator for instructions on how
 to create & configure Alertmanager and Prometheus instances using the Operator.
 
+
+
+3/ on va définir des valeurs dans notre arbo pour overrider la conf et faire nos settings : 
+
+on examine la lecture du charts et des options 
+Pour pouvoir acceder au service à l'exterrieur du cluster : il va falloir créer un service de type Loadbalancer 
+
+
+cat prometheus-operator.yaml 
+prometheus:
+  service:
+   # loadBalancerIP: 192.168.39.114
+    type: LoadBalancer  <<< on defini notre service comme loadbalancer
+
+alertmanager:
+ ingress:
+   enabled: true
+   annotations:
+     kubernetes.io/ingress.class: nginx
+   hosts:
+   - "alertmanager.boogie7.net"
+
+grafana:
+  persistence:
+    enabled: false
+  ingress:
+    enabled: true
+    annotations:
+      kubernetes.io/ingress.class: nginx
+    hosts:
+      - "grafana.boogie7.net"
+
+    service:
+      loadBalancerIP: 192.168.39.114
+coreDns:
+  enabled: true
+
+kubeDns:
+  enabled: false
+
+
+Une fois que c'est installé :
+helm upgrade monitor . -f ../prometheus-operator.yaml
+
+
+on va examiner les services qui tournent : 
+ boogie@boogieland  ~/Documents/lab/prometheus/minikube_prom  kctl -n prom get svc                                                                                                          [☸ |minikube:prom]
+NAME                                      TYPE           CLUSTER-IP       EXTERNAL-IP   PORT(S)                      AGE
+alertmanager-operated                     ClusterIP      None             <none>        9093/TCP,9094/TCP,9094/UDP   40h
+monitor-grafana                           ClusterIP      10.103.213.36    <none>        80/TCP                       40h
+monitor-kube-state-metrics                ClusterIP      10.102.31.123    <none>        8080/TCP                     40h
+monitor-prometheus-node-exporter          ClusterIP      10.105.53.132    <none>        9100/TCP                     40h
+monitor-prometheus-operato-alertmanager   ClusterIP      10.109.71.132    <none>        9093/TCP                     40h
+monitor-prometheus-operato-operator       ClusterIP      10.106.182.128   <none>        8080/TCP,443/TCP             40h
+monitor-prometheus-operato-prometheus     LoadBalancer   10.97.152.3      <pending>     9090:30437/TCP               40h
+prometheus-operated                       ClusterIP      None             <none>        9090/TCP                     40h
+ boogie@boogieland  ~/Documents/lab/prometheus/minikube_prom 
+
+on va qu'on a un service de type loadbalancer de créer avec une ip cluster ip mais une ip EXTERNAL-IP toujours en pending : c'est normal dans notre cas aucun élément ne peut déclencher l'attribution de l'ip externe (on pourrait passer par metallb ou autre ) mais dans minikube cela reste sommaire pour des tests.
+
+On va donc pour atteindre le service depuis notre pc ajouter une route permettant de joindre l'ip de notre service via l'interface de notre minikube :
+minikube ip                                                                                                                     [☸ |minikube:prom]
+192.168.39.114
+
+On ajoute notre route en local :
+sudo ip r a 10.97.152.3  via 192.168.39.114 
+
+et depuis notre navigateur en local on peut donc atteindre : 
+curl  http://10.97.152.3:9090/graph
+
+Il est sinon possible d'atteindre le service via l'interface de l'ip de minikube suivie par le port attribué que l'on voit dans la ligne Loadbalancer des services : 
+On a un node port atteignable .
+
+curl http://192.168.39.114:30437/graph
 
 
