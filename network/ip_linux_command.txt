@@ -1,0 +1,178 @@
+The ip command is a powerful tool for configuring network interfaces that any Linux system administrator should know. It can be used to bring interfaces up or down, assign and remove addresses and routes manage ARP cache and much more.
+
+
+= How to Use the ip Command
+The ip utility is a part of the iproute2 package that is installed on all modern Linux distributions.
+
+The syntax for the ip command is as follows:
+
+ip [ OPTIONS ] OBJECT { COMMAND | help }
+Copy
+
+OBJECT is the object type that you want to manage. The most frequently used objects (or subcommands) are:
+
+
+link (l) - Display and modify network interfaces.
+address (a) - Display and modify IP Addresses.
+route (r) - Display and alter the routing table.
+neigh (n) - Display and manipulate neighbor objects (ARP table).
+The object can be written in full or abbreviated (short) form. To display a list of commands and arguments for each object type ip OBJECT help. each subcommand
+
+
+When configuring network interfaces, you must execute the commands as root or user with sudo privileges. Otherwise the command will print RTNETLINK answers: Operation not permitted
+
+The configurations set with the ip command are not persistent. After a system restart, all changes are lost. For permanent settings, you need to edit the distro-specific configuration files or add the commands to a startup script.
+
+= Displaying and Modifying IP Addresses
+When operating with the addr object the commands take the following form:
+
+ip addr [ COMMAND ] ADDRESS dev IFNAME
+Copy
+The most frequently used COMMANDS of the addr object are: show, add, and del.
+
+Display information about all IP addresses
+To display a list of all network interfaces and the associated ip address type the following command:
+
+ip addr show
+The output will look something like this:
+
+
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UP group default qlen 1000
+    link/ether 52:54:00:8c:62:44 brd ff:ff:ff:ff:ff:ff
+    inet 192.168.121.241/24 brd 192.168.121.255 scope global dynamic eth0
+       valid_lft 2900sec preferred_lft 2900sec
+    inet6 fe80::5054:ff:fe8c:6244/64 scope link 
+       valid_lft forever preferred_lft forever
+You will get the same output if you type omit the show command and type: ip addr.
+
+If you want to display only IPv4 or IPv6 ip addresses, use ip -4 addr or ip -6 addr.
+
+Display information about a single network interface
+To get information about a specific network interface, use ip addr show dev followed by the device name. For example, to query eth0, you would type:
+
+ip addr show dev eth0
+
+
+= Assign IP addresses to an interface
+To assign an IP address to an interface, use the following syntax:
+
+
+ip addr add ADDRESS dev IFNAME
+Copy
+Where IFNAME is the interface name and ADDRESS is the IP address you want to assign to the interface.
+
+To add address 192.168.121.45 with netmask 24 to device eth0 you would type:
+
+sudo ip address add 192.168.121.45/24 dev eth0
+On success, the command will not show any output. If the interface doesn’t exist, you will get Cannot find device "eth0".
+
+Assign multiple IP addresses to the same interface
+With ip, you can assign multiple addresses to the same interface. For example:
+
+sudo ip address add 192.168.121.241/24 dev eth0
+sudo ip address add 192.168.121.45/24 dev eth0
+To confirm the IPs are assigned type ip -4 addr show dev eth0 or ip -4 a show dev eth0:
+
+
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UP group default qlen 1000
+    inet 192.168.121.241/24 brd 192.168.121.255 scope global dynamic eth0
+       valid_lft 3515sec preferred_lft 3515sec
+    inet 192.168.121.45/24 scope global secondary eth0
+       valid_lft forever preferred_lft forever
+
+
+= Remove / Delete an IP address from the interface
+The syntax to remove an IP address from an interface is as below:
+
+
+ip addr dev ADDRESS dev IFNAME
+Copy
+IFNAME is the interface name and ADDRESS is the IP address you want to remove from the interface.
+
+To remove address 192.168.121.45/24 from device eth0 type:
+
+sudo ip address del 192.168.121.45/24 dev eth0
+Displaying and Modifying Network Interfaces
+To manage and view the state of the network interfaces, use the link object.
+
+The most commonly used commands when working with the link objects are: show, set, add, and del.
+
+
+= Display information about network interfaces
+To display a list of all network interfaces, type the following command:
+
+ip link show
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN mode DEFAULT group default qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UP mode DEFAULT group default qlen 1000
+    link/ether 52:54:00:8c:62:44 brd ff:ff:ff:ff:ff:ff
+Unlike ip addr show, ip link show will not print information about the IP addresses associated with the device.
+
+To get information about a specific network interface, use ip link show dev followed by the device name. For example, to query eth0 you would type:
+
+ip link show dev eth0
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UP mode DEFAULT group default qlen 1000
+    link/ether 52:54:00:8c:62:44 brd ff:ff:ff:ff:ff:ff
+Alter the status of the interface UP/DOWN
+To bring interfaces up or down use the ip link set dev followed by the device name and the desired state:
+
+ip link set dev {DEVICE} {up|down}
+Copy
+For example, to bring the interface eth0 online, you would type:
+
+
+ip link set eth0 up
+And to bring if offline
+
+ip link set eth0 down
+Displaying and Altering the Routing Table
+To assign, remove, and display the kernel routing table use the route object. The most commonly used commands when working with the routes objects are: list, add and del.
+
+= Display routing table
+To get a list of the kernel route entries, use one of the following commands:
+
+ip route
+ip route list
+ip route list SELECTOR
+Copy
+When used without a SELECTOR the command will list all of the route entries in the kernel:
+
+ip route list
+default via 192.168.121.1 dev eth0 proto dhcp src 192.168.121.241 metric 100 
+192.168.121.0/24 dev eth0 proto kernel scope link src 192.168.121.241 
+192.168.121.1 dev eth0 proto dhcp scope link src 192.168.121.241 metric 100 
+To display only the routing for a specific network, for example, 172.17.0.0/16 you would type:
+
+ip r list 172.17.0.0/16
+172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown 
+
+= Add a new route
+To add a new entry to the routing table, use the route add command followed by network or device name.
+
+Add a route to 192.168.121.0/24 via the gateway at 192.168.121.1
+
+ip route add 192.168.121.0/24 via 192.168.121.1
+Add a route to 192.168.121.0/24 that can be reached on device eth0.
+
+ip route add 192.168.121.0/24 dev eth0
+To add a default route, use the keyword default. The following command will add a default route via the local gateway 192.168.121.1 that can be reached on device eth0.
+
+ip route add default via 192.168.121.1 dev eth0
+
+= Delete a route
+To delete an entry from the routing table, use the route add command, The syntax for deleting a route is the same as when adding.
+
+The following command will delete the default route:
+
+ip route del default
+Delete a route for 192.168.121.0/24 via the gateway at 192.168.121.1
+
+ip route add 192.168.121.0/24 via 192.168.121.1
+Conclusion
+By now you should have a good understanding of how to use the Linux ip command. For more information about the other ip options visit the ip command man page or type man ip in your terminal.
+
+If you have any questions or feedback, feel free to leave a comment.
