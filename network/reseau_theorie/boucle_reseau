@@ -1,0 +1,39 @@
+===  boucles reseaux : ===
+
+https://www.iplogos.fr/le-probleme-de-la-boucle-reseau-ethernet/
+https://openclassrooms.com/fr/courses/2557196-administrez-une-architecture-reseau-avec-cisco/5135466-evitez-les-problemes-de-boucles-infinies-grace-au-protocole-spanning-tree
+
+La commutation Ethernet : le switch (équipement de niveau 2)   traite les trames Ethernet; c’est à dire qu’il commute les trames d’un port à l’autre en fonction de l’adresse MAC destination.
+Le commutateur utilise la table des adresses MAC pour commuter la trame en fonction de l’adresse MAC destination. Pour cela, le commutateur doit construire cette table en s’appuyant sur une procédure de diffusion (flooding en anglais dans le texte). La commutation des trames Ethernet s’effectue sur la base de la table des adresses MAC
+
+
+Ce mécanisme de fonctionnement du commutateur peut poser problème lorsque la topologie Ethernet est redondante, c’est à dire lorsque PLUSIEURS  chemins physiques sont disponibles entre des commutateurs du réseau Ethernet. En gros quand une trame envoyée d'un pc1 a plusieurs chemins possbiles pour atteindre sa destination ex pc2 
+Une seule trame suffit a créer la boucle 
+
+                     sw1 -  pc1
+                 /       \
+              sw2         sw3
+
+ex: pc1 relié a sw1 émet un ping : il envoit une requette arp donc de broadcast a tous les ports de tous les switchs.
+Ceux ci vont mettre leur table mac a jour des la reception d'une information 
+ex : 
+   sw1   mac pc1 port 2
+   sw2   mac pc1 port 4
+   sw3   mac pc1 port 5
+
+   chaque switch va fwd la trame sur tous ses ports et donc tous les switchs vont en permanence recevoir une trame indiquant sur quelle port joindre la mac de pc1 ...chaque switch envoie la trame mais chaque switch met aussi sa table mac à jour en continue : on a donc une boucle réseau de formée.
+
+Les problèmes associés à la redondance sont les suivants:
+
+-> Brodcast Storm (ou la tempête de diffusion) – la trame de diffusion est envoyée sur tous les ports du réseau mais la redondance conduit à diffuser cette trame en boucle sans jamais d’arrêter ! Le réseau est donc sur-utilisé et les performances s’effondrent…
+-> Multiple Frame Transmision (ou la transmission de plusieurs trames identiques aux systèmes usagers) – Les systèmes usagers (ou les applications) sont généralement prévues pour ne recevoir qu’un seul exemplaire d’une trame. La réception multiple peut engendrer des erreurs de fonctionnement…
+->  MAC adress Table Instability (instabilité de la table des adresses MAC) – Une trame qui boucle va conduire à mettre des informations différentes dans la table des adresses MAC et donc une charge CPU élevée pour le commutateur qui doit traiter des informations qui ne cessent de changer…
+Nous  allons illustrer ces dysfonctionnements dans un exemple. Notre plateforme, pour cette démonstration est constituée de 3 commutateurs (topologie en triangle).
+
+Que se passe-t-il lorsqu’une trame, reçue par un usagers de ces commutateurs, doit être diffusée sur le réseau ? La trame se retrouve à boucler sur le réseau !
+
+
+on va biensur pouvoir contrer ce phénomene en utilisant par exemple le protocole spanning tree 
+
+L’idée du spanning-tree est simple. Vous allez élire un seul chemin du PC-1 vers pc2 par ex en bloquant, au niveau logique, certains ports. Évidemment, en cas de panne d’un switch, ce chemin changera automatiquement.
+
