@@ -1,6 +1,9 @@
 === notes prometheus (ud) ===
 
 
+prometheus est fait en go
+prom collecte les metrics des points de monitoring sur les endpoints via http. On dis que prometheus "scrap" les data.
+
 == set up :
 
 cf files pour baremetal
@@ -11,4 +14,87 @@ une fois les applis ( prometheus / node-exporter et grafana installés ) ont peu
 - node-exporter http://localhost:9100
 - grafana       http://localhost:3000
 
+
+- prometheus :
+
+on peut browser les differentes métriques , executer la requete ( recupérer les valeurs ) ou ajouter un graph : qui va nous montrer physiquement le resulat de notre requete sous forme de graph
+
+ex: on selectionne via le menu deroulant la metrique :
+scrape_samples_scraped
+
+on peut avoir le graph 
+
+- grafana :
+une fois installé on va definir une datasource : on va donc ajouter prometheus ( localhost:9090) 
+
+on ajoute un dashboard > on ajoute une metrique : ex on recupere scrape_samples_scraped celle qu'on a tester dans prometheus , on ajoute un graph et on a la meme chose que dans prometheus mais avec un visuel plus clair.
+
+
+== concepts :
+
+toutes les donnees sont stockée en format time series.
+chaque time-series est identifiée par un nom de métrique (metric name ) et un set de paires clés valeurs apellées "labels"
+
+exemple : 
+metric: go_memstats_alloc_bytes
+
+et on aura plusieurs labels de cette métrique : 
+    ✔
+    go_memstats_alloc_bytes{endpoint="web",instance="172.17.0.4:9090",job="monitor-prometheus-operato-prometheus",namespace="prom",pod="prometheus-monitor-prometheus-operato-prometheus-0",service="monitor-prometheus-operato-prometheus"}
+    ✔
+    go_memstats_alloc_bytes{endpoint="service",instance="172.17.0.2:3000",job="monitor-grafana",namespace="prom",pod="monitor-grafana-857c4b68b4-sqwkm",service="monitor-grafana"}
+    ✔
+    go_memstats_alloc_bytes{endpoint="metrics",instance="192.168.39.114:9100",job="node-exporter",namespace="prom",pod="monitor-prometheus-node-exporter-mb87t",service="monitor-prometheus-node-exporter"}
+    ✔
+
+ On aura donc la même métrique mais dont les résultats seront issus de plusieurs soft dfférents .
+
+les data time-series sont la representation des data actuelles et elles peuvent prendre un format  float64 ou un timestamp de précision milliseconds
+la notation des time-series suit un standart du type :
+<metric_name>{<label_name=label_value..}
+ex: 
+node_boot_time_seconds{endpoint="metrics",instance="192.168.39.114:9100",job="node-exporter",namespace="prom",pod="monitor-prometheus-node-exporter-mb87t",service="monitor-prometheus-node-exporter"}
+
+
+= configuration prometheus : =
+
+La conf de prometheus est stockée dans un format yaml et on peut modifier cette config sans avoir a redémarrer prometheus.
+un reload peut être fait avec un sig hup linux kill -SIGHUP <pid>
+
+on peut aussi démarrer prom avec des params en lui passant des arguments de type : --config.file
+si on veut modifier un param on doit par contre redémarrer prom.
+
+on peut dans un deployment helm du chart prometheus-operator examiner la conf prometheus en nous loggant en shell dans le container prometheus-config-reloader de notre pod  prometheus-monitor-prometheus-operato-prometheus-0
+on peut voir en gros les params de base en début de fichier dans la section global 
+puis on va definir les targets : les endpoints qui permettront a prometheus de recup la data.
+Le label job_name est rajouté sur toutes les lignes d'ou on veut scrap la data 
+
+/etc/prometheus/config_out $ cat prometheus.env.yaml
+global:
+  evaluation_interval: 30s  <<<<  delai d'evaluation des rules définies dans notre conf 
+  scrape_interval: 30s  <<< delai de recup de métrique.
+  external_labels:
+    prometheus: prom/monitor-prometheus-operato-prometheus
+    prometheus_replica: prometheus-monitor-prometheus-operato-prometheus-0
+rule_files:
+- /etc/prometheus/rules/prometheus-monitor-prometheus-operato-prometheus-rulefiles-0/*.yaml    <<< fichier de rules 
+scrape_configs:   <<<<< c'est dans cette section qu'on va définir les endpoints dont prometheus viendra scrapper les data.
+- job_name: prom/monitor-prometheus-operato-alertmanager/0   <<<< on commence toujours notre label par job_name suivi de notre target            
+  honor_labels: false
+  kubernetes_sd_configs:
+  - role: endpoints
+    namespaces:
+      names:
+      - prometheus
+  metrics_path: /metrics    <<< on defini ici que notre points d'entrée pour recup les metrics sera /metrics
+  ...
+
+on peut examiner nos targets en selectionnant status > target dans l'interface de prometheus 
+on voit notre target definie dans la conf :
+
+
+prom/monitor-prometheus-operato-alertmanager/0 (1/1 up)
+Endpoint 	State 	Labels 	Last Scrape 	Scrape Duration 	Error
+http://172.17.0.3:9093/metrics
+	up 	endpoint="web" instance="172.17.0.3:9093" job="monitor-prometheus-operato-alertmanager" namespace="prom" pod="alertmanager-monitor-prometheus-operato-alertmanager-0" service="monitor-prometheus-operato-alertmanager" 	18.967s ago 	8.43ms
 
