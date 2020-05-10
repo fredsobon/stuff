@@ -19,3 +19,122 @@ on peut modifer par la suite
 edit -> preferences -> ios routeur -> new : on va donner le path pour charger une image de l'os d'un switch. 
 
 
+== gns3 tuto : ==
+
+https://openclassrooms.com/fr/courses/2581701-simulez-des-architectures-reseaux-avec-gns3
+
+= config de base :
+
+apres l'install on cree un projet que l'on ssauve sur disque
+on peut maintenant examiner l'interface de gns3 :
+
+- barre horizontale :
+on peut faire des snaps de nos maquettes.
+on peut afficher / masquer les ifaces reseaux
+on peut ouvrir les consoles de chaque noeud.
+
+on a dans la seconde partie les manip de base de gns3 :
+lancer /stopper  /reloader la maquette.
+
+on a dans la troisieme partie du menu la possibilité d'ajouter du texte et des images pour notre maquette.
+
+- barre verticale 
+on a nos differents composants :
+routeur / switch /pc / firewall et la possibilité de rajouter des liens reseaux entre les composants.
+
+-> Simulation projet :
+
+on ajoute deux vpcs ( drag and drop icone sur plan de travail ) 
+qu'on renomme (clic droit change hostname ) : directeur / employé 
+
+on relie les deux pc a un switch que l'on place sur notre plan de travail.
+une fois qu'on a relié les pcs au switch ( on voit que les points des pcs sont rouges ) ..on alume notre maquette : en clicant sur la grosse fleche :les pcs sont donc maintenant allumés et les ifaces vertes.
+
+on va maintenant definir des ip sur nos deux pc :
+
+
+on clic sur le bouton console qui va ouvrir toutes nos consoles : 
+
+employe> ip 192.168.1.1 255.255.255.0
+Checking for duplicate address...
+PC1 : 192.168.1.1 255.255.255.0
+
+on verifie : 
+
+employe> show ip
+
+NAME        : employe[1]
+IP/MASK     : 192.168.1.1/24
+GATEWAY     : 255.255.255.0
+DNS         : 
+MAC         : 00:50:79:66:68:01
+LPORT       : 10004
+RHOST:PORT  : 127.0.0.1:10005
+MTU:        : 1500
+
+employe> 
+
+directeur> ip 192.168.1.2 255.255.255.0
+Checking for duplicate address...
+PC1 : 192.168.1.2 255.255.255.0
+
+directeur> show ip
+
+NAME        : directeur[1]
+IP/MASK     : 192.168.1.2/24
+GATEWAY     : 255.255.255.0
+DNS         : 
+MAC         : 00:50:79:66:68:02
+LPORT       : 10006
+RHOST:PORT  : 127.0.0.1:10007
+MTU:        : 1500
+
+on test on lancant un ping depuis la console du pc directeur a destination de l'employé :
+
+directeur> ping 192.168.1.1
+84 bytes from 192.168.1.1 icmp_seq=1 ttl=64 time=0.471 ms
+84 bytes from 192.168.1.1 icmp_seq=2 ttl=64 time=0.820 ms
+84 bytes from 192.168.1.1 icmp_seq=3 ttl=64 time=0.866 ms
+
+si on clic droit sur un lien reseau et qu'on le suspend : on ne ping plus.
+
+
+= import / ajout de materiel specifique :
+
+on va pouvoir travailler avec des equipement precis routeur, firewall, serveur precis.
+
+on va donc devoir importer des images ( exactes copies d'un os) : contenu dans un fichier iso. On l'ajoute a la maquette.
+gns3 se sert des images pour emuler et virtualiser les equipements 
+
+on va donc chercher sur le site de gns3.com (section marketplace ) des equipements precis
+
+ex: section appliances : 
+on veut du nat et du dhcp
+on va chercher pour cela un routeur cisco  on selectionne : Cisco 3725
+
+repond il a nos besoin en nat et dhcp ? 
+on check sur le site de cisco :
+cisco feature navigator : https://cfnng.cisco.com/
+on cherche un peu et on trouve de quoi nous renseigner sur le 3725 :
+https://cfnng.cisco.com/legacy-dataOS TYPE	IOS
+PLATFROM	3725
+MAJOR RELEASE	12.4XW
+RELEAES	12.4(11)XW7
+LICENSE	ENTERPRISE BASE
+
+RELEASE	LICENSE	PLATFORM	IMAGE NAME	DRAM	FLASH	EOL STATUS
+12.4(11)XW7	ENTERPRISE BASE	3725	c3725-entbasek9-mz.124-11.XW7.bin	256	64	Y
+
+
+On ne peut pas prendre d'image cisco car c'est payant. on va utiliser un routeur /firewall opensource : pfsense
+on retourne dans gns3 :
+
+https://gns3.com/marketplace/appliance/pfsense
+
+on cherche dans la partie feature : on voit que le routeur /fw : fait du dhcp et du nat.
+https://www.netgate.com/solutions/pfsense/features.html
+
+on ne peut pas l'installer car il faut utiliser gns3vm 
+= gns3 vm :
+
+gns3 
