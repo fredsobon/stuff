@@ -1,0 +1,144 @@
+== clusterssh : ==
+
+sudo apt-get install clusterssh
+
+Cluster SSH can be configured through it's global configuration files, or user specific configuration
+
+Global Configuration Files
+There are three global configuration files.
+/etc/clusters - Contains a list of tags (cluster names) and the hosts mapped to the specified tag.
+/etc/tags - Reversed logic to /etc/clusters. This allows you to specify one host as a member of multiple tags (clusters).
+/etc/csshrc - This file contains default configuration overrides.
+
+User Specific Configuration Files
+There are also three user specific files that directly map to the global files.
+$HOME/.clusterssh/clusters - User specific version of /etc/clusters
+$HOME/.clusterssh/tags - User specific version of /etc/tags
+$HOME/.clusterssh/config - Users specific version of /etc/csshrc
+
+Configure The Clusters File
+/etc/clusters (global) or $HOME/.clusterssh/clusters (user specific)
+
+The cluster file format is simply a tag (cluster name) followed by the name of the hosts in said cluster, each separated by a space.
+For an example, let's say we have six servers. Two are development servers and four are production servers. We can specify the tag "dev" and then list the development servers. Then do the same for the production servers.
+
+Here is an example clusters file:
+
+# Development servers
+dev savona@centosdev savona@fenrir
+
+# Production Servers
+prod savona@putorweb1 savona@putorweb2 savona@putorweb3 savona@putorweb4
+NOTE: Adding the username (user@host) is optional. You can specify the username on the command line. If you username is the same on all systems you can exclude it entirely.
+
+Now that we have the clusters file created, we can just use the tag to open terminals for the two dev servers listed.
+
+[savona@putor ~]$ cssh dev
+The above command would open two XTerm windows, one for each development server listed after the dev tag.
+
+Configuring The Tag File
+/etc/tags (global) or $HOME/.clusterssh/tags (user specific)
+
+As stated above, the tag file uses the reverse format of the clusters file. In the tags file, you have a host followed by one or more tags, each separated by a space. This allows for more granular control over the clusters.
+
+n this example, let's say we want to group servers by their OS and location. We could start the line with a host, then list the tags (clusters) that host should be associated with. This allows us to easily specify a single host as a member of several tags (clusters).
+
+Here is an example of seperating our hosts by operating system and location.
+
+savona@putorweb1 centos phila
+savona@putorweb2 redhat denver
+savona@putorweb3 redhat phila
+savona@putorweb4 centos denver
+We effectively made the host putorweb1 a member for two clusters. One called centos and the other called phila. We can now connect to all the hosts in the Philadelphia datacenter by using this tag like so:
+
+[savona@putor ~]$ cssh phila
+ Opening to: savona@putorweb1 savona@putorweb3
+Likewise, we can also connect to all the CentOS systems using the centos tag:
+
+￼
+ 
+[savona@putor ~]$ cssh centos
+ Opening to: savona@putorweb1 savona@putorweb4
+Cluster SSH Configuration File
+/etc/csshrc (global) or $HOME/.clusterssh/config (user specific)
+
+The main configuration file provides a method for overriding the default behavior of the program. The format is similar to the other configuration files, one option and value per line. Here is an example config file:
+
+# Close terminal window after 3 seconds
+auto_close = 3
+# Set initial console position
+console_position = +0+200
+# Hide console menu
+hide_menu = 1
+For a full list of options, see the man page in the resources section.
+
+Basic Usage of Cluster SSH
+Using Cluster SHH is simple and can be done with no configuration at all.
+
+￼
+As you see in the screenshot above, we logged into two machines by running the following command:
+
+cssh savona@fenrir savona@centosdev
+This can also be shortened like so:
+
+cssh -l savona fenrir centosdev
+Cluster SSH then opened two XTerm windows, one for each host supplied as arguments. It also opened an administration console in which you type commands that will be duplicated across the XTerm windows.
+
+If you would like to enter something into a specific host only, it is as easy as clicking on that window. You can click back into the administration console to resume sending keystrokes to all terminal windows.
+
+Connecting to Groups of Servers Using Tags
+We already touched on using tags (cluster names) in the configuration section. To connect to systems defined in the clusters file or tags file, simply call cssh and the tag name.
+
+[savona@putor ~]$ cssh prod
+NOTE: Tags must be configured in either the clusters file or tags file before use. (See Configuring Cluster SSH Above)
+
+Using the Administration Console Options
+￼
+Administration Console for Cluster SSH
+There are several menu items across the top of the administration console. They hold some useful options that will increase your Cluster SSH efficiency.
+
+In the File menu you will find Show History. It's purpose is obvious, but it's location is very inconspicuous. This will drop a little window down and show you the history of commands typed.
+
+￼
+ 
+The Hosts menu provides options like "Re-tile Windows" which will re-tile the windows if you moved them, added, or removed hosts. It also has options to make certain windows (or sessions) active or inactive. At the very bottom of this menu there is also a list of currently opened hosts which you can toggle active or inactive. Setting a host to inactive keeps the session open, but anything you type in the admin console will not be sent to that session.
+
+The Send menu allows you to send things like remote host name, username, random number, etc. These items could be different in each session so this simplifies this action. Optionally this menu can be altered by adding a $HOME/.clusterssh/send_menu file.
+
+Using cssh Command Line Options
+You can use command line options to further personalize your connections. Here are some popular options:
+
+Specify User on Per Host Basis
+You can use the -l (--username) option to specify a user to be used.
+
+cssh -l username host1
+This comes in handy when you want to quickly connect to multiple systems using a different user account. Simple supply the basic SSH syntax [username]@[host] multiple times, like so:
+
+cssh savona@putorius ninja@putordb dax@defiant
+NOTE: Some clusters or tags file configurations can break this functionality. If it is not working as expected, check your files.
+
+Run Command Upon Login
+You can use the -a (--action) option to run a command upon log in. For example, run the who command to see if anyone else is logged in.
+
+cssh -a 'who' host1 host2
+Resize Terminal Windows to Fill Screen
+You can use the --fillscreen option to resize the windows to use the whole screen.
+
+cssh --fillscreen host1 host2 host3
+You can find a full list of command line options by using the links in the resources section below.
+
+Potential for Catastrophes
+I learned this lesson the hard way so you don't have to. Because of the way Cluster SSH operates when something goes wrong, it usually goes horribly wrong. Remember you are running commands on multiple systems. That means any mistake, mistype or fat finger is being propagated also.
+
+With great power comes great responsibility.
+
+- Voltaire
+Extra special attention should be taken when editing configuration files. Even if you believe the files are the same across all systems, a single comment or blank line can through the line numbers off.
+
+Be careful, double check your typing and configurations before committing. It is easy to get into trouble.
+
+Conclusion
+Cluster SSH is an incredibly powerful tool for system administration. Even now as we move on to tools like Puppet and Ansible for configuration management, I still find uses for good ole cssh.
+
+In this article we covered most everything you need to get started. We discussed installing and configuring Cluster SSH as well as some usage examples. If you have a comment, question or horror story we would love to hear it in the comments.
+
