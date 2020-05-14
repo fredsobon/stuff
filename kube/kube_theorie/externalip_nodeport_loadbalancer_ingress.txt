@@ -1,0 +1,144 @@
+== theorie de services et acces aux ressources kube depuis l'exterrieur du cluster : ==
+
+https://www.ovh.com/blog/getting-external-traffic-into-kubernetes-clusterip-nodeport-loadbalancer-and-ingress/
+
+= Getting external traffic into Kubernetes – ClusterIp, NodePort, LoadBalancer, and Ingress =
+
+How do I route external traffic into my Kubernetes service?
+
+Some concepts:  ClusterIP,  NodePort,  Ingress and  LoadBalancer
+There are several ways to route external traffic into your cluster:
+
+-> Using Kubernetes proxy and ClusterIP: 
+
+The default Kubernetes ServiceType is ClusterIp, which exposes the Service on a cluster-internal IP. To reach the ClusterIp from an external source, you can open a Kubernetes proxy between the external source and the cluster. This is usually only used for development.
+
+You can use kubectl to create such a proxy. When the proxy is up, you’re directly connected to the cluster, and you can use the internal IP (ClusterIp) for thatService.
+
+kubectl proxy and ClusterIP
+kubectl proxy and ClusterIP
+This method isn’t suitable for a production environment, but it’s useful for development, debugging, and other quick-and-dirty operations.
+
+      browser
+       |               <<<< user laptop         
+      proxy
+
+        |
+
+       apiserver                <<<<   kube cluster
+
+        |
+
+     service   < clusterip
+
+      /     \
+     pod    pod
+
+on va depuis notre pc lancer le kube proxy qui va nous rediriger via l'api kube sur le service désiré exposer dans kube qui lui nous envoi vers les backends : les pods qui portent l'appli
+
+-> Exposing services as NodePort: 
+
+Declaring a service as NodePort exposes the Service on each Node’s IP at the NodePort (a fixed port for that Service, in the default range of 30000-32767). You can then access the Service from outside the cluster by requesting <NodeIp>:<NodePort>. 
+Every service you deploy as NodePort will be exposed in its own port, on every Node.
+It’s rather cumbersome to use NodePortfor Servicesthat are in production. As you are using non-standard ports, you often need to set-up an external load balancer that listens to the standard ports and redirects the traffic to the <NodeIp>:<NodePort>.
+                                          
+
+           pc
+ 
+           |
+                  service
+               /          \
+nodeport> node1               node2 
+
+              pod            pod
+
+on appel la ressource depuis notre pc avec ipnode:nodeport : on va ensuite attaquer le service que l'on veut qui lui va rediriger vers les backends : les pods qui hebergent l'appli
+
+
+
+= Exposing services as LoadBalancer: 
+
+Declaring a service of type LoadBalancer exposes it externally using a cloud provider’s load balancer. The cloud provider will provision a load balancer for the Service, and map it to its automatically assigned NodePort. How the traffic from that external load balancer is routed to the Service pods depends on the cluster provider.
+The LoadBalancer is the best option for a production environment, with two caveats:
+Every Service that you deploy as LoadBalancer will get it’s own IP.
+The LoadBalancer is usually billed based on the number of exposed services, which can be expensive.
+
+
+            pc
+    
+            |
+    
+            loadbalancer 
+
+    
+            |       service
+                  / 
+nodeport>  node             node
+
+                   /      \
+                pod       pod 
+
+on fait une requette qui est envoyé au loadbalancer celui ci la dirige vers un node et son node port , qui envoit vers le service et celui ci envoie au backend qui sont les pods qui portent l'appli.
+
+
+-> Ingress?
+
+Ingress is an API object that manages external access to the services in a cluster (typically HTTP). 
+So what’s the difference between this and LoadBalancer or NodePort?
+
+Ingress isn’t a type of Service, but rather an object that acts as a REVERSE PROXY and single entry-point to your cluster that routes the request to different services. 
+The most basic Ingress is the NGINX Ingress Controller, where the NGINX takes on the role of reverse proxy, while also functioning as SSL.
+
+Ingress is exposed to the outside of the cluster via ClusterIP and Kubernetes proxy, NodePort, or LoadBalancer, and routes incoming traffic according to the configured rules.
+
+     ingress avec nodeport 
+
+                     pc
+
+
+                     |
+
+ nodeport >         ingress
+
+                   /
+              clusterip
+
+              /
+            service
+            /  \
+          pod   pod
+
+
+
+on fait une requette qui est envoyé  au node node port et à l'ingress qui va router la requette vers une cluster ip qui va donc porter le traffi et rediriger vers les backends : pods qui portent le service.
+
+  ingress avec loadbalancer 
+       
+
+
+                       pc
+
+
+                       |
+
+                       loadbalancer
+
+                       |
+        nodeport >     ingress  
+                      /
+             cluster ip
+
+               /
+
+              service  
+
+           /          \
+
+           pod       pod 
+ 
+
+
+An approach I like is having a LoadBalancer for every related set of services, and then routing to those services using an Ingressbehind the  LoadBalancer. For example, let’s say you have two different microservice-based APIs, each one with around 10 services. I would put one LoadBalancer in front of one Ingress for each API, the LoadBalancerbeing the single public entry-point, and theIngress routing traffic to the API’s different services.
+But if your architecture is quite complex (especially if you’re using microservices), you will soon find that manually managing everything with LoadBalancer and Ingress is  rather  cumbersome. If that’s the case, the answer could be to delegate those tasks to a service mesh…
+
+
