@@ -6,7 +6,7 @@ minikube start --memory=4096                                                    
 👍  Starting control plane node m01 in cluster minikube
 🔥  Creating kvm2 VM (CPUs=2, Memory=4096MB, Disk=20000MB) ...
 🐳  Preparing Kubernetes v1.18.0 on Docker 19.03.8 ...
-🌟  Enabling addons: default-storageclass, storage-provisioner
+🌟  Enabling addons: default-seorageclass, storage-provisioner
 🏄  Done! kubectl is now configured to use "minikube"
 
 1/ on recupere en local le chart prometheus :
@@ -67,12 +67,75 @@ $ ip a
        valid_lft 2884sec preferred_lft 2884sec
 
 
+On va donc definir des valeurs dans notre chart qui vont nous permettre d'acceder aux ressources en dehors du cluster.
 
-cat ../prometheus-operator.yaml                                                                             [☸ |minikube:prom]
+On doit pour s'assurer d'avoir un comportement correct d'avoir installer un ingress controller dans notre minikube : c'est lui qui va nous servir de reverse proxy et permettre d'atteindre les points d'entrées qui seront eux meme redirigés en fonction de l'url appellées sur le service dédié redirigeant vers le pod hébergeant l'appli 
+
+minikube addons enable ingress
+
+on verifie que l'ingress controller est bien up : 
+
+ kctl get pod --all-namespaces |grep ingress
+kube-system   nginx-ingress-controller-6d57c87cb9-g9xcj                1/1     Running   0          59m
+
+on renseigne nos valeurs dans le fichier de notre chart et on examine les modif effectuées en conséquence dans les manifests :  
+
+cat prometheus-operator.yaml
 prometheus:
-  service:
-    externalIPs: 
-    - 192.168.122.170
+ ingress:
+   enabled: true
+   annotations:
+     kubernetes.io/ingress.class: nginx
+   hosts:
+   - "prometheus.boogie7.net"    <<<< on va donc ici definir notre point d'entrée dans l'ingress qui redirigera vers le service prometheus et le pod 
+ service:
+   externalIPs:
+   - 192.168.122.149
+
+on voit en examinant la ressource ingress créee qu'elle redirige vers le service dedié prometheus qui lui va renvoyer vers le / les pods hébergant l'appli :
+
+kctl get  ing monitor-prometheus-operato-prometheus -o yaml
+..
+spec:
+  rules:
+  - host: prometheus.boogie7.net
+    http:
+      paths:
+      - backend:
+          serviceName: monitor-prometheus-operato-prometheus
+          servicePort: 9090
+        path: /
+        pathType: ImplementationSpecific
+status:
+  loadBalancer:
+    ingress:
+    - ip: 192.168.39.214
+..
+
+kctl get svc monitor-prometheus-operato-prometheus -o yaml
+..
+
+spec:
+  clusterIP: 10.109.204.228
+  externalIPs:
+  - 192.168.122.149
+  ports:
+  - name: web
+    port: 9090
+    protocol: TCP
+    targetPort: 9090
+  selector:
+    app: prometheus
+    prometheus: monitor-prometheus-operato-prometheus
+  sessionAffinity: None
+  type: ClusterIP
+status:
+  loadBalancer: {}
+
+..
+
+on a donc le cheminement global de l'ingress au pod en passant par la redirection vers le bon service
+on repete la même chose pour nos autres composants alertmanager et grafana 
 
 alertmanager:
  ingress:
@@ -83,7 +146,49 @@ alertmanager:
    - "alertmanager.boogie7.net"
  service:
    externalIPs:
-   - 192.168.122.170
+   - 192.168.122.149
+
+grafana:
+  persistence:
+    enabled: false
+  ingress:
+    enabled: true
+    annotations:
+      kubernetes.io/ingress.class: nginx
+    hosts:
+      - "grafana.boogie7.net"
+  service:
+    externalIPs:
+    - 192.168.122.149
+coreDns:
+  enabled: true
+
+kubeDns:
+  enabled: false
+
+Une fois que c'est configuré on lance l'upgrade : 
+cat prometheus-operator.yaml 
+prometheus:
+ ingress:
+   enabled: true
+   annotations:
+     kubernetes.io/ingress.class: nginx
+   hosts:
+   - "prometheus.boogie7.net"
+ service:
+   externalIPs: 
+   - 192.168.122.149
+
+alertmanager:
+ ingress:
+   enabled: true
+   annotations:
+     kubernetes.io/ingress.class: nginx
+   hosts:
+   - "alertmanager.boogie7.net"
+ service:
+   externalIPs:
+   - 192.168.122.149
 
 grafana:
   persistence:
@@ -96,7 +201,7 @@ grafana:
       - "grafana.boogie7.net"
   service:
     externalIPs: 
-    - 192.168.122.170
+    - 192.168.122.149
 coreDns:
   enabled: true
 
@@ -104,34 +209,81 @@ kubeDns:
   enabled: false
 
 
-
-Une fois que c'est installé :
 helm upgrade monitor . -f ../prometheus-operator.yaml
+
+on va donc rensigner dans notre fichier hosts les entrées de nos apps : 
+192.168.122.149 grafana.boogie7.net
+192.168.122.149 alertmanager.boogie7.net
+192.168.122.149 prometheus.boogie7.net
+
+et un curl de chacune des ressource répond correctement sans avoir a spécifier le moindre num de port :
+ ✘ boogie@boogieland  ~/Documents/lab/prometheus/minikube_prom  curl -I  grafana.boogie7.net
+HTTP/1.1 302 Found
+Server: openresty/1.15.8.2
+Date: Fri, 15 May 2020 14:21:06 GMT
+Content-Type: text/html; charset=utf-8
+Connection: keep-alive
+Cache-Control: no-cache
+Expires: -1
+Location: /login
+Pragma: no-cache
+Set-Cookie: redirect_to=%2F; Path=/; HttpOnly; SameSite=Lax
+X-Frame-Options: deny
+
+ boogie@boogieland  ~/Documents/lab/prometheus/minikube_prom  curl -I  alertmanager.boogie7.net
+HTTP/1.1 405 Method Not Allowed
+Server: openresty/1.15.8.2
+Date: Fri, 15 May 2020 14:21:14 GMT
+Content-Type: text/plain; charset=utf-8
+Content-Length: 19
+Connection: keep-alive
+Allow: GET, OPTIONS
+X-Content-Type-Options: nosniff
+
+ boogie@boogieland  ~/Documents/lab/prometheus/minikube_prom  curl -I  prometheus.boogie7.net
+HTTP/1.1 405 Method Not Allowed
+Server: openresty/1.15.8.2
+Date: Fri, 15 May 2020 14:21:25 GMT
+Content-Type: text/plain; charset=utf-8
+Content-Length: 19
+Connection: keep-alive
+Allow: GET, OPTIONS
+X-Content-Type-Options: nosniff
 
 
 on va examiner les services qui tournent : 
 
-kctl get svc                                                                                                [☸ |minikube:prom]
+ boogie@boogieland  ~/Documents/lab/prometheus/minikube_prom  kctl get ing          [☸ |minikube:prom]
+NAME                                      CLASS    HOSTS                      ADDRESS          PORTS   AGE
+monitor-grafana                           <none>   grafana.boogie7.net        192.168.39.214   80      62m
+monitor-prometheus-operato-alertmanager   <none>   alertmanager.boogie7.net   192.168.39.214   80      62m
+monitor-prometheus-operato-prometheus     <none>   prometheus.boogie7.net     192.168.39.214   80      50m
+ boogie@boogieland  ~/Documents/lab/prometheus/minikube_prom  kctl get svc          [☸ |minikube:prom]
 NAME                                      TYPE        CLUSTER-IP       EXTERNAL-IP       PORT(S)                      AGE
-alertmanager-operated                     ClusterIP   None             <none>            9093/TCP,9094/TCP,9094/UDP   47h
-monitor-grafana                           ClusterIP   10.103.213.36    192.168.122.170   80/TCP                       47h
-monitor-kube-state-metrics                ClusterIP   10.102.31.123    <none>            8080/TCP                     47h
-monitor-prometheus-node-exporter          ClusterIP   10.105.53.132    <none>            9100/TCP                     47h
-monitor-prometheus-operato-alertmanager   ClusterIP   10.109.71.132    192.168.122.170   9093/TCP                     47h
-monitor-prometheus-operato-operator       ClusterIP   10.106.182.128   <none>            8080/TCP,443/TCP             47h
-monitor-prometheus-operato-prometheus     ClusterIP   10.107.29.15     192.168.122.170   9090/TCP                     8m19s
-prometheus-operated                       ClusterIP   None             <none>            9090/TCP                     47h
+alertmanager-operated                     ClusterIP   None             <none>            9093/TCP,9094/TCP,9094/UDP   62m
+monitor-grafana                           ClusterIP   10.109.221.5     192.168.122.149   80/TCP                       62m
+monitor-kube-state-metrics                ClusterIP   10.97.186.49     <none>            8080/TCP                     62m
+monitor-prometheus-node-exporter          ClusterIP   10.104.233.183   <none>            9100/TCP                     62m
+monitor-prometheus-operato-alertmanager   ClusterIP   10.103.211.214   192.168.122.149   9093/TCP                     62m
+monitor-prometheus-operato-operator       ClusterIP   10.98.121.5      <none>            8080/TCP,443/TCP             62m
+monitor-prometheus-operato-prometheus     ClusterIP   10.109.204.228   192.168.122.149   9090/TCP                     62m
+prometheus-operated                       ClusterIP   None             <none>            9090/TCP                     62m
+ boogie@boogieland  ~/Documents/lab/prometheus/minikube_prom  kctl get pod          [☸ |minikube:prom]
+NAME                                                     READY   STATUS    RESTARTS   AGE
+alertmanager-monitor-prometheus-operato-alertmanager-0   2/2     Running   0          62m
+monitor-grafana-857c4b68b4-ss5jm                         2/2     Running   0          62m
+monitor-kube-state-metrics-587c68f878-w5k6j              1/1     Running   0          62m
+monitor-prometheus-node-exporter-25brj                   1/1     Running   0          62m
+monitor-prometheus-operato-operator-7dfc4bd9b4-flrzw     2/2     Running   0          62m
+prometheus-monitor-prometheus-operato-prometheus-0       3/3     Running   1          50m
 
 
-on pourra donc dans un navigateur atteindre respectivement : grafana , prometheus et alertmanager : 
-192.168.122.170:3000
-192.168.122.170:9090
-192.168.122.170:9093
-
-- info de login pour acceder au dashboard de grafana :
+=  info de login pour acceder au dashboard de grafana :
 username: admin
 # password: prom-operator
 http://localhost:3000/
+
+
 
 
 === Methode annexe d'acces externe : 
