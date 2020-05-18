@@ -1,0 +1,96 @@
+=== notes trow.io : ===
+
+trow est une registry kube légere en rust qui va permettre de deployer des images en cli.
+trow utilise a l'heure actuelle kustomized à la place de helm
+
+= setup :
+
+on va devoir dans notre cas créer deux volumes qui seront utilisés par le statefullset qui incorpore aussi un pvc générator :
+
+cat pv-data-trow.yaml 
+ apiVersion: v1
+ kind: PersistentVolume
+ metadata:
+   name: trow-data-hostpath-pv
+   labels:
+     app: trow
+ spec:
+   accessModes:
+   - ReadWriteOnce
+   capacity:
+     storage: 10Gi
+   hostPath:
+     path: /data
+
+
+ cat pv-trow.yaml     
+ apiVersion: v1
+ kind: PersistentVolume
+ metadata:
+   name: trow-hostpath-pv
+   labels:
+     app: trow
+ spec:
+   accessModes:
+   - ReadWriteOnce
+   capacity:
+     storage: 10Gi
+   hostPath:
+     path: /data
+
+
+on va integrer nos deux volumes dans la conf kustomized pour qu'ils soient pris en compte :
+
+cat kustomization.yaml                                        
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: trow-example
+
+bases:
+  - ../cert-manager-nginx
+
+generatorOptions:
+    disableNameSuffixHash: true
+
+secretGenerator:
+  - name: trow-pass
+    literals:
+    - pass=s3cr3tp@55
+  - name: trow-cred
+    type: docker-registry
+    literals:
+    - docker-server=example.registry.com
+    - docker-username=example
+    - docker-password=s3cr3tp@55
+
+patchesJson6902:
+  - path: patch-ingress-host.yaml
+    target:
+      kind: Ingress
+      name: trow-ingress
+      group: extensions
+      version: v1beta1
+  - path: patch-trow-arg.yaml
+    target:
+      kind: StatefulSet
+      name: trow-set
+      group: apps
+      version: v1
+
+resources:                 <<< on ajoute un bloc resources avec nos deux volumes 
+  - pv-trow.yaml
+  - pv-data-trow.yaml
+
+
+https://github.com/ContainerSolutions/trow/blob/master/install/INSTALL.md
+on va suivre  le set up 
+
+à la fin de notre install on va devoir changer les droits du rep /data avec le user 999 en proprio comme la doc l'indique pour permettre d'avoir les bon acces pour notre pod 
+
+chown -R 999:999 /data
+
+- todo :
+
+faire un certif ssl pour trow avec certmanager
+faire du node affinity/ antiaffinity et mettre un label sur les nodes pour faire du node selector.
