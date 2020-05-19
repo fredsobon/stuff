@@ -5,7 +5,183 @@ trow utilise a l'heure actuelle kustomized à la place de helm
 
 = setup :
 
-on va devoir dans notre cas créer deux volumes qui seront utilisés par le statefullset qui incorpore aussi un pvc générator :
+trow utilise le tls pour permettre de securiser les connections avec la registry.
+un certificat ssl sera don nécéssaire pour attaquer le point d'entrée de notre appli : ce certificat sera lié à notre ingress.
+trow va utiliser du stockage statique
+
+- pre-requi
+
+-> on va devoir installer un ingress-controller pour gérer l'acces à notre appli 
+
+helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+on le deploi dans un namespace dédié :
+kctl create ns ingress-controller
+helm install ingress-controller -n ingress-controller ingress-nginx/ingress-nginx
+
+->on va pour gérer la partie tls installer cert-manager et pour notre exemple definir une ca privée
+
+helm repo add jetstack https://charts.jetstack.io\n
+helm install cert-manager jetstack/cert-manager --namespace cert-manager --version v0.15.0 --set installCRDs=true
+
+on cree notre ca et on déploy notre secret 
+
+openssl genrsa -out rootCA.key 2048
+openssl req -new -x509 -key rootCA.key -out rootCA.crt
+
+kubectl create secret tls ca-priv --namespace cert-manager --key rootCA.key --cert rootCA.crt
+
+on crée une ressource de type clusterissuer :
+
+apiVersion: cert-manager.io/v1alpha2
+kind: ClusterIssuer
+metadata:
+  name: ca-issuer
+spec:
+  ca:
+    secretName: ca-priv
+
+ kctl create -f ca-issuer.yaml
+
+on test :
+kubectl get clusterissuers.cert-manager.io
+NAME        READY   AGE
+ca-issuer   True    4h59m
+
+notre ca est prete on peut créer une ressource qui va générer un csr qui sera signée et un  certificate sera  créée :
+on va renseigner le nom qui sera appellé et configuré dans l'ingress : notre point d'entrée dans le cluster depuis l'exterrieur pour atteindre notre appli.
+
+
+
+apiVersion: cert-manager.io/v1alpha2
+kind: Certificate
+metadata:
+  name: paasregistry.lapin.io
+  namespace: trow
+spec:
+  # Secret names are always required. On va definir un nom pour identifier notre secret tls :
+  secretName: trow-cert-tls
+  duration: 51600h # 90d
+  renewBefore: 36000h # 15d
+  organization:
+  - srs
+  # The use of the common name field has been deprecated since 2000 and is
+  # discouraged from being used.
+  commonName: paasregistry.lapin.io
+  isCA: false
+  keySize: 2048
+  keyAlgorithm: rsa
+  keyEncoding: pkcs1
+  usages:
+    - server auth
+    - client auth
+  # At least one of a DNS Name, USI SAN, or IP address is required.
+  dnsNames:
+  - paasregistry.lapin.io
+  - trow.lapin.io
+  # Issuer references are always required.
+  issuerRef:
+    name: ca-issuer
+    # We can reference ClusterIssuers by changing the kind here.
+    # The default value is Issuer (i.e. a locally namespaced Issuer)
+    kind: ClusterIssuer
+    # This is optional since cert-manager will default to this value however
+    # if you are using an external issuer, change this to that issuer group.
+    group: cert-manager.io
+
+
+
+-> on va devoir dans notre cas créer deux volumes qui seront utilisés par le statefullset qui incorpore aussi un pvc générator et un pvc pour la config 
+
+le mode op d'install de trow nous fait partir depuis le repo du repertoire install :
+on copie le rep overlays/example-overlay pour notre conf :
+cp -r overlays/example-overlay overlays/paasregistry-lapin
+ tree -d
+.
+├── base
+└── overlays
+    ├── cert-manager-nginx
+    ├── example-overlay
+    ├── gke
+    ├── paasregistry-lapin
+
+En principe nous ne touchons pas au rep base qui contient les manifests essentiels de l'appli :
+
+tree base
+base
+├── kustomization.yaml
+├── patch-trow-arg.yaml
+├── patch-validator-domain.yaml
+├── pvc.yaml
+├── service.yaml
+├── stateful-set.yaml
+└── validate.yaml
+
+
+dans notre cas nous créons cependant un persistant volume claim dans ce rep ( nous n'avons pas tester la creation de cet objet dans le rep d'overlays/paasregistry-lapin 
+
+cat base/pvc.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+    name: trow-data-claim
+spec:
+    accessModes:
+        - ReadWriteOnce
+    resources:
+        requests:
+            storage: 10Gi
+
+comme c'est une nouvelle ressource elle doit être intégrée au fichier kustomized ( c'est un des principes de customized ) :
+
+cat base/kustomization.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: trow
+
+# This will start Trow in a StatefulSet along with a persistent volume for data and a service that
+# routes to it.
+#
+# A working install will require an ingress forwarding a (sub)domain you control to this service.
+# This install assumes the ingress terminates TLS; internally Trow is running over http only.
+#
+# The overlay directories include examples of how to provision ingress on various types of
+# Kubernetes cluster.
+
+
+resources:
+- stateful-set.yaml
+- service.yaml
+- pvc.yaml
+
+#- validate.yaml # Enable for validation webhook
+
+images:
+- name: containersol/trow
+  newTag: "0.2"
+
+# The following patches update the domain name in the trow argument and validator without editing
+# the YAML directly.
+# Create your own version of the patch file with your domain name and reference in your
+# overlay as below:
+
+
+patchesJson6902:
+#    - path: patch-trow-arg.yaml
+#      target:
+#        kind: StatefulSet
+#        name: trow-set
+#        group: apps
+#        version: v1
+#
+#    - path: patch-validator-domain.yaml
+#      target:
+#        kind: ValidatingWebhookConfiguration
+#        name: trow-validator
+#        group: admissionregistration.k8s.io
+#        version: v1
+
+on va maintenant ajouter dans notre rep d'overlay dédié à notre cluster ajouter deux volumes que nous créons manuellement avec une strategie de hostpath : storage local sur les nodes 
 
 cat pv-data-trow.yaml 
  apiVersion: v1
@@ -56,13 +232,13 @@ generatorOptions:
 secretGenerator:
   - name: trow-pass
     literals:
-    - pass=s3cr3tp@55
+    - pass=blabla
   - name: trow-cred
     type: docker-registry
     literals:
     - docker-server=example.registry.com
     - docker-username=example
-    - docker-password=s3cr3tp@55
+    - docker-password=blabla
 
 patchesJson6902:
   - path: patch-ingress-host.yaml
@@ -83,16 +259,103 @@ resources:                 <<< on ajoute un bloc resources avec nos deux volumes
   - pv-data-trow.yaml
 
 
-https://github.com/ContainerSolutions/trow/blob/master/install/INSTALL.md
-on va suivre  le set up 
+on va maintenant modifier les fichiers :
 
-à la fin de notre install on va devoir changer les droits du rep /data avec le user 999 en proprio comme la doc l'indique pour permettre d'avoir les bon acces pour notre pod 
+- patch-ingress-host.yaml : on renseigne l'entree de l'ingress qui va nous servir 
 
+cat patch-ingress-host.yaml
+- op: replace
+  path: /spec/rules/0/host
+  value: paasregistry.lapin.io
+- op: replace
+  path: /spec/tls/0/hosts/0
+  value: paasregistry.lapin.io
+
+- patch-trow-arg.yaml
+on renseigne le domaine et le user défini dans le kustomized de notre cluster :  
+
+cat patch-trow-arg.yaml
+- op: replace #domain name
+  path: /spec/template/spec/containers/0/args/2
+  value: paasregistry.sandbox.ilius.io
+- op: replace #user name
+  path: /spec/template/spec/containers/0/args/4
+  value: trow-pass
+
+
+On va devoir appliquer des modif dans les fichiers overlay de cert-manager egalement 
+ 
+ tree cert-manager-nginx
+cert-manager-nginx
+├── ingress.yaml
+├── kustomization.yaml
+└── patch-ingress-host.yaml
+
+
+- ingress 
+
+dans la conf ingress on renseigne notre point d'entrée dans le cluster notre nom de domaine et on definie le nom du secret pour notre certificat tls . On va egalement définir une ip 
+
+cat cert-manager-nginx/ingress.yaml 
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: trow-ingress
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    certmanager.k8s.io/cluster-issuer: "ca-issuer"     <<<< on defini notre ca comme défini plus haut avec cert-manager ( letsencrypt apparait sinon ..)
+    nginx.ingress.kubernetes.io/proxy-body-size: "0"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+spec:
+  rules:
+    - host: paasregistry.lapin.io
+      http:
+        paths:
+          - path: /
+            backend:
+              serviceName: trow-svc
+              servicePort: 8000
+  tls: 
+    - hosts:
+        - paasregistry.lapin.io
+      secretName: trow-cert-tls  <<< le nom de notre certif
+
+- patch-ingress-host.yaml : on reseigne notre point d'entrée 
+
+cat cert-manager-nginx/patch-ingress-host.yaml
+- op: replace
+  path: /spec/rules/0/host
+  value: paasregistry.lapin.io
+- op: replace
+  path: /spec/tls/0/hosts/0
+  value: paasregistry.lapin.io
+
+
+on va maintenant appliquer le kustomized sur nos arbos respectives pour appliquer les confs :
+
+kubectl apply -k base/
+kctl apply -k overlays/cert-manager-nginx
+kctl apply -k overlays/paas-lapin
+
+on va maintenant modifier notre ressource ingress pour changer le service en Loadbalancer et attribuer une  ip fixe pour atteindre notre point d'entrée depuis l'exterrieur de notre cluster :
+
+....
+  type: LoadBalancer
+  externalIPs:
+  - 192.168.1.250
+...
+
+à la fin de notre install on va devoir changer les droits du rep /data avec le user 999 en proprio comme la doc l'indique ( c'est pour le user trow de l'appli) pour permettre d'avoir les bon acces pour notre pod 
 chown -R 999:999 /data
 
-- todo :
 
-faire un certif ssl pour trow avec certmanager
+/ attention cette proc à permi d'installer l'appli ..mais c'est bancal : pas de connaissance de kustomized pour assurer la propreté du travail \
+De plus tous les nodes (meme  le master )  du cluster vont porter une ip 192.168.1.250 defini pour ingress : ceci est du à kube-proxy qui associe la conf ingress a chaque nodes.
+
+
+todo 
+
 faire du node affinity/ antiaffinity et mettre un label sur les nodes pour faire du node selector.
 
 faire un repo qui va inclure le repo trow en dependance 
