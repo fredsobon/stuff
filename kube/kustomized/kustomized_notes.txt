@@ -12,3 +12,333 @@ https://blog.stack-labs.com/code/kustomize-101/
 
 reference : 
 https://github.com/kubernetes-sigs/kustomize
+
+
+=  customisation de manifests pour utilisation dans plusieurs environnements avec Kustomize  ==
+
+Dans le cadre d'une application vous souhaitez maintenir une parité développement et production en configurant un pipeline de développement et de distribution en continu qui utilise une source de codebase courante sous contrôle de version. 
+Dans vos référentiels de codebase, vous stockez vos fichiers manifeste de configuration de ressource Kubernetes, souvent au format YAML. Vous pouvez utiliser le projet Kubernetes Kustomize pour standardiser et personnaliser vos déploiements sur plusieurs environnements.
+
+Par exemple, vous pouvez configurer un fichier YAML kustomization de base pour déclarer des objets Kubernetes, tels que des déploiements et des PVC qui sont partagés dans vos environnements de développement, de test et de production. Ensuite, vous pouvez configurer des fichiers YAML kustomization distincts qui ont des configurations personnalisées pour chaque environnement, par exemple, davantage de réplicas en environnement de production qu'en environnement de test. 
+Ces fichiers YAML personnalisés peuvent ensuite chevaucher ou être utilisés pour générer le fichier YAML de base partagé de manière à vous permettre de gérer des environnements qui sont pour la plupart identiques, à l'exception de quelques différences de configuration de chevauchement dont vous contrôlez la source. 
+Pour plus d'informations sur Kustomize, par exemple, un glossaire ou une foire aux questions, voir la documentation Kustomize: 
+https://github.com/kubernetes-sigs/kustomize/tree/master/docs
+
+-> Avant de commencer :
+
+Créez ou mettez à jour un cluster qui exécute Kubernetes version 1.14 ou ultérieure.
+Assurez-vous que votre version kubectl correspond à la version de votre cluster.
+Pour configurer des fichiers de configuration avec Kustomize :
+
+Installez l'outil kustomize.
+Pour macOS, vous pouvez utiliser le gestionnaire de package brew.
+brew install kustomize
+
+- Créez un répertoire pour votre application dans un système de contrôle de version, tel que Git.
+
+git init ~/<my_app>
+Créez la structure de vos référentiels pour vos répertoires kustomize base, overlay et les répertoires d'environnement de préproduction (staging) et de production (prod), par exemple. Dans les étapes suivantes, vous configurez ces référentiels pour une utilisation avec kustomize :
+
+
+mkdir -p ~/<my_app>/base &&
+mkdir -p ~/<my_app>/overlay &&
+mkdir -p ~/<my_app>/overlay/staging &&
+mkdir -p ~/<my_app>/overlay/prod
+
+Exemple de structure de référentiels :
+
+.
+├── base
+└── overlay
+    ├── prod
+    └── staging
+
+-> Configurez le référentiel base.
+
+Accédez au référentiel base.
+
+cd ~/<my_app>/base
+
+Créez un ensemble initial de fichiers YAML de configuration Kubernetes pour votre déploiement d'application. Vous pouvez utiliser l'exemple de fichier YAML wasliberty pour créer un déploiement, un service, un objet ConfigMap et une réservation de volume persistant.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wasliberty
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: wasliberty
+  template:
+    metadata:
+      labels:
+        app: wasliberty
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - wasliberty
+              topologyKey: kubernetes.io/hostname
+      containers:
+      - name: wasliberty
+        image: icr.io/ibm/liberty:latest
+        env:
+          - name: VERSION
+            valueFrom:
+              configMapKeyRef:
+                name: wasliberty
+                key: VERSION
+          - name: LANGUAGE
+            valueFrom:
+              configMapKeyRef:
+                name: wasliberty
+                key: LANGUAGE
+          - name: username
+            valueFrom:
+              secretKeyRef:
+                name: wasliberty
+                key: username
+          - name: password
+            valueFrom:
+              secretKeyRef:
+                name: wasliberty
+                key: password
+        ports:
+          - containerPort: 9080
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "1024Mi"
+            cpu: "1000m"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 9080
+          initialDelaySeconds: 300
+          periodSeconds: 15
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 9080
+          initialDelaySeconds: 45
+          periodSeconds: 5
+        volumeMounts:
+        - name: pvmount
+          mountPath: /test
+      volumes:
+      - name: pvmount
+        persistentVolumeClaim:
+          claimName: wasliberty
+---
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  name: wasliberty
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: wasliberty
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wasliberty
+  labels:
+    app: wasliberty
+spec:
+  ports:
+  - port: 9080
+  selector:
+    app: wasliberty
+  type: NodePort
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: wasliberty
+  labels:
+    app: wasliberty
+data:
+  VERSION: "1.0"
+  LANGUAGE: en
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: wasliberty
+  labels:
+    app: wasliberty
+type: Opaque
+data:
+  username: dXNlcm5hbWU=
+  password: cGFzc3dvcmQ=
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: wasliberty
+  annotations:
+    volume.beta.kubernetes.io/storage-class: "ibmc-file-bronze"
+  labels:
+    billingType: "hourly"
+    app: wasliberty
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 24Gi
+
+
+Créez un fichier kustomization qui spécifie la configuration de base à appliquer aux différents environnements. 
+Le fichier kustomization doit inclure la liste de fichiers YAML de configuration de ressource Kubernetes qui sont stockés dans le même référentiel base. 
+Dans le fichier kustomization, vous pouvez également ajouter des configurations qui s'appliquent à tous les fichiers YAML de ressource dans le référentiel de base, par exemple, un préfixe ou un suffixe qui est ajouté à tous les noms de ressource, un libellé, l'espace de nom existant dans lequel les ressources sont créées, des secrets, des objets ConfigMap, etc.
+
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: wasliberty
+namePrefix: kustomtest-
+nameSuffix: -v2
+commonLabels:
+  app: kustomized-wasliberty
+resources:
+- deployment.yaml
+- service.yaml
+- pvc.yaml
+- configmap.yaml
+- secret.yaml
+
+Les noms des fichiers YAML resource doivent correspondre aux noms des autres fichiers dans le référentiel base. Vous pouvez inclure plusieurs configurations dans le même fichier, mais dans l'exemple, les configurations sont des fichiers distincts, par exemple, deployment.yaml, service.yaml et pvc.yaml.
+
+Générez vos fichiers YAML resource avec les configurations que vous avez définies dans le fichier YAML de base kustomization. 
+Les ressources sont générées en combinant les configurations dans les fichiers YAML kustomization et resource. 
+Les fichiers YAML combinés sont renvoyés dans stdout dans la sortie de terminal. Utilisez cette même commande pour générer les modifications ultérieures que vous apportez au fichier YAML kustomization, telles que l'ajout d'un libellé.
+
+kustomize build
+
+-> configuration des environments specifiques : overlays : staging /prod :
+
+Configurez votre référentiel overlay avec des fichiers YAML kustomization uniques pour chacun de vos environnements, par exemple, staging et prod.
+Dans le référentiel staging, créez un fichier kustomization.yaml. Ajoutez des configurations uniques à staging, telles qu'un libellé, une balise image ou un fichier YAML pour un nouveau composant que vous souhaitez tester.
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namePrefix: staging-
+commonLabels:
+  env: staging
+  owner: TeamA
+bases:
+- ../../base
+patchesStrategicMerge:
+- configmap.yaml
+- new_staging_resource.yaml
+resources:
+- new_staging_resource.yaml
+
+Description des composants du fichier YAML :
+
+-namePrefix	Spécifiez un préfixe à associer au nom de chaque ressource que vous souhaitez créer avec votre fichier kustomization de préproduction, par exemple, staging-.
+
+-commonLabels	Ajoutez des libellés qui sont uniques aux objets de préproduction, par exemple, l'environnement de préproduction et l'équipe responsable.
+bases	Ajoutez un chemin relatif à un répertoire ou une URL vers un référentiel distant qui contient un fichier kustomization base. Dans cet exemple, le chemin relatif pointe vers le fichier kustomization base dans le référentiel base que vous avez créé précédemment. Cette zone est obligatoire pour un fichier kustomization overlay.
+
+-patchesStrategicMerge	Répertoriez les fichiers YAML de configuration ressource que vous souhaitez fusionner dans le fichier kustomization base. Vous devez également ajouter ces fichiers au même référentiel que le fichier kustomization, par exemple, overlay/staging. Ces fichiers de configuration resource peuvent contenir de petites modifications qui sont fusionnées avec les fichiers de configuration base de même nom sous forme de correctif. La ressource récupère tous les composants qui se trouvent dans le fichier de configuration base, plus les composants supplémentaires que vous spécifiez dans le fichier de configuration overlay.
+Si la configuration est un nouveau fichier qui ne se trouve pas dans la base, vous devez également ajouter le nom de fichier à la zone resources.
+
+-resources Répertoriez les fichiers YAML de configuration resource qui sont uniques dans le référentiel staging et non inclus dans le référentiel base. Ajoutez ces fichiers également dans la zone patchesStrategicMerge et ajoutez-les au même référentiel que le fichier kustomization, par exemple, overlay/staging.
+
+Autres configurations possibles	Pour connaître les autres configurations que vous pouvez ajouter à votre fichier :
+https://github.com/kubernetes-sigs/kustomize#1-make-a-kustomization-file
+
+
+Générez vos fichiers de configuration staging/overlay.
+
+kustomize build overlay/staging
+
+Répétez ces étapes pour créer votre fichier kustomization prod/overlay et d'autres fichiers YAML de configuration. Par exemple, vous pouvez augmenter le nombre de répliques dans votre fichier deployment.yaml de sorte que votre environnement de production puisse gérer davantage de demandes utilisateur.
+
+Passez en revue votre structure de référentiel kustomize pour vous assurer qu'elle contient tous les fichiers de configuration YAML dont vous avez besoin. La structure peut se présenter comme suit :
+├── base
+│   ├── configmap.yaml
+│   ├── deployment.yaml
+│   ├── kustomization.yaml
+│   ├── pvc.yaml
+│   ├── secret.yaml
+│   └── service.yaml
+└── overlay
+    ├── prod
+    │   ├── deployment.yaml
+    │   ├── kustomization.yaml
+    │   └── new_prod_resource.yaml
+    └── staging
+        ├── configmap.yaml
+        ├── kustomization.yaml
+        └── new_staging_resource.yaml
+
+Appliquez les ressources Kubernetes pour l'environnement que vous souhaitez déployer. L'exemple ci-après utilise le référentiel staging.
+Accédez au répertoire overlay/staging. Si vous n'avez pas créé vos ressources lors de l'étape précédente, créez-les maintenant.
+
+cd overlay/staging && kustomize build
+
+Appliquez les ressources Kubernetes à votre cluster. Ajoutez l'indicateur -k et le répertoire dans lequel se trouve le fichier kustomization. Par exemple, si vous vous trouvez déjà dans le répertoire staging, ajoutez ../staging pour marquer le chemin vers le répertoire.
+
+kubectl apply -k ../staging
+
+Exemple de sortie :
+configmap/staging-kustomtest-configmap-v2 created
+secret/staging-kustomtest-secret-v2 created
+service/staging-kustomtest-service-v2 created
+deployment.apps/staging-kustomtest-deployment-v2 created
+job.batch/staging-pi created
+persistentvolumeclaim/staging-kustomtest-pvc-v2 created
+
+Assurez-vous que les modifications uniques du répertoire staging sont appliquées. Par exemple, si vous avez ajouté un préfixe staging-, les pods et les autres ressources qui sont créés comportent ce préfixe dans leur nom.
+
+
+kubectl get -k ../staging
+Exemple de sortie :
+
+NAME                                        DATA   AGE
+configmap/staging-kustomtest-configmap-v2   2      90s
+
+NAME                                  TYPE     DATA   AGE
+secret/staging-kustomtest-secret-v2   Opaque   2      90s
+
+NAME                                    TYPE       CLUSTER-IP      EXTERNAL-IP   PORT(S)          AGE
+service/staging-kustomtest-service-v2   NodePort   172.21.xxx.xxx   <none>        9080:30200/TCP   90s
+
+NAME                                               READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/staging-kustomtest-deployment-v2   0/3     3            0           91s
+
+NAME                   COMPLETIONS   DURATION   AGE
+job.batch/staging-pi   1/1           41s        2m37s
+
+NAME                                              STATUS    VOLUME   CAPACITY   ACCESS MODES   STORAGECLASS       AGE
+persistentvolumeclaim/staging-kustomtest-pvc-v2   Pending                                      ibmc-file-bronze   90s
+
+Répétez ces étapes pour chaque environnement que vous souhaitez créer.
+
+
+- Facultatif : nettoyez votre environnement en retirant toutes les ressources que vous avez appliquées avec Kustomize.
+
+kubectl delete -k <directory>
+Exemple de sortie :
+configmap "staging-kustomtest-configmap-v2" deleted
+secret "staging-kustomtest-secret-v2" deleted
+service "staging-kustomtest-service-v2" deleted
+deployment.apps "staging-kustomtest-deployment-v2" deleted
+job.batch "staging-pi" deleted
+persistentvolumeclaim "staging-kustomtest-pvc-v2" deleted
+
