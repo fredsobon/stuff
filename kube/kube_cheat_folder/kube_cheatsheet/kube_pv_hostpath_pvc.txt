@@ -1,0 +1,36 @@
+=== exemple de définition de pv utilisant le montage local sur le host : ===
+
+on va définir un volume qui sera monté sur un host local.
+On peut agir ainsi quand nous n'avons pas de stockage dynamique géré par une storage class ( dans ce cas les volumes sont provisionnés dynamiquement et il suffit de déclarer un pvc ) 
+
+ex: pv-trow.yaml
+
+ apiVersion: v1
+ kind: PersistentVolume
+ metadata:
+   name: trow-hostpath-pv
+   labels:
+     app: trow
+ spec:
+   accessModes:
+   - ReadWriteOnce
+   capacity:
+     storage: 10Gi
+   hostPath:
+     path: /data
+
+
+on pourra avoir un pvc demandant 10g qui pourra donc acquerrir le pv que nous venons de créer :
+cat base/pvc.yaml
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+    name: trow-data-claim
+spec:
+    accessModes:
+        - ReadWriteOnce
+    resources:
+        requests:
+            storage: 10Gi
+
