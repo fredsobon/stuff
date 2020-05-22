@@ -522,3 +522,251 @@ kustomize build $DEMO_HOME | tail -n 8 |\
     diff  $DEMO_HOME/out_expected.yaml -
 To see how to apply one JSON patch to many resources, see the multi-patch demo.
 
+
+
+
+==== fonction de patchs : ====
+
+https://skryvets.com/blog/2019/05/15/kubernetes-kustomize-json-patches-6902/
+
+Introduction
+
+Kustomize is a supplement and very useful tool for kuberentes that is responsible for template management. One of the core functionalities is to create overriding rules on top of an existing template without changing the latter. While official documentation provides a great overview of the basic features such as adding namespace, prefixes, annotations, labels, it lacks an explanation of common scenarios where the need to add, remove or replace values of a base template. More precisely, I'll be focusing on JsonPatches6902 and how to create them in, native for kubernetes, yaml format.
+What is JsonPatches6902?
+
+Let's start with the number first. There is an RFC6902 standard defines how to apply JSON patches. The original purpose of this standard is to eliminate bandwidth and CPU waste while processing large resources for HTTP requests: instead of sending entire JSON object (resource) via HTTP PUT/POST method, it allows to send only the modified part (patch).
+
+According to the standard, there are 6 types of operations that can be performed on an object: add, remove, replace, move, copy, test. We will take a look at the first three since they have a more applicable sense to our use case. From a syntactical point of view, each operation must have op member indicating one of the mentioned types, e.g. add:
+
+{ "op": "add" }
+Copy
+
+In addition to that, operations must include a path key. The value of the path is a location within the JSON document need to be modified and standardized by RFC6901:
+
+{ "op": "add", "path": "/a/b" }
+Copy
+
+The other key-value pairs of operation depend on the particular operation being performed.
+Example with gitea
+
+After we had a brief overview of the official standard, let's switch to kubernetes and see how this functionality can be used within kustomize.
+
+Sometimes it's best to explain the concept by example and that's what we're going to do. Out test subject will be represented by gitea - self-hosted git service. This docker image is an excellent candidate for the scenario as it does support multiple environment variables and have a front-facing UI interface allows to see the changes applied through the patches.
+Project structure
+
+As it's in the case for most of my articles, the full project can be found on GitHub. The structure can be represented in the following diagram:
+
+|-- base
+    gitea-pod.yaml
+    gitea-service.yaml
+    kustomization.yaml
+|-- overlays
+    |-- add
+        ...
+        kustomization.yaml
+    |-- remove
+        ...
+        kustomization.yaml
+    |-- replace
+        ...
+        kustomization.yaml
+Copy
+
+At the simplest level, the codebase contains gitea pod and gitea service where both represent the base layer. There are two ways of how to deploy this configuration to, let's say, minikube environment:
+
+    If kustomize package is installed: kustomize build ./base | kubectl apply -f -
+    if kubernetes version is higher than 1.14: kubectl apply -k ./base
+
+The base might not very useful in the beginning since the service is only reachable within kubernetes environment. In the next section, we will see how patches can help to expose the service so we can see a nice UI in the browser.
+
+Going further through the overview, we have "overlays" that modify a common base. Each overlay is represented by a specific operation such as add, remove or replace which customizes and applies patches on top of the base while leaving the latter untouched. Later we will take a look into details of each operation.
+
+To remove deployed configuration at any point of time run:
+
+kubectl delete pod,svc --selector=app=gitea
+Copy
+
+Kustomization file overview
+
+kustomize can work properly only when kustomization.yaml is present in the target folder. Here's an example from the codebase:
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+bases:
+- ../../base
+patchesJson6902:
+- target:
+    version: v1 # apiVersion
+    kind: Pod
+    name: gitea
+  path: gitea-pod-patch-image-version.yaml
+Copy
+
+As you may notice, each key under the target uses exactly the same value from the resource it's being applied to.
+
+However, for some type of kubernetes primitives with the prefix before the slash (which called a "group") in apiVersion field it's required to specify additional property called group. Here's an example of StatefulSet:
+
+#...
+patchesJson6902:
+- target:
+    group: "apps"
+    version: v1 # apiVersion
+    kind: StatefulSet
+    name: example-statefulset
+  path: my-statefulset-patch.yaml
+Copy
+
+The full list of such objects and groups can be found in the article: Which Kubernetes apiVersion Should I Use?
+Operations
+Add
+
+To apply this configuration, run:
+
+kubectl apply -k ./overlays/add
+Copy
+
+When kubernetes finishes to prepare the environment you should be able to see gitea homepage by navigating to http://<minikube-url>:30000 (usually, but not always, minikube IP is 192.168.99.100). Thanks to one of the applied patches which turned regular kuberetes service into a NodePort service, it became possible to reach the web-page from the browser. However, there are different types of add operations and let's look at them at a closer level.
+Add a member to an object
+
+The patch illustrating this functionality is gitea-pod-http-app-name-patch.yaml. It changes the default gitea website title to the value of APP_NAME environment variable:
+
+- op: add
+  path: "/spec/containers/0/env"
+  value:
+    - name: APP_NAME
+      value: ABC Inc. Private Git Repository
+Copy
+
+The path field specifies a place in an object where to insert the required property:
+
+#...
+spec:
+  containers:
+  - name: gitea
+    image: gitea/gitea:1.8
+#...
+Copy
+
+Since containers is an array, we need to specify the item of the array needed to be updated. We only have one item and that's why the number is 0. Alternatively, we can indicate an exact index of an element or use - which represents the last element of the array.
+
+Patches applied to a service, work in exactly the same way:
+
+- op: add
+  path: "/spec/type"
+  value: "NodePort"
+- op: add
+  path: "/spec/ports/0/nodePort"
+  value: 30000
+Copy
+
+By turning simple gitea-service.yaml:
+
+kind: Service
+apiVersion: v1
+metadata:
+  name: gitea-service
+  labels:
+    app: gitea
+spec:
+  selector:
+    app: gitea
+  ports:
+  - name: ui-port
+    port: 3000
+Copy
+
+into NodePort:
+
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: gitea
+  name: gitea-service
+spec:
+  type: NodePort
+  selector:
+    app: gitea
+  ports:
+  - name: ui-port
+    nodePort: 30000
+    port: 3000
+Copy
+
+Append to a List
+
+The gitea-pod-patch-sidecar-container.yaml patch appends sidecar container to the containers list in the pod:
+
+- op: add
+  path: "/spec/containers/-"
+  value:
+    name: sidecar
+    image: busybox
+    args:
+    - sleep
+    - "3600"
+Copy
+
+Which results in the following output:
+
+#...
+containers:
+  - name: gitea
+    image: gitea/gitea:1.8
+    env:
+    - name: APP_NAME
+      value: ABC Inc. Private Git Repository
+    ports:
+    - containerPort: 3000
+  - name: sidecar
+    image: busybox
+      args:
+    - sleep
+    - "3600"
+#...
+Copy
+
+The sidecar container is not very useful in this particular example, but it demonstrates very well how to append an object to a list.
+Replace
+
+Replace allows changing a value on specified path. This particular patch changes the image version of the gitea. To apply the patch:
+
+kubectl apply -k ./overlays/replace
+Copy
+
+gitea-service-patch-remove-port-name.yaml:
+
+- op: replace
+  path: "/spec/containers/0/image"
+  value: "gitea/gitea:1.7"
+Copy
+
+Produced result:
+
+#...
+containers:
+  - name: gitea
+    image: gitea/gitea:1.7 # <-- Replaced version
+Copy
+
+Remove
+
+As a name suggests, removes a key on a specified path. To apply the configuration, run
+
+kubectl apply -k ./overlays/remove
+Copy
+
+gitea-service-patch-remove-port-name.yaml:
+
+- op: remove
+  path: "/spec/ports/0/name"
+Copy
+
+This example removes name key from the ports item within a service:
+
+spec:
+  selector:
+    app: gitea
+  ports:
+  - port: 3000
+      # name: ui-port <-- removed
