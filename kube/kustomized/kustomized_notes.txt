@@ -344,3 +344,181 @@ deployment.apps "staging-kustomtest-deployment-v2" deleted
 job.batch "staging-pi" deleted
 persistentvolumeclaim "staging-kustomtest-pvc-v2" deleted
 
+
+
+= patch dans kustomized : =
+
+JSON Patching
+A kustomization file supports customizing resources via JSON patches.
+
+on va pouvoir patcher des ressources ( modifier, ajouter des champs dans nos manifests de base ) : les différentes politiques de merge pourront être étudiées à part .
+
+
+on va pour l'exemple definir un manifest qui sera ensuite patcher pour l'exemple : 
+
+Make a place to work:
+
+DEMO_HOME=$(mktemp -d)
+We'll be editting an Ingress object:
+
+cat <<EOF >$DEMO_HOME/ingress.yaml
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  name: my-ingress
+spec:
+  rules:
+  - host: foo.bar.com
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: homepage
+          servicePort: 8888
+      - path: /api
+        backend:
+          serviceName: my-api
+          servicePort: 7701
+      - path: /test
+        backend:
+          serviceName: hello
+          servicePort: 7702
+EOF
+
+- patch :
+
+on veut apporter les modifs suivantes à notre manifest :
+
+-> changer le host par foo.bar.io
+-> changer le port de '/' de 8888 à 80
+-> ajouter une section de path /heatlhz 
+insert an entirely new serving path /healthz at a particular point in the paths list, rather than at the end or the beginning.
+
+
+Voila la patch que nous allons créer : 
+Here's the patch file to do that:
+
+cat <<EOF >$DEMO_HOME/ingress_patch.json
+[
+  {"op": "replace",
+   "path": "/spec/rules/0/host",
+   "value": "foo.bar.io"},
+
+  {"op": "replace",
+   "path": "/spec/rules/0/http/paths/0/backend/servicePort",
+   "value": 80},
+
+  {"op": "add",
+   "path": "/spec/rules/0/http/paths/1",
+   "value": { "path": "/healthz", "backend": {"servicePort":7700} }}
+]
+EOF
+
+
+on va biensur ajouter le fichier ingress dans le fichier kustomization :
+
+We'll of course need a kustomization file referring to the Ingress:
+
+cat <<EOF >$DEMO_HOME/kustomization.yaml
+resources:
+- ingress.yaml
+EOF
+
+on va egalement ajouter la section patch qui va pointer sur notre fichier de patch défini auparavant : 
+
+To this same kustomization file, add a patches field refering to the patch file we just made and target it to the Ingress object:
+
+cat <<EOF >>$DEMO_HOME/kustomization.yaml
+patches:
+- path: ingress_patch.json
+  target:
+    group: networking.k8s.io
+    version: v1beta1
+    kind: Ingress
+    name: my-ingress
+EOF
+
+On voit le fichier modifié désiré : 
+
+Define the expected output:
+
+cat <<EOF >$DEMO_HOME/out_expected.yaml
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  name: my-ingress
+spec:
+  rules:
+  - host: foo.bar.io
+    http:
+      paths:
+      - backend:
+          serviceName: homepage
+          servicePort: 80
+        path: /
+      - backend:
+          servicePort: 7700
+        path: /healthz
+      - backend:
+          serviceName: my-api
+          servicePort: 7701
+        path: /api
+      - backend:
+          serviceName: hello
+          servicePort: 7702
+        path: /test
+EOF
+
+
+on build notre conf : 
+Run the build:
+
+kustomize build $DEMO_HOME >$DEMO_HOME/out_actual.yaml
+
+Confirm they match:
+
+diff $DEMO_HOME/out_actual.yaml $DEMO_HOME/out_expected.yaml
+
+
+/!\ on peut créer notre fichier de patch en yaml ou en json /!\ 
+
+If you prefer YAML to JSON, the patch can be expressed in YAML format (neverthless following JSON patch rules):
+
+cat <<EOF >$DEMO_HOME/ingress_patch.yaml
+- op: add
+  path: /spec/rules/0/http/paths/-
+  value:
+    path: '/canada'
+    backend:
+      serviceName: hoser
+      servicePort: 7703
+EOF
+Now add this to the list of patches in the kustomization file:
+
+cat <<EOF >>$DEMO_HOME/kustomization.yaml
+- path: ingress_patch.yaml
+  target:
+    group: networking.k8s.io
+    version: v1beta1
+    kind: Ingress
+    name: my-ingress
+EOF
+
+We expect the following at the end of the output:
+
+cat <<EOF >$DEMO_HOME/out_expected.yaml
+      - backend:
+          serviceName: hello
+          servicePort: 7702
+        path: /test
+      - backend:
+          serviceName: hoser
+          servicePort: 7703
+        path: /canada
+EOF
+Try it:
+
+kustomize build $DEMO_HOME | tail -n 8 |\
+    diff  $DEMO_HOME/out_expected.yaml -
+To see how to apply one JSON patch to many resources, see the multi-patch demo.
+
