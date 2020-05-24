@@ -1,0 +1,40 @@
+== notes wake on lan ==
+
+on va pouvoir demarrer un pc eteind à distance ( même lan ou via le net ).
+
+- pre-requi :
+
+avoir une carte reseau qui prend en charge le wol ( wake on lan).
+pour vérifier :
+on install ethtool et on vérifie les params relatifs à l'interface réseau qui nous interesse :
+
+sudo apt install ethtool 
+sudo ethtool enp0s31f6  | egrep "^[[:blank:]]*Wake-on: (g|d)
+	Wake-on: g
+
+on doit avoir la sortie Wake-on a g : c'est ok notre carte réseau est compatible.
+on va récupérer la mac addresse de l'interface qu'on va reveiller à distance.
+
+On doit configurer la wake on lan dans le bios / uefi de notre machinne ( ex : dell : F2 > power-managment > wake on lan > enable) 
+
+
+- sur notre pc servant a allumer le serveur / pc éteind :
+
+on install indifféremment wakeonlan ou etherwake 
+sudo apt install wakeonlan
+
+on va maintenant pouvoir allumer le pc à distance en passant en argument la mac adresse de l'interface réseau.
+
+sudo wakeonlan 18:03:73:d3:c7:6f                                                                      (⎈ minikube:default)
+Sending magic packet to 255.255.255.255:9 with 18:03:73:d3:c7:6f
+
+quelques minutes apres notre pc distant est allumé.
+
+Il est possible de devoir forcer l'extinction du serveur pc allumé à distance avec :
+sudo halt -p
+
+pour être sur d'avoir une vrai extinction ( pas d'equipement mis en veille.)
+
+sudo halt -p
+
+
