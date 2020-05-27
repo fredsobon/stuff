@@ -50,148 +50,43 @@ kubectl get clusterissuers.cert-manager.io
 NAME        READY   AGE
 ca-issuer   True    4h59m
 
-notre ca est prete on peut créer une ressource qui va générer un csr qui sera signée et un  certificate sera  créée :
+notre ca est prete on peut créer une ressource qui va générer un csr qui sera signée et un  certificate sera  créée le tout automatiquement par cert-manager
 on va renseigner le nom qui sera appellé et configuré dans l'ingress : notre point d'entrée dans le cluster depuis l'exterrieur pour atteindre notre appli.
-
-
-
-apiVersion: cert-manager.io/v1alpha2
-kind: Certificate
-metadata:
-  name: paasregistry.lapin.io
-  namespace: trow
-spec:
-  # Secret names are always required. On va definir un nom pour identifier notre secret tls :
-  secretName: trow-cert-tls
-  duration: 51600h # 90d
-  renewBefore: 36000h # 15d
-  organization:
-  - srs
-  # The use of the common name field has been deprecated since 2000 and is
-  # discouraged from being used.
-  commonName: paasregistry.lapin.io
-  isCA: false
-  keySize: 2048
-  keyAlgorithm: rsa
-  keyEncoding: pkcs1
-  usages:
-    - server auth
-    - client auth
-  # At least one of a DNS Name, USI SAN, or IP address is required.
-  dnsNames:
-  - paasregistry.lapin.io
-  - trow.lapin.io
-  # Issuer references are always required.
-  issuerRef:
-    name: ca-issuer
-    # We can reference ClusterIssuers by changing the kind here.
-    # The default value is Issuer (i.e. a locally namespaced Issuer)
-    kind: ClusterIssuer
-    # This is optional since cert-manager will default to this value however
-    # if you are using an external issuer, change this to that issuer group.
-    group: cert-manager.io
-
-
-
--> on va devoir dans notre cas créer deux volumes qui seront utilisés par le statefullset qui incorpore aussi un pvc générator et un pvc pour la config 
 
 le mode op d'install de trow nous fait partir depuis le repo du repertoire install :
 on copie le rep overlays/example-overlay pour notre conf :
 cp -r overlays/example-overlay overlays/paasregistry-lapin
- tree -d
-.
-├── base
-└── overlays
-    ├── cert-manager-nginx
-    ├── example-overlay
-    ├── gke
-    ├── paasregistry-lapin
 
-En principe nous ne touchons pas au rep base qui contient les manifests essentiels de l'appli :
-
-tree base
+On en touche pas aux manifests de base
+tree base                            
 base
 ├── kustomization.yaml
 ├── patch-trow-arg.yaml
 ├── patch-validator-domain.yaml
-├── pvc.yaml
 ├── service.yaml
 ├── stateful-set.yaml
 └── validate.yaml
 
-/!\ a supprimer apres tests pas besoin de pvc supplementaire : on ajoutera juste un seul volume pour les data de trow puisque nous n'avons pas de volumes provisionner :
+on ne touche pas à overlay/cert-manager :
+tree overlays/cert-manager-nginx        
+overlays/cert-manager-nginx
+├── ingress.yaml
+├── kustomization.yaml
+└── patch-ingress-host.yaml
 
-dans notre cas nous créons cependant un persistant volume claim dans ce rep ( nous n'avons pas tester la creation de cet objet dans le rep d'overlays/paasregistry-lapin 
-
-cat base/pvc.yaml
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-    name: trow-data-claim
-spec:
-    accessModes:
-        - ReadWriteOnce
-    resources:
-        requests:
-            storage: 10Gi
-
-comme c'est une nouvelle ressource elle doit être intégrée au fichier kustomized ( c'est un des principes de customized ) :
-
-cat base/kustomization.yaml
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-
-namespace: trow
-
-# This will start Trow in a StatefulSet along with a persistent volume for data and a service that
-# routes to it.
-#
-# A working install will require an ingress forwarding a (sub)domain you control to this service.
-# This install assumes the ingress terminates TLS; internally Trow is running over http only.
-#
-# The overlay directories include examples of how to provision ingress on various types of
-# Kubernetes cluster.
+on ne modifie que la conf relative a notre cluster : 
 
 
-resources:
-- stateful-set.yaml
-- service.yaml
-- pvc.yaml
+tree paas-sandbox                      
+paas-sandbox
+├── kustomization.yaml
+├── patch-ingress-host.yaml
+├── patch-trow-arg.yaml
+├── patch-validator-domain.yaml
+├── pv-data-trow.yaml
+└── README.md
 
-#- validate.yaml # Enable for validation webhook
-
-images:
-- name: containersol/trow
-  newTag: "0.2"
-
-# The following patches update the domain name in the trow argument and validator without editing
-# the YAML directly.
-# Create your own version of the patch file with your domain name and reference in your
-# overlay as below:
-
-
-patchesJson6902:
-#    - path: patch-trow-arg.yaml
-#      target:
-#        kind: StatefulSet
-#        name: trow-set
-#        group: apps
-#        version: v1
-#
-#    - path: patch-validator-domain.yaml
-#      target:
-#        kind: ValidatingWebhookConfiguration
-#        name: trow-validator
-#        group: admissionregistration.k8s.io
-#        version: v1
-
-
-/!\ fin de section a delete apres tests. /!\
-
-on va maintenant ajouter dans notre rep d'overlay dédié à notre cluster ajouter deux volumes que nous créons manuellement avec une strategie de hostpath : storage local sur les nodes 
-
-
-update : on ne va créer qu'un seul volume :
+on va maintenant ajouter dans notre rep d'overlay dédié à notre cluster ajouter un volume que nous créons manuellement avec une strategie de hostpath : storage local sur les nodes 
 
 cat pv-data-trow.yaml 
  apiVersion: v1
@@ -208,24 +103,7 @@ cat pv-data-trow.yaml
    hostPath:
      path: /data
 
-
- cat pv-trow.yaml     
- apiVersion: v1
- kind: PersistentVolume
- metadata:
-   name: trow-hostpath-pv
-   labels:
-     app: trow
- spec:
-   accessModes:
-   - ReadWriteOnce
-   capacity:
-     storage: 10Gi
-   hostPath:
-     path: /data
-
-
-on va integrer nos deux volumes dans la conf kustomized pour qu'ils soient pris en compte :
+on va integrer notre volume  dans la conf kustomized pour qu'il soit pris en compte on l'ajoute dans une section resource :
 
 cat kustomization.yaml                                        
 apiVersion: kustomize.config.k8s.io/v1beta1
@@ -265,21 +143,35 @@ patchesJson6902:
       version: v1
 
 resources:                 <<< on ajoute un bloc resources avec nos deux volumes 
-  - pv-trow.yaml
   - pv-data-trow.yaml
 
 
-on va maintenant modifier les fichiers :
+on va maintenant modifier les fichiers qui vont contenir nos specs :
 
-- patch-ingress-host.yaml : on renseigne l'entree de l'ingress qui va nous servir 
 
-cat patch-ingress-host.yaml
+- patch-ingress-host.yaml : 
+on ajoute des nouvelles annotations ( le path de cert-manager a changé  on ajoute donc le bon chemin pour la prise en compte par certmanager et la creation du certif ssl ( cert-manager.io/cluster-issuer: ) puis on ajoute les annotations deja presentes dans le manifest ingress mais qui sont ecrasée avec la fonction add de kustomized (     kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/proxy-body-size: "0"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+
+on renseigne l'entree ns de l'ingress qui va nous servir
+cat patch-ingress-host.yaml                                                  [☸ |kubernetes-admin@sandbox:trow]
+- op: add
+  path: /metadata/annotations
+  value:
+    cert-manager.io/cluster-issuer: ca-issuer
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/proxy-body-size: "0"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
 - op: replace
   path: /spec/rules/0/host
   value: paasregistry.lapin.io
 - op: replace
   path: /spec/tls/0/hosts/0
   value: paasregistry.lapin.io
+
 
 - patch-trow-arg.yaml
 on renseigne le domaine et le user défini dans le kustomized de notre cluster :  
@@ -287,59 +179,10 @@ on renseigne le domaine et le user défini dans le kustomized de notre cluster :
 cat patch-trow-arg.yaml
 - op: replace #domain name
   path: /spec/template/spec/containers/0/args/2
-  value: paasregistry.sandbox.ilius.io
+  value: paasregistry.lapin.io
 - op: replace #user name
   path: /spec/template/spec/containers/0/args/4
   value: trow-pass
-
-
-On va devoir appliquer des modif dans les fichiers overlay de cert-manager egalement 
- 
- tree cert-manager-nginx
-cert-manager-nginx
-├── ingress.yaml
-├── kustomization.yaml
-└── patch-ingress-host.yaml
-
-
-- ingress 
-
-dans la conf ingress on renseigne notre point d'entrée dans le cluster notre nom de domaine et on definie le nom du secret pour notre certificat tls . On va egalement définir une ip 
-
-cat cert-manager-nginx/ingress.yaml 
-apiVersion: extensions/v1beta1
-kind: Ingress
-metadata:
-  name: trow-ingress
-  annotations:
-    kubernetes.io/ingress.class: "nginx"
-    certmanager.k8s.io/cluster-issuer: "ca-issuer"     <<<< on defini notre ca comme défini plus haut avec cert-manager ( letsencrypt apparait sinon ..)
-    nginx.ingress.kubernetes.io/proxy-body-size: "0"
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
-    nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
-spec:
-  rules:
-    - host: paasregistry.lapin.io
-      http:
-        paths:
-          - path: /
-            backend:
-              serviceName: trow-svc
-              servicePort: 8000
-  tls: 
-    - hosts:
-        - paasregistry.lapin.io
-      secretName: trow-cert-tls  <<< le nom de notre certif
-
-- patch-ingress-host.yaml : on reseigne notre point d'entrée 
-
-cat cert-manager-nginx/patch-ingress-host.yaml
-- op: replace
-  path: /spec/rules/0/host
-  value: paasregistry.lapin.io
-- op: replace
-  path: /spec/tls/0/hosts/0
-  value: paasregistry.lapin.io
 
 
 on va maintenant appliquer le kustomized sur nos arbos respectives pour appliquer les confs :
@@ -349,87 +192,6 @@ kctl apply -k overlays/cert-manager-nginx
 kctl apply -k overlays/paas-lapin
 
 on va maintenant modifier notre ingress-controller  pour changer le service en Loadbalancer et attribuer une  ip fixe pour atteindre notre point d'entrée depuis l'exterrieur de notre cluster : les requettes externes passeront par l'ingress controller et son ip externe et le dispatch sera fait ensuite vers les ressources ingress qui enverront vers les services et enfin les pods 
-
-
-=== conf kustomized ok :
-
-
-- recap : on ne touche pas à base : 
-
-tree base                                                                                          [☸ |kubernetes-admin@sandbox:trow]
-base
-├── kustomization.yaml
-├── patch-trow-arg.yaml
-├── patch-validator-domain.yaml
-├── service.yaml
-├── stateful-set.yaml
-└── validate.yaml
-
-on ne touche pas à overlay/cert-manager :
-tree overlays/cert-manager-nginx                                                                   [☸ |kubernetes-admin@sandbox:trow]
-overlays/cert-manager-nginx
-├── ingress.yaml
-├── kustomization.yaml
-└── patch-ingress-host.yaml
-
-on ne modifie que la conf relative a notre cluster : 
-
-
-tree paas-sandbox                                                                         [☸ |kubernetes-admin@sandbox:trow]
-paas-sandbox
-├── kustomization.yaml
-├── patch-ingress-host.yaml
-├── patch-trow-arg.yaml
-├── patch-validator-domain.yaml
-├── pv-data-trow.yaml
-└── README.md
-
-
-- on crée notre volume ( pas de provisionning dynamique ) :
-
-cat overlays/paas-sandbox/pv-data-trow.yaml               
- apiVersion: v1
- kind: PersistentVolume
- metadata:
-   name: trow-data-hostpath-pv
-   labels:
-     app: trow
- spec:
-   accessModes:
-   - ReadWriteOnce
-   capacity:
-     storage: 20Gi
-   hostPath:
-     path: /data
-
-
-on "patch" notre ressource ingress : 
-
-on modifie l'issuer de certificat ssl dans la ressource de cert-manager c'est letsencrypt-prod de défini :on remplace par notre issuer "ca-issuer"
-on modifie le hostname de notre ressource ingress en définissant le nom de notre point d'entrée dans la section standart et tls de notree ressource ingress 
-
- cat overlays/paas-sandbox/patch-ingress-host.yaml                                               
-- op: replace
-  path: /metadata/annotations
-  value:
-    certmanager.k8s.io/cluster-issuer: ca-issuer
-- op: replace
-  path: /spec/rules/0/host
-  value: paasregistry.sandbox.ilius.io
-- op: replace
-  path: /spec/tls/0/hosts/0
-  value: paasregistry.sandbox.ilius.io
-
-
-on modifie le fichier patch-trow.yaml dans lequel on renseigne les valeurs de notre domaine et user : on override donc ce qu'il y a dans base 
-
- cat overlays/paas-sandbox/patch-trow-arg.yaml                                                 
-- op: replace #domain name
-  path: /spec/template/spec/containers/0/args/2
-  value: paasregistry.sandbox.ilius.io
-- op: replace #user name
-  path: /spec/template/spec/containers/0/args/4
-  value: trow-pass
 
 et on va donc finalement définir notre fichier kustomized.yaml qui va contenir les informations nécéssaire :
 
@@ -456,7 +218,6 @@ secretGenerator:
     - docker-password=s3cr3tp@55
 resources: 
   - pv-data-trow.yaml    <<<<< on ajoute ici notre fichier de volume comme nouvelle ressource.
-  - ../../base/validate.yaml
 
 patchesJson6902:                      <<<< on renseigne ici les deux fichiers patch qui serviront a modifier les manifests
   - path: patch-ingress-host.yaml           
@@ -472,15 +233,8 @@ patchesJson6902:                      <<<< on renseigne ici les deux fichiers pa
       group: apps
       version: v1
 
-  - path: patch-validator-domain.yaml
-    target:
-      kind: ValidatingWebhookConfiguration
-      name: trow-validator
-      group: admissionregistration.k8s.io
-      version: v1
 
-
-
+On va modifier la config de notre ingress controller pour definir une ip externe par laquelles les clients externes au cluster se connecteront : 
 ....
   type: LoadBalancer
   externalIPs:
@@ -535,7 +289,7 @@ NAME                                                    TYPE           CLUSTER-I
 ingress-controller-ingress-nginx-controller             LoadBalancer   10.93.244.43   192.168.1.250  80:30677/TCP,443:30849/TCP   19h
 ingress-controller-ingress-nginx-controller-admission   ClusterIP      10.90.197.52   <none>           443/TCP                      19h
 
-on a de plus de renseigner dans notre ressource ingress l'ip externe :
+on a de plus de renseigner dans notre ressource ingress l'ip externe qu'on a défini dans notre ingress controller 
 kctl get ing -o yaml                                       
 apiVersion: v1
 items:
@@ -545,7 +299,7 @@ items:
     annotations:
       certmanager.k8s.io/cluster-issuer: ca-issuer
       kubectl.kubernetes.io/last-applied-configuration: |
-        {"apiVersion":"extensions/v1beta1","kind":"Ingress","metadata":{"annotations":{"certmanager.k8s.io/cluster-issuer":"ca-issuer","kubernetes.io/ingress.class":"nginx","nginx.ingress.kubernetes.io/proxy-body-size":"0","nginx.ingress.kubernetes.io/proxy-read-timeout":"600","nginx.ingress.kubernetes.io/proxy-send-timeout":"600"},"name":"trow-ingress","namespace":"trow"},"spec":{"rules":[{"host":"paasregistry.sandbox.ilius.io","http":{"paths":[{"backend":{"serviceName":"trow-svc","servicePort":8000},"path":"/"}]}}],"tls":[{"hosts":["paasregistry.sandbox.ilius.io"],"secretName":"trow-registry-tls"}]}}
+        {"apiVersion":"extensions/v1beta1","kind":"Ingress","metadata":{"annotations":{"certmanager.k8s.io/cluster-issuer":"ca-issuer","kubernetes.io/ingress.class":"nginx","nginx.ingress.kubernetes.io/proxy-body-size":"0","nginx.ingress.kubernetes.io/proxy-read-timeout":"600","nginx.ingress.kubernetes.io/proxy-send-timeout":"600"},"name":"trow-ingress","namespace":"trow"},"spec":{"rules":[{"host":"paasregistry.lapin.io","http":{"paths":[{"backend":{"serviceName":"trow-svc","servicePort":8000},"path":"/"}]}}],"tls":[{"hosts":["paasregistry.lapin.io"],"secretName":"trow-registry-tls"}]}}
       kubernetes.io/ingress.class: nginx
       nginx.ingress.kubernetes.io/proxy-body-size: "0"
       nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
@@ -580,7 +334,6 @@ metadata:
   selfLink: ""
 
 
-
 kctl get ing         
 NAME           HOSTS                           ADDRESS          PORTS     AGE
 trow-ingress   paasregistry.lapin.io   10.121.253.211   80, 443   19h
@@ -611,8 +364,72 @@ chown -R 999:999 /data
 / attention cette proc à permi d'installer l'appli ..mais c'est bancal : pas de connaissance de kustomized pour assurer la propreté du travail \
 De plus tous les nodes (meme  le master )  du cluster vont porter une ip 192.168.1.250 defini pour ingress : ceci est du à kube-proxy qui associe la conf ingress a chaque nodes.
 
+== Test :
+
+on peut utiliser docker ou podman par exemple pour manipuler les containers 
+ici on test avec podman 
+connection à la registry :
+
+on ajoute la registry dans note conf :
+
+cat /etc/containers/registries.conf 
+[registries.search]
+registries = ['docker.io', 'quay.io', 'paasregistry.lapin.io']
+
+on s'authentifie 
+
+podman login paasregistry.lapin.io
+user: defini dans trow
+paswd: defini dans trow
+
+on test la registry :
+
+on recupere une image :
+podman pull python
+
+on la tag avec l'id de notre registry :
+podman tag python:latest paasregistry.lapin.io/python:latest
+
+on pousse l'image : 
+podman push paasregistry.lapin.io/python:latest
+
+on delete tours les images locales pour être sur de bien pull :
+podman rmi 659f826fabf4 659f826fabf4 -f                                 
+Untagged: docker.io/library/python:latest
+Untagged: paasregistry.lapin.io/python:latest
+Deleted: 659f826fabf48f9d883895d7ad4bb6b49f79bc7c0ee8590b943e2ccd295df568
+Error: unable to find a name and tag match for 659f826fabf4 in repotags: no such image
+
+on pull l'image : 
+
+podman pull paasregistry.lapin.io/python
+Trying to pull paasregistry.lapin.io/python...
+Getting image source signatures
+Copying blob 2ddb75a88683 done
+Copying blob e1ac3b88b787 done
+Copying blob f47591e5c75d done
+Copying blob 086c4de50f71 done
+Copying blob c9841f4ef425 done
+Copying blob 3b40d033f8dc done
+Copying blob de0ef6ab1825 done
+Copying blob 8b45a8f9a2cf done
+Copying blob 5542568d0a21 done
+Copying config 659f826fab done
+Writing manifest to image destination
+Storing signatures
+659f826fabf48f9d883895d7ad4bb6b49f79bc7c0ee8590b943e2ccd295df568
+
+podman images                                                                [☸ |kubernetes-admin@sandbox:trow]
+REPOSITORY                             TAG      IMAGE ID       CREATED      SIZE
+paasregistry.lapin.io/python   latest   659f826fabf4   7 days ago   957 MB
+
+
 
 todo 
+
+faire des tests avec docker
+attention changement d'images passée en latest (pb sinon avec le https sur loaclhost port 51000)
+attention changement des annotaions pour le patch de cert-manager : plus compatible du coup pas de certificat ssl généré : pas de trigger a certmanager suite modif de path
 
 faire du node affinity/ antiaffinity et mettre un label sur les nodes pour faire du node selector.
 
