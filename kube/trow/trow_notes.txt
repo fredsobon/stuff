@@ -20,6 +20,9 @@ helm install ingress-controller -n ingress-controller ingress-nginx/ingress-ngin
 
 ->on va pour gérer la partie tls installer cert-manager et pour notre exemple definir une ca privée
 
+kubectl create ns cert-manager
+
+
 helm repo add jetstack https://charts.jetstack.io\n
 helm install cert-manager jetstack/cert-manager --namespace cert-manager --version v0.15.0 --set installCRDs=true
 
@@ -116,6 +119,7 @@ base
 ├── stateful-set.yaml
 └── validate.yaml
 
+/!\ a supprimer apres tests pas besoin de pvc supplementaire : on ajoutera juste un seul volume pour les data de trow puisque nous n'avons pas de volumes provisionner :
 
 dans notre cas nous créons cependant un persistant volume claim dans ce rep ( nous n'avons pas tester la creation de cet objet dans le rep d'overlays/paasregistry-lapin 
 
@@ -181,7 +185,13 @@ patchesJson6902:
 #        group: admissionregistration.k8s.io
 #        version: v1
 
+
+/!\ fin de section a delete apres tests. /!\
+
 on va maintenant ajouter dans notre rep d'overlay dédié à notre cluster ajouter deux volumes que nous créons manuellement avec une strategie de hostpath : storage local sur les nodes 
+
+
+update : on ne va créer qu'un seul volume :
 
 cat pv-data-trow.yaml 
  apiVersion: v1
@@ -338,13 +348,81 @@ kubectl apply -k base/
 kctl apply -k overlays/cert-manager-nginx
 kctl apply -k overlays/paas-lapin
 
-on va maintenant modifier notre ressource ingress pour changer le service en Loadbalancer et attribuer une  ip fixe pour atteindre notre point d'entrée depuis l'exterrieur de notre cluster :
+on va maintenant modifier notre ingress-controller  pour changer le service en Loadbalancer et attribuer une  ip fixe pour atteindre notre point d'entrée depuis l'exterrieur de notre cluster : les requettes externes passeront par l'ingress controller et son ip externe et le dispatch sera fait ensuite vers les ressources ingress qui enverront vers les services et enfin les pods 
+
 
 ....
   type: LoadBalancer
   externalIPs:
   - 192.168.1.250
 ...
+
+kctl get svc ingress-controller-ingress-nginx-controller -o yaml
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: "2020-05-26T13:21:03Z"
+  labels:
+    app.kubernetes.io/component: controller
+    app.kubernetes.io/instance: ingress-controller
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/version: 0.32.0
+    helm.sh/chart: ingress-nginx-2.3.0
+  name: ingress-controller-ingress-nginx-controller
+  namespace: ingress-controller
+  resourceVersion: "257557"
+  selfLink: /api/v1/namespaces/ingress-controller/services/ingress-controller-ingress-nginx-controller
+  uid: 4f42464c-69e7-4912-8ccf-9455304a9340
+spec:
+  clusterIP: 10.93.244.43
+  externalIPs:
+  - 192.168.1.250
+  externalTrafficPolicy: Cluster
+  ports:
+  - name: http
+    nodePort: 30677
+    port: 80
+    protocol: TCP
+    targetPort: http
+  - name: https
+    nodePort: 30849
+    port: 443
+    protocol: TCP
+    targetPort: https
+  selector:
+    app.kubernetes.io/component: controller
+    app.kubernetes.io/instance: ingress-controller
+    app.kubernetes.io/name: ingress-nginx
+  sessionAffinity: None
+  type: LoadBalancer
+status:
+  loadBalancer: {}
+
+
+ kctl get svc -n ingress-controller 
+NAME                                                    TYPE           CLUSTER-IP     EXTERNAL-IP      PORT(S)                      AGE
+ingress-controller-ingress-nginx-controller             LoadBalancer   10.93.244.43   192.168.1.250  80:30677/TCP,443:30849/TCP   19h
+ingress-controller-ingress-nginx-controller-admission   ClusterIP      10.90.197.52   <none>           443/TCP                      19h
+
+
+on renseigne dans notre fichier hosts la conf 
+ 192.168.1.250 paasregistry.lapin.io 
+
+et on peut maintenant de puis notre pc atteindre nos ressources trow : 
+
+curl paasregistry.lapin.io
+<html>
+<head><title>308 Permanent Redirect</title></head>
+<body>
+<center><h1>308 Permanent Redirect</h1></center>
+<hr><center>nginx/1.17.10</center>
+</body>
+</html>
+ boogie@boogieland  ~/Documents/work/repos_work/trow/install/overlays/paas-sandbox   master ●  curl -k  https://paasregistry.lapin.io
+<!DOCTYPE html><html><body>
+<h1>Welcome to Trow, the cluster registry</h1>
+</body></html>%
 
 à la fin de notre install on va devoir changer les droits du rep /data avec le user 999 en proprio comme la doc l'indique ( c'est pour le user trow de l'appli) pour permettre d'avoir les bon acces pour notre pod 
 chown -R 999:999 /data
