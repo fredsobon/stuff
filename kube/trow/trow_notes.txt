@@ -351,6 +351,136 @@ kctl apply -k overlays/paas-lapin
 on va maintenant modifier notre ingress-controller  pour changer le service en Loadbalancer et attribuer une  ip fixe pour atteindre notre point d'entrée depuis l'exterrieur de notre cluster : les requettes externes passeront par l'ingress controller et son ip externe et le dispatch sera fait ensuite vers les ressources ingress qui enverront vers les services et enfin les pods 
 
 
+=== conf kustomized ok :
+
+
+- recap : on ne touche pas à base : 
+
+tree base                                                                                          [☸ |kubernetes-admin@sandbox:trow]
+base
+├── kustomization.yaml
+├── patch-trow-arg.yaml
+├── patch-validator-domain.yaml
+├── service.yaml
+├── stateful-set.yaml
+└── validate.yaml
+
+on ne touche pas à overlay/cert-manager :
+tree overlays/cert-manager-nginx                                                                   [☸ |kubernetes-admin@sandbox:trow]
+overlays/cert-manager-nginx
+├── ingress.yaml
+├── kustomization.yaml
+└── patch-ingress-host.yaml
+
+on ne modifie que la conf relative a notre cluster : 
+
+
+tree paas-sandbox                                                                         [☸ |kubernetes-admin@sandbox:trow]
+paas-sandbox
+├── kustomization.yaml
+├── patch-ingress-host.yaml
+├── patch-trow-arg.yaml
+├── patch-validator-domain.yaml
+├── pv-data-trow.yaml
+└── README.md
+
+
+- on crée notre volume ( pas de provisionning dynamique ) :
+
+cat overlays/paas-sandbox/pv-data-trow.yaml               
+ apiVersion: v1
+ kind: PersistentVolume
+ metadata:
+   name: trow-data-hostpath-pv
+   labels:
+     app: trow
+ spec:
+   accessModes:
+   - ReadWriteOnce
+   capacity:
+     storage: 20Gi
+   hostPath:
+     path: /data
+
+
+on "patch" notre ressource ingress : 
+
+on modifie l'issuer de certificat ssl dans la ressource de cert-manager c'est letsencrypt-prod de défini :on remplace par notre issuer "ca-issuer"
+on modifie le hostname de notre ressource ingress en définissant le nom de notre point d'entrée dans la section standart et tls de notree ressource ingress 
+
+ cat overlays/paas-sandbox/patch-ingress-host.yaml                                               
+- op: replace
+  path: /metadata/annotations
+  value:
+    certmanager.k8s.io/cluster-issuer: ca-issuer
+- op: replace
+  path: /spec/rules/0/host
+  value: paasregistry.sandbox.ilius.io
+- op: replace
+  path: /spec/tls/0/hosts/0
+  value: paasregistry.sandbox.ilius.io
+
+
+on modifie le fichier patch-trow.yaml dans lequel on renseigne les valeurs de notre domaine et user : on override donc ce qu'il y a dans base 
+
+ cat overlays/paas-sandbox/patch-trow-arg.yaml                                                 
+- op: replace #domain name
+  path: /spec/template/spec/containers/0/args/2
+  value: paasregistry.sandbox.ilius.io
+- op: replace #user name
+  path: /spec/template/spec/containers/0/args/4
+  value: trow-pass
+
+et on va donc finalement définir notre fichier kustomized.yaml qui va contenir les informations nécéssaire :
+
+cat overlays/paas-sandbox/kustomization.yaml                                                 
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: trow
+
+bases:
+  - ../cert-manager-nginx
+generatorOptions:
+    disableNameSuffixHash: true
+
+secretGenerator:
+  - name: trow-pass
+    literals:
+    - pass=s3cr3tp@55
+  - name: trow-cred
+    type: docker-registry
+    literals:
+    - docker-server=example.registry.com
+    - docker-username=example
+    - docker-password=s3cr3tp@55
+resources: 
+  - pv-data-trow.yaml    <<<<< on ajoute ici notre fichier de volume comme nouvelle ressource.
+  - ../../base/validate.yaml
+
+patchesJson6902:                      <<<< on renseigne ici les deux fichiers patch qui serviront a modifier les manifests
+  - path: patch-ingress-host.yaml           
+    target:
+      kind: Ingress
+      name: trow-ingress
+      group: extensions
+      version: v1beta1
+  - path: patch-trow-arg.yaml
+    target:
+      kind: StatefulSet
+      name: trow-set
+      group: apps
+      version: v1
+
+  - path: patch-validator-domain.yaml
+    target:
+      kind: ValidatingWebhookConfiguration
+      name: trow-validator
+      group: admissionregistration.k8s.io
+      version: v1
+
+
+
 ....
   type: LoadBalancer
   externalIPs:
@@ -404,6 +534,56 @@ status:
 NAME                                                    TYPE           CLUSTER-IP     EXTERNAL-IP      PORT(S)                      AGE
 ingress-controller-ingress-nginx-controller             LoadBalancer   10.93.244.43   192.168.1.250  80:30677/TCP,443:30849/TCP   19h
 ingress-controller-ingress-nginx-controller-admission   ClusterIP      10.90.197.52   <none>           443/TCP                      19h
+
+on a de plus de renseigner dans notre ressource ingress l'ip externe :
+kctl get ing -o yaml                                       
+apiVersion: v1
+items:
+- apiVersion: extensions/v1beta1
+  kind: Ingress
+  metadata:
+    annotations:
+      certmanager.k8s.io/cluster-issuer: ca-issuer
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"extensions/v1beta1","kind":"Ingress","metadata":{"annotations":{"certmanager.k8s.io/cluster-issuer":"ca-issuer","kubernetes.io/ingress.class":"nginx","nginx.ingress.kubernetes.io/proxy-body-size":"0","nginx.ingress.kubernetes.io/proxy-read-timeout":"600","nginx.ingress.kubernetes.io/proxy-send-timeout":"600"},"name":"trow-ingress","namespace":"trow"},"spec":{"rules":[{"host":"paasregistry.sandbox.ilius.io","http":{"paths":[{"backend":{"serviceName":"trow-svc","servicePort":8000},"path":"/"}]}}],"tls":[{"hosts":["paasregistry.sandbox.ilius.io"],"secretName":"trow-registry-tls"}]}}
+      kubernetes.io/ingress.class: nginx
+      nginx.ingress.kubernetes.io/proxy-body-size: "0"
+      nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+      nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+    creationTimestamp: "2020-05-26T16:45:17Z"
+    generation: 1
+    name: trow-ingress
+    namespace: trow
+    resourceVersion: "257565"
+    selfLink: /apis/extensions/v1beta1/namespaces/trow/ingresses/trow-ingress
+    uid: 3fa0ca29-49ae-43fa-af65-5aece3de44aa
+  spec:
+    rules:
+    - host: paasregistry.lapin.io
+      http:
+        paths:
+        - backend:
+            serviceName: trow-svc
+            servicePort: 8000
+          path: /
+    tls:
+    - hosts:
+      - paasregistry.lapin.io
+      secretName: trow-registry-tls
+  status:
+    loadBalancer:
+      ingress:
+      - ip: 192.168.1.250
+kind: List
+metadata:
+  resourceVersion: ""
+  selfLink: ""
+
+
+
+kctl get ing         
+NAME           HOSTS                           ADDRESS          PORTS     AGE
+trow-ingress   paasregistry.lapin.io   10.121.253.211   80, 443   19h
 
 
 on renseigne dans notre fichier hosts la conf 
