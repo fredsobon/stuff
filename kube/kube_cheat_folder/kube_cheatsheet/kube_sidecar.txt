@@ -1,0 +1,49 @@
+== notes kube sidecar : ===
+
+on va pouvoir ajouter un container à un pod pour pouvoir par exemple débugger :
+ici on va ajouter un container busybox auquel on va faire faire une boucle pour que le terminal reste ouvert et que nous puissions nous connecter dans le container et tester des commandes ( wget , netstat ) pour debugguer le second container du pod ( ici la registry trow) .
+Attention kube va tout trier par ordre alphabetique donc la lecture n'est pas simple : chaque container aura une section (ici le délimiteur est "- args" )  
+
+  spec:
+    containers:
+    - args:           <<<< 1 er container : notre busybox qui execute une boucle 
+      - /bin/sh
+      - -c
+      - 'i=0; while true; do echo "$i: $(date)"; i=$((i+1)); sleep 1; done'
+      image: busybox
+      imagePullPolicy: Always
+      name: count
+      resources: {}
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: default-token-zbmhs
+        readOnly: true
+    - args:                <<<< deuxieme container qu'on va debuggé en se connectant en console depuis la busybox ( ex : wget 127.0.0.1:8000 ) 
+      - --no-tls
+      - -n
+      - paasregistry.lapin.io
+      - -u
+      - trow-pass
+      - --password-file
+      - /etc/trow/pass
+      image: containersol/trow:latest
+      imagePullPolicy: Always
+      name: trow-pod
+      ports:
+      - containerPort: 8000
+        protocol: TCP
+      resources: {}
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /data
+        name: data-vol
+      - mountPath: /etc/trow
+        name: trow-pass
+        readOnly: true
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: default-token-zbmhs
+        readOnly: true
+
