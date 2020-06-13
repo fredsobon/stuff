@@ -1,0 +1,80 @@
+== notes prometheus kube ==
+
+
+= mise a jour repo avant install via helm :
+helm repo up
+
+= install brute dans un premier temps sur un cluster quasi vide : 
+helm install monitoring stable/prometheus-operator
+
+helm ls                                                    (⎈ b-k:monitoring)
+NAME      	NAMESPACE 	REVISION	UPDATED                                 	STATUS  	CHART                     	APP VERSION
+monitoring	monitoring	1       	2020-06-13 18:05:06.382195114 +0200 CEST	deployed	prometheus-operator-8.14.0	0.38.1
+
+= test de base :
+
+on va utiliser kubectl port-forward pour examiner via un tunnel créer en tre notre cluster et notre laptop la bonne installation de prometheus :
+on va examiner les pods identifier celui de prometheus :
+ kctl get all                                               (⎈ b-k:monitoring)
+NAME                                                         READY   STATUS    RESTARTS   AGE
+pod/alertmanager-monitoring-prometheus-oper-alertmanager-0   2/2     Running   0          3m21s
+pod/monitoring-grafana-9b57b76bd-vzq5m                       2/2     Running   0          3m37s
+pod/monitoring-kube-state-metrics-8679d78f6f-fdtlf           1/1     Running   0          3m37s
+pod/monitoring-prometheus-node-exporter-8bmhq                1/1     Running   0          3m37s
+pod/monitoring-prometheus-node-exporter-bpkcw                1/1     Running   0          3m37s
+pod/monitoring-prometheus-node-exporter-sfsbp                1/1     Running   0          3m37s
+pod/monitoring-prometheus-oper-operator-885477745-4pgvh      2/2     Running   0          3m37s
+pod/prometheus-monitoring-prometheus-oper-prometheus-0       3/3     Running   1          3m10s
+
+
+on cherche maintenant dans les services le port utilisé pour rediriger vers le pod prometheus :
+..
+NAME                                              TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)                      AGE
+service/alertmanager-operated                     ClusterIP   None             <none>        9093/TCP,9094/TCP,9094/UDP   3m21s
+service/monitoring-grafana                        ClusterIP   10.111.103.232   <none>        80/TCP                       3m37s
+service/monitoring-kube-state-metrics             ClusterIP   10.104.46.201    <none>        8080/TCP                     3m37s
+service/monitoring-prometheus-node-exporter       ClusterIP   10.97.201.199    <none>        9100/TCP                     3m38s
+service/monitoring-prometheus-oper-alertmanager   ClusterIP   10.99.230.203    <none>        9093/TCP                     3m38s
+service/monitoring-prometheus-oper-operator       ClusterIP   10.100.230.164   <none>        8080/TCP,443/TCP             3m37s
+service/monitoring-prometheus-oper-prometheus     ClusterIP   10.107.189.2     <none>        9090/TCP                     3m38s
+service/prometheus-operated                       ClusterIP   None             <none>        9090/TCP                     3m10s
+..
+on utilise port-forward vers le pod et le port du service et un port chois pour consulter sur notre laptop :
+
+kubectl port-forward prometheus-monitoring-prometheus-oper-prometheus-0 9090:9090
+
+on ouvre un navigateur et on voit sans souci notre instance prometheus : 
+http://localhost:9090/graph
+
+
+on va faire la même chose pour grafana :
+on va examiner le pod et le service : c'est le port 3000 qui est utilisé 
+
+
+ex: k9s sur service monitoring grafana : 
+┌───────────────────────────────────────────────────── Describe(monitoring/monitoring-grafana) ──────────────────────────────────────────────────────┐
+│Name:              monitoring-grafana                                                                                                               │
+│Namespace:         monitoring                                                                                                                       │
+│Labels:            app.kubernetes.io/instance=monitoring                                                                                            │
+│                   app.kubernetes.io/managed-by=Helm                                                                                                │
+│                   app.kubernetes.io/name=grafana                                                                                                   │
+│                   app.kubernetes.io/version=7.0.3                                                                                                  │
+│                   helm.sh/chart=grafana-5.1.4                                                                                                      │
+│Annotations:       <none>                                                                                                                           │
+│Selector:          app.kubernetes.io/instance=monitoring,app.kubernetes.io/name=grafana                                                             │
+│Type:              ClusterIP                                                                                                                        │
+│IP:                10.111.103.232                                                                                                                   │
+│Port:              service  80/TCP                                                                                                                  │
+│TargetPort:        3000/TCP                                                                                                                         │
+│Endpoints:         10.124.71.97:3000                                                                                                                │
+│Session Affinity:  None                                                                                                                             │
+│Events:            <none>
+
+
+on redirige vers le port 3000 
+
+kubectl port-forward monitoring-grafana-9b57b76bd-vzq5m  3000:3000
+
+on ouvre un navigateur et c'est bon 
+
+http://localhost:3000/login
