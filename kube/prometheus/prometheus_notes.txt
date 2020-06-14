@@ -78,3 +78,72 @@ kubectl port-forward monitoring-grafana-9b57b76bd-vzq5m  3000:3000
 on ouvre un navigateur et c'est bon 
 
 http://localhost:3000/login
+
+
+
+= installation d'un controller ingress : =
+
+helm repo add nginx-stable https://helm.nginx.com/stable  
+"nginx-stable" has been added to your repositories
+
+helm install my-release nginx-stable/nginx-ingress  
+NAME: my-release
+LAST DEPLOYED: Sun Jun 14 13:28:15 2020
+NAMESPACE: monitoring
+STATUS: deployed
+REVISION: 1
+TEST SUITE: None
+NOTES:
+The NGINX Ingress Controller has been installed.
+
+= exposition de nos services via un ingress controler :
+
+on va overrider des valeurs de charts dans un fichier dédié comprenant des conf ingress specifiant les "hosts" et une external ip : que l'on associe a un node de notre cluster 
+
+
+cat b-k-prometheus-operator.yaml                           
+prometheus:
+ ingress:
+   enabled: true
+   annotations:
+     kubernetes.io/ingress.class: nginx
+   hosts:
+   - "prometheus.boogie7.net"
+ service:
+   externalIPs:
+   - 192.168.0.82
+
+alertmanager:
+ ingress:
+   enabled: true
+   annotations:
+     kubernetes.io/ingress.class: nginx
+   hosts:
+   - "alertmanager.boogie7.net"
+ service:
+   externalIPs:
+   - 192.168.0.82
+
+grafana:
+  persistence:
+    enabled: false
+  ingress:
+    enabled: true
+    annotations:
+      kubernetes.io/ingress.class: nginx
+    hosts:
+      - "grafana.boogie7.net"
+  service:
+    externalIPs:
+    - 192.168.0.82
+coreDns:
+  enabled: true
+
+kubeDns:
+  enabled: false
+
+on upgrade notre chart 
+helm upgrade monitor prometheus-operator -f b-k-prometheus-operator.yaml
+
+
+on renseigne notre fichier hosts et c'est ok nos services sont dispos via un navigateur.
