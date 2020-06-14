@@ -104,7 +104,7 @@ The NGINX Ingress Controller has been installed.
 on va overrider des valeurs de charts dans un fichier dédié comprenant des conf ingress specifiant les "hosts" et une external ip : que l'on associe a un node de notre cluster 
 
 
-cat b-k-prometheus-operator.yaml                           
+cat b-k-ingress-prometheus-operator.yaml                           
 prometheus:
  ingress:
    enabled: true
@@ -201,23 +201,33 @@ et on change la conf de port :
     protocol: TCP
     targetPort: 9090
 
+ce qui nous donne le fichier suivant : 
 
-( la modification via le chart helm de type :
-prometheus-operator:
-  prometheus:
-    service:
-      type: LoadBalancer
-      port: 80
-  alertmanager:
-    service:
-      type: LoadBalancer
-      port: 80
-  grafana:
-    service:
-      type: LoadBalancer
-      port: 80
+cat b-k-services_lb-prometheus-operator.yaml
+prometheus:
+ service:
+   port: 80      
+   type: LoadBalancer
+alertmanager:
+ service:
+   port: 80      
+   type: LoadBalancer
 
-n'a pas fonctionnée mais la modif manuelle des services via k9s elle a fonctionnée.
+grafana:
+  persistence:
+    enabled: false
+  service:
+    port: 80 
+    type: LoadBalancer
+coreDns:
+  enabled: true
+
+kubeDns:
+  enabled: false
+
+
+helm upgrade monitor prometheus-operator -f b-k-service_lb-prometheus-operator.yaml
+
 
 des l'application de la modif les adresses ip sont ditribuées via metallb :
 
