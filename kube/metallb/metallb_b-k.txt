@@ -142,3 +142,87 @@ BGP neighbor is 192.168.0.80, remote AS 65002
     Received:               0
     Accepted:               0
 
+= test :
+
+on va lancer deux deployment comprenant chacun un pod et un service :
+cat tutorial-2.yaml                                                                                                                                     [☸ |kubernetes-admin@b-k:default]
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx
+spec:
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1
+        ports:
+        - name: http
+          containerPort: 80
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx
+spec:
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    app: nginx
+  type: LoadBalancer
+
+et le même en changeant le nom du service :
+cat tutorial-2.yaml                                                                                                                                     [☸ |kubernetes-admin@b-k:default]
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx
+spec:
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1
+        ports:
+        - name: http
+          containerPort: 80
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx2
+spec:
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    app: nginx
+  type: LoadBalancer
+
+on voit que les ip définies dans metallb sont bien attribuées :
+
+ kctl get svc                                                                                                                                            [☸ |kubernetes-admin@b-k:default]
+NAME         TYPE           CLUSTER-IP       EXTERNAL-IP   PORT(S)        AGE
+kubernetes   ClusterIP      10.96.0.1        <none>        443/TCP        302d
+nginx        LoadBalancer   10.99.109.167    10.127.0.1    80:32530/TCP   8m25s
+nginx2       LoadBalancer   10.105.164.178   10.127.0.3    80:30356/TCP   4m44s
+
