@@ -226,3 +226,137 @@ kubernetes   ClusterIP      10.96.0.1        <none>        443/TCP        302d
 nginx        LoadBalancer   10.99.109.167    10.127.0.1    80:32530/TCP   8m25s
 nginx2       LoadBalancer   10.105.164.178   10.127.0.3    80:30356/TCP   4m44s
 
+
+
+= Mise en place de metallb en mode L2 : 
+
+dans ce mode on va avoir uniquement notre conf metallb à faire : on va uniquement se servir des adresses mac des nodes du cluster : le service sera hébergé sur un node dont la mac servira pour le routage externe  
+
+cat config_lb                    
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config
+  namespace: metallb-system
+data:
+  config: |
+    address-pools:
+      - name: net-svc-b-k
+        protocol: layer2
+        addresses:
+          - 192.168.0.100-192.168.0.200
+
+on redéploi :
+kind: Deployment
+metadata:
+  name: nginx2
+spec:
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1
+        ports:
+        - name: http
+          containerPort: 80
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx2
+spec:
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    app: nginx
+  type: LoadBalancer
+
+
+boogie@boogieland  ~  kctl get svc                        
+NAME         TYPE           CLUSTER-IP     EXTERNAL-IP     PORT(S)        AGE
+kubernetes   ClusterIP      10.96.0.1      <none>          443/TCP        302d
+nginx2       LoadBalancer   10.106.0.160   192.168.0.101   80:31698/TCP   11m
+
+
+on peut donc en dehors de notre cluster interroger notre service :
+
+curl -I http://192.168.0.101          
+HTTP/1.1 200 OK
+Server: nginx/1.19.0
+Date: Sun, 14 Jun 2020 11:19:12 GMT
+Content-Type: text/html
+Content-Length: 612
+Last-Modified: Tue, 26 May 2020 15:00:20 GMT
+Connection: keep-alive
+ETag: "5ecd2f04-264"
+Accept-Ranges: bytes
+
+
+on redeploi notre serviceen changeant le nom 
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx3
+spec:
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1
+        ports:
+        - name: http
+          containerPort: 80
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx3
+spec:
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    app: nginx
+  type: LoadBalancer
+
+
+
+on a bien une ip de notre range d'attribuée et on peut interroger notre service 
+kctl get svc                                
+NAME         TYPE           CLUSTER-IP       EXTERNAL-IP     PORT(S)        AGE
+kubernetes   ClusterIP      10.96.0.1        <none>          443/TCP        302d
+nginx2       LoadBalancer   10.106.0.160     192.168.0.101   80:31698/TCP   13m
+nginx3       LoadBalancer   10.104.233.163   192.168.0.102   80:31452/TCP   5s
+
+
+ curl -I http://192.168.0.102           [☸ |kubernetes-admin@sandbox:monitoring]
+HTTP/1.1 200 OK
+Server: nginx/1.19.0
+Date: Sun, 14 Jun 2020 11:22:45 GMT
+Content-Type: text/html
+Content-Length: 612
+Last-Modified: Tue, 26 May 2020 15:00:20 GMT
+Connection: keep-alive
+ETag: "5ecd2f04-264"
+Accept-Ranges: bytes
+
