@@ -96,7 +96,10 @@ TEST SUITE: None
 NOTES:
 The NGINX Ingress Controller has been installed.
 
-= exposition de nos services via un ingress controler :
+= exposition de nos services pour acces externe du cluster :
+
+
+1/ via un ingress controler :
 
 on va overrider des valeurs de charts dans un fichier dédié comprenant des conf ingress specifiant les "hosts" et une external ip : que l'on associe a un node de notre cluster 
 
@@ -147,3 +150,172 @@ helm upgrade monitor prometheus-operator -f b-k-prometheus-operator.yaml
 
 
 on renseigne notre fichier hosts et c'est ok nos services sont dispos via un navigateur.
+
+
+L'inconvénient de cette méthode est le fait dze n'avoir qu'une seule adresse ip disponible.
+
+2/ Addressage automatique des services via metallb :
+
+nous avons configuré metallb avec le mode macadresse /niveau 2 pour qu'il distribue les ip de services sur le range : 192.168.0.100-192.168.0.200
+
+
+(voir notes metallb ) 
+
+apiVersion: v1
+kind: ConfigMap
+name: config
+namespace: metallb-system
+data:
+  config: |
+    address-pools:
+      - name: net-svc-b-k
+        protocol: layer2
+        addresses:
+          - 192.168.0.100-192.168.0.200
+
+nous allons donc modifier les services déployés originellement :
+
+-> service monitor-grafana
+on passe le service de type: ClusterIp à type: LoadBalancer
+
+-> service prometheus-operator-alertmanager 
+on passe le service de type: ClusterIp à type: LoadBalancer
+et on change la conf de port :
+
+  ports:
+  - name: web
+    nodePort: 31190
+    port: 9093     <<<<<<  on passe à 80 : de ce fait on pourra acceder à notre service directement dans le navigateur sans préciser de port
+    protocol: TCP
+    targetPort: 9093
+
+-> service prometheus-operator-prometheus :
+
+on passe le service de type: ClusterIp à type: LoadBalancer
+et on change la conf de port :
+
+  ports:
+  - name: web
+    nodePort: 32040
+    port: 9090     <<<<<<  on passe à 80 : de ce fait on pourra acceder à notre service directement dans le navigateur sans préciser de port
+    protocol: TCP
+    targetPort: 9090
+
+
+( la modification via le chart helm de type :
+prometheus-operator:
+  prometheus:
+    service:
+      type: LoadBalancer
+      port: 80
+  alertmanager:
+    service:
+      type: LoadBalancer
+      port: 80
+  grafana:
+    service:
+      type: LoadBalancer
+      port: 80
+
+n'a pas fonctionnée mais la modif manuelle des services via k9s elle a fonctionnée.
+
+des l'application de la modif les adresses ip sont ditribuées via metallb :
+
+kctl get svc                                                                                                                                         [☸ |kubernetes-admin@b-k:monitoring]
+NAME                                      TYPE           CLUSTER-IP       EXTERNAL-IP     PORT(S)                      AGE
+alertmanager-operated                     ClusterIP      None             <none>          9093/TCP,9094/TCP,9094/UDP   63m
+monitor-grafana                           LoadBalancer   10.98.64.179     192.168.0.102   80:32396/TCP                 63m
+monitor-kube-state-metrics                ClusterIP      10.110.89.34     <none>          8080/TCP                     63m
+monitor-prometheus-node-exporter          ClusterIP      10.105.224.112   <none>          9100/TCP                     63m
+monitor-prometheus-operato-alertmanager   LoadBalancer   10.108.81.109    192.168.0.105   80:31190/TCP                 63m
+monitor-prometheus-operato-operator       ClusterIP      10.102.229.117   <none>          8080/TCP,443/TCP             63m
+monitor-prometheus-operato-prometheus     LoadBalancer   10.109.223.245   192.168.0.101   80:32040/TCP                 63m
+prometheus-operated                       ClusterIP      None             <none>          9090/TCP                     63m
+
+on renseigne notre fichier hosts :
+
+192.168.0.101 prometheus.boogie7.net
+192.168.0.105 alertmanager.boogie7.net
+192.168.0.102 grafana.boogie7.net
+
+et on peut atteindre les services :
+
+curl -Iv prometheus.boogie7.net                                                                                                                      [☸ |kubernetes-admin@b-k:monitoring]
+curl -Iv http://prometheus.boogie7.net                                                                                                               [☸ |kubernetes-admin@b-k:monitoring]
+*   Trying 192.168.0.101:80...
+* TCP_NODELAY set
+* Connected to prometheus.boogie7.net (192.168.0.101) port 80 (#0)
+> HEAD / HTTP/1.1
+> Host: prometheus.boogie7.net
+> User-Agent: curl/7.68.0
+> Accept: */*
+> 
+* Mark bundle as not supporting multiuse
+< HTTP/1.1 405 Method Not Allowed
+HTTP/1.1 405 Method Not Allowed
+< Allow: GET, OPTIONS
+Allow: GET, OPTIONS
+< Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=utf-8
+< X-Content-Type-Options: nosniff
+X-Content-Type-Options: nosniff
+< Date: Sun, 14 Jun 2020 15:47:56 GMT
+Date: Sun, 14 Jun 2020 15:47:56 GMT
+< Content-Length: 19
+Content-Length: 19
+
+curl -Iv http://alertmanager.boogie7.net                                                                                                             [☸ |kubernetes-admin@b-k:monitoring]
+*   Trying 192.168.0.105:80...
+* TCP_NODELAY set
+* Connected to alertmanager.boogie7.net (192.168.0.105) port 80 (#0)
+> HEAD / HTTP/1.1
+> Host: alertmanager.boogie7.net
+> User-Agent: curl/7.68.0
+> Accept: */*
+>
+* Mark bundle as not supporting multiuse
+< HTTP/1.1 405 Method Not Allowed
+HTTP/1.1 405 Method Not Allowed
+< Allow: GET, OPTIONS
+Allow: GET, OPTIONS
+< Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=utf-8
+< X-Content-Type-Options: nosniff
+X-Content-Type-Options: nosniff
+< Date: Sun, 14 Jun 2020 15:48:29 GMT
+Date: Sun, 14 Jun 2020 15:48:29 GMT
+< Content-Length: 19
+Content-Length: 19
+
+curl -Iv http://grafana.boogie7.net                                                                                                                  [☸ |kubernetes-admin@b-k:monitoring]
+*   Trying 192.168.0.102:80...
+* TCP_NODELAY set
+* Connected to grafana.boogie7.net (192.168.0.102) port 80 (#0)
+> HEAD / HTTP/1.1
+> Host: grafana.boogie7.net
+> User-Agent: curl/7.68.0
+> Accept: */*
+>
+* Mark bundle as not supporting multiuse
+< HTTP/1.1 302 Found
+HTTP/1.1 302 Found
+< Cache-Control: no-cache
+Cache-Control: no-cache
+< Content-Type: text/html; charset=utf-8
+Content-Type: text/html; charset=utf-8
+< Expires: -1
+Expires: -1
+< Location: /login
+Location: /login
+< Pragma: no-cache
+Pragma: no-cache
+< Set-Cookie: redirect_to=%2F; Path=/; HttpOnly; SameSite=Lax
+Set-Cookie: redirect_to=%2F; Path=/; HttpOnly; SameSite=Lax
+< X-Frame-Options: deny
+X-Frame-Options: deny
+< Date: Sun, 14 Jun 2020 15:48:42 GMT
+Date: Sun, 14 Jun 2020 15:48:42 GMT
+
+<
+* Connection #0 to host grafana.boogie7.net left intact
+
