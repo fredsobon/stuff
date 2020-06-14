@@ -1,0 +1,144 @@
+==== notes set up metallb b-k cluster : ==
+
+== cluster utilisant metallb en mode bgp pour publication de services : 
+
+
+=  on va installer dans notre cluster kube metallb :
+
+kubectl apply -f https://raw.githubusercontent.com/google/metallb/v0.7.3/manifests/metallb.yaml
+
+check :
+
+kctl get all -n metallb-system                                                                                                                 [☸ |kubernetes-admin@b-k:metallb-system]
+NAME                              READY   STATUS    RESTARTS   AGE
+pod/controller-6bcfdfd677-xhwt4   1/1     Running   5          230d
+pod/speaker-7z7kr                 1/1     Running   5          230d
+pod/speaker-8nwhf                 1/1     Running   2          230d
+pod/speaker-kzr9q                 1/1     Running   5          230d
+
+NAME                     DESIRED   CURRENT   READY   UP-TO-DATE   AVAILABLE   NODE SELECTOR                 AGE
+daemonset.apps/speaker   3         3         3       3            3           beta.kubernetes.io/os=linux   230d
+
+NAME                         READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/controller   1/1     1            1           230d
+
+NAME                                    DESIRED   CURRENT   READY   AGE
+replicaset.apps/controller-6bcfdfd677   1         1         1       230d
+
+
+on va ensuite preparer note conf pour fonctionner en mode bgp  : on passe par une configmap :
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config
+  namespace: metallb-system
+data:
+  config: |
+    peers:
+    - my-asn: 65002
+      peer-asn: 65001
+      peer-address: 192.168.0.7  
+      address-pools:
+        - name: net-svc-b-k     
+          protocol: bgp
+          addresses:
+            - 10.127.0.1-10.127.0.100   
+
+
+= set up d'un serveur en routeur bgp 
+sur une debian 
+install du paquet permettant l'utilisation du routage bgp 
+apt install frr 
+
+root@boogie-hypervisor:~# dpkg -l |grep frr
+ii  frr                                  7.2.1-1+pve1                 amd64        FRRouting suite of internet protocols (BGP, OSPF, IS-IS, ...)
+ii  frr-doc                              7.2.1-1+pve1                 all          FRRouting suite - user manual
+ii  frr-pythontools                      7.2.1-1+pve1                 all          FRRouting suite - Python tools
+
+
+- Utilisation de gobgp client / serveur permettant la conf et l'utilisation de bgp :
+
+on recupere les binaires gobgp 
+-> gobgpd : daemon 
+-> gobgp : utilitaire cli qui permet de vérifier l'etat du routeur et des membres 
+
+les binaires 
+
+ls /usr/local/bin/
+gobgp  gobgpd
+
+on prepare notre conf 
+
+
+root@boogie-hypervisor:~# cat /etc/gobgp.conf
+[global.config]
+  as = 65001                  <<<< num d'as du routeur 
+  router-id = "192.168.0.7"   <<<< notre routeur 
+  local-address-list = ["192.168.0.7"]
+[zebra]
+  [zebra.config]
+        enabled = true
+        url = "unix:/var/run/frr/zserv.api"
+        redistribute-route-type-list = ["connect"]
+        version = 2  # version used in Quagga on Ubuntu 16.04
+[[neighbors]]
+  [neighbors.config]
+    neighbor-address = "192.168.0.80"     <<<< on declare chaque node du cluster kube qui fera les annonces bgp
+    peer-as = 65002                       <<<< on renseigne un numero d'as different  
+[[neighbors]]
+  [neighbors.config]
+    neighbor-address = "192.168.0.81"
+    peer-as = 65002
+[[neighbors]]
+  [neighbors.config]
+    neighbor-address = "192.168.0.82"
+    peer-as = 65002
+  [neighbors.transport.config]
+    local-address = "192.168.0.7"
+
+on lance notre service : 
+
+sudo -E gobgpd -f /etc/gobgpd.conf
+
+on peut examaminer le status de nos conf avec les commandes gobgp 
+
+root@boogie-hypervisor:~# gobgp global
+AS:        65001
+Router-ID: 192.168.0.7
+Listening Port: 179, Addresses: 0.0.0.0, ::
+
+root@boogie-hypervisor:~# gobgp neighbor
+Peer            AS Up/Down State       |#Received  Accepted
+192.168.0.80 65002   never Active      |        0         0
+192.168.0.81 65002   never Active      |        0         0
+192.168.0.82 65002   never Active      |        0         0
+
+root@boogie-hypervisor:~# gobgp neighbor 192.168.0.80
+BGP neighbor is 192.168.0.80, remote AS 65002
+  BGP version 4, remote router ID unknown
+  BGP state = ACTIVE
+  BGP OutQ = 0, Flops = 0
+  Hold time is 90, keepalive interval is 30 seconds
+  Configured hold time is 90, keepalive interval is 30 seconds
+
+  Neighbor capabilities:
+    multiprotocol:
+        ipv4-unicast:	advertised and received
+        ipv6-unicast:	received
+    route-refresh:	advertised
+    4-octet-as:	advertised and received
+  Message statistics:
+                         Sent       Rcvd
+    Opens:                 70          6
+    Notifications:          0          0
+    Updates:                0          0
+    Keepalives:             6          0
+    Route Refresh:          0          0
+    Discarded:              0          0
+    Total:                 76          6
+  Route statistics:
+    Advertised:             0
+    Received:               0
+    Accepted:               0
+
