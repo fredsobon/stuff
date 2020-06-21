@@ -2,3 +2,106 @@
 
 metrologie  :
 https://lafibre.info/serveur-linux/stats-cpu-sur-serveurs/
+
+
+
+== ajout nouveau disque à un host et prise en compte par l'os sans reboot :==
+
+on veut augmenter le volume dispo de "/"
+
+# df  -h /root/
+Filesystem              Size  Used Avail Use% Mounted on
+/dev/mapper/vg0-root     10G  6,9G  3,2G  69% /
+
+
+1/ on ajoute un nouveau hdd via vcenter
+
+2/ on scann les bus pci pour assurer la decouverte du nouveau disk sur le serveur :
+for host in $(ls -1d /sys/class/scsi_host/*); do echo "- - -" > ${host}/scan ; done
+for device in $(ls -1d /sys/class/scsi_disk/*); do echo "1" > ${device}/device/rescan ; done
+
+on voit maintenant notre nouveau hdd :
+lsblk
+NAME           MAJ:MIN RM   SIZE RO TYPE MOUNTPOINT
+fd0              2:0    1     4K  0 disk
+sda              8:0    0   115G  0 disk
+├─sda1           8:1    0   512M  0 part /boot
+└─sda2           8:2    0 114,5G  0 part
+  ├─vg0-root   253:0    0    10G  0 lvm  /
+  ├─vg0-swap   253:1    0     2G  0 lvm  [SWAP]
+  ├─vg0-var    253:2    0   100G  0 lvm  /var
+sdb              8:16   0    40G  0 disk        <<<<< nouveau disk crée via vcenter
+sr0             11:0    1  1024M  0 rom
+
+on creee une nouvelle partition sur le disk :
+
+fdisk /dev/sdb
+Welcome to fdisk (util-linux 2.23.2).
+
+Changes will remain in memory only, until you decide to write them.
+Be careful before using the write command.
+
+Device does not contain a recognized partition table
+Building a new DOS disklabel with disk identifier 0x281c0dbc.
+
+Command (m for help): n
+Partition type:
+   p   primary (0 primary, 0 extended, 4 free)
+   e   extended
+Select (default p):
+Using default response p
+Partition number (1-4, default 1):
+First sector (2048-83886079, default 2048):
+Using default value 2048
+Last sector, +sectors or +size{K,M,G} (2048-83886079, default 83886079):
+Using default value 83886079
+Partition 1 of type Linux and of size 40 GiB is set
+
+Command (m for help): t
+Selected partition 1
+Hex code (type L to list all codes): 8e
+Changed type of partition 'Linux' to 'Linux LVM'
+
+Command (m for help): w
+The partition table has been altered!
+
+Calling ioctl() to re-read partition table.
+Syncing disks.
+
+
+on verifie elle est bien prise en compte :
+
+lsblk
+NAME           MAJ:MIN RM   SIZE RO TYPE MOUNTPOINT
+fd0              2:0    1     4K  0 disk
+sda              8:0    0   115G  0 disk
+├─sda1           8:1    0   512M  0 part /boot
+└─sda2           8:2    0 114,5G  0 part
+  ├─vg0-root   253:0    0    10G  0 lvm  /
+  ├─vg0-swap   253:1    0     2G  0 lvm  [SWAP]
+  ├─vg0-var    253:2    0   100G  0 lvm  /var
+sdb              8:16   0    40G  0 disk
+└─sdb1           8:17   0    40G  0 part     <<<< nouvelle partition.
+sr0             11:0    1  1024M  0 rom
+
+
+= integration dans un vg existant :
+
+on cree le pv :
+pvcreate /dev/sdb1
+
+on l'ajoute au vg existant :
+vgextend vg0 /dev/sdb1
+
+on ajoute 15gb a notre lv root :
+lvextend -L +15g /dev/vg0/root
+
+on resize notre filesystem ( ici en xfs ) 
+xfs_growfs /dev/vg0/root
+
+et c'est ok :
+
+df -h /root/
+Filesystem            Size  Used Avail Use% Mounted on
+/dev/mapper/vg0-root   25G  6,9G   19G  28% /
+
