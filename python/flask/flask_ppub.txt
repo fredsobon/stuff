@@ -1,0 +1,150 @@
+== notes flask complete ppublishing ==
+
+- pre requi :
+
+https://www.digitalocean.com/community/tutorials/how-to-install-and-use-postgresql-on-ubuntu-18-04-fr
+setup postgresql :
+
+sudo apt update
+sudo apt install postgresql postgresql-contrib
+# on se loggue en user postgres : qui est installé de base et qui permet d'avoir un role postgresql permettant d'interragir avec la bdd :
+sudo -i -u postgres
+# on lance le prompt postgres 
+psql
+# pour quitter le prompt :
+postgres=# \q
+# on peut créer un role : ex : ajouter un user qui aura le role superadmin postgres :
+sudo -u postgres createuser --interactive                     (⎈ b-k:monitoring)
+Enter name of role to add: boogie
+Shall the new role be a superuser? (y/n) y
+# avec ce user on peut se connecter à une base de donnée qui porte le nom du user : on va la creer :
+sudo -u postgres  createdb boogie
+psql                                                          (⎈ b-k:monitoring)
+psql (12.2 (Ubuntu 12.2-4))
+Type "help" for help.
+
+boogie=#
+# on peut se connecter à une base de données particulière avec le flag -d :
+psql -d postgres                                            (⎈ b-k:monitoring)
+psql (12.2 (Ubuntu 12.2-4))
+Type "help" for help.
+# on peut avoir les infos de connections avec la commande \conninfo :
+postgres=# \conninfo
+You are connected to database "postgres" as user "boogie" via socket in "/var/run/postgresql" at port "5432".
+postgres=#
+# creation d'une table test :postgres=# CREATE TABLE playground (
+postgres(#     equip_id serial PRIMARY KEY,
+postgres(#     type varchar (50) NOT NULL,
+postgres(#     color varchar (25) NOT NULL,
+postgres(#     location varchar(25) check (location in ('north', 'south', 'west', 'east', 'northeast', 'southeast', 'southwest', 'northwest')),
+postgres(#     install_date date
+postgres(# );
+CREATE TABLE
+# on peut examiner la table avec \d :
+postgres=# \d
+                  List of relations
+ Schema |          Name           |   Type   | Owner
+--------+-------------------------+----------+--------
+ public | playground              | table    | boogie
+ public | playground_equip_id_seq | sequence | boogie
+(2 rows)
+Votre table « playground » est là, mais il y a aussi un élément nommé playground_equip_id_seq qui est du type sequence. Il s'agit d'une représentation du type serial que vous avez donné à votre colonne equip_id. Ceci permet de garder une trace du prochain numéro de la séquence et est créé automatiquement pour les colonnes de ce type.
+
+Si vous voulez voir uniquement la table sans la séquence, vous pouvez taper :
+
+\dt
+Output
+          List of relations
+ Schema |    Name    | Type  | Owner
+--------+------------+-------+-------
+ public | playground | table | sammy
+(1 row)
+# Ajout, requête et suppression de données dans une table
+Maintenant que vous avez une table, vous pouvez y insérer quelques données.
+
+À titre d'exemple, ajoutez un toboggan (« slide ») et une balançoire (« swing ») en appelant la table à laquelle vous voulez les ajouter, en nommant les colonnes et en fournissant ensuite des données pour chaque colonne, comme ceci :
+
+INSERT INTO playground (type, color, location, install_date) VALUES ('slide', 'blue', 'south', '2017-04-28');
+INSERT INTO playground (type, color, location, install_date) VALUES ('swing', 'yellow', 'northwest', '2018-08-16');
+Vous devez faire attention lors de la saisie des données afin d'éviter quelques problèmes courants. Pour commencer, les noms des colonnes ne doivent pas être mis entre guillemets, mais les valeurs des colonnes que vous saisissez doivent l'être.
+
+Une autre chose à garder à l'esprit est que vous n'entrez pas de valeur pour la colonne equip_id. Cette dernière est en effet générée automatiquement à chaque fois qu'une nouvelle ligne est créée dans la table.
+
+Récupérez les informations que vous avez ajoutées en tapant :
+
+SELECT * FROM playground;
+Output
+ equip_id | type  | color  | location  | install_date
+----------+-------+--------+-----------+--------------
+        1 | slide | blue   | south     | 2017-04-28
+        2 | swing | yellow | northwest | 2018-08-16
+(2 rows)
+Ici, vous pouvez voir que votre equip_id a bien été renseigné et que toutes vos autres données ont été organisées correctement.
+
+Si le toboggan de l'aire de jeu se casse et que vous devez l'enlever, vous pouvez également enlever la ligne de votre table en tapant :
+
+DELETE FROM playground WHERE type = 'slide';
+Interrogez à nouveau la table :
+
+SELECT * FROM playground;
+Output
+ equip_id | type  | color  | location  | install_date
+----------+-------+--------+-----------+--------------
+        2 | swing | yellow | northwest | 2018-08-16
+(1 row)
+Vous pouvez constater que votre toboggan ne fait plus partie de la table.
+
+# Ajout et suppression de colonnes dans une table
+Après avoir créé une table, vous pouvez la modifier pour ajouter ou supprimer des colonnes relativement facilement. Ajoutez une colonne pour indiquer la dernière visite de maintenance pour chaque équipement en tapant :
+
+ALTER TABLE playground ADD last_maint date;
+Si vous affichez à nouveau les informations de votre table, vous verrez que la nouvelle colonne a été ajoutée (mais qu'aucune donnée n'a été saisie) :
+
+SELECT * FROM playground;
+Output
+ equip_id | type  | color  | location  | install_date | last_maint
+----------+-------+--------+-----------+--------------+------------
+        2 | swing | yellow | northwest | 2018-08-16   |
+(1 row)
+La suppression d'une colonne est tout aussi simple. Si vous constatez que vos collègues utilisent un outil distinct pour suivre l'historique de la maintenance, vous pouvez supprimer la colonne en tapant :
+
+ALTER TABLE playground DROP last_maint;
+Cela supprime la colonne last_maint et toutes les valeurs qui s'y trouvent, mais laisse toutes les autres données intactes.
+
+# Mise à jour des données dans une table
+Jusqu'à présent, vous avez appris comment ajouter des enregistrements à une table et comment les supprimer, mais ce tutoriel n'a pas encore évoqué comment modifier des entrées existantes.
+
+Vous pouvez mettre à jour les valeurs d'une entrée existante en interrogeant l'enregistrement que vous souhaitez et en paramétrant la colonne sur la valeur que vous souhaitez utiliser. Vous pouvez effectuer une requête pour l'enregistrement « swing » (cela correspondra à* chaque* balançoire de votre table) et changer sa couleur en « red » (rouge). Cela pourrait être utile si vous donniez un coup de peinture à votre balançoire :
+
+UPDATE playground SET color = 'red' WHERE type = 'swing';
+Vous pouvez vérifier que l'opération a réussi en effectuant une nouvelle requête :
+
+SELECT * FROM playground;
+Output
+ equip_id | type  | color | location  | install_date
+----------+-------+-------+-----------+--------------
+        2 | swing | red   | northwest | 2010-08-16
+(1 row)
+Comme vous pouvez le voir, votre balançoire est maintenant enregistrée comme étant rouge.
+
+Conclusion
+Vous avez maintenant configuré PostgreSQL sur votre serveur Ubuntu . Cependant, il y a encore beaucoup de choses à découvrir sur Postgres. Voici d'autres guides sur l'utilisation de Postgres :
+
+Une comparaison des systèmes de gestion de bases de données relationnelles
+https://www.digitalocean.com/community/tutorials/sqlite-vs-mysql-vs-postgresql-a-comparison-of-relational-database-management-systems
+
+Découvrir comment créer et gérer des tables avec Postgres
+https://www.digitalocean.com/community/tutorials/how-to-create-remove-manage-tables-in-postgresql-on-a-cloud-server
+
+Apprendre à mieux gérer les rôles et les autorisations
+https://www.digitalocean.com/community/tutorials/how-to-use-roles-and-manage-grant-permissions-in-postgresql-on-a-vps--2
+
+Créer des requêtes dans Postgres avec Select
+https://www.digitalocean.com/community/tutorials/how-to-create-data-queries-in-postgresql-by-using-the-select-command
+
+Découvrir comment sécuriser PostgreSQL
+https://www.digitalocean.com/community/tutorials/how-to-secure-postgresql-on-an-ubuntu-vps
+
+Découvrir comment sauvegarder une base de données Postgres
+https://www.digitalocean.com/community/tutorials/how-to-backup-postgresql-databases-on-an-ubuntu-vps
+
