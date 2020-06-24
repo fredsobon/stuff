@@ -136,3 +136,74 @@ storage:
   useAllNodes: true
   useAllDevices: false     <<< on defini ici le fait de ne pas intégrer tous les devices / espaces libre présent sur nos noeuds ( on preserve l'espace du hdd system )
   deviceFilter: sd[b-z]    <<< exemple de conf ou on va specifier de pouvoir recup les devices portant le nom sd[b ..z] 
+
+
+
+== set up : 
+
+- install de l'operateur rook via helm : 
+helm repo add rook-stable https://charts.rook.io/stable
+
+helm install --name rook --namespace rook-ceph rook-stable/rook-ceph
+
+> ko a troubleshooter ( pb object kube deprecated en v1.18.4 )
+
+
+
+
+conf de cluster ceph fonctionnelle : avec 3 serveurs ayant chacun un hdd dédié à ceph :
+
+
+cat rook/cluster/examples/kubernetes/ceph/cluster.yaml                                                                 [☸ |kubernetes-admin@sandbox:monitoring]
+apiVersion: ceph.rook.io/v1
+kind: CephCluster
+metadata:
+  name: rook-ceph
+  namespace: rook-ceph
+spec:
+  cephVersion:
+    image: ceph/ceph:v15.2.3
+    allowUnsupported: false
+  dataDirHostPath: /var/lib/rook
+  skipUpgradeChecks: false
+  continueUpgradeAfterChecksEvenIfNotHealthy: false
+  mon:
+    count: 3
+    allowMultiplePerNode: false
+  mgr:
+    modules:
+    - name: pg_autoscaler
+      enabled: true
+  dashboard:
+    enabled: true
+    ssl: true
+  monitoring:
+    enabled: false
+    rulesNamespace: rook-ceph
+  network:
+  crashCollector:
+    disable: false
+  cleanupPolicy:
+    confirmation: ""
+  annotations:
+  resources:
+# The requests and limits set here, allow the mgr pod to use half of one CPU core and 1 gigabyte of memory
+#    mgr:
+#      limits:
+#        cpu: "500m"
+#        memory: "1024Mi"
+#      requests:
+#        cpu: "500m"
+#        memory: "1024Mi"
+  removeOSDsIfOutAndSafeToRemove: false
+  storage: # cluster level storage configuration and selection
+    useAllNodes: true
+    useAllDevices: false <<<<<<<<<<<<<< ici on set le param disant a ceph de ne pas utiliser tout l'espace dispo et visible sur les noeuds (on preserve le hdd du systeme par ex de l'integration à ceph)
+    deviceFilter: sdb    <<<<<<<<<<<<<< on defini ici que seul le device sdb sera utilisé comme disk data ceph - osd
+    config:
+  disruptionManagement:
+    managePodBudgets: false
+    osdMaintenanceTimeout: 30
+    manageMachineDisruptionBudgets: false
+    machineDisruptionBudgetNamespace: openshift-machine-api
+
