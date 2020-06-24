@@ -3,5 +3,91 @@
 
 https://itnext.io/deploy-a-ceph-cluster-on-kubernetes-with-rook-d75a20c3f5b1
 https://github.com/rook/rook
+https://medium.com/devopsturkiye/rook-a-storage-orchestrator-to-run-stateful-workloads-on-kubernetes-with-ceph-500882ecf005
 
 
+
+git clone https://github.com/rook/rook.git
+# creation de crds, services accounts, clusterroles ..
+kubectl create -f rook/cluster/examples/kubernetes/ceph/common.yaml
+# creation du rook-ceph operator et configmap :
+kubectl create -f rook/cluster/examples/kubernetes/ceph/operator.yaml
+# check 
+kubectl get all -n rook-ceph
+# un daemonset rook-discover  examine en continu l'etat de chaque node et integre chaque nouveau disque et partition  au cluster ceph
+# creation du cluster ceph . tous les device raw vont être ajoutés au cluster :
+kubectl create -f rook/cluster/examples/kubernetes/ceph/cluster.yaml
+# check 
+kubectl get all -n rook-ceph
+# tests - acces au dashboard ceph 
+kubectl port-forward service/rook-ceph-mgr-dashboard 8443:8443 -n rook-ceph
+accessible : 
+https://localhost:8443
+# login admin / mdp identifiable avec :
+kubectl -n rook-ceph get secret rook-ceph-dashboard-password -o yaml | grep "password:" | awk '{print2}' | base64 --decode
+# acces au cluser ceph en cli : un container contenant les outils de diag ceph peut être utilisé
+kubectl create -f rook/cluster/examples/kubernetes/ceph/toolbox.yaml
+# on se connecte au pod :
+kubectl exec \
+  -n rook-ceph \
+  -it $(kubectl get po -n rook-ceph |egrep rook-ceph-tools |awk '{print $1}') \
+  -- /bin/bash
+
+[root@rook-ceph-tools-7f96779fb9-42rv8 /]# ceph status
+  cluster:
+    id:     0dccd01a-6f7e-401b-ba66-18eec5b5e26a
+    health: HEALTH_WARN
+            clock skew detected on mon.b, mon.c
+
+  services:
+    mon: 3 daemons, quorum a,b,c (age 38m)
+    mgr: a(active, since 38m)
+    osd: 5 osds: 5 up (since 38m), 5 in (since 38m)
+
+  data:
+    pools:   2 pools, 33 pgs
+    objects: 258 objects, 805 MiB
+    usage:   7.4 GiB used, 143 GiB / 150 GiB avail
+    pgs:     33 active+clean
+
+[root@rook-ceph-tools-7f96779fb9-42rv8 /]# ceph osd status
+ID  HOST                         USED  AVAIL  WR OPS  WR DATA  RD OPS  RD DATA  STATE
+ 0  node-02.lapin.io  1215M  9020M      0        0       0        0   exists,up
+ 1  node-03.lapin.io  1182M  9053M      0        0       0        0   exists,up
+ 2  node-04.lapin.io  1825M  8410M      0        0       0        0   exists,up
+ 3  node-02.lapin.io  1637M  58.3G      0        0       0        0   exists,up
+ 4  node-03.lapin.io  1670M  58.3G      0        0       0        0   exists,up
+# creation de la storage class et du replica pool ceph :
+kubectl apply -f rook/cluster/examples/kubernetes/ceph/csi/rbd/storageclass.yaml
+# check :
+ kubectl get storageclasses.storage.k8s.io                                            [☸ |kubernetes-admin@sandbox:rook-ceph]
+NAME              PROVISIONER                  RECLAIMPOLICY   VOLUMEBINDINGMODE   ALLOWVOLUMEEXPANSION   AGE
+rook-ceph-block   rook-ceph.rbd.csi.ceph.com   Delete          Immediate           true                   24m
+# provisionning automatique : on va maintenant pouvoir provisionner automatiquement nos volumes pour les applis statefull.ex :on deploit un wordpress et un mysql . On va remplacer pour nos besoins de test le service Loadbalancer en cluster ip : les ressources ne seront accessibles que depuis le cluster :
+sed -i "s#  type: LoadBalancer#  type: ClusterIP#g" rook/cluster/examples/kubernetes/wordpress.yaml
+kubectl create -f rook/cluster/examples/kubernetes/mysql.yaml
+kubectl create -f rook/cluster/examples/kubernetes/wordpress.yaml
+# check :
+kubectl get pv,pvc                                                                   [☸ |kubernetes-admin@sandbox:rook-ceph]
+NAME                                                        CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS   CLAIM                      STORAGECLASS      REASON   AGE
+persistentvolume/pvc-5e3beb06-7d33-4be0-bc25-1591d7bec875   20Gi       RWO            Delete           Bound    rook-ceph/mysql-pv-claim   rook-ceph-block            24m
+persistentvolume/pvc-96580901-09c0-4108-a2f3-5b1b195928e6   20Gi       RWO            Delete           Bound    rook-ceph/wp-pv-claim      rook-ceph-block            24m
+
+NAME                                   STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS      AGE
+persistentvolumeclaim/mysql-pv-claim   Bound    pvc-5e3beb06-7d33-4be0-bc25-1591d7bec875   20Gi       RWO            rook-ceph-block   24m
+persistentvolumeclaim/wp-pv-claim      Bound    pvc-96580901-09c0-4108-a2f3-5b1b195928e6   20Gi       RWO            rook-ceph-block   24m
+# test et acces depuis un node du cluster ( ayant kubectl )  : on a donc bien acces à notre appli stateless qui a son storage provisionner en auto , et distribuer sur un cluster ceph orchestré par rook :
+
+Last login: Wed Jun 24 10:41:28 2020 from 10.201.14.111
+[root@fso-master-01 ~]# curl -L -s  http://$(kubectl get svc wordpress -n rook-ceph -o jsonpath='{.spec.clusterIP}')
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en-US" xml:lang="en-US">
+<head>
+	<meta name="viewport" content="width=device-width" />
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+	<meta name="robots" content="noindex,nofollow" />
+	<title>WordPress &rsaquo; Installation</title>
+	<link rel='stylesheet' id='buttons-css'  href='http://10.94.64.54/wp-includes/css/buttons.min.css?ver=4.6.1' type='text/css' media='all' />
+<link rel='stylesheet' id='install-css'  href='http://10.94.64.54/wp-admin/css/install.min.css?ver=4.6.1' type='text/css' media='all' />
+<link rel='stylesheet' id='dashicons-css'  href='http://10.94.64.54/wp-includes/css/dashicons.min.css?ver=4.6.1' type='text/css' media='all' />
+</head>
