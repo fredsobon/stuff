@@ -1,0 +1,140 @@
+== notes spf / dkim : ==
+
+
+Les attaques basées sur l’envoi d’emails sont de plus en plus nombreuses et de plus en plus ciblées. Le phishing ou hameçonnage, désigne une technique utilisée par des escrocs pour obtenir des informations personnelles. Les phishers envoient un email en se faisant passer pour un organisme de confiance (organisme bancaire, Paypal, eBay, Amazon…), dans le but de récupérer des données confidentielles. Selon les données récoltées (informations bancaires, identifiants de connexion…), les escrocs peuvent par exemple réaliser des virements bancaires sur leurs comptes ou se connecter à un site pour envoyer du spam.
+
+Afin d’éviter que des personnes malveillantes usurpent votre identité en utilisant le même nom de domaine, il existe des solutions. C’est là que les protocoles d’authentification SPF, DKIM et DMARC entrent en jeu.
+
+-> La Sender Policy Framework, ou SPF, est une norme d’authentification permettant de faire le lien entre un nom de domaine et une adresse email. Elle consiste à définir le ou les expéditeur(s) autorisé(s) à envoyer des emails avec un domaine donné. Elle permet ainsi aux clients de messagerie (Gmail, Outlook…) de vérifier que l’email entrant d’un domaine vient d’un hôte autorisé par l’administrateur de ce domaine.
+
+-> Le DomainKeys Identified Mail, ou DKIM, est un protocole d’authentification permettant de faire le lien entre un nom de domaine et un message. Le protocole permet de signer votre email avec votre nom de domaine. L’objectif du protocole DKIM n’est pas uniquement de prouver que le nom de domaine n’a pas été usurpé, mais aussi que le message n’a pas été altéré durant sa transmission.
+
+-> Le Domain-based Message Authentication, Reporting and Conformance, ou DMARC, est une norme d’authentification complémentaire à SPF et DKIM destinée à lutter plus efficacement contre le phishing et autres pratiques de spamming. Elle permet aux détenteurs de domaines d’indiquer aux FAI (Fournisseurs d’Accès à Internet) et clients de messagerie quelle conduite tenir lorsqu’un message signé de leur domaine n’est pas formellement identifié par une norme SPF ou DKIM.
+
+= Pourquoi utiliser les protocoles SPF, DKIM et DMARC ?
+Il s’agit des principaux protocoles permettant de vérifier l’identité des expéditeurs. C’est un des moyens les plus efficaces pour empêcher les phishers et autres fraudeurs de se faire passer pour un expéditeur légitime dont ils usurperaient l’identité en utilisant le même nom de domaine.
+
+Il existe un autre avantage, et non des moindres. En effet, la mise en place de ces protocoles permet d’améliorer la délivrabilité des emails envoyés, puisque vous serez mieux identifié(e) par les FAI (Fournisseurs d’Accès à Internet) et clients de messagerie de vos destinataires. Vous optimisez alors vos chances que vos emails arrivent bien dans la boîte de réception de vos destinataires et non dans le dossier “spams” ou “courriers indésirables”.
+
+Ces protocoles sont devenus des normes de l’envoi d’email. Un message expédié sans signature SPF et/ou DKIM est vu avec suspicion par les différents outils d’analyse de l’email.
+
+= Limites des protocoles SPF et DKIM
+SPF a ses limites. Par exemple, si l’email est transféré, la vérification peut ne pas avoir lieu, puisque l’adresse émettant le message transféré ne sera pas forcément comprise dans la liste des adresses validées par SPF. Il faut donc être le plus exhaustif possible lors de l’ajout de nouvelles adresses à votre enregistrement SPF.
+
+En tant qu’expéditeur, la signature DKIM ne vous empêchera pas d’être considéré comme spammeur si vous n’appliquez pas les bonnes pratiques emailing. Il faudra donc veiller à respecter ces bonnes pratiques lors de la conception du contenu de vos emails : faire attention au ratio texte/image, éviter d’utiliser les mots repérés par les filtres anti-spam comme étant à risque, etc.
+
+Autre point, SPF et DKIM ne spécifient pas l’action à appliquer en cas d’échec de la vérification. C’est là qu’intervient le protocole DMARC en indiquant au serveur du destinataire comment il doit agir si les processus d’authentification de l’expéditeur échouent.
+
+= Authentifiez vos domaines avec SPF, DKIM et DMARC
+Pour configurer les paramètres d’authentification SPF, DKIM et DMARC de votre domaine, il vous faut accéder aux enregistrements DNS de votre compte d’hébergement 
+
+-> Configuration d’un enregistrement DNS pour l’authentification SPF
+Deux choses sont à retenir à propos des enregistrements SPF :
+
+Un enregistrement SPF est un enregistrement de type TXT – à ne pas confondre avec le type SPF (utilisable, mais déconseillé).
+Il ne doit y avoir qu’un seul enregistrement SPF par domaine. Si vous avez plusieurs enregistrements DNS SPF, les opérateurs de messagerie ne sauront pas lequel utiliser, ce qui pourrait causer des problèmes d’authentification.
+
+Consultez vos enregistrements DNS depuis votre compte d’hébergement : vous ne voyez aucun enregistrement SPF ? Alors créez-en un. Sinon, vous modifierez l’enregistrement SPF existant.
+
+ex :
+
+dig -t TXT lapin.io           
+
+; <<>> DiG 9.16.1-Ubuntu <<>> -t TXT lapin.io
+;; global options: +cmd
+;; Got answer:
+;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 56026
+;; flags: qr rd ra; QUERY: 1, ANSWER: 6, AUTHORITY: 0, ADDITIONAL: 1
+
+;; OPT PSEUDOSECTION:
+; EDNS: version: 0, flags:; udp: 4000
+;; QUESTION SECTION:
+;lapin.io.		IN	TXT
+
+;; ANSWER SECTION:
+lapin.io.	3600	IN	TXT	"v=spf1 include:spf.lapin.io include:spf.protection.outlook.com include:spf.bob.com -all"
+
+;; Query time: 23 msec
+;; SERVER: 10.200.132.6#53(10.200.132.6)
+;; WHEN: jeu. juin 25 17:35:55 CEST 2020
+;; MSG SIZE  rcvd: 593
+
+
+
+
+= Configuration d’un enregistrement DNS pour l’authentification DKIM
+
+Pour bénéficier de l’authentification DKIM, vous allez devoir créer un nouvel enregistrement DKIM. Contrairement à l’authentification SPF, votre domaine peut comprendre plusieurs enregistrements DNS DKIM sans que cela ne pose problème. 
+
+Votre DKIM record est en général configuré au sein du DNS pour votre domaine par le département informatique ou l'administrateur de messagerie de votre entreprise, la société d'hébergement de votre site Web ou votre routeur (ESP), s'ils ont autorité sur le domaine d'envoi.
+
+Le DNS record de la signature DKIM est constitué de différents éléments d'information représentés par l'utilisation de paires tag=value. La balise (tag) est généralement une simple lettre suivie du symbole égal (=). La valeur (value) de chaque balise indique un élément d'information spécifique concernant l'expéditeur et la clé publique.
+
+L'expéditeur a de nombreuses balises à sa disposition ; certaines sont obligatoires, d'autres facultatives. S'il manque une balise obligatoire dans le DNS record de la signature DKIM, une erreur de vérification se produit au niveau de l'opérateur de messagerie, tandis qu'une balise facultative manquante ne cause pas d'erreur.
+
+Les balises qui sont incluses dans le DNS record de la signature DKIM, mais qui n'ont pas de valeur associée, sont traitées comme ayant une valeur vide. Toutefois, les balises qui ne sont pas incluses dans le DNS record de la signature DKIM sont traitées comme ayant une valeur par défaut.
+
+Exemple de DNS record pour la signature DKIM
+
+<selector(s=)._domainkey.domain(d=)>.   TXT v=DKIM1; p=<public key>
+
+s= indique le nom de l'enregistrement du sélecteur utilisé avec le domaine pour localiser la clé publique dans le DNS. La valeur est un nom ou un chiffre créé par l'expéditeur. s= est inclus dans la signature DKIM.
+d= indique le domaine utilisé avec l'enregistrement du sélecteur (s=) pour localiser la clé publique. La valeur est un nom de domaine appartenant à l'expéditeur. d= est inclus dans la signature DKIM.
+p= indique la clé publique utilisée par l'opérateur de messagerie ; celle-ci doit correspondre à la signature DKIM.
+Voici à quoi ressemble le DNS record de la signature DKIM pour Returnpath.com :
+
+dk1024-2012._domainkey.returnpath.com. 600 IN TXT "v=DKIM1\; p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQC1TaNgLlSyQMNWVLNLvyY/neDgaL2oqQE8T5illKqCgDtFHc8eHVAU+nlcaGmrKmDMw9dbgiGk1ocgZ56NR4ycfUHwQhvQPMUZw0cveel/8EAGoi/UyPmqfcPibytH81NFtTMAxUeM4Op8A6iHkvAMj5qLf4YRNsTkKAV;"
+
+Le sélecteur (s=) : dk1024-2012
+Le domaine (d=) : returnpath.com
+La version (v=) : DKIM1
+La clé publique (p=) : MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQC1TaNgLlSyQMNWVLNLvyY/neDgaL2oqQE8T5illKqCgDtFHc8eHVAU+nlcaGmrKmDMw9dbgiGk1ocgZ56NR4ycfUHwQhvQPMUZw0cveel/8EAGoi/UyPmqfcPibytH81NFtTMAxUeM4Op8A6iHkvAMj5qLf4YRNsTkKAV
+Balise obligatoire
+
+p= est la clé publique utilisée par un opérateur de messagerie ; celle-ci doit correspondre à la signature DKIM générée à l'aide de la clé privée. La valeur est une chaîne de caractères représentant la clé publique. Elle est générée avec sa clé privée correspondante pendant le processus de configuration de la signature DKIM.
+
+
+dig -t TXT mailjet._domainkey.lapin.io        
+
+; <<>> DiG 9.16.1-Ubuntu <<>> -t TXT mailjet._domainkey.lapin.io
+;; global options: +cmd
+;; Got answer:
+;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 6292
+;; flags: qr rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 1
+
+;; OPT PSEUDOSECTION:
+; EDNS: version: 0, flags:; udp: 4000
+;; QUESTION SECTION:
+;mailjet._domainkey.lapin.io. IN	TXT
+
+;; ANSWER SECTION:
+mailbob._domainkey.lapin.io. 3595 IN TXT	"k=rsa; p=azzsdsdfzfrzzfzdffrFERRGFFDFZEFZFZDFDFSERAZDSDSFDSDF "
+
+;; Query time: 3 msec
+;; SERVER: 10.200.132.6#53(10.200.132.6)
+;; WHEN: jeu. juin 25 17:39:55 CEST 2020
+;; MSG SIZE  rcvd: 302
+:
+
+
+
+= Configuration d’un enregistrement DNS pour l’authentification DMARC
+Avant de vous lancer dans l’implémentation de DMARC, soyez bien sûr(e) que SPF et DKIM soient correctement implémentés. Comme indiqué précédemment, DMARC définit la politique à appliquer en cas d’échec de SPF et DKIM, et ce via un enregistrement DNS dédié. Cela requiert une correspondance entre les noms de domaine SPF et DKIM et l’en-tête « From ». DMARC permet ensuite de choisir parmi 3 politiques à appliquer en cas de non-correspondance :
+
+None : aucune action, appliquer la politique locale.
+Quarantine : marquage comme spam.
+Reject : rejet du message.
+ 
+A noter pour SPF, DKIM et DMARC : Selon votre hébergeur, vous devrez peut-être insérer des guillemets autour des valeurs TXT. Si vous ne savez pas s’il faut ajouter des guillemets, vous pouvez contacter votre fournisseur d’hébergement.
+
+Pour définir Mailjet comme expéditeur légitime, vous devez configurer les paramètres d’authentification SPF et DKIM pour chacun de vos domaines d’envoi.
+
+Le paramétrage de SPF est très simple, dès lors que vous êtes bien le propriétaire du nom de domaine que vous souhaitez ajouter (ce qui exclut les adresses de clients de messagerie tels que gmail.com ou hotmail.fr). Dans votre compte Mailjet, nous mettons à votre disposition des clés spécifiques que vous devrez intégrer à vos enregistrements DNS, chez votre hébergeur. Voici un exemple d’enregistrement SPF configuré :
+
+￼
+ 
+Le paramétrage de DKIM avec est tout aussi simple. Un provider par exemple vous met à disposition la clé publique à enregistrer via l’interface de l’hébergeur de votre site. Là, vous pourrez intégrer la clé publique à votre zone d’enregistrement. Voici un exemple d’enregistrement DKIM configuré :
+
+￼
+Concernant DMARC, afin de bénéficier de ce niveau supplémentaire de sécurité et de protection de votre nom de domaine, nous vous invitons à contacter notre équipe support. Elle sera la plus à même de vous accompagner dans la configuration et la mise en place du protocole.
+
