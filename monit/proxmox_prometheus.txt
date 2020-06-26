@@ -1,0 +1,67 @@
+== monitoring proxmox server dans prometheus / grafana ==
+
+
+= installation de l'exporteur prometheus sur les serveurs proxmox :
+
+on creer un rep qui va contenir notre appli, on install virtualenv python pour ne pas parasiter notre os avec la / les lib installées avec notre binaire puis on install l'exporteur :
+
+mkdir /opt/prometheus-pve-exporter
+apt install virtualenv
+virtualenv /opt/prometheus-pve-exporter
+/opt/prometheus-pve-exporter/bin/pip install prometheus-pve-exporter
+# on test c'est ok :
+/opt/prometheus-pve-exporter/bin/pve_exporter --help
+usage: pve_exporter [-h] [config] [port] [address]
+
+positional arguments:
+  config      Path to configuration file (pve.yml)
+  port        Port on which the exporter is listening (9221)
+  address     Address to which the exporter will bind
+
+optional arguments:
+  -h, --help  show this help message and exit
+
+
+= on crée un groupe et un user dedié sur proxmox : 
+
+ce user permettra l'acces aux metriques via l'api proxmox et c'est ce user que l'exporteur prometheus utilisera pour recuperer les metriques de proxmox et les exposer au format openmetrics que prometheus viendra scraper .
+
+root@boogie-hypervisor:/opt# pveum groupadd monitoring -comment 'Monitoring group'
+root@boogie-hypervisor:/opt# pveum aclmod / -group monitoring -role PVEAuditor
+root@boogie-hypervisor:/opt# pveum useradd pve_exporter@pve
+root@boogie-hypervisor:/opt# pveum usermod pve_exporter@pve -group monitoring
+root@boogie-hypervisor:/opt# pveum passwd pve_exporter@pve
+Enter new password: ************
+Retype new password: ************
+
+on cree le fichier de conf qu'on renseigne avec nos infos user :
+
+mkdir -p /usr/share/pve_exporter/
+cat > /opt/prometheus-pve-exporter/pve_exporter.yml << EOF
+default:
+    user: pve_exporter@pve
+    password: monitoring#1
+    verify_ssl: false
+EOF
+
+On test maintenant le demarrage de l'appli avec le fichier de conf en argument :
+root@boogie-hypervisor:/opt/prometheus-pve-exporter# /opt/prometheus-pve-exporter/bin/pve_exporter /opt/prometheus-pve-exporter/pve_exporter.yml
+ * Running on http://localhost:9221/ (Press CTRL+C to quit)
+
+C'est ok : l'appli démarre: on va créer un service systemd pour le démarrage auto de l'exporteur : 
+
+cat > /etc/systemd/system/pve_exporter.service << EOF
+[Unit]
+Description=Proxmox VE Prometheus Exporter
+After=network.target
+Wants=network.target
+[Service]
+Restart=on-failure
+WorkingDirectory=/opt/prometheus-pve-exporter/
+ExecStart=/opt/prometheus-pve-exporter/bin/pve_exporter /opt/prometheus-pve-exporter/pve_exporter.yml 9221 192.168.0.7  <<< on renseigne l'ip de notre serveur proxmox(aussi accessible par votre serveur Prometheus)
+[Install]
+WantedBy=multi-user.target
+EOF
+
+
+
