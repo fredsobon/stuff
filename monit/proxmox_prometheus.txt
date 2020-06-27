@@ -86,3 +86,64 @@ pve_up{id="qemu/102"} 1.0
 pve_up{id="qemu/100"} 0.0
 pve_up{id="qemu/101"} 1.0
 
+
+===  containerisation de l'appli : 
+
+on va containeriser le pve exporter de manière à pouvoir l'executer (comme c'est prévu depuis un autre serveur qu'un membre du cluster proxmox) 
+
+cat Dockerfile
+FROM python:3-alpine
+
+RUN \
+  pip install --no-cache-dir prometheus-pve-exporter && \
+  mkdir /config
+
+COPY ./pve.yml /config/pve.yml
+WORKDIR /config
+VOLUME /config
+
+ENTRYPOINT ["/usr/local/bin/pve_exporter"]
+CMD ["pve.yml"]
+
+
+cat pve.yml
+default:
+  user: bob@pve
+  password: blabla
+  verify_ssl: false
+
+
+docker build . -t prometheus-pve-exporter
+docker tag prometheus-pve-exporter:latest bob/prometheus-pve-exporter:0.1
+docker push bob/prometheus-pve-exporter:0.1
+
+on peut tester en local sur un node proxmox :
+
+docker pull bob/prometheus-pve-exporter:0.1
+0.1: Pulling from bob/prometheus-pve-exporter
+df20fa9351a1: Already exists
+36b3adc4ff6f: Already exists
+7031d6d6c7f1: Already exists
+81b7f5a7444b: Already exists
+0f8a54c5d7c7: Already exists
+eb01c84c0422: Pull complete
+e8ec9b2f3ba6: Pull complete
+
+ docker run -v $(pwd)/pve.yml:/config/pve.yml -p 9221:9221 bob/prometheus-pve-exporter:0.1
+ * Running on http://localhost:9221/ (Press CTRL+C to quit)
+192.168.0.20 - - [27/Jun/2020 09:13:57] "GET /pve?target=192.168.0.7 HTTP/1.1" 200 -
+192.168.0.20 - - [27/Jun/2020 09:17:32] "GET /pve?target=192.168.0.7 HTTP/1.1" 200 -
+
+depuis un navigateur ou en curl on a les infos :
+curl http://192.168.0.7:9221//pve?target=192.168.0.7 |head
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100  5249  100  5249    0     0  40376      0 --:--:-- --:--:-- --:--:-- 40376
+# HELP pve_up Node/VM/CT-Status is online/running
+# TYPE pve_up gauge
+pve_up{id="node/boogie-hypervisor"} 1.0
+pve_up{id="qemu/103"} 1.0
+pve_up{id="qemu/101"} 1.0
+pve_up{id="qemu/100"} 0.0
+pve_up{id="qemu/102"} 1.0
+
