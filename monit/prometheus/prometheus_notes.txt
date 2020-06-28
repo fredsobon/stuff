@@ -4,7 +4,7 @@
 prometheus est fait en go
 prom collecte les metrics des points de monitoring sur les endpoints via http. On dis que prometheus "scrap" les data.
 
-== set up :
+== Set up :
 
 cf files pour baremetal
 
@@ -56,7 +56,7 @@ ex:
 node_boot_time_seconds{endpoint="metrics",instance="192.168.39.114:9100",job="node-exporter",namespace="prom",pod="monitor-prometheus-node-exporter-mb87t",service="monitor-prometheus-node-exporter"}
 
 
-= configuration prometheus : =
+== configuration prometheus : =
 
 La conf de prometheus est stockée dans un format yaml et on peut modifier cette config sans avoir a redémarrer prometheus.
 un reload peut être fait avec un sig hup linux kill -SIGHUP <pid>
@@ -97,4 +97,94 @@ prom/monitor-prometheus-operato-alertmanager/0 (1/1 up)
 Endpoint 	State 	Labels 	Last Scrape 	Scrape Duration 	Error
 http://172.17.0.3:9093/metrics
 	up 	endpoint="web" instance="172.17.0.3:9093" job="monitor-prometheus-operato-alertmanager" namespace="prom" pod="alertmanager-monitor-prometheus-operato-alertmanager-0" service="monitor-prometheus-operato-alertmanager" 	18.967s ago 	8.43ms
+
+= Monitoring des nodes :
+
+pour monitorer un node on doit ajouter un node exporter : qui va exposer les métrics des serveurs linux/ unix ( cpu, mem ..)
+on peut dans une install classique installer le binaire de la maniere suivante :
+
+#!/bin/bash
+NODE_EXPORTER_VERSION="0.16.0"
+wget https://github.com/prometheus/node_exporter/releases/download/v${NODE_EXPORTER_VERSION}/node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64.tar.gz
+tar -xzvf node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64.tar.gz
+cd node_exporter-${NODE_EXPORTER_VERSION}.linux-amd64
+cp node_exporter /usr/local/bin
+
+# create user
+useradd --no-create-home --shell /bin/false node_exporter
+
+chown node_exporter:node_exporter /usr/local/bin/node_exporter
+
+# on créee un fichier de service : 
+echo '[Unit]
+Description=Node Exporter
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User=node_exporter
+Group=node_exporter
+Type=simple
+ExecStart=/usr/local/bin/node_exporter
+
+[Install]
+WantedBy=multi-user.target' > /etc/systemd/system/node_exporter.service
+
+# enable node_exporter in systemctl
+systemctl daemon-reload
+systemctl start node_exporter
+systemctl enable node_exporter
+
+
+On va ensuite alimenter notre fichier de conf prometheus pour qu'il prenne en compte notre exporter :
+...
+  - job_name: 'node_exporter'
+    scrape_interval: 5s
+    static_configs:
+      - targets: ['localhost:9100']
+
+Dans une conf kube déployée avec le prometheus operator on aura classiquement un dameonset installé sur chaque noeud du cluster et on pourra retrouver cette conf par ex :
+
+- job_name: monitoring/monitor-prometheus-operato-node-exporter/0
+  honor_timestamps: true
+  scrape_interval: 30s
+  scrape_timeout: 10s
+  metrics_path: /metrics
+  scheme: http
+  kubernetes_sd_configs:
+  - role: endpoints
+    namespaces:
+      names:
+      - monitoring
+  relabel_configs:
+  ....
+  .......
+
+on pourra examiner les métrics exposées par les membres de notre cluster en faisant un curl sur l'ip d'un node suivi du port 9100 (port de l'exporter) et de la route "/metrics" :
+ex: 
+curl http://192.168.0.81:9100/metrics |head
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0# HELP go_gc_duration_seconds A summary of the pause duration of garbage collection cycles.
+# TYPE go_gc_duration_seconds summary
+go_gc_duration_seconds{quantile="0"} 1.1048e-05
+go_gc_duration_seconds{quantile="0.25"} 4.9248e-05
+go_gc_duration_seconds{quantile="0.5"} 9.0784e-05
+go_gc_duration_seconds{quantile="0.75"} 0.00013272
+go_gc_duration_seconds{quantile="1"} 0.008615343
+go_gc_duration_seconds_sum 6.307212057
+go_gc_duration_seconds_count 22903
+# HELP go_goroutines Number of goroutines that currently exist.
+100 14997    0 14997    0     0   523k      0 --:--:-- --:--:-- --:--:--  542k
+
+== Monitoring : ==
+
+= Clients librairies :
+
+avant de monitorer notre code on doit instrumenter notre code.
+on a à notre disposition des librairies pretes en python, scala, go ....Lua pour nginx, ruby, rust ...
+On peut si on en a besoin créer les notres : il faut juste respecter le format d'exposition.
+
+- exposition format :
+le format a respecter est de forme : "simple text format" : un nom de metric , un label clé valeur et la metrique récupérée.
 
