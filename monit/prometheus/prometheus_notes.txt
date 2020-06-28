@@ -192,4 +192,146 @@ node_uname_info{domainname="(none)",machine="x86_64",nodename="k-node01",release
 process_cpu_seconds_total 1477.77
 process_resident_memory_bytes 2.0381696e+07
 
-v2-1
+- metrics : 4 types :
+
+-> counter : nombre toujours croissant ( ex: nbr de visit de sites internet.)
+-> gauge : valeur qui monte et descend ( charge cpu, temperature ..)
+-> histogram : echantillon d'observation (temps de requete,taille des reponses) et ces observations sont assemblées ( somme, count ..) . le but est de calculer les quantiles (quantiles sont les valeurs qui divisent un jeu de données en intervalles contenant le même nombre de données )
+-> summary: comme les histogram les summary. Fourni les total des observations et une somme des valeurs observées. Calcul des quantiles configurables en fenetre de temps glissante.
+ex pour calculer une latence on doit avoir :
+-> le nombre de requettes
+-> le total de latence des ces requettes (sum) 
+le taux de latence des requettes / diviser => on a la latence moyenne ( ??????? ) 
+
+- prometheus instrumentation python :
+client_python supporté chez prometheus
+pip install prometheus_client
+
+- prometheus instrumentation go :
+client_go : tres simple à mettre en place 
+un simple import de module est à faire.
+
+= pushing metrics dans prometheus :
+
+de base prometheus prefere le "pull base metric": prometheus recupere les metriques de nos systeme à un certain interval et va les stocker dans sa bdd.
+dans certains cas ce n'est pas possibles. Les datas de notre app devront être poussées dans une pushgateway : qui est un composant de prometheus qui peut etre installé séparément.
+prometheus vient ensuite récupérer ces data dans la pushgateway
+ex: batchs jobs, serveurs derriere des firewall 
+
+attention ces systemes ont des défaults : 
+souvent il n'y a qu'une seule gateway ( spof) 
+les healtchchecks auto de prometheus ne peuvent pas etre mis en place 
+les data ne sont jamais purgées automatiquement des pushgateway : il faut donc le faire via une api:
+ex : curl -X DELETE http://localost:9091/metrics/job/prom_course/instance/localhost
+
+Il n'y a qu'un seul usecase valid pour une pushgateway 
+> service level batch job non specific a une machine.
+si on a des serveurs bloqués par un fw .il faut mettrer prometheus dans le même reseau .( ?) 
+
+= Prometheus Query : =
+
+prometheus fourni un language pour requetter : PromQL
+(fourni des fonctions)
+PromQL est en readonly : pas d'insert de data.
+
+-> type :
+- instant vector : un set de time serie qui contient un seul echantillon de chaque time series ayant le même timestamp :
+ex: 
+node_cpu_seconds_total
+
+- range vector : un set de time serie qui contient un intervalle de chaque time series ayant le même timestamp :
+node_cpu_seconds_total[5m]
+
+- scalar : chiffre simple à virgule 
+ex: -3.14
+
+- strings : ex foobar (non utilisé)
+
+-> operations :
+
+- arithmetic ( + - / * ² ..)
+- comparaison : = != > < >= <=
+- logical set : and(intersection)  or(union) unless(complement)
+- aggregations : sum ,min, max, count, quantile ......
+
+exemples :
+dans prometheus graph on saisi lesdifferentes requettes suivantes :
+
+prometheus_http_requests_total :
+
+prometheus_http_requests_total{code="200",endpoint="web",handler="/-/healthy",instance="10.124.71.82:9090",job="monitor-prometheus-operato-prometheus",namespace="monitoring",pod="prometheus-monitor-prometheus-operato-prometheus-0",service="monitor-prometheus-operato-prometheus"}	67337
+prometheus_http_requests_total{code="200",endpoint="web",handler="/-/ready",instance="10.124.71.82:9090",job="monitor-prometheus-operato-prometheus",namespace="monitoring",pod="prometheus-monitor-prometheus-operato-prometheus-0",service="monitor-prometheus-operato-prometheus"}	67335
+prometheus_http_requests_total{code="200",endpoint="web",handler="/-/reload",instance="10.124.71.82:9090",job="monitor-prometheus-operato-prometheus",namespace="monitoring",pod="prometheus-monitor-prometheus-operato-prometheus-0",service="monitor-prometheus-operato-prometheus"}	1
+prometheus_http_requests_total{code="503",endpoint="web",handler="/-/ready",instance="10.124.71.82:9090",job="monitor-prometheus-operato-prometheus",namespace="monitoring",pod="prometheus-monitor-prometheus-operato-prometheus-0",service="monitor-prometheus-operato-prometheus"}
+...
+
+- tous les données de la sonde up comportant le endpoint metrics :
+up{endpoint="metrics"}
+
+up{endpoint="metrics",instance="192.168.0.80:9100",job="node-exporter",namespace="monitoring",pod="monitor-prometheus-node-exporter-p92t8",service="monitor-prometheus-node-exporter"}	1
+up{endpoint="metrics",instance="192.168.0.82:9100",job="node-exporter",namespace="monitoring",pod="monitor-prometheus-node-exporter-qdkx9",service="monitor-prometheus-node-exporter"}	1
+up{endpoint="metrics",instance="192.168.0.81:9100",job="node-exporter",namespace="monitoring",pod="monitor-prometheus-node-exporter-8jj8d",service="monitor-prometheus-node-exporter"}
+
+- utilisation de regexp :
+
+ex: on cherche les données https_request_total comprenant un label handler contenant ".*ags" :
+http_request_total{handler=~".*ags"}
+
+http_request_total{endpoint="service",handler="/tags",instance="10.124.104.166:3000",job="monitor-grafana",method="get",namespace="monitoring",pod="monitor-grafana-68bdf6dc46-29k2w",service="monitor-grafana",statuscode="200"}
+
+ex: recherche des codes http de requettes différentes de 200 :
+http_request_total{statuscode!="200"}
+
+ 	Value
+http_request_total{endpoint="service",handler="/*",instance="10.124.104.166:3000",job="monitor-grafana",method="get",namespace="monitoring",pod="monitor-grafana-68bdf6dc46-29k2w",service="monitor-grafana",statuscode="302"}
+
+ex: on peut rechercher  des codes retour différents de 3XX ( 301, 302 ..) 
+
+http_request_total{statuscode!~"3.."}
+
+http_request_total{endpoint="service",handler="/*",instance="10.124.104.166:3000",job="monitor-grafana",method="get",namespace="monitoring",pod="monitor-grafana-68bdf6dc46-29k2w",service="monitor-grafana",statuscode="200"}	2
+http_request_total{endpoint="service",handler="/avatar/:hash",instance="10.124.104.166:3000",job="monitor-grafana",method="get",namespace="monitoring",pod="monitor-grafana-68bdf6dc46-29k2w",service="monitor-grafana",statuscode="200"}
+
+- ajout de fonction :
+
+calcul du taux de requette sur une mnt :
+
+rate(http_request_total[1m])
+
+{endpoint="service",handler="/*",instance="10.124.104.166:3000",job="monitor-grafana",method="get",namespace="monitoring",pod="monitor-grafana-68bdf6dc46-29k2w",service="monitor-grafana",statuscode="200"}	0
+{endpoint="service",handler="/*",instance="10.124.104.166:3000",job="monitor-grafana",method="get",namespace="monitoring",pod="monitor-grafana-68bdf6dc46-29k2w",service="monitor-grafana",statuscode="302"}	0
+{endpoint="service",handler="/avatar/:hash",instance="10.124.104.166:3000",job="monitor-grafana",method="get",namespace="monitoring",pod="monitor-grafana-68bdf6dc46-29k2w",service="monitor-grafana",statuscode="200"}
+
+on peut cumuler les fonctions :
+
+sommes des taux de requettes sur une mnt pour les job 
+sum(rate(http_request_total[1m])) by (job)
+
+{job="monitor-grafana"}	0
+
+si on requette un peu grafana le chiffre change :
+{job="monitor-grafana"}	0.8999999999999999
+
+- on peut faire des opérations arithmetiques :
+
+nombre total de memoire - nombre de memoire libre convertie en megabytes :
+( node_memory_MemTotal_bytes -  node_memory_MemAvailable_bytes) / 1024 /1024
+
+{endpoint="metrics",instance="192.168.0.80:9100",job="node-exporter",namespace="monitoring",pod="monitor-prometheus-node-exporter-p92t8",service="monitor-prometheus-node-exporter"}	986.4375
+{endpoint="metrics",instance="192.168.0.82:9100",job="node-exporter",namespace="monitoring",pod="monitor-prometheus-node-exporter-qdkx9",service="monitor-prometheus-node-exporter"}	928.046875
+{endpoint="metrics",instance="192.168.0.81:9100",job="node-exporter",namespace="monitoring",pod="monitor-prometheus-node-exporter-8jj8d",service="monitor-prometheus-node-exporter"}	683.7578125
+
+
+== service discovery : ==
+
+remplir manuellement le fichier de conf prometheus peut vite devenir fastidieux et source d'erreur.
+On va pouvoir utiliser le service discovery de prometheus pour assurer le job 
+
+un service discovery est la detection automatique de devices et services offertes par des éléments.
+
+plusieurs methodes existent :
+cloud provider amazon ( specificité des providers.)
+kubernetes ( conf alimentée via kube )
+dns ( on peut faire des entrées dns sur des services par exemple et prometheus alimentera sa conf via les records dns qu'il aura détecté.) 
+file ( on peut alimenter dans un fichier via ansible nos ressources , prometheus viendra examiner périodiquement ce fichier et mettra a jour la conf ) 
+
