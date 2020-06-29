@@ -1,0 +1,118 @@
+== proxmox-prometheus-exporter kube : ==
+
+1/ on va builder notre container :
+
+On va utiliser un fichier fake pour ne pas biensur divulger les infos du compte permettant de se connecter en api proxmox :
+cat pve.yml
+default:
+  user: pve_user@pve
+  password: secretpass
+  verify_ssl: false
+
+cat Dockerfile 
+
+# source de notre image 
+FROM python:3-alpine
+# install du module python prometheus-pve-exporter
+RUN  pip install --no-cache-dir prometheus-pve-exporter 
+# déplacement (et creation du rep /config) dans l'arbo de notre container :
+WORKDIR /config
+# copie de notre fichier de conf proxmox exporter contenant les infos de connexion à l'api proxmox ( compte à créer sur proxmox au préalable )
+COPY ./pve.yml /config/pve.yml
+# Commande exécutée au lancement de notre container
+ENTRYPOINT ["/usr/local/bin/pve_exporter", "/config/pve.yml"]
+
+Nb: de manière native le port 9221 est utilisé et configuré dans le code python 
+
+On build notre image :
+docker build . -t prometheus-pve-exporter
+
+on tag et on pousse dans notre repo :
+docker tag prometheus-pve-exporter:latest bob/prometheus-pve-exporter:0.1
+docker push bob/prometheus-pve-exporter:0.1
+
+2/ pod de test :
+
+on crée maintenant un pod de test qui va nous permettre de tester notre appli.
+Avant de faire notre conf on va déclarer notre fichier de conf permettant la connex à l'api proxmox en tant que secret kube :
+
+#creation du secret  contenant les acces à l'api :
+kubectl create secret generic proxmox-api --from-file=pve.yml
+
+# creation de notre pod de test : 
+
+cat proxmox-pve-exporter_pod.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: prometheus-pve-exporter
+spec:
+  containers:
+  - name: prometheus-pve-exporter          <<< nom de notre pod
+    image: bob/prometheus-pve-exporter:0.1 <<< nom de l'image que l'on va pull de notre registry
+    ports:
+    - name: pve-exporter                   <<< nom du port sur lequel ecoute notre container
+      containerPort: 9221                  <<< num de port de notre container en ecoute 
+    command: ["/usr/local/bin/pve_exporter", "/config/pve.yml"]   <<< commande executée depuis notre pod
+    volumeMounts:                           <<< ici on va définir un point de montage 
+    - name: proxmox-api-vol                 <<< on donne le nom à notre point de montage 
+      mountPath: "/config"                  <<< on defini notre point de montage
+      readOnly: true                        <<< on le défini en readonly 
+  volumes:
+  - name: proxmox-api-vol                   <<< on defini un nom à notre volume 
+    secret:
+      secretName: proxmox-api               <<< on fait matcher le nom de notre secret monter en volume avec le secret qu'on a poussé dnas kube auparavant 
+
+
+
+kubectl create -f proxmox-pve-exporter_pod.yaml
+
+kctl get secrets proxmox-api
+NAME          TYPE     DATA   AGE
+proxmox-api   Opaque   1      3h55m
+ boogie@boogieland  ~/Documents/work/work_utils  kctl get pods prometheus-pve-exporter 
+NAME                      READY   STATUS    RESTARTS   AGE
+prometheus-pve-exporter   1/1     Running   0          3h54m
+
+
+on va examiner notre pod et vérifier la conf de connex api :
+on voit en nous connectant en shell qu'on arrive bien dans le rep /config comme défini dans notre Dockerfile. On voit aussi que le secret est bien récupérer et monter : le fichier et les informations de connections  sont les bonnes  
+
+kubectl -it exec prometheus-pve-exporter -- sh
+/config # ls
+pve.yml
+/config # cat pve.yml
+default:
+  user: blabla@pve
+  password: blabla
+  verify_ssl: false
+
+
+on va récupérer l'ip de notre pod :
+kctl get pod prometheus-pve-exporter  -o yaml |grep -A 1 " podIPs:"
+  podIPs:
+  - ip: 10.124.71.96
+
+
+on lance un pod de test debian qui contient des utilitaires :
+kubectl create -f debian-pod.yaml
+On lance un shell du container et on test la connection à notre pod suivi du port du service puis de la target d'un hyperviseur proxmox .
+On recupére  bien les infos de notre hyperviseur. Notre exporteur est fonctionnel.
+
+ kctl exec -it debian-pod -- /bin/bash
+root@debian-pod:/# curl 10.124.71.96:9221/pve?target=192.168.0.7 |head
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0# HELP pve_up Node/VM/CT-Status is online/running
+# TYPE pve_up gauge
+pve_up{id="node/boogie-hypervisor"} 1.0
+pve_up{id="qemu/100"} 0.0
+pve_up{id="qemu/103"} 1.0
+pve_up{id="qemu/101"} 1.0
+pve_up{id="qemu/102"} 1.0
+# HELP pve_disk_size_bytes Size of storage device
+# TYPE pve_disk_size_bytes gauge
+pve_disk_size_bytes{id="qemu/100"} 7.516192768e+010
+100  5247  100  5247    0     0  14297      0 --:--:-- --:--:-- --:--:-- 14297
+(23) Failed writing body
+
