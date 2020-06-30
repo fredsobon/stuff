@@ -147,3 +147,54 @@ pve_disk_size_bytes{id="qemu/100"} 7.516192768e+010
 100  5247  100  5247    0     0  14297      0 --:--:-- --:--:-- --:--:-- 14297
 (23) Failed writing body
 
+
+Les tests de notre pod sont ok on va donc passer maintenant à la creation de notre déployment :
+on va definir 2 replicats de notre pod , on ajoute egalement une sonde "readinessProbe" : notre déployement ne sera ok que quand les 3 pods ont démarrés et un healtcheck http ok sur le port ddu prometheus exporter 9221 et un liveness probe : on test régulièrement le port 9221 avec un get http.
+cat proxmox-pve-exporter_deployment.yaml
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus-pve-exporter
+  namespace: monitoring
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: prometheus-pve-exporter
+  template:
+    metadata:
+      labels:
+        app: prometheus-pve-exporter
+    spec:
+      securityContext:
+        runAsUser: 65534
+        runAsGroup: 65534
+      containers:
+      - name: prometheus-pve-exporter
+        image: bob/prometheus-proxmox-exporter:0.1
+        ports:
+        - name: pve-exporter
+          containerPort: 9221
+        command: ["/usr/local/bin/pve_exporter", "/config/pve.yml"]
+        readinessProbe:
+          httpGet:
+            path: /
+            port: pve-exporter
+          initialDelaySeconds: 15
+          timeoutSeconds: 30
+        livenessProbe:
+          httpGet:
+            path: /
+            port: pve-exporter
+          initialDelaySeconds: 15
+          timeoutSeconds: 15
+        volumeMounts:
+        - name: proxmox-api-vol
+          mountPath: "/config"
+          readOnly: true
+      volumes:
+      - name: proxmox-api-vol
+        secret:
+          secretName: proxmox-api
+
