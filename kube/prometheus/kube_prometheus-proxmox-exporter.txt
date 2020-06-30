@@ -19,8 +19,11 @@ RUN  pip install --no-cache-dir prometheus-pve-exporter
 WORKDIR /config
 # copie de notre fichier de conf proxmox exporter contenant les infos de connexion à l'api proxmox ( compte à créer sur proxmox au préalable )
 COPY ./pve.yml /config/pve.yml
-# Commande exécutée au lancement de notre container
+# On va faire tourner notre container en tant que user /group non root : on choisi "nobody"
+USER       nobody:nobody
+# Commande exécutée au lancement de notre container : on peut utiliser ENTRYPOINT (mais on ne pourra pas lancer un container de debug en shell en overridant la commande line ) ou en CMD : ce qui nous permet d'avoir un shell : on choisi cette méthode :
 ENTRYPOINT ["/usr/local/bin/pve_exporter", "/config/pve.yml"]
+CMD   ["/usr/local/bin/pve_exporter", "/config/pve.yml"]
 
 Nb: de manière native le port 9221 est utilisé et configuré dans le code python 
 
@@ -31,6 +34,28 @@ on tag et on pousse dans notre repo :
 docker tag prometheus-pve-exporter:latest bob/prometheus-pve-exporter:0.1
 docker push bob/prometheus-pve-exporter:0.1
 
+on test : on pull notre image : on lance un container normal en redirigeant notre port local vers le port container :
+
+docker pull bob/prometheus-pve-exporter:0.1
+docker run  -p 9221:9221 bob/prometheus-pve-exporter:0.1          [☸ |kubernetes-admin@sandbox:monitoring]
+ * Running on http://localhost:9221/ (Press CTRL+C to quit)
+
+on lance un second container pour avoir un shell :
+ docker run -ti bob/prometheus-pve-exporter:0.1 /bin/sh                                                                               [☸ |kubernetes-admin@sandbox:monitoring]
+/config $ ls
+pve.yml
+/config $ cat pve.yml
+default:
+  user: pve_user@pve
+  password: secretpass
+  verify_ssl: false
+/config $ id
+uid=65534(nobody) gid=65534(nobody)
+/config $
+
+on a bien notre container lancer en user nobody.  On retrouve bien notre conf d'acces à proxmox api avec nos infos fake.
+
+
 2/ pod de test :
 
 on crée maintenant un pod de test qui va nous permettre de tester notre appli.
@@ -40,6 +65,8 @@ Avant de faire notre conf on va déclarer notre fichier de conf permettant la co
 kubectl create secret generic proxmox-api --from-file=pve.yml
 
 # creation de notre pod de test : 
+on va definir une section de secu pour permettre à notre pod de tourner avec le user nobody : on fixe son uid /gid : sans cela un shell dans le pod permet d'être en root 
+
 
 cat proxmox-pve-exporter_pod.yaml
 apiVersion: v1
@@ -47,6 +74,9 @@ kind: Pod
 metadata:
   name: prometheus-pve-exporter
 spec:
+  securityContext:                         <<< section pour forcer le pod à tourner sous un certain user /group
+    runAsUser: 65534                       <<< fix de l'uid du user       : on recupere l'id une fois loggué en shell dans le docker ( cf précédemment )
+    runAsGroup: 65534                      <<< fix de l'uid du group      ...
   containers:
   - name: prometheus-pve-exporter          <<< nom de notre pod
     image: bob/prometheus-pve-exporter:0.1 <<< nom de l'image que l'on va pull de notre registry
@@ -76,16 +106,17 @@ prometheus-pve-exporter   1/1     Running   0          3h54m
 
 
 on va examiner notre pod et vérifier la conf de connex api :
-on voit en nous connectant en shell qu'on arrive bien dans le rep /config comme défini dans notre Dockerfile. On voit aussi que le secret est bien récupérer et monter : le fichier et les informations de connections  sont les bonnes  
+on voit en nous connectant en shell qu'on arrive bien dans le rep /config comme défini dans notre Dockerfile. On voit aussi que le secret est bien récupérer et monter : le fichier et les informations de connections  sont les bonnes : le user loggé est bien nobody avec uid 65534
 
-kubectl -it exec prometheus-pve-exporter -- sh
-/config # ls
-pve.yml
-/config # cat pve.yml
+kubectl -it exec prometheus-pve-exporter -- sh   
+/config $ cat pve.yml 
 default:
-  user: blabla@pve
+  user: proxmox-exp-user@pve
   password: blabla
   verify_ssl: false
+/config $ id
+uid=65534(nobody) gid=65534(nobody)
+/config $ 
 
 
 on va récupérer l'ip de notre pod :
