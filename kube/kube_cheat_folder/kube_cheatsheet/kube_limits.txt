@@ -1,0 +1,195 @@
+== notes kubes limits  : ==
+
+https://medium.com/@betz.mark/understanding-resource-limits-in-kubernetes-memory-6b41e9a955f9
+https://medium.com/@betz.mark/understanding-resource-limits-in-kubernetes-cpu-time-9eff74d3161b
+
+
+
+
+Resource limits
+Resource limits are set on a per-container basis using the resources property of a containerSpec, which is a v1 api object of type ResourceRequirements. Each object specifies both “limits” and “requests” for the types of resources that can be controlled. Currently that means cpu and memory. A third type of resource, ephemeral storage, is in beta but I will come back to that in some future post. For most of us the place we will encounter resource limits is in the specification of a deployment, statefulset or daemonset, each of which contains a podSpec with one or more containerSpecs. Here’s an example of a complete v1 resources object in yaml:
+resources:
+  requests:
+    cpu: 50m
+    memory: 50Mi
+  limits:
+    cpu: 100m
+    memory: 100Mi
+This object makes the following statement: in normal operation this container needs 5 percent of cpu time, and 50 mebibytes of ram (the request); the maximum it is allowed to use is 10 percent of cpu time and 100 mebibytes of ram (the limit). I’m going to talk a lot more below about the difference between requests and limits, but generally speaking requests are important at schedule time, and limits are important at run time. Although resource limits are set on each container, you can think of the limits for a pod as being the sum of the limits of all the containers in it, and as we’ll see that relationship is maintained lower down in the system as well.
+Memory limits
+I’m tackling memory limits first because in many ways they are the simpler of the two. One of my goals here is to show how limits are implemented in the system, as kubernetes delegates to the container runtime (docker/containerd in this case), and the container runtime delegates to the linux kernel. Showing that with memory first may make it clearer when we talk about cpu limits later. First let’s revisit the example above, with just the memory limits:
+resources:
+  requests:
+    memory: 50Mi
+  limits:
+    memory: 100Mi
+The unit suffix Mi stands for mebibytes, and so this resource object specifies that the container needs 50 Mi and can use at most 100 Mi. There are a number of other units in which the amount of memory can be expressed. To see how these values are used to control the container process, let’s first create a really simple pod with no memory limits at all:
+$ kubectl run limit-test --image=busybox --command -- /bin/sh -c "while true; do sleep 2; done"
+deployment.apps "limit-test" created
+Using kubectl we can verify that kubernetes created the pod with no limits:
+$ kubectl get pods limit-test-7cff9996fc-zpjps -o=jsonpath='{.spec.containers[0].resources}'
+map[]
+One of the cool things about kubernetes is that you can always jump outside the system and look at things from that perspective. So let’s ssh to the node and see how docker is running that container:
+$ docker ps | grep busy | cut -d' ' -f1
+5c3af3101afb
+$ docker inspect 5c3af3101afb -f "{{.HostConfig.Memory}}"
+0
+The container .HostConfig.Memory field corresponds to the --memory argument to docker run and a 0 value means no limit has been set. What does docker do with that value? In order to control the amount of memory that a container process can access docker configures a property of a control group, or cgroup for short. Cgroups were added to linux in kernel version 2.6.24, released in January of 2008. They are a big topic, so for the moment let’s say that a cgroup is a container for a set of related properties that control how the kernel runs a process. There are specific cgroups to control memory, cpu, devices, etc. Cgroups are hierarchical, meaning that each cgroup has a parent from which it inherits properties, all the way up to the root cgroup which is created at system start.
+Cgroups are easy to inspect using the /proc and /sys pseudo file systems, so it’s a simple exercise to see how docker has configured the memory cgroup for our container. Inside the pid namespace of a container the root process has pid 1, but outside that namespace it has a system-level pid that we can use to find its cgroups:
+$ ps ax | grep /bin/sh
+   9513 ?        Ss     0:00 /bin/sh -c while true; do sleep 2; done
+$ sudo cat /proc/9513/cgroup
+...
+6:memory:/kubepods/burstable/podfbc202d3-da21-11e8-ab5e-42010a80014b/0a1b22ec1361a97c3511db37a4bae932d41b22264e5b97611748f8b662312574
+I’ve left out everything but the memory cgroup, which is the one we care about. As you can see it’s a path — there’s that hierarchy I mentioned above. A few things should stand out here: first the path begins with the kubepods cgroup, so our process will inherit everything in that group, as well as stuff from the burstable group (where kubernetes places processes from pods in the burstable QOS class) and a group representing our pod that is mostly used for accounting. The last component of the path is the actual memory cgroup of our process. To see the details we have to append the path above to /sys/fs/cgroups/memory, which leads to:
+$ ls -l /sys/fs/cgroup/memory/kubepods/burstable/podfbc202d3-da21-11e8-ab5e-42010a80014b/0a1b22ec1361a97c3511db37a4bae932d41b22264e5b97611748f8b662312574
+...
+-rw-r--r-- 1 root root 0 Oct 27 19:53 memory.limit_in_bytes
+-rw-r--r-- 1 root root 0 Oct 27 19:53 memory.soft_limit_in_bytes
+Again I’ve left out a lot of stuff to keep this focused. We’ll ignore memory.soft_limit_in_bytes for now, and instead zoom in on the memory.limit_in_bytes property, which is the one that sets a memory limit. It is the cgroup equivalent of the --memory docker run argument, and the memory resource limit in kubernetes. Let’s take a look:
+$ sudo cat /sys/fs/cgroup/memory/kubepods/burstable/podfbc202d3-da21-11e8-ab5e-42010a80014b/0a1b22ec1361a97c3511db37a4bae932d41b22264e5b97611748f8b662312574/memory.limit_in_bytes
+9223372036854771712
+This is the value on my system when no limit is set. For an explanation of why see this brief Stackoverflow post. So we can see that not setting a memory limit in kubernetes caused docker to create the container with HostConfig.Memory set to 0, which resulted in the container process being placed into a memory cgroup with the default “no limit” value for memory.limit_in_bytes. Now let’s create a pod with a memory limit of 100 mebibytes:
+$ kubectl run limit-test --image=busybox --limits "memory=100Mi" --command -- /bin/sh -c "while true; do sleep 2; done"
+deployment.apps "limit-test" created
+And again we can use kubectl to verify that the pod was created with our specified limit:
+$ kubectl get pods limit-test-5f5c7dc87d-8qtdx -o=jsonpath='{.spec.containers[0].resources}'
+map[limits:map[memory:100Mi] requests:map[memory:100Mi]]
+You’ll note right away that in addition to the limit we set, the pod has now got a memory request. When you set a limit, but not a request, kubernetes defaults the request to the limit. If you think about it from the scheduler’s perspective it makes sense. We’ll talk more about the request below. Once the pod is up we can see how docker has configured the container and the process’s memory cgroup:
+$ docker ps | grep busy | cut -d' ' -f1
+8fec6c7b6119
+$ docker inspect 8fec6c7b6119 --format '{{.HostConfig.Memory}}'
+104857600
+$ ps ax | grep /bin/sh
+   29532 ?      Ss     0:00 /bin/sh -c while true; do sleep 2; done
+$ sudo cat /proc/29532/cgroup
+...
+6:memory:/kubepods/burstable/pod88f89108-daf7-11e8-b1e1-42010a800070/8fec6c7b61190e74cd9f88286181dd5fa3bbf9cf33c947574eb61462bc254d11
+$ sudo cat /sys/fs/cgroup/memory/kubepods/burstable/pod88f89108-daf7-11e8-b1e1-42010a800070/8fec6c7b61190e74cd9f88286181dd5fa3bbf9cf33c947574eb61462bc254d11/memory.limit_in_bytes
+104857600
+As you can see docker set up the process’s memory cgroup with the appropriate limit based on our containerSpec. But what does this actually mean at run time? Linux memory management is a complex topic, but what’s important for kubernetes engineers to know is this: when a host comes under memory pressure the kernel may elect to kill processes. ̶I̶f̶ ̶a̶ ̶p̶r̶o̶c̶e̶s̶s̶ ̶i̶s̶ ̶u̶s̶i̶n̶g̶ ̶m̶o̶r̶e̶ ̶m̶e̶m̶o̶r̶y̶ ̶t̶h̶a̶n̶ ̶i̶t̶s̶ ̶l̶i̶m̶i̶t̶ ̶i̶t̶ ̶m̶o̶v̶e̶s̶ ̶t̶o̶w̶a̶r̶d̶ ̶t̶h̶e̶ ̶t̶o̶p̶ ̶o̶f̶ ̶t̶h̶e̶ ̶l̶i̶s̶t̶ ̶o̶f̶ ̶p̶o̶t̶e̶n̶t̶i̶a̶l̶ ̶v̶i̶c̶t̶i̶m̶s̶̶ [not really, see update below]. Since kubernetes’ job is to pack as much stuff onto a node as possible memory pressure on those hosts is not uncommon. If your container is using too much memory it is likely to be oom-killed. If it is docker will be notified by the kernel, kubernetes will find out from docker and depending on settings may try to restart the pod.
+[UPDATE, part 1] Reader Ej Campbell correctly pointed out that the above paragraph is wrong on a couple of important points, and that led me to do some additional research on the implementation of the oomkiller in linux. Documentation on the topic is sparse and sometimes out of date, but I’ll give a brief summary of how I believe it works. Processes that are not in memory cgroups are handled by the global oomkiller, and when the kernel is unable to allocate pages it will essentially kill the process using the most physical ram, scaled by a factor called the oom adjust score that is used to protect important processes. Processes that are in memory cgroups are affected by the cgroup oomkiller, which will always kill them if they set a limit and then exceed it. In these cases you’ll see a log message from the oomkiller that begins Memory cgroup out of memory: Kill process .... [/UPDATE]
+So what about the memory request that kubernetes created by default in our pod? Does having a 100Mi memory request affect the cgroup? Perhaps it sets the memory.soft_limit_in_bytes property that we saw earlier? Let’s look:
+$ sudo cat /sys/fs/cgroup/memory/kubepods/burstable/pod88f89108-daf7-11e8-b1e1-42010a800070/8fec6c7b61190e74cd9f88286181dd5fa3bbf9cf33c947574eb61462bc254d11/memory.soft_limit_in_bytes
+9223372036854771712
+As you can see the soft limit is still set to the default “no limit” value. Even though docker supports setting the soft limit through the --memory-reservation argument to docker run kubernetes does not make use of it. Does that mean specifying a memory request for your container is not important? No it doesn’t. If anything requests are more important than limits. Limits tell the linux kernel when to consider your process a candidate for freeing up memory. Requests help the kubernetes scheduler figure out where it can run your pod. Not setting them, or setting them artificially low, can have bad effects.
+For example, suppose you run a pod with no memory request, and a high limit. As we just saw kubernetes will default the request to the limit, and if no node has that much ram available the pod will fail to schedule even though its actual requirements might be much less. On the other hand if you run a pod with an artificially low request you just encourage the kernel to oom-kill it. Why? Let’s assume your pod normally uses 100 Mi of ram but you run it with a 50 Mi request. If you have a node with 75 Mi free the scheduler may choose to run the pod there. When pod memory consumption later expands to 100 Mi this puts the node under pressure, ̶a̶t̶ ̶w̶h̶i̶c̶h̶ ̶p̶o̶i̶n̶t̶ ̶t̶h̶e̶ ̶k̶e̶r̶n̶e̶l̶ ̶m̶a̶y̶ ̶c̶h̶o̶o̶s̶e̶ ̶t̶o̶ ̶k̶i̶l̶l̶ ̶y̶o̶u̶r̶ ̶p̶r̶o̶c̶e̶s̶s̶ [not exactly, see update below]. So it is important to get both memory requests and memory limits right.
+[UPDATE, part 2] Continuing with the update inspired by reader Ej Campbell’s note: this paragraph above should have made clear that while requests are a very important input to pod scheduling decisions, they also play a role at execution time. As noted in the update above a container that sets and exceeds a cgroup hard memory limit will be oomkilled regardless of the global memory availability on the node. If the node does come under memory pressure then the kubelet may decide to evict pods that are using more than their requested amount of memory, whether or not the pod has hit the hard limit. [/UPDATE]
+Hopefully this post has helped to clarify how kubernetes container memory limits are set and implemented, and why it is important that you set these limits on containers in your own pods. Kubernetes can do an impressive job of scheduling your pods intelligently and maximizing the utilization of your cloud compute resources, provided that you give it the information it needs. In the next post we’ll look at how cpu limits work, and briefly touch on how to set default requests and limits per namespace.
+
+
+
+
+
+Understanding resource limits in kubernetes: cpu time
+￼
+Mark Betz
+￼Follow
+Oct 31, 2018 · 8 min read
+￼
+￼
+￼
+￼
+￼
+In the first post of this two-part series on resource limits in kubernetes I discussed how the ResourceRequirements object was used to set memory limits on containers in a pod, and how those limits were implemented by the container runtime and linux control groups. I also talked about the difference between requests, used to inform the scheduler of a pod’s requirements at schedule time, and limits, used to assist the kernel in enforcing usage constraints when the host system is under memory pressure. In this post I want to continue by looking in detail at cpu time requests and limits. Having read the first post is not a prerequisite to getting value from this one, but I encourage you to read them both at some point to get a complete picture of the controls available to engineers and cluster administrators.
+￼
+CPU limits
+As I mentioned in the first post cpu limits are more complicated than memory limits, for reasons that will become clear below. The good news is that cpu limits are controlled by the same cgroups mechanism that we just looked at, so all the same ideas and tools for introspection apply, and we can just focus on the differences. Let’s start by adding cpu limits back into the example resources object that we looked at last time:
+resources:
+  requests:
+    memory: 50Mi
+    cpu: 50m
+  limits:
+    memory: 100Mi
+    cpu: 100m
+The unit suffix m stands for “thousandth of a core,” so this resources object specifies that the container process needs 50/1000 of a core (5%) and is allowed to use at most 100/1000 of a core (10%). Likewise 2000m would be two full cores, which can also be specified as 2 or 2.0. Let’s create a pod with just a request for cpu and see how this is configured at the docker and cgroup levels:
+$ kubectl run limit-test --image=busybox --requests "cpu=50m" --command -- /bin/sh -c "while true; do sleep 2; done"
+deployment.apps "limit-test" created
+We can see that kubernetes configured the 50m cpu request:
+$ kubectl get pods limit-test-5b4c495556-p2xkr -o=jsonpath='{.spec.containers[0].resources}'
+map[requests:map[cpu:50m]]
+We can also see that docker configured the container with the same limit:
+$ docker ps | grep busy | cut -d' ' -f1
+f2321226620e
+$ docker inspect f2321226620e --format '{{.HostConfig.CpuShares}}'
+51
+Why 51, and not 50? The cpu control group and docker both divide a core into 1024 shares, whereas kubernetes divides it into 1000. How does docker apply this request to the container process? In the same way that setting memory limits caused docker to configure the process’s memory cgroup, setting cpu limits causes it to configure the cpu,cpuacct cgroup:
+$ ps ax | grep /bin/sh
+   60554 ?      Ss     0:00 /bin/sh -c while true; do sleep 2; done
+$ sudo cat /proc/60554/cgroup
+...
+4:cpu,cpuacct:/kubepods/burstable/pode12b33b1-db07-11e8-b1e1-42010a800070/3be263e7a8372b12d2f8f8f9b4251f110b79c2a3bb9e6857b2f1473e640e8e75
+$ ls -l /sys/fs/cgroup/cpu,cpuacct/kubepods/burstable/pode12b33b1-db07-11e8-b1e1-42010a800070/3be263e7a8372b12d2f8f8f9b4251f110b79c2a3bb9e6857b2f1473e640e8e75
+total 0
+drwxr-xr-x 2 root root 0 Oct 28 23:19 .
+drwxr-xr-x 4 root root 0 Oct 28 23:19 ..
+...
+-rw-r--r-- 1 root root 0 Oct 28 23:19 cpu.shares
+Docker’s HostConfig.CpuShares container property maps to the cpu.shares property of the cgroup, so let’s look at that:
+$ sudo cat /sys/fs/cgroup/cpu,cpuacct/kubepods/burstable/podb5c03ddf-db10-11e8-b1e1-42010a800070/64b5f1b636dafe6635ddd321c5b36854a8add51931c7117025a694281fb11444/cpu.shares
+51
+You might be surprised to see that setting a cpu request propagates a value to the cgroup, given that in the last post we saw that setting a memory request did not. The bottom line is that kernel behavior with respect to memory soft limits is not very useful to kubernetes, where as setting cpu.shares is useful. I’ll talk more about why below. So what happens when we also set a cpu limit? Let’s find out:
+$ kubectl run limit-test --image=busybox --requests "cpu=50m" --limits "cpu=100m" --command -- /bin/sh -c "while true; do
+sleep 2; done"
+deployment.apps "limit-test" created
+Now we can also see the limit in the kubernetes pod resource object:
+$ kubectl get pods limit-test-5b4fb64549-qpd4n -o=jsonpath='{.spec.containers[0].resources}'
+map[limits:map[cpu:100m] requests:map[cpu:50m]]
+And in the docker container config:
+$ docker ps | grep busy | cut -d' ' -f1
+f2321226620e
+$ docker inspect 472abbce32a5 --format '{{.HostConfig.CpuShares}} {{.HostConfig.CpuQuota}} {{.HostConfig.CpuPeriod}}'
+51 10000 100000
+The cpu request is stored in the HostConfig.CpuShares property as we saw above. The cpu limit, though, is a little less obvious. It is represented by two values: HostConfig.CpuPeriod and HostConfig.CpuQuota. These docker container config properties map to two additional properties of the process’s cpu,cpuacct cgroup: cpu.cfs_period_us and cpu.cfs_quota_us. Let’s take a look at those:
+$ sudo cat /sys/fs/cgroup/cpu,cpuacct/kubepods/burstable/pod2f1b50b6-db13-11e8-b1e1-42010a800070/f0845c65c3073e0b7b0b95ce0c1eb27f69d12b1fe2382b50096c4b59e78cdf71/cpu.cfs_period_us
+100000
+$ sudo cat /sys/fs/cgroup/cpu,cpuacct/kubepods/burstable/pod2f1b50b6-db13-11e8-b1e1-42010a800070/f0845c65c3073e0b7b0b95ce0c1eb27f69d12b1fe2382b50096c4b59e78cdf71/cpu.cfs_quota_us
+10000
+As expected these are set to the same values as specified in the docker container config. But how do the values of these two properties derive from the100m cpu limit setting in our pod, and how do they implement that limit? The answer lies in the fact that cpu requests and cpu limits are implemented using two separate control systems. Requests use the cpu shares system, the earlier of the two. Cpu shares divide each core into 1024 slices and guarantee that each process will receive its proportional share of those slices. If there are 1024 slices and each of two processes sets cpu.shares to 512, then they will each get about half of the available time. The cpu shares system, however, cannot enforce upper bounds. If one process doesn’t use its share the other is free to.
+Around 2010 Google and others noticed that this could cause issues. In response a second and more capable system was added: cpu bandwidth control. The bandwidth control system defines a period, which is usually 1/10 of a second, or 100000 microseconds, and a quota which represents the maximum number of slices in that period that a process is allowed to run on the cpu. In this example we asked for a cpu limit of 100m on our pod. That is 100/1000 of a core, or 10000 out of 100000 microseconds of cpu time. So our limit request translates to setting cpu.cfs_period_us=100000 and cpu.cfs_quota_us=10000 on the process’s cpu,cpuacct cgroup. The cfs in those names, by the way, stands for Completely Fair Scheduler, which is the default linux cpu scheduler. There’s also a realtime scheduler with its own corresponding quota values.
+So we’ve seen that setting a cpu request in kubernetes ultimately sets the cpu.shares cgroup property, and setting cpu limits engages a different system through setting cpu.cfs_period_us and cpu.cfs_quota_us. As with memory limits the request is primarily useful to the scheduler, which uses it to find a node with at least that many cpu shares available. Unlike memory requests setting a cpu request also sets a property on the cgroup that helps the kernel actually allocate that number of shares to the process. Limits are also treated differently from memory. Exceeding a memory limit makes your container process a candidate for oom-killing, whereas your process basically can’t exceed the set cpu quota, and will never get evicted for trying to use more cpu time than allocated. The system enforces the quota at the scheduler so the process just gets throttled at the limit.
+What happens if you don’t set these properties on your container, or set them to inaccurate values? As with memory, if you set a limit but don’t set a request kubernetes will default the request to the limit. This can be fine if you have very good knowledge of how much cpu time your workload requires. How about setting a request with no limit? In this case kubernetes is able to accurately schedule your pod, and the kernel will make sure it gets at least the number of shares asked for, but your process will not be prevented from using more than the amount of cpu requested, which will be stolen from other process’s cpu shares when available. Setting neither a request nor a limit is the worst case scenario: the scheduler has no idea what the container needs, and the process’s use of cpu shares is unbounded, which may affect the node adversely. And that’s a good segue into the last thing I want to talk about: ensuring default limits in a namespace.
+Default limits
+Given everything we’ve just discussed about the negative effects of ignoring resource limits on your pod containers, you might think it would be nice to be able to set defaults, so that every pod admitted to the cluster has at least some limits set. Kubernetes allows us to do just that, on a per namespace basis, using the LimitRange v1 api object. To establish default limits you create the LimitRange object in the namespace you want them to apply to. Here’s an example:
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: default-limit
+spec:
+  limits:
+  - default:
+      memory: 100Mi
+      cpu: 100m
+    defaultRequest:
+      memory: 50Mi
+      cpu: 50m
+  - max:
+      memory: 512Mi
+      cpu: 500m
+  - min:
+      memory: 50Mi
+      cpu: 50m
+    type: Container
+The naming here can be a little confusing so let’s tear it down briefly. The default key under limits represents the default limits for each resource. In this case any pod admitted to the namespace without a memory limit will be assigned a limit of 100Mi. Any pod without a cpu limit will be assigned a limit of 100m. The defaultRequest key is for resource requests. If a pod is created without a memory request it will be assigned the default request of 50Mi, and if it has no cpu request it will get a default of 50m. The max and min keys are something a little different: basically if these are set a pod will not be admitted to the namespace if it sets a request or limit that violates these bounds. I haven’t found a use for these, but perhaps you have and if so leave a comment and let us know what you did with them.
+The defaults set forth in the LimitRange are applied to pods by the LimitRanger plugin, which is a kubernetes admission controller. Admission controllers are plugins that get a chance to modify podSpecs after the object has been accepted by the api, but before the pod is created. In the case of the LimitRanger it looks at each pod, and if it does not specify a given request or limit for which there is a default set in the namespace, it applies that default. You can see that the LimitRanger has set a default on your pod by examining the annotations in the pod metadata. Here’s an example where the LimitRanger applied a default cpu request of 100m:
+apiVersion: v1
+kind: Pod
+metadata:
+  annotations:
+    kubernetes.io/limit-ranger: 'LimitRanger plugin set: cpu request for container
+      limit-test'
+  name: limit-test-859d78bc65-g6657
+  namespace: default
+spec:
+  containers:
+  - args:
+    - /bin/sh
+    - -c
+    - while true; do sleep 2; done
+    image: busybox
+    imagePullPolicy: Always
+    name: limit-test
+    resources:
+      requests:
+        cpu: 100m
+And that wraps up this look at resource limits in kubernetes. I hope you find this information useful. If you’re interested in reading more about using resource limits and defaults, linux cgroups, or memory management I’ve provided some links to more detailed information on these subjects below.
