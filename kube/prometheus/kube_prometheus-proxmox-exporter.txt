@@ -1,4 +1,3 @@
-== proxmox-prometheus-exporter kube : ==
 
 1/ on va builder notre container :
 
@@ -197,4 +196,246 @@ spec:
       - name: proxmox-api-vol
         secret:
           secretName: proxmox-api
+
+
+
+Notre déployment crée nous pouvons maintenant créer notre service qui servira donc de point d'entrée pour interroger nos backends :
+on va biensur utiliser un matching de label avec le déployment créer et le port de nos containers :
+
+ cat proxmox-pve-exporter_service.yaml                       
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    exporter: proxmox
+  name: prometheus-pve-exporter-service
+  namespace: monitoring
+spec:
+  selector:
+    app: prometheus-pve-exporter
+  ports:
+  - name: pve-exporter
+    protocol: TCP
+    port: 9221
+    targetPort: pve-exporter
+
+
+Maintenant nous avons deux possibilités pour intégrer notre exporter proxmox dans prometheus :
+
+> créer un service monitor : object kube permettant de créer un job qui sera concaténé à la conf de prometheus, une fois intercepté par l'operateur prometheus.
+La condition essentielle pour que cela fonctionne est de definir un label qui indique le label de l'operateur prometheus : dans le cadre d'un déployement avec helm il s'agira du label : release: "nom cu chart deployé dans kube" : ex "release: monitoring"
+L'operateur prometheus est configuré pour récupérer les services monitors via une conf définie.
+
+On peut intérroger les objects prometheus crd via l'api kube pour voir la conf :
+
+kubectl -n monitoring get prometheus                                            [☸ |kubernetes-admin@sandbox:monitoring]
+NAME                                    AGE
+monitoring-prometheus-oper-prometheus   3d1h
+
+
+le matching des services monitor est défini dans l'objet :
+
+ kubectl -n monitoring describe prometheus monitoring-prometheus-oper-prometheus [☸ |kubernetes-admin@sandbox:monitoring]
+Name:         monitoring-prometheus-oper-prometheus
+Namespace:    monitoring
+Labels:       app=prometheus-operator-prometheus
+              app.kubernetes.io/managed-by=Helm
+              chart=prometheus-operator-8.9.2
+              heritage=Helm
+              release=monitoring
+Annotations:  meta.helm.sh/release-name: monitoring
+              meta.helm.sh/release-namespace: monitoring
+API Version:  monitoring.coreos.com/v1
+Kind:         Prometheus
+Metadata:
+  Creation Timestamp:  2020-07-09T08:27:09Z
+  Generation:          3
+  Managed Fields:
+    API Version:  monitoring.coreos.com/v1
+    Fields Type:  FieldsV1
+    fieldsV1:
+        f:version:
+        ..
+    Manager:         Go-http-client
+    Operation:       Update
+    Time:            2020-07-09T08:33:37Z
+  Resource Version:  1959409
+  Self Link:         /apis/monitoring.coreos.com/v1/namespaces/monitoring/prometheuses/monitoring-prometheus-oper-prometheus
+  UID:               ed319e05-b582-4f84-a66c-c69575107258
+Spec:
+  Additional Scrape Configs:
+    Key:   additional-scrape-configs.yaml
+    Name:  monitoring-prometheus-oper-prometheus-scrape-confg
+  Alerting:
+    Alertmanagers:
+      API Version:   v2
+      Name:          monitoring-prometheus-oper-alertmanager
+      Namespace:     monitoring
+      Path Prefix:   /
+      Port:          web
+  Base Image:        quay.io/prometheus/prometheus
+  Enable Admin API:  false
+  External URL:      http://monitoring-prometheus-oper-prometheus.monitoring:9090
+  Listen Local:      false
+  Log Format:        logfmt
+  Log Level:         info
+  Paused:            false
+  Pod Monitor Namespace Selector:
+  Pod Monitor Selector:
+    Match Labels:
+      Release:   monitoring
+  Port Name:     web
+  Replicas:      1
+  Retention:     10d
+  Route Prefix:  /
+  Rule Namespace Selector:
+  Rule Selector:
+    Match Labels:
+      App:      prometheus-operator
+      Release:  monitoring
+  Security Context:
+    Fs Group:            2000
+    Run As Non Root:     true
+    Run As User:         1000
+  Service Account Name:  monitoring-prometheus-oper-prometheus
+  Service Monitor Namespace Selector:
+  Service Monitor Selector:
+    Match Labels:
+      Release:  monitoring                                                    <<<<<<<<<<<<<<<<<<<<<<<<<<<<<< matching des objects servicemonitor
+  Storage:
+    Volume Claim Template:
+      Spec:
+        Resources:
+          Requests:
+            Storage:  10Gi
+        Selector:
+          Match Labels:
+            App:  prometheus-operator-prometheus
+  Version:        v2.15.2
+Events:           <none>
+
+
+
+Notre  object servicemonitor devra impérativement comporter le label defini dans l'object prometheus 
+
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+    app: prometheus-pve-exporter
+    exporter: proxmox
+    release: monitoring                  <<<< label obligatoire : c'est celui défini dans l'object prometheus qui va permettre de trigger la creation du servicemonitor dans la conf prometheus
+  name: prometheus-pve-exporter-metrics
+spec:
+  jobLabel: prometheus-pve-exporter
+  selector:
+    matchLabels:
+      exporter: proxmox                 <<<< ici on fait le match avec le label du service que l'on a crée auparavant 
+  namespaceSelector:
+    matchNames:
+    - monitoring
+  endpoints:
+    - port: pve-exporter
+      interval: 30s
+      scrapeTimeout: 10s
+      path: "/pve"
+      params:
+        target:
+        - 192.168.0.7
+        - 192.168.0.x
+      targetPort: pve-exporter
+      #relabelings:                        <<<< cette conf n'est pas prise en compte correctement en servicemonitor par l'object prometheus : elle est commentée et on va voir comment l'injecter dans la conf finale  
+      #- sourceLabels: [__address__]
+      #  targetLabel: __param_target
+      #- sourceLabels: [__param_target]
+      #  targetLabel: instance
+      #- targetLabel: __address__
+      #  replacement: 10.66.179.3:9221
+
+
+Cette conf est fonctionnelle mais pas vraiment exploitable dans prometheus et surtout dans grafana.
+Nous devons pouvoir récuperer la liste des targets et pouvoir réécrire le label de notre job afin de ne pas avoir nos trois pods en points d'entrée du check vai l'exporter proxmox : 
+La sortie visuelle de nos target s dans prometheus n'est pas efficace no exploitable : nous avons la liste de nos targets dans la sections endpoints et le nom de l'instance qui n'est pas bon 
+
+http://prometheus-pve-exporter-service:9221/pve
+
+module="default" target="192.168.0.7" target="192.168.0.x"   UP      instance="prometheus-pve-exporter-service:9221" job="pve-exporter"       27.753s ago     360.5ms
+
+nous voulons avoir un seul noeud dans la section endpoint et avoir le nom de l'instance qui matche notre target afin d'avoir un check qui porte bien sur chacun des hyperviseurs dont les métriques proviennent de l'exporter proxmox
+
+
+il va falloir injecter du relabelling prometheus pour cela nous devons modifier la config de l'operator prometheus :
+
+
+on va créer un fichier de conf contenant notre job :
+
+cat additional-scrape-configs.yaml                           
+# additional scrape config : raw form
+- job_name: 'pve-exporter'
+  static_configs:
+    - targets:
+      - 192.168.0.7  # Proxmox VE node.
+  metrics_path: /pve
+  params:
+    module: [default]
+  relabel_configs:
+    - source_labels: [__address__]
+      target_label: __param_target
+    - source_labels: [__param_target]
+      target_label: instance
+    - target_label: __address__
+      replacement: prometheus-pve-exporter-service:9221  # PVE exporter.
+
+
+de ce job on va créer un secret kube que l'on va nommer précisemment : "prometheus-operator-prometheus-scrape-confg" qui va contenir en clé le nom de notre conf de job additional-scrape-configs.yaml 
+Ceci est impératif : car seuls ces noms sont reconnus dans la conf du helm chart prometheus-operator 
+
+kubectl create secret generic prometheus-operator-prometheus-scrape-confg --from-file=additional-scrape-configs.yaml -oyaml > prometheus-operator-prometheus-scrape-confg.yaml
+
+On va maintenant dans notre chart prometheus-operator definir une section qui va pouvoir permettre d'integrer des conf de jobs externes au chart prometheus-operator : dans notre  cas c'est une conf issue du chart prometheus-proxmox-exporter 
+
+prometheus-operator:
+  prometheus:
+    prometheusSpec:
+      additionalScrapeConfigsExternal: true                       <<<<< en definissant cette conf : on va permettre aux conf externes de job prometheus externe au chart prometheus-operator d'être integrer à la conf global prometheus.yaml
+
+on a  donc dans notre cas la conf que l'on avait mis au prealable dans un servicemonitor qui là est injecter dans un secret et qui comporte les sections de relabellings nous permettant d'avoir une réécriture de label exploitable :
+
+cat additional-scrape-configs.yaml
+# additional scrape config : raw form
+- job_name: 'pve-exporter'
+  static_configs:
+    - targets:
+      - 192.168.0.7  # Proxmox VE node.
+     #- 192.168.0.X  # Proxmox VE node.
+  metrics_path: /pve
+  params:
+    module: [default]
+  relabel_configs:
+    - source_labels: [__address__]                   <<<< ici on va definir comme labels sources le nom de nos target ( ex : 192.168.0.7 )
+      target_label: __param_target
+    - source_labels: [__param_target]                <<<< ici on recupére le nom de notre target précedemment définie pour qu'elle corresponde au nom de l'instance 
+      target_label: instance
+    - target_label: __address__                      <<<< ici on va réecrire le label du check qui va être executé : 
+      replacement: prometheus-pve-exporter-service:9221  # PVE exporter.
+
+
+on aura bien dans notre cas l'excution du check suivant : l'exporter prometheus porté par notre service interrogera bien la target de notre cluster proxmox :
+prometheus-pve-exporter-service:9221/pve?target=192.168.0.7
+
+on a bien dans la console web prometheus les entrées qui nous interressent : une sonde par hyperviseur intérrogé par le proxmox exporter :
+
+pve-exporter (3/3 up) ￼show less
+Endpoint	State	Labels	Last Scrape	Scrape Duration	Error
+
+http://prometheus-pve-exporter-service:9221/pve
+module="default" target="192.168.0.7"	UP	instance="192.168.0.7" job="pve-exporter"	27.753s ago	360.5ms
+
+http://prometheus-pve-exporter-service:9221/pve
+module="default" target="192.168.0.x"	UP	instance="192.168.0.x" job="pve-exporter"	5.218s ago	382.3ms
+
+sans le relabellings nous aurions une conf erronnée :
+http://prometheus-pve-exporter-service:9221/pve
+
+module="default" target="192.168.0.7"   UP      instance="prometheus-pve-exporter-service:9221" job="pve-exporter"       27.753s ago     360.5ms
 
