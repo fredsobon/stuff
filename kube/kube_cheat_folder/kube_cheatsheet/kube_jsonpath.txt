@@ -1,0 +1,102 @@
+==== notes customisation de sortie / filtres kubectl : ====
+
+
+==  Use the custom columns output format
+
+The default output format of the kubectl get command (for reading resources) is as follows:
+$ kubectl get pods
+NAME                      READY   STATUS    RESTARTS   AGE
+engine-544b6b6467-22qr6   1/1     Running   0          78d
+engine-544b6b6467-lw5t8   1/1     Running   0          78d
+engine-544b6b6467-tvgmg   1/1     Running   0          78d
+web-ui-6db964458-8pdw4    1/1     Running   0          78d
+
+That’s a nice human-readable format, but it contains only a limited amount of information. As you can see, just some few fields (compared to the full resource definitions) are shown for each resource.
+That’s where the custom columns output format comes in. It lets you freely define the columns and the data to display in them. You can choose any field of a resource to be displayed as a separate column in the output
+
+The usage of the custom columns output option is as follows:
+-o custom-columns=<header>:<jsonpath>[,<header>:<jsonpath>]...
+
+You have to define each output column as a <header>:<jsonpath> pair:
+<header> is the name of the column, you can choose anything you want.
+<jsonpath> is an expression that selects a resource field (explained in more detail below).
+
+Let’s look at a simple example:
+$ kubectl get pods -o custom-columns='NAME:metadata.name'
+NAME
+engine-544b6b6467-22qr6
+engine-544b6b6467-lw5t8
+engine-544b6b6467-tvgmg
+web-ui-6db964458-8pdw4
+
+Here, the output consists of a single column displaying the names of all Pods.
+The expression selecting the Pod names is metadata.name. The reason for this is that the name of a Pod is defined in the name field of the metadatafield of a Pod resource (you can look this up in the API reference or with kubectl explain pod.metadata.name).
+Now, imagine you want to add an additonal column to the output, for example, showing the node that each Pod is running on. To do so, you can just add an appropriate column specification to the custom columns option:
+$ kubectl get pods -o custom-columns=\
+'NAME:metadata.name,NODE:spec.nodeName'
+NAME                      NODE
+engine-544b6b6467-22qr6   ip-10-0-80-67.ec2.internal
+engine-544b6b6467-lw5t8   ip-10-0-36-80.ec2.internal
+engine-544b6b6467-tvgmg   ip-10-0-118-34.ec2.internal
+web-ui-6db964458-8pdw4    ip-10-0-118-34.ec2.internal
+The expression selecting the node name is spec.nodeName. This is because the node a Pod has been scheduled to is saved in the spec.nodeName field of a Pod (see kubectl explain pod.spec.nodeName).
+Note that Kubernetes resource fields are case-sensitive.
+
+You can set any field of a resource as an output column in that way. Just browse the resource specifications and try it out with any fields you like!
+But first, let’s have a closer look at these field selection expressions.
+
+
+= JSONPath expressions
+
+The expressions for selecting resource fields are based on JSONPath.
+JSONPath is a language to extract data from JSON documents (it is similar to XPath for XML). Selecting a single field is only the most basic usage of JSONPath. It has a lot of features, like list selectors, filters, and more.
+
+However, with kubectl explain, only a subset of the JSONPath capabilities is supported. The following summarises these supported features with example usages:
+
+# Select all elements of a list
+kubectl get pods -o custom-columns='DATA:spec.containers[*].image'
+# Select a specific element of a list
+kubectl get pods -o custom-columns='DATA:spec.containers[0].image'
+# Select those elements of a list that match a filter expression
+kubectl get pods -o custom-columns='DATA:spec.containers[?(@.image!="nginx")].image'
+# Select all fields under a specific location, regardless of their name
+kubectl get pods -o custom-columns='DATA:metadata.*'
+# Select all fields with a specific name, regardless of their location
+kubectl get pods -o custom-columns='DATA:..image'
+
+Of particular importance is the [] operator. Many fields of Kubernetes resources are lists, and this operator allows you to select items of these lists. It is often used with a wildcard as [*] to select all items of the list.
+
+Below you will find some examples that use this notation.
+Example applications
+
+The possibilities for using the custom columns output format are endless, as you can display any field, or combination of fields, of a resource in the output. Here are some example applications, but feel free to explore on your own and find applications that are useful to you!
+Tip: if you end up using one of these a commands frequently, you can create a shell alias for it.
+
+Display container images of Pods
+$ kubectl get pods -o custom-columns=\
+'NAME:metadata.name,IMAGES:spec.containers[*].image'
+NAME                       IMAGES
+engine-544b6b6467-22qr6    rabbitmq:3.7.8-management,nginx
+engine-544b6b6467-lw5t8    rabbitmq:3.7.8-management,nginx
+engine-544b6b6467-tvgmg    rabbitmq:3.7.8-management,nginx
+web-ui-6db964458-8pdw4     wordpress
+This command displays the names of all the container images of each Pod.
+
+Remember that a Pod may contain more than one container. In that case, the container images of a single Pod are displayed as a comma-separated list in the same column.
+
+Display availability zones of nodes
+$ kubectl get nodes -o custom-columns=\
+'NAME:metadata.name,ZONE:metadata.labels.failure-domain\.beta\.kubernetes\.io/zone'
+NAME                          ZONE
+ip-10-0-118-34.ec2.internal   us-east-1b
+ip-10-0-36-80.ec2.internal    us-east-1a
+ip-10-0-80-67.ec2.internal    us-east-1b
+This command can be useful if your Kubernetes cluster is deployed on a public cloud infrastructure (such as AWS, Azure, or GCP). It displays the availability zone that each node is in.
+The availability zone is a cloud concept that denotes a point of replication within a geographical region.
+The availability zones for each node are obtained through the special failure-domain.beta.kubernetes.io/zone label. If the cluster runs on a public cloud infrastructure, then this label is automatically created and its value is set to the name of the availability zone of the node.
+
+Labels are not part of the Kubernetes resource specifications, so you can’t find the above label in the API reference. However, you can see it (as well as all other labels), if you output the nodes as YAML or JSON:
+kubectl get nodes -o yaml
+# or
+kubectl get nodes -o json
+This is generally a good way to discover even more information about your resources, in addition to exploring the resource specifications.
