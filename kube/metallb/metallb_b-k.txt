@@ -5,7 +5,11 @@
 
 =  on va installer dans notre cluster kube metallb :
 
-kubectl apply -f https://raw.githubusercontent.com/google/metallb/v0.7.3/manifests/metallb.yaml
+
+kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.9.3/manifests/namespace.yaml
+kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.9.3/manifests/metallb.yaml
+kubectl create secret generic -n metallb-system memberlist --from-literal=secretkey="$(openssl rand -base64 128)"
+
 
 check :
 
@@ -26,7 +30,10 @@ NAME                                    DESIRED   CURRENT   READY   AGE
 replicaset.apps/controller-6bcfdfd677   1         1         1       230d
 
 
-on va ensuite preparer note conf pour fonctionner en mode bgp  : on passe par une configmap :
+
+== Conf Bgp :
+
+on va ensuite preparer notre conf pour fonctionner en mode bgp  : on passe par une configmap :
 
 apiVersion: v1
 kind: ConfigMap
@@ -232,19 +239,22 @@ nginx2       LoadBalancer   10.105.164.178   10.127.0.3    80:30356/TCP   4m44s
 
 dans ce mode on va avoir uniquement notre conf metallb à faire : on va uniquement se servir des adresses mac des nodes du cluster : le service sera hébergé sur un node dont la mac servira pour le routage externe  
 
-cat config_lb                    
+
+cat configmap_l2.yaml 
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: config
   namespace: metallb-system
+  name: config
 data:
   config: |
     address-pools:
-      - name: net-svc-b-k
-        protocol: layer2
-        addresses:
-          - 192.168.0.100-192.168.0.200
+    - name: default
+      protocol: layer2
+      addresses:
+      - 192.168.0.200-192.168.0.250
+
+
 
 on redéploi :
 kind: Deployment
@@ -285,12 +295,12 @@ spec:
 boogie@boogieland  ~  kctl get svc                        
 NAME         TYPE           CLUSTER-IP     EXTERNAL-IP     PORT(S)        AGE
 kubernetes   ClusterIP      10.96.0.1      <none>          443/TCP        302d
-nginx2       LoadBalancer   10.106.0.160   192.168.0.101   80:31698/TCP   11m
+nginx2       LoadBalancer   10.106.0.160   192.168.0.200   80:31698/TCP   11m
 
 
 on peut donc en dehors de notre cluster interroger notre service :
 
-curl -I http://192.168.0.101          
+curl -I http://192.168.0.200         
 HTTP/1.1 200 OK
 Server: nginx/1.19.0
 Date: Sun, 14 Jun 2020 11:19:12 GMT
@@ -345,11 +355,11 @@ on a bien une ip de notre range d'attribuée et on peut interroger notre service
 kctl get svc                                
 NAME         TYPE           CLUSTER-IP       EXTERNAL-IP     PORT(S)        AGE
 kubernetes   ClusterIP      10.96.0.1        <none>          443/TCP        302d
-nginx2       LoadBalancer   10.106.0.160     192.168.0.101   80:31698/TCP   13m
-nginx3       LoadBalancer   10.104.233.163   192.168.0.102   80:31452/TCP   5s
+nginx2       LoadBalancer   10.106.0.160     192.168.0.200   80:31698/TCP   13m
+nginx3       LoadBalancer   10.104.233.163   192.168.0.201   80:31452/TCP   5s
 
 
- curl -I http://192.168.0.102           [☸ |kubernetes-admin@sandbox:monitoring]
+ curl -I http://192.168.0.201           [☸ |kubernetes-admin@sandbox:monitoring]
 HTTP/1.1 200 OK
 Server: nginx/1.19.0
 Date: Sun, 14 Jun 2020 11:22:45 GMT
