@@ -220,7 +220,7 @@ spec:
     targetPort: pve-exporter
 
 
-Maintenant nous avons deux possibilités pour intégrer notre exporter proxmox dans prometheus :
+Maintenant nous avons plusieurs possibilités pour intégrer notre exporter proxmox dans prometheus :
 
 > créer un service monitor : object kube permettant de créer un job qui sera concaténé à la conf de prometheus, une fois intercepté par l'operateur prometheus.
 La condition essentielle pour que cela fonctionne est de definir un label qui indique le label de l'operateur prometheus : dans le cadre d'un déployement avec helm il s'agira du label : release: "nom cu chart deployé dans kube" : ex "release: monitoring"
@@ -318,6 +318,16 @@ Events:           <none>
 
 Notre  object servicemonitor devra impérativement comporter le label defini dans l'object prometheus 
 
+
+NB: une version du helm de prometheus-operator ( à partir de la version 9.2.x ) permet en principe de définir dans notre crd prometheus-operator un hash null dans la section servicemonitor selector : ce qui permet d'avoir la creation de servicemonitor créee automatiquement quelque soit leur label 
+on posera par exemple dans le fichier values de helm la conf suivante : 
+prometheus:
+  prometheusSpec:
+    serviceMonitorSelectorNilUsesHelmValues: false
+
+Les tests quelques jours après la sortie de l'appli ne montre pas cette option opérationnelle.
+
+
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
@@ -363,6 +373,54 @@ module="default" target="192.168.0.7" target="192.168.0.x"   UP      instance="p
 
 nous voulons avoir un seul noeud dans la section endpoint et avoir le nom de l'instance qui matche notre target afin d'avoir un check qui porte bien sur chacun des hyperviseurs dont les métriques proviennent de l'exporter proxmox
 
+> Nous pouvons adopter une solution portant sur une entrée dns qui pointera sur chacun de nos hypervieurs 
+ex :
+
+proxmox-api.lapin.net  A 192.168.0.7
+proxmox-api.lapin.net  A 192.168.0.8
+
+nous aurons une conf de service monitor faisant pointer sur notre entrée dns :
+
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+    release: "monitoring"
+  name: prometheus-pve-exporter-metrics
+spec:
+  jobLabel: prometheus-pve-exporter
+  selector:
+    matchLabels:
+      exporter: proxmox
+  namespaceSelector:
+    matchNames:
+    - monitoring
+  endpoints:
+    - port: pve-exporter
+      interval: 30s
+      scrapeTimeout: 10s
+      path: "/pve"
+      params:
+        target:
+        - proxmox-api.lapin.net
+      targetPort: pve-exporter
+
+
+
+dans ce cas une seule source sera pollée et un roundrubin dns sera fait aleatoirement sur les serveurs definis dans le dns :
+
+on aura donc dans prometheus une target du type suivant :
+
+Endpoint	State	Labels	Last Scrape	Scrape Duration	Error
+http://10.66.179.44:9221/pve
+
+target="proxmox-api.lapin.net"	UP	endpoint="pve-exporter" instance="10.66.179.44:9221" job="proxmox-exporter-prometheus-service" namespace="monitoring" pod="proxmox-exporter-prometheus-5bcdfb7c84-2c2lx" service="proxmox-exporter-prometheus-service"	11.4s ago	434.4ms
+
+
+
+
+
+> Nous pouvons sinon, si nous voulons conserver tous les nodes en tant que targer dans notre hypervieur  essayer de réécrire les champs de nos targets pour avoir un affichage correct dans prometheus
 
 il va falloir injecter du relabelling prometheus pour cela nous devons modifier la config de l'operator prometheus :
 
@@ -440,6 +498,8 @@ http://prometheus-pve-exporter-service:9221/pve
 module="default" target="192.168.0.7"   UP      instance="prometheus-pve-exporter-service:9221" job="pve-exporter"       27.753s ago     360.5ms
 
 
+/!\ A noter qu'une version plus recente de prometheus operator permet de definir le nom de la clé et du secret que l'on veut 
+
 
 === Dashboard grafana : =
 
@@ -473,4 +533,7 @@ Preview of values
 xinfvirt02u
 xinfvirt04u
 xinfvirt06u
+
+
+
 
