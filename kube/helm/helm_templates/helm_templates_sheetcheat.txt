@@ -5,3 +5,38 @@
 on applique pas la conf mais on voit le résultat du template généré 
 
 helm template mysql-test --debug  . -f values.yaml -f helm_vars/prod/values.yaml
+
+
+
+
+== loop : ==
+
+
+boucler sur un tableau de hash :
+
+on va vouloir bloucler sur un tableau contenant des hash :
+ex: dans notre fichier values: 
+  nodeTarget:
+    - ip: 192.168.0.7
+    - ip: 192.168.0.8
+    - ip: 192.168.0.9
+
+pour pouvoir générer notre object kube correctement on va devoir passer par une double assignation de variable : 
+
+- addresses:
+    {{- range $key, $value := .Values.nodeTarget }}
+    {{- range $ip, $addr := $value }}
+    - {{ $ip }}: {{ $addr }}
+    {{- end }}
+    {{- end }}
+  ports:
+
+    
+on aura en sortie de template :
+..
+- addresses:
+    - ip: 192.168.0.7
+    - ip: 192.168.0.7
+    - ip: 192.168.0.7
+  ports:
+...
