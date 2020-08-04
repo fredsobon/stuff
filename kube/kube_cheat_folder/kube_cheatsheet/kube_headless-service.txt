@@ -1,0 +1,70 @@
+Discovering Running Pods By Using DNS and Headless Services in Kubernetes
+When retrieving all service’s connected pods is desired
+
+In a Kubernetes cluster, the service resource is being used as an abstraction to expose your running pods as a (single) entry point in the network of your cluster. The service acts as a Service Discovery mechanism and enables you to communicate easily with upstream pods without the need to know the exact individual IP addresses of individual pods.
+However, in some situations it’s desired to be able to retrieve the IP addresses of all the pods that are connected to a certain service. When your pods are stateful, like a deployed database, individual pods do need to communicate with their fellow instances. In this situation, your pods need to know which other members are part of the database cluster. Here is where the headless service comes to the rescue!
+
+What is a headless service?
+
+When deploying services, you have the possibility to set three different service types to specify which kind of service you want. These are:
+
+ClusterIP: the default type to expose the server only on an cluster-internal ip address
+NodePort: allows to expose the service through a static port on the node.
+LoadBalancer: allows to expose the service using a cloud provider’s external load balancer.
+
+To avoid requests being load-balanced behind one single ip address, we can explicitly specifying “None” for the cluster IP when a single ip address is not desired. Kubernetes won’t allocate any IP address to the service. This type of service is termed as headless service.
+
+DNS resolution and headless services
+When deploying services, Kubernetes assigns a DNS name to it. Other components in the cluster can use this name to communicate with the service and the upstream pods behind. A DNS name follows the naming convention below:
+my-svc.my-namespace.svc.cluster-domain.example
+
+The process of using readable names over IP addresses has the major advantage that other components don’t need the actual IP address that has been assigned to the service.
+When configuring headless services with the right pod selectors, Kubernetes will still create the right endpoint records and DNS configuration for the upstream selected pods.
+For each connected pod that will be connected to a headless service, a A or AAAA record will as well configured. This creates the possibility to execute a DNS query to the headless service resolve all the IP addresses of the connected pods.
+
+How does this work in practise?
+Let’s assume we have the following problem: we have a stateful set of three MongoDB pods running in our Kubernetes Cluster. These three pods form together a MongoDB replica set, which is a highly available data set.
+
+To be able to connect our console application to the MongoDB replica set, we will make use of the MongoDB C# driver. To connect to the replica set we need to explicitly define all the addresses of our three pods.
+We are going to solve this with a headless service! For this we assume that our MongoDb pods all have a app=mongodb label which can be used in our headless service to select the pods.
+
+Our defined headless service resource will look like this:
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongodb-headless-service
+  namespace: infrastructure
+spec:
+  type: NodePort
+  clusterIP: None
+  selector:
+    app: mongodb
+  ports:
+  - name: mongodb
+    port: 27017
+    targetPort: 27017
+    protocol: TCP
+  selector:
+    app: mongodb
+
+With setting clusterIp to none, we explicitly tell Kubernetes to treat this service as a headless service. Since we defined a name and namespace we can deduce the DNS name. We can use mongodb-headless-service.infrastructure.svc.cluster.local or mongodb-headless-service.infrastructure as address inside our cluster to communicate with the service.
+Only one thing left to do. Let’s write some code to execute a DNS lookup to retrieve the ip addresses of the connected pods. The Dns.GetHostAddresses method, that lives in System.Net namespace, helps us to execute this DNS query and returns an array of IP addresses. It expects an hostname or ip address. In the end we can use the result to create the connection string for MongoDB.
+
+The resulting piece of code would look like this:
+System.Net.IPAddress[] ipAddresses = Dns.GetHostAddresses("mongodb-headless-service");
+string connectionString = "";
+foreach(IPAddress in ipAddresses)
+{
+  if(connectionString = "")
+    connectionString = "mongodb://";
+  else
+    connectionString += ",";
+  connectionString += $"{IPAddress.ToString()}:27017";
+}
+connectionString += "/database";
+var client = new MongoClient(connectionString);
+With this solution we dynamically create the connection string. The major advantage is that we don’t have to manually change our connection string when we would have to scale up our database cluster.
+N.B.: MongoDB did implement a similar-like process of service discovery through DNS by only needing to define the DNS name of the headless service. This way you don’t have to generate the connection string yourself.
+
+Summary
+With a headless service we can use DNS to retrieve the IP addresses of the pods that are connected to this service. The added benefit of this is that we can create dynamically connection strings.
