@@ -148,4 +148,24 @@ listening on bond0.100, link-type EN10MB (Ethernet), capture size 96 bytes
 18:00:19.566422 IP dns-server.domain > 10.0.1.2.63667:  21810 0/1/0 (99)
 
 
+== definir une taille limite dans la capture de trame et faire une rotation de fichier de traces : ==
+
+How to implement max file size limits and “log rotation” with tcpdump
+
+The issue: You need to collect a packet capture for an extended amount of time but don’t want it to consume too much disk space.
+
+The solution: Use the following tcpdump syntax:
+
+tcpdump port 25 -s 0 -vvv -C 100 -W 50 -w /tmp/example.pcap
+
+-s 0 tells tcpdump to collect the entire packet contents.
+-vvv enables verbose logging/details (which among other things will give us a running total on how many packets are captured).
+-C 100 tells tcpdump to store up to 100 MB of packet data per file.
+-W 50 tells tcpdump to store up to 50 rollover files (example.pcap00, example.pcap01 … example.pcap49 at which point it would start over).
+-w /tmp/example.pcap tells tcpdump where to write the files.
+
+Important note regarding file permissions: since tcpdump will be creating new files dynamically, the destination directory needs to be an area where it can create new files under the authority of the tcpdump or pcap user (depending on your distribution). If you want tcpdump to write the files under the authority of root, add the -Z root switch.
+
+In this case, tcpdump will use a max of ~ 5 GB for rollover files.
+
 
