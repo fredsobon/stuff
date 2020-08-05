@@ -1,13 +1,10 @@
 === notes memo helm template : ===
 
-= génération du template à la volée apres une conf  :
+= génération du template à la volée apres une conf : permet de tester le bon fonctionnement de notre code avant de  déployer :
 
 on applique pas la conf mais on voit le résultat du template généré 
 
 helm template mysql-test --debug  . -f values.yaml -f helm_vars/prod/values.yaml
-
-
-
 
 == loop : ==
 
@@ -63,3 +60,37 @@ on aura en sortie de template :
     - ip: 192.168.0.7
   ports:
 ...
+
+== fonctions : ==
+
+- keys :  on va pouvoir récupérer les clés d'un dictionnaire :
+
+ex : dans notre fichier values : 
+bob:
+  yop: lapin
+  yap: lapi
+
+dans notre template on va utiliser la fonction keys pour récupérer les clés contenues dans une variable établie auparavant : 
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mychart-configmap
+data:
+  dico:
+    {{ $dic := .Values.bob }}
+    {{ keys  $dic }}
+
+ce qui nous donne en resultat : 
+ helm template .
+---
+# Source: babar/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mychart-configmap
+data:
+  dico:
+
+    [yap yop]
+
