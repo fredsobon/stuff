@@ -94,3 +94,37 @@ data:
 
     [yap yop]
 
+
+- pick : on va pouvoir récupérer les valeurs d'un dictionnaire 
+ex: 
+cat values.yaml
+bob:
+  yop: lapin
+  yap: lapi
+  blob: nini
+
+cat templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mychart-configmap
+data:
+
+  pick:
+    {{ $dic := .Values.bob }}   <<< on defini une var contenant le dico dans notre values 
+    {{ pick $dic "yop" "yap"}}  <<<  on va appliquer la fonction pick à notre dictionnaire et recup les valeurs definies en argumant.
+
+ce qui nous donne :
+
+helm template .                 
+---
+# Source: babar/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mychart-configmap
+data:
+  pick:
+    
+    map[yap:lapi yop:lapin]
+
