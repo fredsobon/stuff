@@ -501,6 +501,127 @@ module="default" target="192.168.0.7"   UP      instance="prometheus-pve-exporte
 /!\ A noter qu'une version plus recente de prometheus operator permet de definir le nom de la clé et du secret que l'on veut 
 
 
+
+>> une méthode alternative pour monitorer notre cluster proxmox via l'api va être de créer un second service couplé à un endpoint : c'est un service headless :
+et de faire pointer notre service monitor sur ce service headless : 
+notre service va permettre d'interroger des ressources hors cluster kube (nos hyperviseurs via une entrée dns générée par kube ) 
+
+
+on va créer un service headless :
+
+memo rapide du label de notre déployement : 
+proxmox-pve-exporter-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: proxmox-monitoring
+  namespace: monitoring
+  labels:
+    app: proxmox-monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: proxmox-monitoring        
+  template:
+    metadata:
+      labels:
+        app: proxmox-monitoring
+..---
+
+creation de notre service headless : 
+
+proxmox-pve-exporter-hypervisor-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: proxmox-monitoring-pve-exporter-hypervisor
+  namespace: monitoring
+spec:
+  clusterIP: None
+  ports:
+    - port: 9221
+      targetPort: pve-exporter
+      protocol: TCP
+      name: pve-exporter
+---
+
+
+on crée maintenant nos endpoints qui sont lié à notre service 
+
+proxmox-pve-exporter-hypervisor-endpoints.yaml
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: proxmox-monitoring-pve-exporter-hypervisor    <<<< le nom est ici identique au service : le matching entre les deux objects kube (service + endpoints ) se fait comme cela 
+  namespace: monitoring
+  labels:
+    app: prometheus-pve-exporter
+subsets:
+- addresses:
+    - ip: 192.168.0.7
+    - ip: 192.168.0.8
+  ports:
+  - name: pve-exporter
+    port: 9221
+    protocol: TCP
+---
+
+
+notre conf de servicemonitor :
+
+proxmox-pve-exporter-servicemonitor.yaml
+
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+    release: monitoring
+  name: proxmox-monitoring-pve-exporter-metrics
+spec:
+  jobLabel: prometheus-pve-exporter
+  selector:
+    matchLabels:
+      exporter: proxmox
+  namespaceSelector:
+    matchNames:
+    - monitoring
+  endpoints:
+    - port: pve-exporter
+      interval: 30s
+      scrapeTimeout: 10s
+      path: "/pve"
+      params:
+        target:
+        - proxmox-monitoring-pve-exporter-hypervisor    <<<<<< entrée dns qui va matcher sur notre service headless qui lui rediriger sur les hyperviseurs de notre cluster.
+      targetPort: pve-exporter
+
+on peut tester depuis un pod dans le même namespace ( on pourra interroger depuis le cluster entier en donnant le nome de service global proxmox-monitoring-pve-exporter-hypervisor.<namespace>.svc.cluster.local
+
+on a bien notre service classique qui va pointer sur le deployment de l'api proxmox et en argument une entrée dns (qui correspond au nom de service headless créee) qui pointe sur chacun des endpoints et repond en rundroubin aux requettes dns : 
+
+root@debian-pod:/# curl http://service_classique:9221/pve?target=service_headless 
+
+root@debian-pod:/# curl http://proxmox-monitoring-pve-exporter:9221/pve?target=proxmox-monitoring-pve-exporter-hypervisor |head
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100 34264  100 3# HELP pve_up Node/VM/CT-Status is online/running-:--:--     0
+4# TYPE pve_up gauge
+2pve_up{id="cluster/SiopsSandbox"} 1.0
+6pve_up{id="node/virt02u"} 1.0
+4pve_up{id="node/virt04u"} 1.0
+ pve_up{id="node/virt06u"} 1.0
+ pve_up{id="qemu/129"} 1.0
+ pve_up{id="qemu/127"} 1.0
+ pve_up{id="qemu/114"} 1.0
+0pve_up{id="qemu/123"} 1.0
+     0  93362      0 --:--:-- --:--:-- --:--:-- 93362
+(23) Failed writing body
+root@debian-pod:/#
+
+
+
+
 === Dashboard grafana : =
 
 
@@ -525,14 +646,14 @@ type Prometheus
 
 label_values(pve_node_info, id)
 Regex
-/(xinfvirt...)/
+/(virt...)/
 
 filtrera sur :
 
 Preview of values
-xinfvirt02u
-xinfvirt04u
-xinfvirt06u
+virt02u
+virt04u
+virt06u
 
 
 
