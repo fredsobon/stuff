@@ -110,3 +110,19 @@ root@boogie-hypervisor:~# pvesh get /nodes/boogie-hypervisor/qemu/101/config
 │ vmgenid  │ e6ac30d1-84ac-4525-8f5f-706e0405699f             │
 └──────────┴──────────────────────────────────────────────────┘
 
+
+== creation user pour api proxmox : ===
+
+on peut créer un groupe et un user dedié sur proxmox :
+ex: 
+ce user permettra l'acces aux metriques via l'api proxmox et c'est ce user que l'exporteur prometheus utilisera pour recuperer les metriques de proxmox et les exposer au format openmetrics que prometheus viendra scraper .
+
+root@boogie-hypervisor:/opt# pveum groupadd monitoring -comment 'Monitoring group'
+root@boogie-hypervisor:/opt# pveum aclmod / -group monitoring -role PVEAuditor
+root@boogie-hypervisor:/opt# pveum useradd pve_exporter@pve
+root@boogie-hypervisor:/opt# pveum usermod pve_exporter@pve -group monitoring
+root@boogie-hypervisor:/opt# pveum passwd pve_exporter@pve
+Enter new password: ************
+Retype new password: ************
+
+le user est maintenant créer et mappe avec le bon group et le role dédié : on peut le voir sur l'interface proxmox 
