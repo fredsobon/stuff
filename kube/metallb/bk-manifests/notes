@@ -1,0 +1,32 @@
+== setup manifests metallb: ==
+
+kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.9.3/manifests/namespace.yaml
+kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.9.3/manifests/metallb.yaml
+
+- au set up de metallb uniquement : 
+
+kubectl create secret generic -n metallb-system memberlist --from-literal=secretkey="$(openssl rand -base64 128)"
+
+
+kctl get pod                               [☸ |boogie@b-k:metallb-system]
+NAME                          READY   STATUS    RESTARTS   AGE
+controller-57f648cb96-hlvrz   1/1     Running   0          76s
+speaker-74xrz                 1/1     Running   0          76s
+speaker-lrc2z                 1/1     Running   0          76s
+speaker-s2hlg                 1/1     Running   0          76s
+
+
+config 
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: metallb-system
+  name: config
+data:
+  config: |
+    address-pools:
+    - name: default
+      protocol: layer2
+      addresses:
+      - 192.168.0.200-192.168.0.250

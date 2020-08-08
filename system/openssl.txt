@@ -2,7 +2,6 @@
 
 = creation d'une authorité  de certification pour la gestion de nos certifs ssl 
 
-
 = generation de password =
 
 on peut générer un password ex pour htpasswd avec la commande openssl :
@@ -24,7 +23,6 @@ openssl rsa -in private.key -text -noout
 == pour lire le contenu d'un crt générer avec openssl :
 
 openssl x509 -in notrecertif.crt -text -noout
-
 
 == pour voir la date d'expiration d'un certificat ssl : =
 
@@ -49,6 +47,105 @@ openssl s_client -connect ip_server:443
 openssl s_client -connect www.boogie7.net:443
 
 le detail de notre ssl apparait si tout fonctionne correctement. 
+
+== pour checker les certificats intermediaires de notre certif : 
+
+on va chercher le champ issuer dans notre cert : 
+ openssl x509 -in CERT_lapin.com.crt -noout -text |grep -i issuer
+        Issuer: C=US, O=DigiCert Inc, CN=DigiCert EV RSA CA G2
+                CA Issuers - URI:http://cacerts.digicert.com/DigiCertEVRSACAG2.crt
+
+Il va être indispensable d'avoir les certificats intermédiaires ayant signés nos certifs sur les equipements servant le ssl ( haproxy ou autres ...)
+
+
+
+on va pouvoir downloader le certificat intermediaire en utilisant l'url de notre requette précédente et examiner son contenu 
+
+L'intermediaire peut être dans un format DER (plutot que PEM) : 
+
+openssl x509 -in DigiCertEVRSACAG2.crt -noout -text -inform DER                                                                          [☸ |kubernetes-admin@sandbox:monitoring]
+Certificate:
+    Data:
+        Version: 3 (0x2)
+        Serial Number:
+            01:67:8f:1f:ef:88:22:55:d8:b0:a7:0e:6b:7b:b2:20
+        Signature Algorithm: sha256WithRSAEncryption
+        Issuer: C = US, O = DigiCert Inc, OU = www.digicert.com, CN = DigiCert Global Root G2
+        Validity
+            Not Before: Jul  2 12:42:50 2020 GMT
+            Not After : Jul  2 12:42:50 2030 GMT
+        Subject: C = US, O = DigiCert Inc, CN = DigiCert EV RSA CA G2
+        Subject Public Key Info:
+            Public Key Algorithm: rsaEncryption
+                RSA Public-Key: (2048 bit)
+                Modulus:
+                    00:ad:1e:66:cc:7f:9d:e4:eb:7f:83:17:27:3d:11:
+                    d9:f2:53:20:37:cd:f0:0c:14:02:ee:e1:cb:88:08:
+                    d2:fa:7b:3b:c2:c0:00:7c:76:87:76:db:7f:cc:25:
+                    fa:91:8c:4b:16:89:2b:d7:df:0c:30:83:eb:71:6a:
+                    a8:50:6a:13:d7:93:9a:8d:d1:92:04:21:96:ee:79:
+                    6b:4e:0b:b1:74:4b:70:ae:9c:ae:40:4e:3b:47:63:
+                    76:89:f2:6e:68:6b:7c:6a:ed:06:a6:2f:6d:16:ad:
+                    c5:e9:e4:bf:44:a0:e1:fa:e1:46:5e:30:62:1e:1d:
+                    9d:6d:0b:39:54:46:85:bb:75:1b:94:35:f7:39:bd:
+                    0a:a3:25:ab:b2:e5:51:d0:04:fb:a7:77:6b:9f:be:
+                    a6:97:c6:72:75:8b:99:b1:15:11:c2:c7:3c:09:db:
+                    97:ef:e2:29:ab:90:a5:09:54:d4:c8:be:c0:40:67:
+                    8c:4e:6d:2b:c4:3b:ef:c9:da:5e:71:7e:0e:c7:9d:
+                    40:9e:cd:12:2f:9b:42:8a:27:4c:71:33:f6:bc:9e:
+                    11:c5:07:b9:04:ef:ee:70:29:6b:fc:c2:a9:eb:39:
+                    95:79:f5:a4:cb:38:2d:92:77:49:58:1b:91:32:e3:
+                    f9:16:c1:a2:ff:ee:8b:04:d7:b6:40:44:59:ac:2f:
+                    64:7f
+                Exponent: 65537 (0x10001)
+        X509v3 extensions:
+            X509v3 Subject Key Identifier: 
+                6A:4E:50:BF:98:68:9D:5B:7B:20:75:D4:59:01:79:48:66:92:32:06
+            X509v3 Authority Key Identifier: 
+                keyid:4E:22:54:20:18:95:E6:E3:6E:E6:0F:FA:FA:B9:12:ED:06:17:8F:39
+
+            X509v3 Key Usage: critical
+                Digital Signature, Certificate Sign, CRL Sign
+            X509v3 Extended Key Usage: 
+                TLS Web Server Authentication, TLS Web Client Authentication
+            X509v3 Basic Constraints: critical
+                CA:TRUE, pathlen:0
+            Authority Information Access: 
+                OCSP - URI:http://ocsp.digicert.com
+
+            X509v3 CRL Distribution Points: 
+
+                Full Name:
+                  URI:http://crl3.digicert.com/DigiCertGlobalRootG2.crl
+
+                Full Name:
+                  URI:http://crl4.digicert.com/DigiCertGlobalRootG2.crl
+
+            X509v3 Certificate Policies: 
+                Policy: X509v3 Any Policy
+                  CPS: https://www.digicert.com/CPS
+                  User Notice:
+                    Explicit Text: Any use of this Certificate constitutes acceptance of the Relying Party Agreement located at https://www.digicert.com/rpa-ua
+
+    Signature Algorithm: sha256WithRSAEncryption
+         52:32:0a:c2:75:8d:be:3b:db:29:9d:83:6f:c0:78:86:fb:d9:
+         42:25:bc:84:2d:1d:14:b2:82:f0:a7:31:a9:49:d9:07:0f:ba:
+         55:0c:31:49:9b:7f:ff:07:c1:2c:fb:5e:d3:d6:8e:47:6a:df:
+         87:44:3b:2f:46:be:dd:dc:c1:32:a3:d8:97:92:4c:4b:84:a1:
+         20:02:90:36:16:dd:9e:65:f3:eb:4e:89:5c:f7:93:f0:49:69:
+         e7:dc:56:7c:06:17:46:3b:86:eb:4c:0e:3e:ce:43:d2:2a:83:
+         17:8b:f5:fe:58:b0:4d:37:6f:59:fe:76:c2:4b:b1:ff:a8:b1:
+         ad:ee:05:62:12:f4:c8:75:4f:31:f8:7e:25:fd:78:a0:64:c5:
+         03:69:59:89:f8:1e:5d:ed:cc:12:2b:bc:8e:a1:07:5f:a0:80:
+         46:98:0e:4c:a7:82:e1:33:3a:39:da:b7:ff:fe:45:cf:7c:4d:
+         f0:60:86:55:1e:a5:6e:c7:19:67:4e:41:58:99:f7:c2:5f:df:
+         cb:a2:7e:d2:59:a1:9d:83:a4:5c:93:84:47:84:72:d6:b6:6c:
+         f6:95:36:79:08:4a:36:96:30:ec:1b:30:85:18:93:fb:a1:3e:
+         2a:e9:0f:28:14:2d:fc:8a:bb:dd:28:82:7d:e5:c5:31:63:38:
+         f8:b6:73:88
+
+
+
 
 ====== openssl tuto =======
 

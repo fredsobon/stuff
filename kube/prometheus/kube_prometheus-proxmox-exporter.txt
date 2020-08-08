@@ -1,0 +1,669 @@
+
+1/ on va builder notre container :
+
+On va utiliser un fichier fake pour ne pas biensur divulger les infos du compte permettant de se connecter en api proxmox :
+cat pve.yml
+default:
+  user: pve_user@pve
+  password: secretpass
+  verify_ssl: false
+
+cat Dockerfile 
+
+# source de notre image 
+FROM python:3-alpine
+# install du module python prometheus-pve-exporter
+RUN  pip install --no-cache-dir prometheus-pve-exporter 
+# déplacement (et creation du rep /config) dans l'arbo de notre container :
+WORKDIR /config
+# copie de notre fichier de conf proxmox exporter contenant les infos de connexion à l'api proxmox ( compte à créer sur proxmox au préalable )
+COPY ./pve.yml /config/pve.yml
+# On va faire tourner notre container en tant que user /group non root : on choisi "nobody"
+USER       nobody:nobody
+# Commande exécutée au lancement de notre container : on peut utiliser ENTRYPOINT (mais on ne pourra pas lancer un container de debug en shell en overridant la commande line ) ou en CMD : ce qui nous permet d'avoir un shell : on choisi cette méthode :
+ENTRYPOINT ["/usr/local/bin/pve_exporter", "/config/pve.yml"]
+CMD   ["/usr/local/bin/pve_exporter", "/config/pve.yml"]
+
+Nb: de manière native le port 9221 est utilisé et configuré dans le code python 
+
+On build notre image :
+docker build . -t prometheus-pve-exporter
+
+on tag et on pousse dans notre repo :
+docker tag prometheus-pve-exporter:latest bob/prometheus-pve-exporter:0.1
+docker push bob/prometheus-pve-exporter:0.1
+
+on test : on pull notre image : on lance un container normal en redirigeant notre port local vers le port container :
+
+docker pull bob/prometheus-pve-exporter:0.1
+docker run  -p 9221:9221 bob/prometheus-pve-exporter:0.1          [☸ |kubernetes-admin@sandbox:monitoring]
+ * Running on http://localhost:9221/ (Press CTRL+C to quit)
+
+on lance un second container pour avoir un shell :
+ docker run -ti bob/prometheus-pve-exporter:0.1 /bin/sh                                                                               [☸ |kubernetes-admin@sandbox:monitoring]
+/config $ ls
+pve.yml
+/config $ cat pve.yml
+default:
+  user: pve_user@pve
+  password: secretpass
+  verify_ssl: false
+/config $ id
+uid=65534(nobody) gid=65534(nobody)
+/config $
+
+on a bien notre container lancer en user nobody.  On retrouve bien notre conf d'acces à proxmox api avec nos infos fake.
+
+
+2/ pod de test :
+
+on crée maintenant un pod de test qui va nous permettre de tester notre appli.
+Avant de faire notre conf on va déclarer notre fichier de conf permettant la connex à l'api proxmox en tant que secret kube :
+
+#creation du secret  contenant les acces à l'api :
+kubectl create secret generic proxmox-api --from-file=pve.yml
+
+# creation de notre pod de test : 
+on va definir une section de secu pour permettre à notre pod de tourner avec le user nobody : on fixe son uid /gid : sans cela un shell dans le pod permet d'être en root 
+
+
+cat proxmox-pve-exporter_pod.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: prometheus-pve-exporter
+spec:
+  securityContext:                         <<< section pour forcer le pod à tourner sous un certain user /group
+    runAsUser: 65534                       <<< fix de l'uid du user       : on recupere l'id une fois loggué en shell dans le docker ( cf précédemment )
+    runAsGroup: 65534                      <<< fix de l'uid du group      ...
+  containers:
+  - name: prometheus-pve-exporter          <<< nom de notre pod
+    image: bob/prometheus-pve-exporter:0.1 <<< nom de l'image que l'on va pull de notre registry
+    ports:
+    - name: pve-exporter                   <<< nom du port sur lequel ecoute notre container
+      containerPort: 9221                  <<< num de port de notre container en ecoute 
+    command: ["/usr/local/bin/pve_exporter", "/config/pve.yml"]   <<< commande executée depuis notre pod
+    volumeMounts:                           <<< ici on va définir un point de montage 
+    - name: proxmox-api-vol                 <<< on donne le nom à notre point de montage 
+      mountPath: "/config"                  <<< on defini notre point de montage
+      readOnly: true                        <<< on le défini en readonly 
+  volumes:
+  - name: proxmox-api-vol                   <<< on defini un nom à notre volume 
+    secret:
+      secretName: proxmox-api               <<< on fait matcher le nom de notre secret monter en volume avec le secret qu'on a poussé dnas kube auparavant 
+
+
+
+kubectl create -f proxmox-pve-exporter_pod.yaml
+
+kctl get secrets proxmox-api
+NAME          TYPE     DATA   AGE
+proxmox-api   Opaque   1      3h55m
+ boogie@boogieland  ~/Documents/work/work_utils  kctl get pods prometheus-pve-exporter 
+NAME                      READY   STATUS    RESTARTS   AGE
+prometheus-pve-exporter   1/1     Running   0          3h54m
+
+
+on va examiner notre pod et vérifier la conf de connex api :
+on voit en nous connectant en shell qu'on arrive bien dans le rep /config comme défini dans notre Dockerfile. On voit aussi que le secret est bien récupérer et monter : le fichier et les informations de connections  sont les bonnes : le user loggé est bien nobody avec uid 65534
+
+kubectl -it exec prometheus-pve-exporter -- sh   
+/config $ cat pve.yml 
+default:
+  user: proxmox-exp-user@pve
+  password: blabla
+  verify_ssl: false
+/config $ id
+uid=65534(nobody) gid=65534(nobody)
+/config $ 
+
+
+on va récupérer l'ip de notre pod :
+kctl get pod prometheus-pve-exporter  -o yaml |grep -A 1 " podIPs:"
+  podIPs:
+  - ip: 10.124.71.96
+
+
+on lance un pod de test debian qui contient des utilitaires :
+kubectl create -f debian-pod.yaml
+On lance un shell du container et on test la connection à notre pod suivi du port du service puis de la target d'un hyperviseur proxmox .
+On recupére  bien les infos de notre hyperviseur. Notre exporteur est fonctionnel.
+
+ kctl exec -it debian-pod -- /bin/bash
+root@debian-pod:/# curl 10.124.71.96:9221/pve?target=192.168.0.7 |head
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0# HELP pve_up Node/VM/CT-Status is online/running
+# TYPE pve_up gauge
+pve_up{id="node/boogie-hypervisor"} 1.0
+pve_up{id="qemu/100"} 0.0
+pve_up{id="qemu/103"} 1.0
+pve_up{id="qemu/101"} 1.0
+pve_up{id="qemu/102"} 1.0
+# HELP pve_disk_size_bytes Size of storage device
+# TYPE pve_disk_size_bytes gauge
+pve_disk_size_bytes{id="qemu/100"} 7.516192768e+010
+100  5247  100  5247    0     0  14297      0 --:--:-- --:--:-- --:--:-- 14297
+(23) Failed writing body
+
+
+Les tests de notre pod sont ok on va donc passer maintenant à la creation de notre déployment :
+on va definir 2 replicats de notre pod , on ajoute egalement une sonde "readinessProbe" : notre déployement ne sera ok que quand les 3 pods ont démarrés et un healtcheck http ok sur le port ddu prometheus exporter 9221 et un liveness probe : on test régulièrement le port 9221 avec un get http.
+cat proxmox-pve-exporter_deployment.yaml
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus-pve-exporter
+  namespace: monitoring
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: prometheus-pve-exporter
+  template:
+    metadata:
+      labels:
+        app: prometheus-pve-exporter
+    spec:
+      securityContext:
+        runAsUser: 65534
+        runAsGroup: 65534
+      containers:
+      - name: prometheus-pve-exporter
+        image: bob/prometheus-proxmox-exporter:0.1
+        ports:
+        - name: pve-exporter
+          containerPort: 9221
+        command: ["/usr/local/bin/pve_exporter", "/config/pve.yml"]
+        readinessProbe:
+          httpGet:
+            path: /
+            port: pve-exporter
+          initialDelaySeconds: 15
+          timeoutSeconds: 30
+        livenessProbe:
+          httpGet:
+            path: /
+            port: pve-exporter
+          initialDelaySeconds: 15
+          timeoutSeconds: 15
+        volumeMounts:
+        - name: proxmox-api-vol
+          mountPath: "/config"
+          readOnly: true
+      volumes:
+      - name: proxmox-api-vol
+        secret:
+          secretName: proxmox-api
+
+
+
+Notre déployment crée nous pouvons maintenant créer notre service qui servira donc de point d'entrée pour interroger nos backends :
+on va biensur utiliser un matching de label avec le déployment créer et le port de nos containers :
+
+ cat proxmox-pve-exporter_service.yaml                       
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    exporter: proxmox
+  name: prometheus-pve-exporter-service
+  namespace: monitoring
+spec:
+  selector:
+    app: prometheus-pve-exporter
+  ports:
+  - name: pve-exporter
+    protocol: TCP
+    port: 9221
+    targetPort: pve-exporter
+
+
+Maintenant nous avons plusieurs possibilités pour intégrer notre exporter proxmox dans prometheus :
+
+> créer un service monitor : object kube permettant de créer un job qui sera concaténé à la conf de prometheus, une fois intercepté par l'operateur prometheus.
+La condition essentielle pour que cela fonctionne est de definir un label qui indique le label de l'operateur prometheus : dans le cadre d'un déployement avec helm il s'agira du label : release: "nom cu chart deployé dans kube" : ex "release: monitoring"
+L'operateur prometheus est configuré pour récupérer les services monitors via une conf définie.
+
+On peut intérroger les objects prometheus crd via l'api kube pour voir la conf :
+
+kubectl -n monitoring get prometheus                                            [☸ |kubernetes-admin@sandbox:monitoring]
+NAME                                    AGE
+monitoring-prometheus-oper-prometheus   3d1h
+
+
+le matching des services monitor est défini dans l'objet :
+
+ kubectl -n monitoring describe prometheus monitoring-prometheus-oper-prometheus [☸ |kubernetes-admin@sandbox:monitoring]
+Name:         monitoring-prometheus-oper-prometheus
+Namespace:    monitoring
+Labels:       app=prometheus-operator-prometheus
+              app.kubernetes.io/managed-by=Helm
+              chart=prometheus-operator-8.9.2
+              heritage=Helm
+              release=monitoring
+Annotations:  meta.helm.sh/release-name: monitoring
+              meta.helm.sh/release-namespace: monitoring
+API Version:  monitoring.coreos.com/v1
+Kind:         Prometheus
+Metadata:
+  Creation Timestamp:  2020-07-09T08:27:09Z
+  Generation:          3
+  Managed Fields:
+    API Version:  monitoring.coreos.com/v1
+    Fields Type:  FieldsV1
+    fieldsV1:
+        f:version:
+        ..
+    Manager:         Go-http-client
+    Operation:       Update
+    Time:            2020-07-09T08:33:37Z
+  Resource Version:  1959409
+  Self Link:         /apis/monitoring.coreos.com/v1/namespaces/monitoring/prometheuses/monitoring-prometheus-oper-prometheus
+  UID:               ed319e05-b582-4f84-a66c-c69575107258
+Spec:
+  Additional Scrape Configs:
+    Key:   additional-scrape-configs.yaml
+    Name:  monitoring-prometheus-oper-prometheus-scrape-confg
+  Alerting:
+    Alertmanagers:
+      API Version:   v2
+      Name:          monitoring-prometheus-oper-alertmanager
+      Namespace:     monitoring
+      Path Prefix:   /
+      Port:          web
+  Base Image:        quay.io/prometheus/prometheus
+  Enable Admin API:  false
+  External URL:      http://monitoring-prometheus-oper-prometheus.monitoring:9090
+  Listen Local:      false
+  Log Format:        logfmt
+  Log Level:         info
+  Paused:            false
+  Pod Monitor Namespace Selector:
+  Pod Monitor Selector:
+    Match Labels:
+      Release:   monitoring
+  Port Name:     web
+  Replicas:      1
+  Retention:     10d
+  Route Prefix:  /
+  Rule Namespace Selector:
+  Rule Selector:
+    Match Labels:
+      App:      prometheus-operator
+      Release:  monitoring
+  Security Context:
+    Fs Group:            2000
+    Run As Non Root:     true
+    Run As User:         1000
+  Service Account Name:  monitoring-prometheus-oper-prometheus
+  Service Monitor Namespace Selector:
+  Service Monitor Selector:
+    Match Labels:
+      Release:  monitoring                                                    <<<<<<<<<<<<<<<<<<<<<<<<<<<<<< matching des objects servicemonitor
+  Storage:
+    Volume Claim Template:
+      Spec:
+        Resources:
+          Requests:
+            Storage:  10Gi
+        Selector:
+          Match Labels:
+            App:  prometheus-operator-prometheus
+  Version:        v2.15.2
+Events:           <none>
+
+
+
+Notre  object servicemonitor devra impérativement comporter le label defini dans l'object prometheus 
+
+
+NB: une version du helm de prometheus-operator ( à partir de la version 9.2.x ) permet en principe de définir dans notre crd prometheus-operator un hash null dans la section servicemonitor selector : ce qui permet d'avoir la creation de servicemonitor créee automatiquement quelque soit leur label 
+on posera par exemple dans le fichier values de helm la conf suivante : 
+prometheus:
+  prometheusSpec:
+    serviceMonitorSelectorNilUsesHelmValues: false
+
+Les tests quelques jours après la sortie de l'appli ne montre pas cette option opérationnelle.
+
+
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+    app: prometheus-pve-exporter
+    exporter: proxmox
+    release: monitoring                  <<<< label obligatoire : c'est celui défini dans l'object prometheus qui va permettre de trigger la creation du servicemonitor dans la conf prometheus
+  name: prometheus-pve-exporter-metrics
+spec:
+  jobLabel: prometheus-pve-exporter
+  selector:
+    matchLabels:
+      exporter: proxmox                 <<<< ici on fait le match avec le label du service que l'on a crée auparavant 
+  namespaceSelector:
+    matchNames:
+    - monitoring
+  endpoints:
+    - port: pve-exporter
+      interval: 30s
+      scrapeTimeout: 10s
+      path: "/pve"
+      params:
+        target:
+        - 192.168.0.7
+        - 192.168.0.x
+      targetPort: pve-exporter
+      #relabelings:                        <<<< cette conf n'est pas prise en compte correctement en servicemonitor par l'object prometheus : elle est commentée et on va voir comment l'injecter dans la conf finale  
+      #- sourceLabels: [__address__]
+      #  targetLabel: __param_target
+      #- sourceLabels: [__param_target]
+      #  targetLabel: instance
+      #- targetLabel: __address__
+      #  replacement: 10.66.179.3:9221
+
+
+Cette conf est fonctionnelle mais pas vraiment exploitable dans prometheus et surtout dans grafana.
+Nous devons pouvoir récuperer la liste des targets et pouvoir réécrire le label de notre job afin de ne pas avoir nos trois pods en points d'entrée du check vai l'exporter proxmox : 
+La sortie visuelle de nos target s dans prometheus n'est pas efficace no exploitable : nous avons la liste de nos targets dans la sections endpoints et le nom de l'instance qui n'est pas bon 
+
+http://prometheus-pve-exporter-service:9221/pve
+
+module="default" target="192.168.0.7" target="192.168.0.x"   UP      instance="prometheus-pve-exporter-service:9221" job="pve-exporter"       27.753s ago     360.5ms
+
+nous voulons avoir un seul noeud dans la section endpoint et avoir le nom de l'instance qui matche notre target afin d'avoir un check qui porte bien sur chacun des hyperviseurs dont les métriques proviennent de l'exporter proxmox
+
+> Nous pouvons adopter une solution portant sur une entrée dns qui pointera sur chacun de nos hypervieurs 
+ex :
+
+proxmox-api.lapin.net  A 192.168.0.7
+proxmox-api.lapin.net  A 192.168.0.8
+
+nous aurons une conf de service monitor faisant pointer sur notre entrée dns :
+
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+    release: "monitoring"
+  name: prometheus-pve-exporter-metrics
+spec:
+  jobLabel: prometheus-pve-exporter
+  selector:
+    matchLabels:
+      exporter: proxmox
+  namespaceSelector:
+    matchNames:
+    - monitoring
+  endpoints:
+    - port: pve-exporter
+      interval: 30s
+      scrapeTimeout: 10s
+      path: "/pve"
+      params:
+        target:
+        - proxmox-api.lapin.net
+      targetPort: pve-exporter
+
+
+
+dans ce cas une seule source sera pollée et un roundrubin dns sera fait aleatoirement sur les serveurs definis dans le dns :
+
+on aura donc dans prometheus une target du type suivant :
+
+Endpoint	State	Labels	Last Scrape	Scrape Duration	Error
+http://10.66.179.44:9221/pve
+
+target="proxmox-api.lapin.net"	UP	endpoint="pve-exporter" instance="10.66.179.44:9221" job="proxmox-exporter-prometheus-service" namespace="monitoring" pod="proxmox-exporter-prometheus-5bcdfb7c84-2c2lx" service="proxmox-exporter-prometheus-service"	11.4s ago	434.4ms
+
+
+
+
+
+> Nous pouvons sinon, si nous voulons conserver tous les nodes en tant que targer dans notre hypervieur  essayer de réécrire les champs de nos targets pour avoir un affichage correct dans prometheus
+
+il va falloir injecter du relabelling prometheus pour cela nous devons modifier la config de l'operator prometheus :
+
+
+on va créer un fichier de conf contenant notre job :
+
+cat additional-scrape-configs.yaml                           
+# additional scrape config : raw form
+- job_name: 'pve-exporter'
+  static_configs:
+    - targets:
+      - 192.168.0.7  # Proxmox VE node.
+  metrics_path: /pve
+  params:
+    module: [default]
+  relabel_configs:
+    - source_labels: [__address__]
+      target_label: __param_target
+    - source_labels: [__param_target]
+      target_label: instance
+    - target_label: __address__
+      replacement: prometheus-pve-exporter-service:9221  # PVE exporter.
+
+
+de ce job on va créer un secret kube que l'on va nommer précisemment : "prometheus-operator-prometheus-scrape-confg" qui va contenir en clé le nom de notre conf de job additional-scrape-configs.yaml 
+Ceci est impératif : car seuls ces noms sont reconnus dans la conf du helm chart prometheus-operator 
+
+kubectl create secret generic prometheus-operator-prometheus-scrape-confg --from-file=additional-scrape-configs.yaml -oyaml > prometheus-operator-prometheus-scrape-confg.yaml
+
+On va maintenant dans notre chart prometheus-operator definir une section qui va pouvoir permettre d'integrer des conf de jobs externes au chart prometheus-operator : dans notre  cas c'est une conf issue du chart prometheus-proxmox-exporter 
+
+prometheus-operator:
+  prometheus:
+    prometheusSpec:
+      additionalScrapeConfigsExternal: true                       <<<<< en definissant cette conf : on va permettre aux conf externes de job prometheus externe au chart prometheus-operator d'être integrer à la conf global prometheus.yaml
+
+on a  donc dans notre cas la conf que l'on avait mis au prealable dans un servicemonitor qui là est injecter dans un secret et qui comporte les sections de relabellings nous permettant d'avoir une réécriture de label exploitable :
+
+cat additional-scrape-configs.yaml
+# additional scrape config : raw form
+- job_name: 'pve-exporter'
+  static_configs:
+    - targets:
+      - 192.168.0.7  # Proxmox VE node.
+     #- 192.168.0.X  # Proxmox VE node.
+  metrics_path: /pve
+  params:
+    module: [default]
+  relabel_configs:
+    - source_labels: [__address__]                   <<<< ici on va definir comme labels sources le nom de nos target ( ex : 192.168.0.7 )
+      target_label: __param_target
+    - source_labels: [__param_target]                <<<< ici on recupére le nom de notre target précedemment définie pour qu'elle corresponde au nom de l'instance 
+      target_label: instance
+    - target_label: __address__                      <<<< ici on va réecrire le label du check qui va être executé : 
+      replacement: prometheus-pve-exporter-service:9221  # PVE exporter.
+
+
+on aura bien dans notre cas l'excution du check suivant : l'exporter prometheus porté par notre service interrogera bien la target de notre cluster proxmox :
+prometheus-pve-exporter-service:9221/pve?target=192.168.0.7
+
+on a bien dans la console web prometheus les entrées qui nous interressent : une sonde par hyperviseur intérrogé par le proxmox exporter :
+
+pve-exporter (3/3 up) ￼show less
+Endpoint	State	Labels	Last Scrape	Scrape Duration	Error
+
+http://prometheus-pve-exporter-service:9221/pve
+module="default" target="192.168.0.7"	UP	instance="192.168.0.7" job="pve-exporter"	27.753s ago	360.5ms
+
+http://prometheus-pve-exporter-service:9221/pve
+module="default" target="192.168.0.x"	UP	instance="192.168.0.x" job="pve-exporter"	5.218s ago	382.3ms
+
+sans le relabellings nous aurions une conf erronnée :
+http://prometheus-pve-exporter-service:9221/pve
+
+module="default" target="192.168.0.7"   UP      instance="prometheus-pve-exporter-service:9221" job="pve-exporter"       27.753s ago     360.5ms
+
+
+/!\ A noter qu'une version plus recente de prometheus operator permet de definir le nom de la clé et du secret que l'on veut 
+
+
+
+>> une méthode alternative pour monitorer notre cluster proxmox via l'api va être de créer un second service couplé à un endpoint : c'est un service headless :
+et de faire pointer notre service monitor sur ce service headless : 
+notre service va permettre d'interroger des ressources hors cluster kube (nos hyperviseurs via une entrée dns générée par kube ) 
+
+
+on va créer un service headless :
+
+memo rapide du label de notre déployement : 
+proxmox-pve-exporter-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: proxmox-monitoring
+  namespace: monitoring
+  labels:
+    app: proxmox-monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: proxmox-monitoring        
+  template:
+    metadata:
+      labels:
+        app: proxmox-monitoring
+..---
+
+creation de notre service headless : 
+
+proxmox-pve-exporter-hypervisor-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: proxmox-monitoring-pve-exporter-hypervisor
+  namespace: monitoring
+spec:
+  clusterIP: None
+  ports:
+    - port: 9221
+      targetPort: pve-exporter
+      protocol: TCP
+      name: pve-exporter
+---
+
+
+on crée maintenant nos endpoints qui sont lié à notre service 
+
+proxmox-pve-exporter-hypervisor-endpoints.yaml
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: proxmox-monitoring-pve-exporter-hypervisor    <<<< le nom est ici identique au service : le matching entre les deux objects kube (service + endpoints ) se fait comme cela 
+  namespace: monitoring
+  labels:
+    app: prometheus-pve-exporter
+subsets:
+- addresses:
+    - ip: 192.168.0.7
+    - ip: 192.168.0.8
+  ports:
+  - name: pve-exporter
+    port: 9221
+    protocol: TCP
+---
+
+
+notre conf de servicemonitor :
+
+proxmox-pve-exporter-servicemonitor.yaml
+
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+    release: monitoring
+  name: proxmox-monitoring-pve-exporter-metrics
+spec:
+  jobLabel: prometheus-pve-exporter
+  selector:
+    matchLabels:
+      exporter: proxmox
+  namespaceSelector:
+    matchNames:
+    - monitoring
+  endpoints:
+    - port: pve-exporter
+      interval: 30s
+      scrapeTimeout: 10s
+      path: "/pve"
+      params:
+        target:
+        - proxmox-monitoring-pve-exporter-hypervisor    <<<<<< entrée dns qui va matcher sur notre service headless qui lui rediriger sur les hyperviseurs de notre cluster.
+      targetPort: pve-exporter
+
+on peut tester depuis un pod dans le même namespace ( on pourra interroger depuis le cluster entier en donnant le nome de service global proxmox-monitoring-pve-exporter-hypervisor.<namespace>.svc.cluster.local
+
+on a bien notre service classique qui va pointer sur le deployment de l'api proxmox et en argument une entrée dns (qui correspond au nom de service headless créee) qui pointe sur chacun des endpoints et repond en rundroubin aux requettes dns : 
+
+root@debian-pod:/# curl http://service_classique:9221/pve?target=service_headless 
+
+root@debian-pod:/# curl http://proxmox-monitoring-pve-exporter:9221/pve?target=proxmox-monitoring-pve-exporter-hypervisor |head
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100 34264  100 3# HELP pve_up Node/VM/CT-Status is online/running-:--:--     0
+4# TYPE pve_up gauge
+2pve_up{id="cluster/SiopsSandbox"} 1.0
+6pve_up{id="node/virt02u"} 1.0
+4pve_up{id="node/virt04u"} 1.0
+ pve_up{id="node/virt06u"} 1.0
+ pve_up{id="qemu/129"} 1.0
+ pve_up{id="qemu/127"} 1.0
+ pve_up{id="qemu/114"} 1.0
+0pve_up{id="qemu/123"} 1.0
+     0  93362      0 --:--:-- --:--:-- --:--:-- 93362
+(23) Failed writing body
+root@debian-pod:/#
+
+on voit depuis notre pod que la resolution dns de notre service headless porte sur les endpoints qui sont les hyperviseurs de notre cluster :
+root@debian-pod:/# nslookup -proxmox-monitoring-pve-exporter-hypervisor
+Server:		10.80.0.10
+Address:	10.80.0.10#53
+
+Name:	proxmox-monitoring-pve-exporter-hypervisor.monitoring.svc.cluster.local
+Address: 192.168.0.7
+Name:	proxmox-monitoring-pve-exporter-hypervisor.monitoring.svc.cluster.local
+Address: 192.168.0.8
+
+
+
+=== Dashboard grafana : =
+
+
+on va pouvoir lancer notre dashboard via le port-forward de kube 
+kctl port-forward monitoring-grafana-bbddddc6d-m4q5f 3000:3000                                              
+Forwarding from 127.0.0.1:3000 -> 3000
+
+on y accede avec les cred habituels ( admin / prom-operator ou admin /admin )
+en ouvrant un navigateur sur 127.0.0.1:3000
+
+
+
+on va pouvoir importer un dashboard trouvé sur le net deja concu dans notre instance grafana 
+
+on peut créer des variables qui serviront a générer dynamiquement les graphs
+ex: 
+Variables  
+
+nom de var : id 
+
+type Prometheus
+
+label_values(pve_node_info, id)
+Regex
+/(virt...)/
+
+filtrera sur :
+
+Preview of values
+virt02u
+virt04u
+virt06u
+
+
+
+

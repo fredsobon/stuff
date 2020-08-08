@@ -1,0 +1,104 @@
+=  Démystifier ENTRYPOINT et CMD dans Docker ==
+
+
+
+In a nutshell
+-> RUN executes command(s) in a new layer and creates a new image. E.g., it is often used for installing software packages.
+-> CMD sets default command and/or parameters, which can be overwritten from command line when docker container runs.
+-> ENTRYPOINT configures a container that will run as an executable.
+
+Règle générale
+Si vous devez retenir une leçon a, c’est la règle générale suivante : ENTRYPOINT+ CMD= arguments de la commande du conteneur par défaut
+Sous réserve de :
+
+Les deux sont séparément remplaçables au moment de l’exécution;
+L’un ou l’autre ou les deux peuvent être vides; et
+Par addition (+), nous entendons la concaténation des instructions ENTRYPOINT et CMD, respectivement, dans un contexte de liste (array).
+
+= Introduction rapide à Chamber
+Pour démontrer les avantages des ENTRYPOINTs, nous utilisons Chamber , un utilitaire open source qui alimente l’environnement du conteneur avec les valeurs trouvées dans AWS Systems Manager Parameter Store . Un appel typique de la commande est chamber exec production -- program pour extraire toutes les valeurs du Parameter Store dont la clef présente le préfixe /production, pour convertir les “/” des clés en undescore “_” et remplir les variables d’environnement avec les clés et les valeurs renvoyées.
+Par exemple, si dans le Parameter Store il y a une clé /production/mysql/password, Chamber définira la variable d’environnement MYSQL_PASSWORD avec la valeur sécurisée à l’intérieur.
+
+= Mise en pratique sur un exemple
+Commençons par un exemple. Voici un extrait de fichier de Dockerfile qui comporte à la fois un ENTRYPOINT et un CMD, tous deux spécifiés en tant que liste (array):
+
+ENTRYPOINT ["/bin/chamber", "exec", "production", "--"]
+CMD ["/bin/service", "-d"]
+
+En réunissant les commandes, les arguments par défaut du conteneur seront ["/bin/chamber","exec", "production", "--","/bin/service", "-d"].
+Cette liste se rapproche approximativement de la commande shell /bin/chamber exec production -- /bin/service -d. (En fait, cela concerne ce que font principalement les shells: ils prennent des “commandes” séparées par des espaces à l’invite, puis les transforment en liste d’arguments à transmettre à l’ appel système exec)
+
+Les arguments sont toujours des listes
+Il est important de comprendre que, dans un fichier Dockerfile, ENTRYPOINT,et CMD les entrées sont toujours convertis en listes, même si vous les déclarez en tant que chaînes de caractères. (Nous recommandons toujours de les déclarer comme liste, cependant, pour éviter toute ambiguïté.)
+Supposons que nous déclarions une instruction CMD qui démarre un serveur Web comme suit:
+
+CMD /usr/bin/httpd -DFOREGROUND
+
+Docker convertira automatiquement CMD en une liste ressemblant à ceci:
+
+["/bin/sh", "-c", "/usr/bin/httpd -DFOREGROUND"]
+
+L’entrée ENTRYPOINT fonctionne de la même manière.
+
+Ainsi, lorsque nous déclarons à la fois un ENTRYPOINT et une entrée CMD, et que ENTRYPOINT est declaré comme liste, les deux sont concaténées ensemble pour former une liste d’arguments par défaut, même si nous déclarons CMD comme chaîne de caractères.
+
+Voici un exemple qui illustre ce point. Si nous déclarons ce qui suit:
+
+ENTRYPOINT ["/bin/chamber", "exec", "production", "--"]
+CMD "/bin/service -d"
+
+La liste d’arguments par défaut sera ["/bin/chamber", "exec", "production", "--", "/bin/sh", "-c", "/bin/service -d"].
+
+Remarque: ENTRYPOINT et CMD ne peuvent pas être declarés en tant que chaîne de caractères ensemble. Ils peuvent tous deux être des listes, et ENTRYPOINT peut être une liste et CMD peut être une chaîne de caractères; mais si ENTRYPOINT est une chaîne de caractères, CMD sera ignoré. Ceci est une conséquence fâcheuse mais inévitable de la façon dont les chaînes d’arguments sont converties en listes. C’est l’une des raisons pour lesquelles nous recommandons toujours de spécifier des listes autant que possible.
+
+= CMD est simplement l’option par défaut
+La spécification CMD dans un Dockerfile simple crée une valeur par défaut: si nous passons des arguments sans option à docker run, ils écraseront la valeur CMD.
+Pour illustrer cela, supposons que nous ayons les éléments suivants Dockerfile et en créons une image appelée myservice:
+
+ENTRYPOINT ["/bin/chamber", "exec", "production", "--"]
+CMD ["/bin/service", "-d"]
+
+Si nous appelons docker runmyservice, le conteneur sera créé avec les arguments suivants:
+
+["/bin/chamber", "exec", "production", "--", "/bin/service", "-d"]
+
+Si nous appelons à la place docker run myservice /bin/debug, le conteneur sera créé avec les arguments suivants:
+
+["/bin/chamber", "exec", "production", "--", "/bin/debug"]
+
+Notez que CMD est entièrement remplacé – il n’est pas ajouté.
+
+= ENTRYPOINT est également remplaçable
+Nous pouvons aussi facilement remplacer l’entrée ENTRYPOINT déclarée dans un Dockerfile. Pour ce faire, nous spécifions l’argument --entrypoint lors de l’executiuon de la commande docker run. Supposons, comme précédemment, que nous ayons les éléments suivants Dockerfile et en créons une image appelée myservice:
+
+ENTRYPOINT ["/bin/chamber", "exec", "production", "--"]
+CMD ["/bin/service", "-d"]
+
+Maintenant, changeons l’ ENTRYPOINT en lançant cette commande: docker run --entrypoint /bin/logwrap myservice. Selon notre règle générale, la liste d’arguments suivante sera construite de la manière suivante :
+
+["/bin/logwrap", "/bin/service", "-d"]
+
+= Ignorer ENTRYPOINT et CMD
+Peut-on remplacer les deux ENTRYPOINT et CMD ? Certainement: docker run --entrypoint /bin/logwrap myservice /bin/service -e. Voici la liste des arguments correspondants – à ce stade, il ne devrait y avoir aucune surprise: ["/bin/logwrap", "/bin/service", "-e"]
+
+= Quand devrais-je utiliser ENTRYPOINT? Qu’en est-il de CMD?
+Supposons que nous construisons notre propre Dockerfile pour un projet. À ce stade, nous comprenons les mécanismes de fonctionnement des instructions ENTRYPOINT et CMD et comment ils fonctionnent ensemble pour construire une liste d’arguments par défaut pour un conteneur. Mais maintenant, nous devons savoir lequel choisir : quand est-il préférable d’utiliser ENTRYPOINT et quand est-il préférable d’utiliser CMD ?
+Le choix que vous faites est essentiellement “artistique” et dépendra beaucoup de votre cas d’utilisation. Notre expérience, cependant, est que l’entrée ENTRYPOINT convient à presque tous les cas que nous avons rencontrés. Considérez les cas d’utilisation suivants:
+
+-> Wrappers
+Certaines images contiennent un «wrapper» qui décore un programme existant ou le prépare autrement à une utilisation dans un environnement conteneurisé. Par exemple, supposons que votre service ait été écrit pour lire sa configuration à partir d’un fichier plutôt qu’à partir de variables d’environnement. Dans une telle situation, vous pouvez inclure un script d’encapsuleur qui génère le fichier de configuration de l’application à partir des variables d’environnement, puis lance l’application en appelant exec /path/to/app à la fin.
+Déclarer un pointeur ENTRYPOINT dans le wrapper est un excellent moyen de s’assurer que le wrapper est toujours exécuté, quels que soient les arguments passés docker run.
+
+-> Images à usage unique
+Si votre image est conçue pour ne faire qu’une chose – par exemple, exécuter un serveur Web – utilisez l’instruction ENTRYPOINT pour spécifier le chemin d’accès au fichier binaire du serveur et tous les arguments obligatoires. Un exemple classique est l’image nginx, dont le seul but est d’exécuter le serveur Web nginx. Cela se prête à une ligne de commande agréable et plus naturelle pour l’invocation: docker run nginx. Ensuite, vous pouvez ajouter des arguments de programme intuitivement sur la ligne de commande, par exemple docker run nginx -c /test.conf, comme vous le feriez si vous exécutiez nginx sans Docker.
+
+-> Images multi-mode
+Il s’agit également un modèle commun pour les images qui prennent en charge plusieurs « modes » d’utiliser le premier argument pour spécifier un verbe qui mappe au mode d’execution, par exemple shell, migrate ou debug. Pour de tels cas d’utilisation, nous recommandons de définir avec ENTRYPOINT le pointeur vers un script qui analyse l’argument et fait le bon choix en fonction de sa valeur:
+
+ENTRYPOINT ["/bin/parse_container_args"]
+
+Les arguments seront transmis au point d’entrée sur l’invocation avec ARGV[1..n], ou $1, $2, etc.
+
+Conclusion
+Docker dispose de fonctionnalités extrêmement puissantes et flexibles pour la création d’images, et il peut être difficile de décider exactement comment construire les arguments d’exécution par défaut d’un conteneur. Nous espérons que cet article a permis de clarifier le fonctionnement des mécanismes d’assemblage d’arguments et de les exploiter au mieux dans votre environnement.
+
