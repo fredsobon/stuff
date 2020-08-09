@@ -312,4 +312,686 @@ update members set first_name = 'Jean', last_name = 'Dupont';
 
 tous les users des colonnes prénom nom s'appelleront Jean Dupont.
 
+ex: dans la table film on veut definir tous les films avec comme id de langue 2 qui correspond a fr dans la table des languages et original_language_id a 1 (anglais) :
+
+MariaDB [udemy]> update film set language_id = 2 and original_language_id = 1;
+
+changer tous les noms de cinema par "CGR cinema" :
+MariaDB [udemy]> update cinema set name = "CGR CINEMA" ;
+
+= Delete :
+
+on va pouvoir purger des données d'une table :
+
+ex : ici on delete tous les champs de la table table :
+Delete  from table; ou  Delete * from table;
+
+on pourra seletionner finement ce que l'on veut delete avec le mot clé "where" 
+
+
+=== Types de données en sql :
+
+= numerique :
+
+- entier : 
+
+ont a 5 types qui vont permettre de stocker des valeurs de tailles différentes :
+
+TINYINT : 1 octet : valeur : 256 valeurs differents ( -127 à 128 )
+SMALLINT : 2 octet : -32.768  à + 32.768
+MEDIUMINT: : 3 octets : 
+INT: 4 octets : -2147483648 +2147483647
+BIGINT :  5 octets
+
+on a le type :
+SIGN ou UNSIGN 
+
+un unsign sera tjs positif suppérieur ou egal a 0
+ex: 
+TINYINT UNSIGNED aura comme valeur 0 à 255
+
+- Virgules :
+
+DECIMAL / NUMERIC : codé sur le nombre d'octet qu'on veut on le précise à la creation 
+DECIMAL(x,y) : x: nombre total de chiffre , y :nombre de chiffre apres la virgule.
+DECIMAL(4,3) : nombre de 4 chiffres dont 3 apres la virgule.
+Si on ne precise pas le second chiffre alors celui ci sera de base défini à 0 ..et on aura donc un nombre entier ..
+
+DECIMAL(4,2) aura donc comme valeur tout ce qui sera compri entre -99.99 et +99.99
+
+FLOAT : codé sur 4 octets
+DOUBLE : codé sur 8 octets.
+
+BOOLEAN : True /False
+Le 0 est considéré comme false .
+
+= Données textuelles :
+
+CHAR   / VARCHAR
+
+on précise dans tous les cas la valeur de stockage  que l'on veut donner 
+
+CHAR(5) : toutes les valeurs du champ prendront 5 octets (même s'i elles sont inférrieure à 5 ) : le champ est figé
+VARCHAR(5) : les valeurs pourront faire jusqu'a 5 octects 
+Attention VARCHAR prend un octet de plus pour son type à lui même 
+
+
+si on sait qu'on aura 3 caracteres par ex on settera donc un char
+pour un type de le nombre est inconnu on met un varchar
+
+
+- types :
+
+TINYTEXT : 2*8 octet
+TEXT : 2*16 octets max
+MEDIUMTEXT: 2*24
+LONGTEXT: 2*32
+
+
+un article de blog devrait tenir avec un TEXT
+
+= type exclusif a mysql :
+
+enum : liste de chaine de caractere possible 
+ex: enum(terre,soleil) : les titres de colonnes ne pourront etre que terre ou soleil 
+65534 choix possible
+set : on pourra avoir des combinaisons possibles :
+set(terre,soleil) : terre, /terre,soleil/ soleil 
+
+types pas recommandés car exclusifs à mysql : pb en cas de migration de sgbd.
+
+= données temporelles : =
+
+date : stocker une date : AAAA-MM-JJ
+time : HH:MM:SS
+datetime : AAAA-MM-JJ HH:MM:SS
+year : AAAA
+
+on a aussi le timestamp : nb de secondes ecoulé depuis le 1janvier 1970 mais pas en mysql 
+
+= Attributs :
+
+UNSIGNED
+SIGNED 
+ZEROFILL : 
+permet de tjs avoir le même nombre de chiffre dans une ligne en remplissant les chiffres manquants par un 0 si nécéssaire.
+ex :
+INT(4) ZEROFILL  : 2 -> 0002
+INT(4) ZEROFILL  : 14 -> 0014
+INT(4) ZEROFILL  : 1402 -> 1402
+
+AUTOINCREMENT : tres utilisé pour les id : on va incrementé de 1 les valeurs 
+/!\ attention si on delete un champ , et qu'on ajoute un nouveau champ : celui ci ne reprendra pas l'ancien id delete mais prendra le suivant dispo 
+AUTOINCREMENT est une variable dans la table.
+il n'y a jamais deux fois la même valeur dans la table.
+
+NOTNULL :précise que la valeur null dans un champ n'est pas autorisée. On est obligé d'avoir une valeur.
+VARCHAR(255) NOTNULL : on met forcement une chaine de caractere max de 255 caracteres.
+
+DEFAULT : permet de mettre une valeur par defaut si rien n'est saisi 
+VARCHAR(255) DEFAULT "toto" : on mettra par defaut toto dans le champ si rien n'est défini.
+
+
+
+== creation de conditions : ==
+
+WHERE :
+permet une selection des champ en fonction de criteres :
+
+ex: on renvoit toutes les lignes ou le prénom est égal à Jean 
+select * from members where first_name = "Jean" :
+
+fonctionne avec select, update, delete 
+
+Utilisation des operateurs :
+comparaison :
+= , != , > , < , >= , <= 
+logiques : permet de gérer les conditions entre elles 
+AND, OR , NOT
+
+ex: 
+MariaDB [udemy]> select * from film where budget > 0;
++---------+-----------------------+--------------------------------+--------------+-----------+-------------+----------------------+
+| film_id | name                  | distributor                    | running_time | budget    | language_id | original_language_id |
++---------+-----------------------+--------------------------------+--------------+-----------+-------------+----------------------+
+|       1 | Forrest Gump          | United International Pictures  |          140 |  55000000 |           2 |                    1 |
+|       2 | La Ligne verte        | United International Pictures  |          189 |  60000000 |           2 |                    1 |
+|       5 | Tu ne tueras point    | Metropolitan FilmExport        |          140 |  40000000 |           2 |                    1 |
+|       6 | La Liste de Schindler | United International Pictures  |          195 |  25000000 |           2 |                    1 |
+|       7 | Django Unchained      | Sony Pictures Releasing France |          164 | 100000000 |           2 |                    1 |
+|       8 | Le Parrain            | Paramount Pictures             |          175 |   6000000 |           2 |                    1 |
+|       9 | 12 hommes en colère   | Carlotta Films                 |           95 |    340000 |           2 |                    1 |
+|      10 | Gran Torino           | Warner Bros. France            |          111 |  33000000 |           2 |                    1 |
++---------+-----------------------+--------------------------------+--------------+-----------+-------------+----------------------+
+8 rows in set (0.001 sec)
+
+MariaDB [udemy]>
+
+MariaDB [udemy]> select * from film where running_time > 100 AND original_language_id =  1;
++---------+-----------------------+--------------------------------+--------------+-----------+-------------+----------------------+
+| film_id | name                  | distributor                    | running_time | budget    | language_id | original_language_id |
++---------+-----------------------+--------------------------------+--------------+-----------+-------------+----------------------+
+|       1 | Forrest Gump          | United International Pictures  |          140 |  55000000 |           2 |                    1 |
+|       2 | La Ligne verte        | United International Pictures  |          189 |  60000000 |           2 |                    1 |
+|       4 | Lion                  | SDN                            |          118 |         0 |           2 |                    1 |
+|       5 | Tu ne tueras point    | Metropolitan FilmExport        |          140 |  40000000 |           2 |                    1 |
+|       6 | La Liste de Schindler | United International Pictures  |          195 |  25000000 |           2 |                    1 |
+|       7 | Django Unchained      | Sony Pictures Releasing France |          164 | 100000000 |           2 |                    1 |
+|       8 | Le Parrain            | Paramount Pictures             |          175 |   6000000 |           2 |                    1 |
+|      10 | Gran Torino           | Warner Bros. France            |          111 |  33000000 |           2 |                    1 |
++---------+-----------------------+--------------------------------+--------------+-----------+-------------+----------------------+
+8 rows in set (0.001 sec)
+
+MariaDB [udemy]>
+
+
+MariaDB [udemy]> select * from film where running_time > 100 OR budget = 0;
++---------+-----------------------+--------------------------------+--------------+-----------+-------------+----------------------+
+| film_id | name                  | distributor                    | running_time | budget    | language_id | original_language_id |
++---------+-----------------------+--------------------------------+--------------+-----------+-------------+----------------------+
+|       1 | Forrest Gump          | United International Pictures  |          140 |  55000000 |           2 |                    1 |
+|       2 | La Ligne verte        | United International Pictures  |          189 |  60000000 |           2 |                    1 |
+|       3 | Your Name             | Eurozoom                       |          109 |         0 |           2 |                    9 |
+|       4 | Lion                  | SDN                            |          118 |         0 |           2 |                    1 |
+|       5 | Tu ne tueras point    | Metropolitan FilmExport        |          140 |  40000000 |           2 |                    1 |
+|       6 | La Liste de Schindler | United International Pictures  |          195 |  25000000 |           2 |                    1 |
+|       7 | Django Unchained      | Sony Pictures Releasing France |          164 | 100000000 |           2 |                    1 |
+|       8 | Le Parrain            | Paramount Pictures             |          175 |   6000000 |           2 |                    1 |
+|      10 | Gran Torino           | Warner Bros. France            |          111 |  33000000 |           2 |                    1 |
++---------+-----------------------+--------------------------------+--------------+-----------+-------------+----------------------+
+9 rows in set (0.001 sec)
+
+MariaDB [udemy]>
+
+
+MariaDB [udemy]> select * from film where running_time = 108 OR NOT budget = 0;
++---------+-----------------------+--------------------------------+--------------+-----------+-------------+----------------------+
+| film_id | name                  | distributor                    | running_time | budget    | language_id | original_language_id |
++---------+-----------------------+--------------------------------+--------------+-----------+-------------+----------------------+
+|       1 | Forrest Gump          | United International Pictures  |          140 |  55000000 |           2 |                    1 |
+|       2 | La Ligne verte        | United International Pictures  |          189 |  60000000 |           2 |                    1 |
+|       5 | Tu ne tueras point    | Metropolitan FilmExport        |          140 |  40000000 |           2 |                    1 |
+|       6 | La Liste de Schindler | United International Pictures  |          195 |  25000000 |           2 |                    1 |
+|       7 | Django Unchained      | Sony Pictures Releasing France |          164 | 100000000 |           2 |                    1 |
+|       8 | Le Parrain            | Paramount Pictures             |          175 |   6000000 |           2 |                    1 |
+|       9 | 12 hommes en colère   | Carlotta Films                 |           95 |    340000 |           2 |                    1 |
+|      10 | Gran Torino           | Warner Bros. France            |          111 |  33000000 |           2 |                    1 |
++---------+-----------------------+--------------------------------+--------------+-----------+-------------+----------------------+
+8 rows in set (0.001 sec)
+
+
+= IN :
+
+permet de remplacer une suite de OR dans un where 
+
+- selection des films avec un id 7 8 ou 9 : 
+
+MariaDB [udemy]> select * from film where film_id in (7,8,9);
++---------+----------------------+--------------------------------+--------------+-----------+-------------+----------------------+
+| film_id | name                 | distributor                    | running_time | budget    | language_id | original_language_id |
++---------+----------------------+--------------------------------+--------------+-----------+-------------+----------------------+
+|       7 | Django Unchained     | Sony Pictures Releasing France |          164 | 100000000 |           2 |                    1 |
+|       8 | Le Parrain           | Paramount Pictures             |          175 |   6000000 |           2 |                    1 |
+|       9 | 12 hommes en colère  | Carlotta Films                 |           95 |    340000 |           2 |                    1 |
++---------+----------------------+--------------------------------+--------------+-----------+-------------+----------------------+
+3 rows in set (0.001 sec)
+
+
+- selection des films dont l'id n'est pas 7 8 ou 9 : 
+
+MariaDB [udemy]> select * from film where not film_id in (7,8,9);
++---------+-----------------------+-------------------------------+--------------+----------+-------------+----------------------+
+| film_id | name                  | distributor                   | running_time | budget   | language_id | original_language_id |
++---------+-----------------------+-------------------------------+--------------+----------+-------------+----------------------+
+|       1 | Forrest Gump          | United International Pictures |          140 | 55000000 |           2 |                    1 |
+|       2 | La Ligne verte        | United International Pictures |          189 | 60000000 |           2 |                    1 |
+|       3 | Your Name             | Eurozoom                      |          109 |        0 |           2 |                    9 |
+|       4 | Lion                  | SDN                           |          118 |        0 |           2 |                    1 |
+|       5 | Tu ne tueras point    | Metropolitan FilmExport       |          140 | 40000000 |           2 |                    1 |
+|       6 | La Liste de Schindler | United International Pictures |          195 | 25000000 |           2 |                    1 |
+|      10 | Gran Torino           | Warner Bros. France           |          111 | 33000000 |           2 |                    1 |
++---------+-----------------------+-------------------------------+--------------+----------+-------------+----------------------+
+7 rows in set (0.001 sec)
+
+
+- on peut cumuler nos filtres de recherche :
+
+MariaDB [udemy]> select * from film where not film_id in (7,8,9) and distributor in ("Eurozoom");
++---------+-----------+-------------+--------------+--------+-------------+----------------------+
+| film_id | name      | distributor | running_time | budget | language_id | original_language_id |
++---------+-----------+-------------+--------------+--------+-------------+----------------------+
+|       3 | Your Name | Eurozoom    |          109 |      0 |           2 |                    9 |
++---------+-----------+-------------+--------------+--------+-------------+----------------------+
+1 row in set (0.001 sec)
+
+
+= BETWEEN :
+trouver des colonnes ayant des valeurs avec des intervals (qui sont pris en compte ) : peut etre utile pour les dates ou les nombres :
+
+- trouver les films ayant une durée comprise entre 100 et 120 minutes : 
+MariaDB [udemy]> select * from film where running_time between 100 AND 120 ;
++---------+-------------+---------------------+--------------+----------+-------------+----------------------+
+| film_id | name        | distributor         | running_time | budget   | language_id | original_language_id |
++---------+-------------+---------------------+--------------+----------+-------------+----------------------+
+|       3 | Your Name   | Eurozoom            |          109 |        0 |           2 |                    9 |
+|       4 | Lion        | SDN                 |          118 |        0 |           2 |                    1 |
+|      10 | Gran Torino | Warner Bros. France |          111 | 33000000 |           2 |                    1 |
++---------+-------------+---------------------+--------------+----------+-------------+----------------------+
+3 rows in set (0.001 sec)
+
+= ISNULL :
+
+va check que la valeur du champ est null :
+
+- check que la duree des films est bien renseignée :
+MariaDB [udemy]> select * from film where running_time is null ;
+Empty set (0.001 sec)
+
+aucune ligne retournée : tout est bien saisi.
+
+= IS NOT NULL : 
+
+on a donc aussi le is not null qui est l'inverse du is null :
+
+MariaDB [udemy]> select * from film where running_time is not  null ;
++---------+-----------------------+--------------------------------+--------------+-----------+-------------+----------------------+
+| film_id | name                  | distributor                    | running_time | budget    | language_id | original_language_id |
++---------+-----------------------+--------------------------------+--------------+-----------+-------------+----------------------+
+|       1 | Forrest Gump          | United International Pictures  |          140 |  55000000 |           2 |                    1 |
+|       2 | La Ligne verte        | United International Pictures  |          189 |  60000000 |           2 |                    1 |
+|       3 | Your Name             | Eurozoom                       |          109 |         0 |           2 |                    9 |
+|       4 | Lion                  | SDN                            |          118 |         0 |           2 |                    1 |
+|       5 | Tu ne tueras point    | Metropolitan FilmExport        |          140 |  40000000 |           2 |                    1 |
+|       6 | La Liste de Schindler | United International Pictures  |          195 |  25000000 |           2 |                    1 |
+|       7 | Django Unchained      | Sony Pictures Releasing France |          164 | 100000000 |           2 |                    1 |
+|       8 | Le Parrain            | Paramount Pictures             |          175 |   6000000 |           2 |                    1 |
+|       9 | 12 hommes en colère   | Carlotta Films                 |           95 |    340000 |           2 |                    1 |
+|      10 | Gran Torino           | Warner Bros. France            |          111 |  33000000 |           2 |                    1 |
++---------+-----------------------+--------------------------------+--------------+-----------+-------------+----------------------+
+10 rows in set (0.001 sec)
+
+
+ex:
+- liste de film dont la durée est comprise entre 100 et 140 min et dont le budget n'est pas null :
+
+MariaDB [udemy]> select * from film where running_time between 100 and 140 and budget is not null ;
++---------+--------------------+-------------------------------+--------------+----------+-------------+----------------------+
+| film_id | name               | distributor                   | running_time | budget   | language_id | original_language_id |
++---------+--------------------+-------------------------------+--------------+----------+-------------+----------------------+
+|       1 | Forrest Gump       | United International Pictures |          140 | 55000000 |           2 |                    1 |
+|       3 | Your Name          | Eurozoom                      |          109 |        0 |           2 |                    9 |
+|       4 | Lion               | SDN                           |          118 |        0 |           2 |                    1 |
+|       5 | Tu ne tueras point | Metropolitan FilmExport       |          140 | 40000000 |           2 |                    1 |
+|      10 | Gran Torino        | Warner Bros. France           |          111 | 33000000 |           2 |                    1 |
++---------+--------------------+-------------------------------+--------------+----------+-------------+----------------------+
+5 rows in set (0.001 sec)
+
+- changer le nombre de place dans la salle F ayant l'id 3 :
+
+
+MariaDB [udemy]> select * from room where name = "F" and cinema_id = 3;
++---------+------+---------------+-----------+
+| room_id | name | number_places | cinema_id |
++---------+------+---------------+-----------+
+|       6 | F    |            60 |         3 |
++---------+------+---------------+-----------+
+1 row in set (0.001 sec)
+
+MariaDB [udemy]> update room set number_places = 65  where name = "F" and cinema_id = 3;
+
+MariaDB [udemy]> select * from room where name = "F" and cinema_id = 3;
++---------+------+---------------+-----------+
+| room_id | name | number_places | cinema_id |
++---------+------+---------------+-----------+
+|       6 | F    |            65 |         3 |
++---------+------+---------------+-----------+
+1 row in set (0.000 sec)
+
+- Supprimer les cinémas des villes de colma et evry :
+
+MariaDB [udemy]> select * from cinema where city in ('Colmar','Evry');
++-----------+--------------+--------+--------------+
+| cinema_id | name         | city   | number_rooms |
++-----------+--------------+--------+--------------+
+|         4 | CGR CINÉMAS  | Evry   |            8 |
+|         8 | CGR CINÉMAS  | Colmar |            6 |
++-----------+--------------+--------+--------------+
+2 rows in set (0.001 sec)
+
+MariaDB [udemy]> delete from cinema where city in('Colmar','Evry');
+Query OK, 2 rows affected (0.010 sec)
+
+== creation d'alias : ==
+
+
+permet de renommer une colonnes pour permettre de requetter des colonnes.
+
+- ici on va créer un alias prenom sur la colonne first_name de la table members 
+select fisrt_name AS prenom from members;
+
+
+- ici on crée un alias doublure sur la colonne language_id :
+MariaDB [udemy]> select language_id as doublage from film;
++----------+
+| doublage |
++----------+
+|        2 |
+|        2 |
+|        2 |
+|        2 |
+|        2 |
+|        2 |
+|        2 |
+|        2 |
+|        2 |
+|        2 |
++----------+
+10 rows in set (0.001 sec)
+
+on est pas obligé de mettre le keyword as : de base sql comprend sans :
+ex :
+MariaDB [udemy]> select language_id doublage from film;
++----------+
+| doublage |
++----------+
+|        2 |
+|        2 |
+|        2 |
+|        2 |
+|        2 |
+|        2 |
+|        2 |
+|        2 |
+|        2 |
+|        2 |
++----------+
+10 rows in set (0.000 sec)
+
+
+on peut faire une colonne avec plusieurs :
+
+select col1*col2 AS col3 from table;
+
+MariaDB [udemy]> select language_id*original_language_id as lang from film;
++------+
+| lang |
++------+
+|    2 |
+|    2 |
+|   18 |
+|    2 |
+|    2 |
+|    2 |
+|    2 |
+|    2 |
+|    2 |
+|    2 |
++------+
+10 rows in set (0.001 sec)
+
+ex :
+on peut créer une colonne qui convertira le temps des films minutes en heures :
+
+MariaDB [udemy]> select running_time / 60 as hours from film;
++--------+
+| hours  |
++--------+
+| 2.3333 |
+| 3.1500 |
+| 1.8167 |
+| 1.9667 |
+| 2.3333 |
+| 3.2500 |
+| 2.7333 |
+| 2.9167 |
+| 1.5833 |
+| 1.8500 |
++--------+
+10 rows in set (0.001 sec)
+
+MariaDB [udemy]>
+
+= ORDER BY :
+
+permet de trier nos résultats 
+
+select * from table order by column ;
+
+MariaDB [udemy]> select * from film order by original_language_id ;
++---------+-----------------------+--------------------------------+--------------+-----------+-------------+----------------------+
+| film_id | name                  | distributor                    | running_time | budget    | language_id | original_language_id |
++---------+-----------------------+--------------------------------+--------------+-----------+-------------+----------------------+
+|       1 | Forrest Gump          | United International Pictures  |          140 |  55000000 |           2 |                    1 |
+|       2 | La Ligne verte        | United International Pictures  |          189 |  60000000 |           2 |                    1 |
+|       4 | Lion                  | SDN                            |          118 |         0 |           2 |                    1 |
+|       5 | Tu ne tueras point    | Metropolitan FilmExport        |          140 |  40000000 |           2 |                    1 |
+|       6 | La Liste de Schindler | United International Pictures  |          195 |  25000000 |           2 |                    1 |
+|       7 | Django Unchained      | Sony Pictures Releasing France |          164 | 100000000 |           2 |                    1 |
+|       8 | Le Parrain            | Paramount Pictures             |          175 |   6000000 |           2 |                    1 |
+|       9 | 12 hommes en colère   | Carlotta Films                 |           95 |    340000 |           2 |                    1 |
+|      10 | Gran Torino           | Warner Bros. France            |          111 |  33000000 |           2 |                    1 |
+|       3 | Your Name             | Eurozoom                       |          109 |         0 |           2 |                    9 |
++---------+-----------------------+--------------------------------+--------------+-----------+-------------+----------------------+
+10 rows in set (0.001 sec)
+
+on peut préciser l'ordre de tri :
+
+asc -> ascendant 
+desc -> descendant 
+
+
+MariaDB [udemy]> select * from film order by original_language_id asc;
++---------+-----------------------+--------------------------------+--------------+-----------+-------------+----------------------+
+| film_id | name                  | distributor                    | running_time | budget    | language_id | original_language_id |
++---------+-----------------------+--------------------------------+--------------+-----------+-------------+----------------------+
+|       1 | Forrest Gump          | United International Pictures  |          140 |  55000000 |           2 |                    1 |
+|       2 | La Ligne verte        | United International Pictures  |          189 |  60000000 |           2 |                    1 |
+|       4 | Lion                  | SDN                            |          118 |         0 |           2 |                    1 |
+|       5 | Tu ne tueras point    | Metropolitan FilmExport        |          140 |  40000000 |           2 |                    1 |
+|       6 | La Liste de Schindler | United International Pictures  |          195 |  25000000 |           2 |                    1 |
+|       7 | Django Unchained      | Sony Pictures Releasing France |          164 | 100000000 |           2 |                    1 |
+|       8 | Le Parrain            | Paramount Pictures             |          175 |   6000000 |           2 |                    1 |
+|       9 | 12 hommes en colère   | Carlotta Films                 |           95 |    340000 |           2 |                    1 |
+|      10 | Gran Torino           | Warner Bros. France            |          111 |  33000000 |           2 |                    1 |
+|       3 | Your Name             | Eurozoom                       |          109 |         0 |           2 |                    9 |
++---------+-----------------------+--------------------------------+--------------+-----------+-------------+----------------------+
+10 rows in set (0.001 sec)
+
+MariaDB [udemy]> select * from film order by original_language_id desc;
++---------+-----------------------+--------------------------------+--------------+-----------+-------------+----------------------+
+| film_id | name                  | distributor                    | running_time | budget    | language_id | original_language_id |
++---------+-----------------------+--------------------------------+--------------+-----------+-------------+----------------------+
+|       3 | Your Name             | Eurozoom                       |          109 |         0 |           2 |                    9 |
+|       1 | Forrest Gump          | United International Pictures  |          140 |  55000000 |           2 |                    1 |
+|       2 | La Ligne verte        | United International Pictures  |          189 |  60000000 |           2 |                    1 |
+|       4 | Lion                  | SDN                            |          118 |         0 |           2 |                    1 |
+|       5 | Tu ne tueras point    | Metropolitan FilmExport        |          140 |  40000000 |           2 |                    1 |
+|       6 | La Liste de Schindler | United International Pictures  |          195 |  25000000 |           2 |                    1 |
+|       7 | Django Unchained      | Sony Pictures Releasing France |          164 | 100000000 |           2 |                    1 |
+|       8 | Le Parrain            | Paramount Pictures             |          175 |   6000000 |           2 |                    1 |
+|       9 | 12 hommes en colère   | Carlotta Films                 |           95 |    340000 |           2 |                    1 |
+|      10 | Gran Torino           | Warner Bros. France            |          111 |  33000000 |           2 |                    1 |
++---------+-----------------------+--------------------------------+--------------+-----------+-------------+----------------------+
+10 rows in set (0.001 sec)
+
+MariaDB [udemy]>
+
+
+en cas de resultat identique dans notre tri , on peut ajouter une seconde colomne pour notre tri :
+ici on retri notre resultat precedant en prenant en compte la durée du film :
+
+
+MariaDB [udemy]> select * from film order by original_language_id, running_time desc ;
++---------+-----------------------+--------------------------------+--------------+-----------+-------------+----------------------+
+| film_id | name                  | distributor                    | running_time | budget    | language_id | original_language_id |
++---------+-----------------------+--------------------------------+--------------+-----------+-------------+----------------------+
+|       6 | La Liste de Schindler | United International Pictures  |          195 |  25000000 |           2 |                    1 |
+|       2 | La Ligne verte        | United International Pictures  |          189 |  60000000 |           2 |                    1 |
+|       8 | Le Parrain            | Paramount Pictures             |          175 |   6000000 |           2 |                    1 |
+|       7 | Django Unchained      | Sony Pictures Releasing France |          164 | 100000000 |           2 |                    1 |
+|       1 | Forrest Gump          | United International Pictures  |          140 |  55000000 |           2 |                    1 |
+|       5 | Tu ne tueras point    | Metropolitan FilmExport        |          140 |  40000000 |           2 |                    1 |
+|       4 | Lion                  | SDN                            |          118 |         0 |           2 |                    1 |
+|      10 | Gran Torino           | Warner Bros. France            |          111 |  33000000 |           2 |                    1 |
+|       9 | 12 hommes en colère   | Carlotta Films                 |           95 |    340000 |           2 |                    1 |
+|       3 | Your Name             | Eurozoom                       |          109 |         0 |           2 |                    9 |
++---------+-----------------------+--------------------------------+--------------+-----------+-------------+----------------------+
+10 rows in set (0.001 sec)
+
+= LIMIT :
+
+limiter la sortie de nos résultats :
+
+select * from table order by column limit number; 
+
+on va afficher 10 lignes de résultat de recherche des prénoms de notre table : 
+select * from member order by first_name limit 10;
+
+
+- affichage de 3 films filtrés par durée :
+
+MariaDB [udemy]> select * from film order by running_time limit 3;
++---------+----------------------+---------------------+--------------+----------+-------------+----------------------+
+| film_id | name                 | distributor         | running_time | budget   | language_id | original_language_id |
++---------+----------------------+---------------------+--------------+----------+-------------+----------------------+
+|       9 | 12 hommes en colère  | Carlotta Films      |           95 |   340000 |           2 |                    1 |
+|       3 | Your Name            | Eurozoom            |          109 |        0 |           2 |                    9 |
+|      10 | Gran Torino          | Warner Bros. France |          111 | 33000000 |           2 |                    1 |
++---------+----------------------+---------------------+--------------+----------+-------------+----------------------+
+3 rows in set (0.001 sec)
+
+MariaDB [udemy]>
+
+
+la même chose avec les durée décroissantes :
+MariaDB [udemy]> select * from film order by running_time desc limit 3  ;
++---------+-----------------------+-------------------------------+--------------+----------+-------------+----------------------+
+| film_id | name                  | distributor                   | running_time | budget   | language_id | original_language_id |
++---------+-----------------------+-------------------------------+--------------+----------+-------------+----------------------+
+|       6 | La Liste de Schindler | United International Pictures |          195 | 25000000 |           2 |                    1 |
+|       2 | La Ligne verte        | United International Pictures |          189 | 60000000 |           2 |                    1 |
+|       8 | Le Parrain            | Paramount Pictures            |          175 |  6000000 |           2 |                    1 |
++---------+-----------------------+-------------------------------+--------------+----------+-------------+----------------------+
+3 rows in set (0.001 sec)
+
+on peut ajouter un index dans notre limit :
+on aura donc le premier chiffre qui correspond a l'index dans la table et le second qui correspond au nombre de ligne de résultat retourné :
+limit 5,10 
+
+ex :
+MariaDB [udemy]> select * from film ;
++---------+-----------------------+--------------------------------+--------------+-----------+-------------+----------------------+
+| film_id | name                  | distributor                    | running_time | budget    | language_id | original_language_id |
++---------+-----------------------+--------------------------------+--------------+-----------+-------------+----------------------+
+|       1 | Forrest Gump          | United International Pictures  |          140 |  55000000 |           2 |                    1 |
+|       2 | La Ligne verte        | United International Pictures  |          189 |  60000000 |           2 |                    1 |
+|       3 | Your Name             | Eurozoom                       |          109 |         0 |           2 |                    9 |
+|       4 | Lion                  | SDN                            |          118 |         0 |           2 |                    1 |
+|       5 | Tu ne tueras point    | Metropolitan FilmExport        |          140 |  40000000 |           2 |                    1 |
+|       6 | La Liste de Schindler | United International Pictures  |          195 |  25000000 |           2 |                    1 |
+|       7 | Django Unchained      | Sony Pictures Releasing France |          164 | 100000000 |           2 |                    1 |
+|       8 | Le Parrain            | Paramount Pictures             |          175 |   6000000 |           2 |                    1 |
+|       9 | 12 hommes en colère   | Carlotta Films                 |           95 |    340000 |           2 |                    1 |
+|      10 | Gran Torino           | Warner Bros. France            |          111 |  33000000 |           2 |                    1 |
++---------+-----------------------+--------------------------------+--------------+-----------+-------------+----------------------+
+10 rows in set (0.001 sec)
+
+MariaDB [udemy]> select * from film order by film_id limit 0,2;
++---------+----------------+-------------------------------+--------------+----------+-------------+----------------------+
+| film_id | name           | distributor                   | running_time | budget   | language_id | original_language_id |
++---------+----------------+-------------------------------+--------------+----------+-------------+----------------------+
+|       1 | Forrest Gump   | United International Pictures |          140 | 55000000 |           2 |                    1 |
+|       2 | La Ligne verte | United International Pictures |          189 | 60000000 |           2 |                    1 |
++---------+----------------+-------------------------------+--------------+----------+-------------+----------------------+
+2 rows in set (0.001 sec)
+
+MariaDB [udemy]> select * from film order by film_id limit 1,2;
++---------+----------------+-------------------------------+--------------+----------+-------------+----------------------+
+| film_id | name           | distributor                   | running_time | budget   | language_id | original_language_id |
++---------+----------------+-------------------------------+--------------+----------+-------------+----------------------+
+|       2 | La Ligne verte | United International Pictures |          189 | 60000000 |           2 |                    1 |
+|       3 | Your Name      | Eurozoom                      |          109 |        0 |           2 |                    9 |
++---------+----------------+-------------------------------+--------------+----------+-------------+----------------------+
+2 rows in set (0.001 sec)
+
+MariaDB [udemy]>
+
+
+- Tri des deux films au plus gros budget :
+MariaDB [udemy]> select * from film order by budget desc limit 2;
++---------+------------------+--------------------------------+--------------+-----------+-------------+----------------------+
+| film_id | name             | distributor                    | running_time | budget    | language_id | original_language_id |
++---------+------------------+--------------------------------+--------------+-----------+-------------+----------------------+
+|       7 | Django Unchained | Sony Pictures Releasing France |          164 | 100000000 |           2 |                    1 |
+|       2 | La Ligne verte   | United International Pictures  |          189 |  60000000 |           2 |                    1 |
++---------+------------------+--------------------------------+--------------+-----------+-------------+----------------------+
+2 rows in set (0.001 sec)
+
+MariaDB [udemy]>
+
+ si on commence à l'index 1 ( deuxieme ligne) on aura donc le film suivant qui apparaitra :
+ MariaDB [udemy]> select * from film order by budget desc limit 1,2;
++---------+----------------+-------------------------------+--------------+----------+-------------+----------------------+
+| film_id | name           | distributor                   | running_time | budget   | language_id | original_language_id |
++---------+----------------+-------------------------------+--------------+----------+-------------+----------------------+
+|       2 | La Ligne verte | United International Pictures |          189 | 60000000 |           2 |                    1 |
+|       1 | Forrest Gump   | United International Pictures |          140 | 55000000 |           2 |                    1 |
++---------+----------------+-------------------------------+--------------+----------+-------------+----------------------+
+2 rows in set (0.001 sec)
+
+MariaDB [udemy]>
+
+
+ex: 
+
+trier la liste des langues par ordre alphabetique :
+
+
+MariaDB [udemy]> select * from language order by Name;
++-------------+------------+
+| language_id | name       |
++-------------+------------+
+|           3 | Arabic     |
+|          10 | Chinese    |
+|           1 | English    |
+|           2 | French     |
+|           7 | German     |
+|           8 | Italian    |
+|           9 | Japanese   |
+|          11 | Korean     |
+|          12 | Persian    |
+|           5 | Portuguese |
+|           6 | Russian    |
+|           4 | Spanish    |
+|          13 | Vietnamese |
++-------------+------------+
+13 rows in set (0.001 sec)
+
+
+-recup le film avec le plus gros budget :
+MariaDB [udemy]> select * from film order by budget desc limit 1;
++---------+------------------+--------------------------------+--------------+-----------+-------------+----------------------+
+| film_id | name             | distributor                    | running_time | budget    | language_id | original_language_id |
++---------+------------------+--------------------------------+--------------+-----------+-------------+----------------------+
+|       7 | Django Unchained | Sony Pictures Releasing France |          164 | 100000000 |           2 |                    1 |
++---------+------------------+--------------------------------+--------------+-----------+-------------+----------------------+
+1 row in set (0.001 sec)
+
+MariaDB [udemy]>
+
+- trouver le 4 film le plus long :
+MariaDB [udemy]> select * from film order by running_time desc limit 3,1;
++---------+------------------+--------------------------------+--------------+-----------+-------------+----------------------+
+| film_id | name             | distributor                    | running_time | budget    | language_id | original_language_id |
++---------+------------------+--------------------------------+--------------+-----------+-------------+----------------------+
+|       7 | Django Unchained | Sony Pictures Releasing France |          164 | 100000000 |           2 |                    1 |
++---------+------------------+--------------------------------+--------------+-----------+-------------+----------------------+
+1 row in set (0.001 sec)
+
+MariaDB [udemy]>
+
+
+
+
+
 
