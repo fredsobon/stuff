@@ -65,4 +65,251 @@ MariaDB [(none)]> show databases;
 MariaDB [(none)]>
 
 
+creation depuis phpmyadmin :
+
+base udemy type utf8_bin
+
+on va importer un shema de bdd deja fait (udemy-sql.sql ) cf dir 
+bdd de cinema gestion de films ,cine etc ..
+
+id : est l'unicité d'une données.
+l'id est quelque chose d'unique dans une table.
+
+= select/insert/update/delete :
+
+requettes les plus utilisées.
+
+- select :
+on va pouvoir selectionner les colonnes que l'on veut dans une table.
+
+ex: 
+select id,first_name from members renvoit toutes les colonnes id et first_name de la table members.
+select * from members : on selectionne toutes les colonnes de la tables members.
+select distinct first_name from members : on peut avoir plusieurs personnes qui ont le prénom Jean : avec le keyword distinct on ne prendra que la premiere entrée trouvée dans la table. Cela permet d'avoir des données uniques sur les lignes.
+
+SELECT name, city FROM `cinema`
+
+ex : requettes :
+
+pour mémo on interroge avec phpmyadmin ou client mysql : 
+
+boogie@boogie-stuff  ~/Documents/learn/bdd/sql-pour-le-web  sudo /opt/lampp/bin/mysql                                           (⎈ b-k:monitoring)
+[sudo] password for boogie:
+Welcome to the MariaDB monitor.  Commands end with ; or \g.
+Your MariaDB connection id is 69
+Server version: 10.4.13-MariaDB Source distribution
+
+Copyright (c) 2000, 2018, Oracle, MariaDB Corporation Ab and others.
+
+Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.
+
+- on examine les dbs :
+
+MariaDB [(none)]> show databases;
++--------------------+
+| Database           |
++--------------------+
+| information_schema |
+| mysql              |
+| performance_schema |
+| phpmyadmin         |
+| test               |
+| udemy              |
++--------------------+
+6 rows in set (0.001 sec)
+
+- on selectionne la db udemy :
+
+MariaDB [(none)]> use udemy;
+Reading table information for completion of table and column names
+You can turn off this feature to get a quicker startup with -A
+
+Database changed
+
+
+- on examine les tables :
+
+MariaDB [udemy]> show tables;
++-----------------+
+| Tables_in_udemy |
++-----------------+
+| cinema          |
+| diffusion       |
+| film            |
+| language        |
+| room            |
++-----------------+
+5 rows in set (0.001 sec)
+
+
+- on fait une description de la table cinema : on recupere le nom des colonnes :
+
+MariaDB [udemy]> desc cinema;
++--------------+--------------+------+-----+---------+----------------+
+| Field        | Type         | Null | Key | Default | Extra          |
++--------------+--------------+------+-----+---------+----------------+
+| cinema_id    | int(11)      | NO   | PRI | NULL    | auto_increment |
+| name         | varchar(255) | NO   |     | NULL    |                |
+| city         | varchar(255) | NO   |     | NULL    |                |
+| number_rooms | int(11)      | NO   |     | NULL    |                |
++--------------+--------------+------+-----+---------+----------------+
+4 rows in set (0.002 sec)
+
+
+- selection des cinéma par leur nom et villes :
+
+MariaDB [udemy]> select name, city from cinema;
++--------------+------------------+
+| name         | city             |
++--------------+------------------+
+| CGR CINÉMAS  | Bordeaux         |
+| CGR CINÉMAS  | Evry             |
+| CGR CINÉMAS  | La Rochelle      |
+| CGR CINÉMAS  | Clermont-Ferrand |
+| CGR CINÉMAS  | Troyes           |
+| CGR CINÉMAS  | Colmar           |
+| CGR CINÉMAS  | Auxerre          |
+| CGR CINÉMAS  | Narbonne         |
+| MÉGARAMA     | Boulogne sur Mer |
+| MÉGARAMA     | Bordeaux         |
+| MÉGARAMA     | Montpellier      |
+| MÉGARAMA     | Quimper          |
+| MÉGARAMA     | Besançon         |
+| MÉGARAMA     | Audincourt       |
++--------------+------------------+
+14 rows in set (0.001 sec)
+
+
+- pour recupérer la liste des noms uniques de cinema :
+
+MariaDB [udemy]> select distinct name from cinema;
++--------------+
+| name         |
++--------------+
+| CGR CINÉMAS  |
+| MÉGARAMA     |
++--------------+
+
+
+= Ajout de données : insert into .. values :
+
+insert into <table> values <value1, value2 ..> 
+
+ex : table members avec comme colonne id, nom, prenom 
+
+insert into members values(77,'Bob', 'Eponge')
+
+il est possible de ne remplir que certaines colonnes : il faut les selectionner :
+insert into members(first_name,name) values('Bob', 'Eponge') ( dans cet exmple on ne remplit pas le champ id : qui sera donc à null (sauf si certains params sont indiqués dans la conf ..) 
+
+
+on peut ajouter plusieurs valeurs en une requette : en séparant les values par une "," 
+
+insert into members values(77,'Bob', 'Eponge'), (78,'Bab', 'Esponges'), (79, 'Bib', 'Espongitos')
+
+ex: pour table udemy :
+
+MariaDB [udemy]> select * from cinema;
++-----------+--------------+------------------+--------------+
+| cinema_id | name         | city             | number_rooms |
++-----------+--------------+------------------+--------------+
+...
+.....
+|        18 | MÉGARAMA     | Audincourt       |            4 |
++-----------+--------------+------------------+--------------+
+
+on ajoute un nouveau cinema :
+
+MariaDB [udemy]> insert into cinema values(19,'CGR','Paris',10);
+
+on controle et c'est ok :
+..
+|        18 | MÉGARAMA     | Audincourt       |            4 |
+|        19 | CGR          | Paris            |           10 |
++-----------+--------------+------------------+--------------+
+15 rows in set (0.001 sec)
+si on essaye de nouveau d'ecrire la même requette on a une erreur :
+
+MariaDB [udemy]> insert into cinema values(19,'CGR','Paris',10);
+ERROR 1062 (23000): Duplicate entry '19' for key 'PRIMARY'
+
+
+on peut delete notre entrée :
+
+MariaDB [udemy]> delete from cinema where cinema_id = 19;
+Query OK, 1 row affected (0.012 sec)
+
+
+exo:
+
+- ajouter dans la table cinema un cinema sa ville et le nombre de salles 
+
+MariaDB [udemy]> insert into cinema(name,city,number_rooms) values('Mégarama','Paris',10);
+
+on voit que dans la table udemy l'id est incrémenté automatiquement 
+
+
+|        20 | Mégarama     | Paris            |           10 |
++-----------+--------------+------------------+--------------+
+
+- ajouter deux langues en une seule requete :
+
+
+MariaDB [udemy]> show tables;
++-----------------+
+| Tables_in_udemy |
++-----------------+
+| cinema          |
+| diffusion       |
+| film            |
+| language        |
+| room            |
++-----------------+
+5 rows in set (0.001 sec)
+
+MariaDB [udemy]> desc language;
++-------------+--------------+------+-----+---------+----------------+
+| Field       | Type         | Null | Key | Default | Extra          |
++-------------+--------------+------+-----+---------+----------------+
+| language_id | int(11)      | NO   | PRI | NULL    | auto_increment |
+| name        | varchar(255) | NO   |     | NULL    |                |
++-------------+--------------+------+-----+---------+----------------+
+2 rows in set (0.003 sec)
+
+MariaDB [udemy]> insert into language(name) values('Persian'), ('Vietnamese');
+
+MariaDB [udemy]> select * from language;
++-------------+------------+
+| language_id | name       |
++-------------+------------+
+|           1 | English    |
+|           2 | French     |
+|           3 | Arabic     |
+|           4 | Spanish    |
+|           5 | Portuguese |
+|           6 | Russian    |
+|           7 | German     |
+|           8 | Italian    |
+|           9 | Japanese   |
+|          10 | Chinese    |
+|          11 | Korean     |
+|          12 | Persian    |
+|          13 | Vietnamese |
++-------------+------------+
+13 rows in set (0.001 sec)
+
+= update :
+
+modification de valeur dans colonne de table 
+update <table> set <column_number> = <value_x>
+
+ex:  remplir une colonne prénoms uniquement avec le prénom Jean 
+update members set first_name = 'Jean'; 
+
+on peut changer plusieurs colonnes à la fois :
+
+update members set first_name = 'Jean', last_name = 'Dupont'; 
+
+tous les users des colonnes prénom nom s'appelleront Jean Dupont.
+
 
