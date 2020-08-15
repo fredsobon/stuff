@@ -990,8 +990,172 @@ MariaDB [udemy]> select * from film order by running_time desc limit 3,1;
 
 MariaDB [udemy]>
 
+= Fonctions : =
+
+les fonctions vont permettre de prendre en compte plusieurs lignes pour faire des statistiques.
+
+count() : compte le nombre de ligne
+avg() : fait la moyenne
+sum() : fait la somme
+min() : envoie le plus petit
+max() : envoie le plus grand.
+
+select fonction(colonne) from table;
+
+- count : avec count on peut mettre un "*" car on prend tous les champs.
+select count(*) as total from members;
+
+- avg : on identifie la moyenne ( ex : ici moyenne d'age des membre d'une table.) 
+select avg(age) as moyenne from members;
+
+on peut faire des selection multiples :
+ici on recup la date la plus petite d'enregistrement d'un membre et son id. 
+ex : select id, min(register_date) from members 
+ex: ici on va recup le nombre de prenom unique de notre table :
+select count(distinct(first_name) from members ;
+
+MariaDB [udemy]> select count(distinct distributor) from film;
+exo :
+- trouver le nombre de salle max par cinema
+MariaDB [udemy]> select max(number_rooms) as salles from cinema;
+- trouver la moyenne de la durée des films et la moyenne de budget de film :
+MariaDB [udemy]> select avg(running_time), avg(budget) from film;
++-------------------+---------------+
+| avg(running_time) | avg(budget)   |
++-------------------+---------------+
+|          143.6000 | 31934000.0000 |
++-------------------+---------------+
+- trouver le nombre de ville ayant un cinema :
+
+MariaDB [udemy]> select count(distinct city) from cinema;
++----------------------+
+| count(distinct city) |
++----------------------+
+|                   12 |
++----------------------+
+1 row in set (0.001 sec)
 
 
+== requettes avancees : ==
+
+join / union / exist 
+
+
+- jointure :
+
+va nous permettre en une requette sql de recupérer des valeurs de plusieurs tables différentes.
+
+inner join : va permettre de recupérer les elements ayant des points communs à deux tables 
+left join : permet de recup les elements de toute une table (celle de gauche et recupérer les élements commun de cette table avec la seconde table )
+right join : permet de recup les elements de toute une table (celle de droite et recupérer les élements commun de cette table avec la seconde table )
+
+
+- inner join :
+
+select * from table1 inner join table2 on table1.colonne = table2.colonne
+
+select * from purchases inner join members on purshases.member_id = members.id 
+
+on va souvent utiliser les alias pour les jointures afin de faciliter les requettes :
+
+select * from table1 as t1 inner join table2 as t2  on t1.colonne = t2.colonne
+
+select p.*, register_id from purchases as p inner join members as m  on p.member_id = m.id 
+
+- left join :
+
+select * from table1 as t1 left join table2 as t2 on t1.colonne = t2.colonne
+
+select m.id, p.id from members as m left join purchases as p on m.id = p.member_id 
+
+
+- right join : 
+
+select * from table1 as t1 right join table2 as t2 on t1.colonne = t2.colonne
+
+select m.id, p.id from members as m right join purchases as p on m.id = p.member_id 
+
+ex: on va pouvoir faire le lien entre deux tables 
+
+MariaDB [udemy]> desc room;
++---------------+--------------+------+-----+---------+----------------+
+| Field         | Type         | Null | Key | Default | Extra          |
++---------------+--------------+------+-----+---------+----------------+
+| room_id       | int(11)      | NO   | PRI | NULL    | auto_increment |
+| name          | varchar(255) | NO   |     | NULL    |                |
+| number_places | int(11)      | NO   |     | NULL    |                |
+| cinema_id     | int(11)      | NO   |     | NULL    |                |
++---------------+--------------+------+-----+---------+----------------+
+4 rows in set (0.002 sec)
+MariaDB [udemy]> desc cinema;
++--------------+--------------+------+-----+---------+----------------+
+| Field        | Type         | Null | Key | Default | Extra          |
++--------------+--------------+------+-----+---------+----------------+
+| cinema_id    | int(11)      | NO   | PRI | NULL    | auto_increment |
+| name         | varchar(255) | NO   |     | NULL    |                |
+| city         | varchar(255) | NO   |     | NULL    |                |
+| number_rooms | int(11)      | NO   |     | NULL    |                |
++--------------+--------------+------+-----+---------+----------------+
+4 rows in set (0.002 sec)
+
+MariaDB [udemy]> select * from room limit 3;
++---------+------+---------------+-----------+
+| room_id | name | number_places | cinema_id |
++---------+------+---------------+-----------+
+|       1 | A    |           100 |         3 |
+|       2 | B    |            60 |         3 |
+|       3 | C    |            70 |         3 |
++---------+------+---------------+-----------+
+3 rows in set (0.001 sec)
+
+MariaDB [udemy]> select * from cinema limit 3;
++-----------+--------------+------------------+--------------+
+| cinema_id | name         | city             | number_rooms |
++-----------+--------------+------------------+--------------+
+|         3 | CGR CINÉMAS  | Bordeaux         |           10 |
+|         5 | CGR CINÉMAS  | La Rochelle      |            6 |
+|         6 | CGR CINÉMAS  | Clermont-Ferrand |            7 |
++-----------+--------------+------------------+--------------+
+3 rows in set (0.001 sec)
+
+MariaDB [udemy]> 
+
+
+on peut donc sortir la liste des cinema_id présents dans la table room et cinema: ici le nom de la colonne est identique mais ce nom peut être différent :
+
+on fait notre requette et on voit qu'on a toutes les valeurs de la table room et de la table cinema puisqu'on a fait une requette sur *  
+
+
+MariaDB [udemy]> select * from room as r inner join cinema as c on r.cinema_id = c.cinema_id;
++---------+------+---------------+-----------+-----------+--------------+------------------+--------------+
+| room_id | name | number_places | cinema_id | cinema_id | name         | city             | number_rooms |
++---------+------+---------------+-----------+-----------+--------------+------------------+--------------+
+|       1 | A    |           100 |         3 |         3 | CGR CINÉMAS  | Bordeaux         |           10 |
+|       2 | B    |            60 |         3 |         3 | CGR CINÉMAS  | Bordeaux         |           10 |
+|       3 | C    |            70 |         3 |         3 | CGR CINÉMAS  | Bordeaux         |           10 |
+      ......
+      ........
+       89 | C    |            45 |        18 |        18 | MÉGARAMA     | Audincourt       |            4 |
+|      90 | D    |            45 |        18 |        18 | MÉGARAMA     | Audincourt       |            4 |
++---------+------+---------------+-----------+-----------+--------------+------------------+--------------+
+72 rows in set (0.002 sec)
+
+on peut affiner nos requettes :
+ex on peut prendre toutes les lignes de la table room mais uniquement les colonnes de nom et de ville.
+
+MariaDB [udemy]> select r.*, c.name, c.city from room as r inner join cinema as c on r.cinema_id = c.cinema_id limit 3;
++---------+------+---------------+-----------+--------------+----------+
+| room_id | name | number_places | cinema_id | name         | city     |
++---------+------+---------------+-----------+--------------+----------+
+|       1 | A    |           100 |         3 | CGR CINÉMAS  | Bordeaux |
+|       2 | B    |            60 |         3 | CGR CINÉMAS  | Bordeaux |
+|       3 | C    |            70 |         3 | CGR CINÉMAS  | Bordeaux |
++---------+------+---------------+-----------+--------------+----------+
+3 rows in set (0.001 sec)
+
+MariaDB [udemy]>
+
+- left join :
 
 
 
