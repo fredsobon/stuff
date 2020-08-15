@@ -1,0 +1,256 @@
+=== sheatcheet sql : ===
+
+
+ex :on a une bdd mysql qu'on va selectionner et interroger , modifier , supprimer des éléments dans des tables :
+
+mysql : connexion a notre db
+show databases; liste des db
+use ma_db; selection de la db sur laquelle on veut travailler.
+show tables; liste des tables de notre db
+desc ma_table; description de la table
+
+= select : =
+
+
+ex: - on fait une description de la table cinema : on recupere le nom des colo
+nnes :
+
+MariaDB [udemy]> desc cinema;
++--------------+--------------+------+-----+---------+----------------+
+| Field        | Type         | Null | Key | Default | Extra          |
++--------------+--------------+------+-----+---------+----------------+
+| cinema_id    | int(11)      | NO   | PRI | NULL    | auto_increment |
+| name         | varchar(255) | NO   |     | NULL    |                |
+| city         | varchar(255) | NO   |     | NULL    |                |
+| number_rooms | int(11)      | NO   |     | NULL    |                |
++--------------+--------------+------+-----+---------+----------------+
+4 rows in set (0.002 sec)
+
+- selection des cinéma par leur nom et villes :
+
+MariaDB [udemy]> select name, city from cinema;
+
+- pour recupérer la liste des noms uniques de cinema :
+
+MariaDB [udemy]> select distinct name from cinema;
+
+
+= insert : =
+
+
+insert into <table> values <value1, value2 ..>
+
+ex : table members avec comme colonne id, nom, prenom
+
+insert into members values(77,'Bob', 'Eponge')
+
+il est possible de ne remplir que certaines colonnes : il faut les selectionner :
+
+insert into members(first_name,name) values('Bob', 'Eponge') ( dans cet exmple on ne remplit pas le champ id : qui sera donc à null (sauf si certains params sont indiqués dans la conf ..)
+
+
+
+on peut ajouter plusieurs valeurs en une requette : en séparant les values par une ","
+
+insert into members values(77,'Bob', 'Eponge'), (78,'Bab', 'Esponges'), (79, 'Bib', 'Espongitos')
+
+
+MariaDB [udemy]> insert into cinema values(19,'CGR','Paris',10);
+
+
+insert multiples dans un champ :
+
+MariaDB [udemy]> insert into language(name) values('Persian'), ('Vietnamese');
+
+
+= update : =
+
+modification de valeur dans colonne de table
+update <table> set <column_number> = <value_x>
+
+ex:  remplir une colonne prénoms uniquement avec le prénom Jean
+update members set first_name = 'Jean';
+
+on peut changer plusieurs colonnes à la fois :
+
+update members set first_name = 'Jean', last_name = 'Dupont';
+
+tous les users des colonnes prénom nom s'appelleront Jean Dupont.
+
+- update multiple :
+MariaDB [udemy]> update film set language_id = 2 and original_language_id = 1;
+
+= delete : =
+
+on va pouvoir purger des données d'une table :
+
+ex : ici on delete tous les champs de la table table :
+Delete  from table; ou  Delete * from table;
+
+on pourra seletionner finement ce que l'on veut delete avec le mot clé "where"
+
+
+= conditions : =
+
+- where :
+permet une selection des champ en fonction de criteres :
+
+ex: on renvoit toutes les lignes ou le prénom est égal à Jean
+select * from members where first_name = "Jean" :
+
+fonctionne avec select, update, delete
+
+Utilisation des operateurs :
+comparaison :
+= , != , > , < , >= , <=
+logiques : permet de gérer les conditions entre elles
+AND, OR , NOT
+
+ex:
+MariaDB [udemy]> select * from film where budget > 0;
+
+
+- AND :
+MariaDB [udemy]> select * from film where running_time > 100 AND original_language_id =  1;
+
+
+- OR :
+MariaDB [udemy]> select * from film where running_time > 100 OR budget = 0;
+
+- NOT : 
+MariaDB [udemy]> select * from film where running_time = 108 OR NOT budget = 0;
+
+
+- IN : 
+
+permet de remplacer une suite de OR dans un where
+
+- selection des films avec un id 7 8 ou 9 :
+
+MariaDB [udemy]> select * from film where film_id in (7,8,9);
+
+- selection des films dont l'id n'est pas 7 8 ou 9 :
+
+MariaDB [udemy]> select * from film where not film_id in (7,8,9);
+
+
+cumul de filtre :
+
+MariaDB [udemy]> select * from film where not film_id in (7,8,9) and distributor in ("Eurozoom");
+
+
+= BETWEEN : =
+
+trouver des colonnes ayant des valeurs avec des intervals (qui sont pris en compte ) : peut etre utile pour les dates ou les nombres :
+
+- trouver les films ayant une durée comprise entre 100 et 120 minutes :
+MariaDB [udemy]> select * from film where running_time between 100 AND 120 ;
+
+= IS NULL : =
+
+va check que la valeur du champ est null :
+
+- check que la duree des films est bien renseignée :
+MariaDB [udemy]> select * from film where running_time is null ;
+Empty set (0.001 sec)
+
+aucune ligne retournée : tout est bien saisi.
+
+= IS NOT NULL :
+
+on a donc aussi le is not null qui est l'inverse du is null :
+
+MariaDB [udemy]> select * from film where running_time is not  null ;
++---------+-----------------------+--------------------------------+--
+
+- cumul des conditions 
+
+MariaDB [udemy]> select * from film where running_time between 100 and 140 and budget is not null ;
+
+
+MariaDB [udemy]> update room set number_places = 65  where name = "F" and cinema_id = 3;
+
+MariaDB [udemy]> delete from cinema where city in('Colmar','Evry');
+
+
+= ALIAS : =
+
+permet de renommer une colonnes pour permettre de requetter des colonnes.
+
+- ici on va créer un alias prenom sur la colonne first_name de la table members
+select fisrt_name AS prenom from members;
+
+on est pas obligé de mettre le keyword as : de base sql comprend sans :
+ex :
+MariaDB [udemy]> select language_id doublage from film;
+
+on peut faire une colonne avec plusieurs :
+
+select col1*col2 AS col3 from table;
+
+MariaDB [udemy]> select language_id*original_language_id as lang from film;
+
+on peut faire des calcul ex : creer un alias de colonne convertissant le temps de min en heure : 
+MariaDB [udemy]> select running_time / 60 as hours from film;
+
+= ORDER BY: =
+
+permet de trier nos résultats
+
+select * from table order by column ;
+
+MariaDB [udemy]> select * from film order by original_language_id ;
+
+on peut préciser l'ordre de tri :
+
+asc -> ascendant
+desc -> descendant
+
+
+MariaDB [udemy]> select * from film order by original_language_id asc;
+
+MariaDB [udemy]> select * from film order by original_language_id desc;
+
+en cas de resultat identique dans notre tri , on peut ajouter une seconde colomne pour notre tri :
+ici on retri notre resultat precedant en prenant en compte la durée du film :
+
+
+MariaDB [udemy]> select * from film order by original_language_id, running_time desc ;
+
+
+= LIMIT : =
+
+limiter la sortie de nos résultats :
+
+select * from table order by column limit number;
+
+on va afficher 10 lignes de résultat de recherche des prénoms de notre table :
+select * from member order by first_name limit 10;
+
+- affichage de 3 films filtrés par durée :
+
+MariaDB [udemy]> select * from film order by running_time limit 3;
+
+
+la même chose avec les durée décroissantes :
+MariaDB [udemy]> select * from film order by running_time desc limit 3  ;
+
+
+on peut ajouter un index dans notre limit :
+on aura donc le premier chiffre qui correspond a l'index dans la table et le second qui correspond au nombre de ligne de résultat retourné :
+limit 5,10
+
+MariaDB [udemy]> select * from film order by film_id limit 0,2;
+
+MariaDB [udemy]> select * from film order by film_id limit 1,2;
+
+- Tri des deux films au plus gros budget :
+MariaDB [udemy]> select * from film order by budget desc limit 2;
+
+ si on commence à l'index 1 ( deuxieme ligne) on aura donc le film suivant qui apparaitra :
+ MariaDB [udemy]> select * from film order by budget desc limit 1,2;
+
+- trouver le 4 film le plus long :
+MariaDB [udemy]> select * from film order by running_time desc limit 3,1;
+
+
