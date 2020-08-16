@@ -1313,9 +1313,7 @@ cela peut etre fait en definissant des alias au sein de la même table et en uti
 
 ex : 
 
-natural join :
-
-
+- natural join :
 
 MariaDB [udemy]> desc diffusion;
 +--------------+----------+------+-----+---------+----------------+
@@ -1340,6 +1338,7 @@ MariaDB [udemy]> desc cinema;
 +--------------+--------------+------+-----+---------+----------------+
 4 rows in set (0.002 sec)
 
+MariaDB [udemy]> select * from diffusion natural join cinema;
 +-----------+--------------+---------------------+---------+---------+--------------+----------+--------------+
 | cinema_id | diffusion_id | datetime            | room_id | film_id | name         | city     | number_rooms |
 +-----------+--------------+---------------------+---------+---------+--------------+----------+--------------+
@@ -1356,9 +1355,216 @@ MariaDB [udemy]> desc cinema;
 +-----------+--------------+---------------------+---------+---------+--------------+----------+--------------+
 10 rows in set (0.001 sec)
 
-MariaDB [udemy]> 
+
+- cross join :
+
+on peut lancer cette requette a peu pres n'importe ou.
+
+
+MariaDB [udemy]> select * from language cross join film limit 3;
++-------------+---------+---------+----------------+-------------------------------+--------------+----------+-------------+----------------------+
+| language_id | name    | film_id | name           | distributor                   | running_time | budget   | language_id | original_language_id |
++-------------+---------+---------+----------------+-------------------------------+--------------+----------+-------------+----------------------+
+|           1 | English |       1 | Forrest Gump   | United International Pictures |          140 | 55000000 |           2 |                    1 |
+|           1 | English |       2 | La Ligne verte | United International Pictures |          189 | 60000000 |           2 |                    1 |
+|           1 | English |       3 | Your Name      | Eurozoom                      |          109 |        0 |           2 |                    9 |
++-------------+---------+---------+----------------+-------------------------------+--------------+----------+-------------+----------------------+
+3 rows in set (0.001 sec)
+
+
+- self join 
+
+recup les couples dont les villes est la même 
+
+MariaDB [udemy]> select * from cinema as c1 , cinema as c2 where c1.city = c2.city;
++-----------+--------------+------------------+--------------+-----------+--------------+------------------+--------------+
+| cinema_id | name         | city             | number_rooms | cinema_id | name         | city             | number_rooms |
++-----------+--------------+------------------+--------------+-----------+--------------+------------------+--------------+
+|         3 | CGR CINÉMAS  | Bordeaux         |           10 |         3 | CGR CINÉMAS  | Bordeaux         |           10 |
+|        14 | MÉGARAMA     | Bordeaux         |            9 |         3 | CGR CINÉMAS  | Bordeaux         |           10 |
+|         5 | CGR CINÉMAS  | La Rochelle      |            6 |         5 | CGR CINÉMAS  | La Rochelle      |            6 |
+|         6 | CGR CINÉMAS  | Clermont-Ferrand |            7 |         6 | CGR CINÉMAS  | Clermont-Ferrand |            7 |
+|         7 | CGR CINÉMAS  | Troyes           |            5 |         7 | CGR CINÉMAS  | Troyes           |            5 |
+|         9 | CGR CINÉMAS  | Auxerre          |            4 |         9 | CGR CINÉMAS  | Auxerre          |            4 |
+|        10 | CGR CINÉMAS  | Narbonne         |            5 |        10 | CGR CINÉMAS  | Narbonne         |            5 |
+|        13 | MÉGARAMA     | Boulogne sur Mer |            5 |        13 | MÉGARAMA     | Boulogne sur Mer |            5 |
+|         3 | CGR CINÉMAS  | Bordeaux         |           10 |        14 | MÉGARAMA     | Bordeaux         |            9 |
+|        14 | MÉGARAMA     | Bordeaux         |            9 |        14 | MÉGARAMA     | Bordeaux         |            9 |
+|        15 | MÉGARAMA     | Montpellier      |            7 |        15 | MÉGARAMA     | Montpellier      |            7 |
+|        16 | MÉGARAMA     | Quimper          |            4 |        16 | MÉGARAMA     | Quimper          |            4 |
+|        17 | MÉGARAMA     | Besançon         |            6 |        17 | MÉGARAMA     | Besançon         |            6 |
+|        18 | MÉGARAMA     | Audincourt       |            4 |        18 | MÉGARAMA     | Audincourt       |            4 |
+|        20 | Mégarama     | Paris            |           10 |        20 | Mégarama     | Paris            |           10 |
++-----------+--------------+------------------+--------------+-----------+--------------+------------------+--------------+
+15 rows in set (0.002 sec)
+
+on a le contenu de deux tables identique ( c'es la meme table à l'origine.) 
+on a ici des id identiques ..on va donc filtrer :
+
+MariaDB [udemy]> select * from cinema as c1 , cinema as c2 where c1.city = c2.city  and c1.cinema_id != c2.cinema_id ;
++-----------+--------------+----------+--------------+-----------+--------------+----------+--------------+
+| cinema_id | name         | city     | number_rooms | cinema_id | name         | city     | number_rooms |
++-----------+--------------+----------+--------------+-----------+--------------+----------+--------------+
+|        14 | MÉGARAMA     | Bordeaux |            9 |         3 | CGR CINÉMAS  | Bordeaux |           10 |
+|         3 | CGR CINÉMAS  | Bordeaux |           10 |        14 | MÉGARAMA     | Bordeaux |            9 |
++-----------+--------------+----------+--------------+-----------+--------------+----------+--------------+
+2 rows in set (0.001 sec)
+
+on trouve donc les différents cinemas présents dans la même ville ayant donc forcement un id différent.
+
+On peut cumuler les jointures au sein d'une requette :
+
+ex: 
+MariaDB [udemy]> select * from diffusion natural join film as f inner join language as l on f.language_id = l.language_id ;
++---------+--------------+---------------------+-----------+---------+-----------------------+--------------------------------+--------------+-----------+-------------+----------------------+-------------+--------+
+| film_id | diffusion_id | datetime            | cinema_id | room_id | name                  | distributor                    | running_time | budget    | language_id | original_language_id | language_id | name   |
++---------+--------------+---------------------+-----------+---------+-----------------------+--------------------------------+--------------+-----------+-------------+----------------------+-------------+--------+
+|       3 |            1 | 2017-10-01 11:30:00 |         3 |       1 | Your Name             | Eurozoom                       |          109 |         0 |           2 |                    9 |           2 | French |
+|       4 |            2 | 2017-10-01 12:00:00 |         3 |       2 | Lion                  | SDN                            |          118 |         0 |           2 |                    1 |           2 | French |
+|       9 |            3 | 2017-10-01 12:30:00 |         3 |       3 | 12 hommes en colère   | Carlotta Films                 |           95 |    340000 |           2 |                    1 |           2 | French |
+|       8 |            4 | 2017-10-01 13:00:00 |         3 |       4 | Le Parrain            | Paramount Pictures             |          175 |   6000000 |           2 |                    1 |           2 | French |
+|       6 |            5 | 2017-10-01 13:30:00 |         3 |       5 | La Liste de Schindler | United International Pictures  |          195 |  25000000 |           2 |                    1 |           2 | French |
+|      10 |            6 | 2017-10-01 14:00:00 |         3 |       6 | Gran Torino           | Warner Bros. France            |          111 |  33000000 |           2 |                    1 |           2 | French |
+|       5 |            7 | 2017-10-01 14:30:00 |         3 |       7 | Tu ne tueras point    | Metropolitan FilmExport        |          140 |  40000000 |           2 |                    1 |           2 | French |
+|       1 |            8 | 2017-10-01 15:00:00 |         3 |       8 | Forrest Gump          | United International Pictures  |          140 |  55000000 |           2 |                    1 |           2 | French |
+|       2 |            9 | 2017-10-01 15:30:00 |         3 |       9 | La Ligne verte        | United International Pictures  |          189 |  60000000 |           2 |                    1 |           2 | French |
+|       7 |           10 | 2017-10-01 16:00:00 |         3 |      10 | Django Unchained      | Sony Pictures Releasing France |          164 | 100000000 |           2 |                    1 |           2 | French |
++---------+--------------+---------------------+-----------+---------+-----------------------+--------------------------------+--------------+-----------+-------------+----------------------+-------------+--------+
+10 rows in set (0.001 sec)
+
+MariaDB [udemy]>
+
+exos :
+recup tous les films en ajoutant le nom de la langue :
+
+MariaDB [udemy]> desc film;
++----------------------+--------------+------+-----+---------+----------------+
+| Field                | Type         | Null | Key | Default | Extra          |
++----------------------+--------------+------+-----+---------+----------------+
+| film_id              | int(11)      | NO   | PRI | NULL    | auto_increment |
+| name                 | varchar(255) | NO   |     | NULL    |                |
+| distributor          | varchar(255) | NO   |     | NULL    |                |
+| running_time         | int(11)      | NO   |     | NULL    |                |
+| budget               | int(11)      | NO   |     | NULL    |                |
+| language_id          | int(11)      | NO   |     | NULL    |                |
+| original_language_id | int(11)      | NO   |     | NULL    |                |
++----------------------+--------------+------+-----+---------+----------------+
+7 rows in set (0.002 sec)
+
+MariaDB [udemy]> desc language;
++-------------+--------------+------+-----+---------+----------------+
+| Field       | Type         | Null | Key | Default | Extra          |
++-------------+--------------+------+-----+---------+----------------+
+| language_id | int(11)      | NO   | PRI | NULL    | auto_increment |
+| name        | varchar(255) | NO   |     | NULL    |                |
++-------------+--------------+------+-----+---------+----------------+
+2 rows in set (0.002 sec)
 
 
 
+MariaDB [udemy]> select * from film as f inner join language as l where f.language_id = l.language_id ;
++---------+-----------------------+--------------------------------+--------------+-----------+-------------+----------------------+-------------+--------+
+| film_id | name                  | distributor                    | running_time | budget    | language_id | original_language_id | language_id | name   |
++---------+-----------------------+--------------------------------+--------------+-----------+-------------+----------------------+-------------+--------+
+|       1 | Forrest Gump          | United International Pictures  |          140 |  55000000 |           2 |                    1 |           2 | French |
+|       2 | La Ligne verte        | United International Pictures  |          189 |  60000000 |           2 |                    1 |           2 | French |
+|       3 | Your Name             | Eurozoom                       |          109 |         0 |           2 |                    9 |           2 | French |
+|       4 | Lion                  | SDN                            |          118 |         0 |           2 |                    1 |           2 | French |
+|       5 | Tu ne tueras point    | Metropolitan FilmExport        |          140 |  40000000 |           2 |                    1 |           2 | French |
+|       6 | La Liste de Schindler | United International Pictures  |          195 |  25000000 |           2 |                    1 |           2 | French |
+|       7 | Django Unchained      | Sony Pictures Releasing France |          164 | 100000000 |           2 |                    1 |           2 | French |
+|       8 | Le Parrain            | Paramount Pictures             |          175 |   6000000 |           2 |                    1 |           2 | French |
+|       9 | 12 hommes en colère   | Carlotta Films                 |           95 |    340000 |           2 |                    1 |           2 | French |
+|      10 | Gran Torino           | Warner Bros. France            |          111 |  33000000 |           2 |                    1 |           2 | French |
++---------+-----------------------+--------------------------------+--------------+-----------+-------------+----------------------+-------------+--------+
+10 rows in set (0.002 sec)
+
+
+
+on peut aussi faire avec un left join :
+
+MariaDB [udemy]> select * from film as f left join language as l on f.language_id = l.language_id ;
++---------+-----------------------+--------------------------------+--------------+-----------+-------------+----------------------+-------------+--------+
+| film_id | name                  | distributor                    | running_time | budget    | language_id | original_language_id | language_id | name   |
++---------+-----------------------+--------------------------------+--------------+-----------+-------------+----------------------+-------------+--------+
+|       1 | Forrest Gump          | United International Pictures  |          140 |  55000000 |           2 |                    1 |           2 | French |
+|       2 | La Ligne verte        | United International Pictures  |          189 |  60000000 |           2 |                    1 |           2 | French |
+|       3 | Your Name             | Eurozoom                       |          109 |         0 |           2 |                    9 |           2 | French |
+|       4 | Lion                  | SDN                            |          118 |         0 |           2 |                    1 |           2 | French |
+|       5 | Tu ne tueras point    | Metropolitan FilmExport        |          140 |  40000000 |           2 |                    1 |           2 | French |
+|       6 | La Liste de Schindler | United International Pictures  |          195 |  25000000 |           2 |                    1 |           2 | French |
+|       7 | Django Unchained      | Sony Pictures Releasing France |          164 | 100000000 |           2 |                    1 |           2 | French |
+|       8 | Le Parrain            | Paramount Pictures             |          175 |   6000000 |           2 |                    1 |           2 | French |
+|       9 | 12 hommes en colère   | Carlotta Films                 |           95 |    340000 |           2 |                    1 |           2 | French |
+|      10 | Gran Torino           | Warner Bros. France            |          111 |  33000000 |           2 |                    1 |           2 | French |
++---------+-----------------------+--------------------------------+--------------+-----------+-------------+----------------------+-------------+--------+
+10 rows in set (0.001 sec)
+
+
+
+- recuperer la liste des 3 films les plus chers en y ajoutant le nom de la langue originelle :
+
+MariaDB [udemy]> select * from film as f left join language as l on f.original_language_id = l.language_id order by budget desc limit 3;
++---------+------------------+--------------------------------+--------------+-----------+-------------+----------------------+-------------+---------+
+| film_id | name             | distributor                    | running_time | budget    | language_id | original_language_id | language_id | name    |
++---------+------------------+--------------------------------+--------------+-----------+-------------+----------------------+-------------+---------+
+|       7 | Django Unchained | Sony Pictures Releasing France |          164 | 100000000 |           2 |                    1 |           1 | English |
+|       2 | La Ligne verte   | United International Pictures  |          189 |  60000000 |           2 |                    1 |           1 | English |
+|       1 | Forrest Gump     | United International Pictures  |          140 |  55000000 |           2 |                    1 |           1 | English |
++---------+------------------+--------------------------------+--------------+-----------+-------------+----------------------+-------------+---------+
+3 rows in set (0.000 sec)
+
+on peut epurer la sortie en ajoutant uniquement le nom de la langue : la colonne language_id de la table language n'apparait plus :
+
+MariaDB [udemy]> select f.*, l.name from film as f left join language as l on f.original_language_id = l.language_id order by budget desc limit 3;
++---------+------------------+--------------------------------+--------------+-----------+-------------+----------------------+---------+
+| film_id | name             | distributor                    | running_time | budget    | language_id | original_language_id | name    |
++---------+------------------+--------------------------------+--------------+-----------+-------------+----------------------+---------+
+|       7 | Django Unchained | Sony Pictures Releasing France |          164 | 100000000 |           2 |                    1 | English |
+|       2 | La Ligne verte   | United International Pictures  |          189 |  60000000 |           2 |                    1 | English |
+|       1 | Forrest Gump     | United International Pictures  |          140 |  55000000 |           2 |                    1 | English |
++---------+------------------+--------------------------------+--------------+-----------+-------------+----------------------+---------+
+3 rows in set (0.001 sec)
+
+MariaDB [udemy]>
+
+
+on peut même personaliser la colonne en la renommant avec un alias :
+
+MariaDB [udemy]> select f.*, l.name as langue_originale from film as f left join language as l on f.original_language_id = l.language_id order by budget desc limit 3;
++---------+------------------+--------------------------------+--------------+-----------+-------------+----------------------+------------------+
+| film_id | name             | distributor                    | running_time | budget    | language_id | original_language_id | langue_originale |
++---------+------------------+--------------------------------+--------------+-----------+-------------+----------------------+------------------+
+|       7 | Django Unchained | Sony Pictures Releasing France |          164 | 100000000 |           2 |                    1 | English          |
+|       2 | La Ligne verte   | United International Pictures  |          189 |  60000000 |           2 |                    1 | English          |
+|       1 | Forrest Gump     | United International Pictures  |          140 |  55000000 |           2 |                    1 | English          |
++---------+------------------+--------------------------------+--------------+-----------+-------------+----------------------+------------------+
+3 rows in set (0.001 sec)
+
+MariaDB [udemy]>
+
+- faire une jointure naturelle entre la table diffusion et cinema :
+MariaDB [udemy]> select * from diffusion natural join cinema ;
++-----------+--------------+---------------------+---------+---------+--------------+----------+--------------+
+| cinema_id | diffusion_id | datetime            | room_id | film_id | name         | city     | number_rooms |
++-----------+--------------+---------------------+---------+---------+--------------+----------+--------------+
+|         3 |            1 | 2017-10-01 11:30:00 |       1 |       3 | CGR CINÉMAS  | Bordeaux |           10 |
+|         3 |            2 | 2017-10-01 12:00:00 |       2 |       4 | CGR CINÉMAS  | Bordeaux |           10 |
+|         3 |            3 | 2017-10-01 12:30:00 |       3 |       9 | CGR CINÉMAS  | Bordeaux |           10 |
+|         3 |            4 | 2017-10-01 13:00:00 |       4 |       8 | CGR CINÉMAS  | Bordeaux |           10 |
+|         3 |            5 | 2017-10-01 13:30:00 |       5 |       6 | CGR CINÉMAS  | Bordeaux |           10 |
+|         3 |            6 | 2017-10-01 14:00:00 |       6 |      10 | CGR CINÉMAS  | Bordeaux |           10 |
+|         3 |            7 | 2017-10-01 14:30:00 |       7 |       5 | CGR CINÉMAS  | Bordeaux |           10 |
+|         3 |            8 | 2017-10-01 15:00:00 |       8 |       1 | CGR CINÉMAS  | Bordeaux |           10 |
+|         3 |            9 | 2017-10-01 15:30:00 |       9 |       2 | CGR CINÉMAS  | Bordeaux |           10 |
+|         3 |           10 | 2017-10-01 16:00:00 |      10 |       7 | CGR CINÉMAS  | Bordeaux |           10 |
++-----------+--------------+---------------------+---------+---------+--------------+----------+--------------+
+10 rows in set (0.001 sec)
+
+MariaDB [udemy]>
+
+
+
+= union : =
 
 
