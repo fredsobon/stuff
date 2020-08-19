@@ -1,0 +1,76 @@
+== notes memo variables setting dans grafana : ===
+
+
+- avec en datasource prometheus :
+
+on va pouvoir générer des variables qui elles même vont utiliser des variables définies au préalable , et on v pouvoir utiliser le requettage promql pour permettre l'isolation de champ précis.
+
+Une fonction interne à grafana pour pormetheus en datasource : label_values : nous permet même de recupérer en variables un champ passer dans notre requette 
+
+ex :
+on défini une variable job :
+job
+en query : on pourra définir : 
+label_values(node_uname_info, job)
+
+cette requette permet d'effectuer une requette promql "node_uname_info" puis de recupérer les valeur du champ job de cette requette et de mettre ce résultat en variable :
+
+on a en décomposant l'action :
+
+la requette promql :
+
+node_uname_info : 
+node_uname_info{domainname="(none)",endpoint="metrics",instance="192.168.0.100:9100",job="node-exporter",machine="x86_64",namespace="prometheus-operator",nodename="worker01",pod="prometheus-prometheus-node-exporter-8dmc5",release="3.10.0-1062.9.1.el7.x86_64",service="prometheus-prometheus-node-exporter",sysname="Linux",version="#1 SMP Fri Dec 6 15:49:49 UTC 2019"}	1
+
+node_uname_info{domainname="(none)",endpoint="node-exporter",instance="10.123.1.114:9100",job="proxmox-monit-node-exporter",machine="x86_64",namespace="prometheus-operator",nodename="vm01",release="5.4.44-2-pve",service="ilius-recette-bess-proxmox-monit-node-exporter",sysname="Linux",version="#1 SMP PVE 5.4.44-2 (Wed, 01 Jul 2020 16:37:57 +0200)"}
+
+
+on voit qu'on a ici deux types de job :
+job="node-exporter"
+job="proxmox-monit-node-exporter"
+
+la fonction label_values(node_uname_info, job) va automatiquement récupérer ces valeurs qui seront donc des valeurs de la variable job que l'on a défini dans grafana.
+
+
+On va pouvoir ensuite utiliser ces variables et les appeller dans une autre variable :
+
+ex: on défini maintenant une variable nodename 
+cette variable va récupérer les valeurs de notre requette promql node_uname_info sur un filtre de job récupérant la valeur $job sélectionnée ..
+label_values(node_uname_info{job=~"$job"}, nodename)
+
+
+on aura donc potentiellement en fonction du job sélectionner : 
+label_values(node_uname_info{job="node-exporter"}, nodename)
+
+-> worker01
+
+label_values(node_uname_info{job="proxmox-monit-node-exporter"}, nodename)
+-> vm01
+
+et on peut continuer en utilisant ainsi le résultat de requette combinant du promql et des variables grafana.
+
+
+
+
+= affichage champ de variable  =
+
+de base une variable définie sera visible sur le dashboard et sera une zone sélectionnable pour le user .
+
+On peut cependant définir une variable, l'utiliser dans des requettes pour d'autres variables  et ne pas vouloir l'afficher sur notre dashboard :
+
+variable
+> genéral > hide : selectionner variable
+
+
+= multi values : =
+
+il est frequent d'avoir plusieurs résultat pour une variable (ex : liste de serveurs ..)
+on pourra permettre sur le dashboard l'affichage et la selection des ces variables 
+
+variable 
+> selection option > Multi-values : mettre à on 
+
+on va pouvoir ajouter l'option ALl :qui permet de sélectionner toutes nos valeurs de variables sur le dashboard . pour l'utiliser :
+
+variable 
+> selection option > Include All options : mettre à on
