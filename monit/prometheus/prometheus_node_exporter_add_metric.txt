@@ -1,0 +1,78 @@
+=== ajout de sonde au prometheus exporter : ==
+
+on va pourvoir ajouter des metrics non dispo de base apres l'install de prometheus node exporter
+
+on va pour cela pouvoir ecrire dans un repertoire precis un fichier contenant le resulat de l'execution d'une commande, d'un script  exécuté en cron formatté au format prometheus.
+
+cette fonctionnalité s'appuie sur la methode textfile
+/var/lib/prometheus/node-exporter/README.textfile
+Textfile Collector
+
+The textfile collector is similar to the Pushgateway, in that it allows
+exporting of statistics from batch jobs. It can also be used to export static
+metrics, such as what role a machine has. The Pushgateway should be used for
+service-level metrics. The textfile module is for metrics that are tied to a
+machine.
+
+To use it, create files in this directory that are readable by the prometheus
+user.  The collector will parse all files in matching the glob *.prom using the
+text format.
+
+To atomically push completion time for a cron job:
+
+echo my_batch_job_completion_time $(date +%s) > \
+    /var/lib/prometheus/node-exporter/my_batch_job.prom.$$
+mv /var/lib/prometheus/node-exporter/my_batch_job.prom.$$ \
+    /var/lib/prometheus/node-exporter/my_batch_job.prom
+
+To statically set roles for a machine using labels:
+
+echo 'role{role="application_server"} 1' > \
+    /var/lib/prometheus/node-exporter/role.prom.$$
+mv /var/lib/prometheus/node-exporter/role.prom.$$ \
+    /var/lib/prometheus/node-exporter/role.prom
+
+la localisation du rep textfile est défini dans la conf prometheus :
+ex: 
+ grep textfile /etc/default/prometheus-node-exporter
+#  --collector.textfile.directory="/var/lib/prometheus/node-exporter"
+#  --collector.textfile      Enable the textfile collector (default:
+
+
+Les fichiers contenant nos métriques doivent contenir l'extention ".prom"
+
+et utiliser les bonne pratiques prometheus : non de sonde / valeur /help etc ..
+
+
+
+exemple fichier test :
+
+root@virt17:~# cat /var/lib/prometheus/node-exporter/lvm_thin_free_space.prom
+# HELP node_vg_size_bytes Volumegroup size in bytes.
+# TYPE node_vg_size_bytes gauge
+node_vg_size_bytes{vgname="pve"} 1745454547
+# HELP node_vg_free_bytes Volumegroup size in bytes.
+# TYPE node_vg_free_bytes gauge
+node_vg_free_bytes{vgname="pve"} 536870912
+
+
+
+root@xinfvirtrc17b:~# lvs |grep "<"
+  data          pve       twi-a-tz-- <76.20g                  0.00   1.60                            
+  vmdata17a     vmdata17a twi-aotz--  <1.72t                  37.49  2.21                            
+  vmdata17b     vmdata17b twi-aotz--  <1.72t                  29.38  1.76  
+
+
+
+root@virt17b:~# lvs |grep "<" |awk '{print $1,$5}'
+data 0.00
+vmdata17a 37.49
+vmdata17b 29.38
+root@xinfvirtrc17b:~# cat /var/lib/prometheus/node-exporter/lvm_thin_free_space.prom
+# HELP node_vg_size_bytes Volumegroup size in bytes.
+# TYPE node_vg_size_bytes gauge
+node_vg_size_bytes{vgname="pve"} 1745454547
+# HELP node_vg_free_bytes Volumegroup size in bytes.
+# TYPE node_vg_free_bytes gauge
+node_vg_free_bytes{vgname="pve"} 536870912
+
