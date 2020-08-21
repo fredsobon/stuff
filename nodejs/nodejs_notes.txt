@@ -1,0 +1,127 @@
+=== notes nodejs : ===
+
+apt install nodejs
+
+test de bonne execution et version : 
+ node -v
+v10.19.0
+
+test de base : 
+vi test.js
+console.log('Bienvenue dans Node.js !');
+
+pour lancer un script minimal :
+node test.js 
+Bienvenue dans Node.js !
+
+nodejs est monothread mais basé sur l'execution asynchrone non bloquante : nodejs effectue plein d'actions , les gourmandes en temps sont traitées en // mais non bloquantes : les requettes suivantes rapides sont traitées , sans être en attente.
+nodejs est basé sur de l'evenementiel (event) comme js .
+
+on va avoir comme grand principe l'utilisation de fonction de callback qui seront executées 
+
+ex: 
+request('http://www.site.com/fichier.zip', function (error,
+response, body) {
+  console.log("Fichier téléchargé !");
+});
+console.log("Je fais d'autres choses en attendant...");
+
+// Résultat identique au code précédent
+var callback = function (error, response, body) {
+console.log("Fichier téléchargé !");
+});
+request('http://www.site.com/fichier.zip', callback);
+console.log("Je fais d'autres choses en attendant...");
+
+La fonction de callback est enregistrée dans une variable. Comme toutes les fonctions, elle n'est pas exécutée tant qu'on ne l'a
+pas appelée. Ensuite, on envoie cette fonction de callback en paramètre de la fonction request() pour dire : « Dès que la
+requête de téléchargement est terminée, appelle cette fonction de callback ».
+En pratique, les développeurs JavaScript mettent régulièrement des fonctions anonymes directement à l'intérieur d'autres
+fonctions en paramètre,
+
+Imaginez qu'on demande le téléchargement de 2 fichiers à Node.js :
+Code : JavaScript
+var callback = function (error, response, body) {
+console.log("Fichier téléchargé !");
+});
+request('http://www.site.com/fichier.zip', callback);
+request('http://www.site.com/autrefichier.zip', callback);
+
+Si le modèle avait été bloquant, le programme aurait :
+1. Lancé le téléchargement du fichier 1, et attendu qu'il se termine...
+2. ... puis lancé le téléchargement du fichier 2, et attendu qu'il se termine.
+Or, avec Node.js, les deux téléchargements sont lancés en même temps ! Le programme n'attend pas la fin du premier
+téléchargement pour passer à l'instruction suivante.
+Du coup, le téléchargement des 2 fichiers au total va beaucoup plus vite puisque le programme fait les 2 à la fois :
+
+En modèle non bloquant (comme Node.js), les 2 fichiers sont téléchargés en même temps et l'ensemble finit plus vite
+Dans les applications web, il est courant d'avoir des opérations longues et bloquantes comme :
+Les appels aux bases de données
+Les appels à des services web (ex : l'API de Twitter)
+
+Node.js nous évite de perdre du temps en nous permettant de faire d'autres choses en attendant que les actions longues soient terminées !
+
+- premiere appli :
+
+server web : 
+
+// on defini une variable qui sera le chargement du module nodejs http
+var http = require('http');
+// on defini une variable server qui sera le resultat de la creation de notre serveur avec l'objet http et la methode createServer qui prenne en argument une fonction de callback anonyme qui prend des arguments function(req, res) . req va contenir toutes les infos que le visiteur a appellé : nom de la page, params, valeur de formulaire ...res : object qu'on va générer pour donner un retour au user: en général une page html. Ici on va simplement renvoyer un code http 200 et on fini le resulat avec end un message de type "'Hello from boogieland !'" ici uniquement en txt.
+// il s'agit d'une fonction qui sera executée quand un client se connectera au site 
+var server = http.createServer(function(req, res) {
+res.writeHead(200);
+res.end('Hello from boogieland !');
+});
+server.listen(8080);
+
+/* variante avec le fonction de callback non anonyme pour comprendre le principe :
+Code identique au précédent
+var http = require('http');
+var instructionsNouveauVisiteur = function(req, res) {
+res.writeHead(200);
+res.end('Salut tout le monde !');
+}
+var server = http.createServer(instructionsNouveauVisiteur);
+server.listen(8080);
+*/
+
+
+nodejs server.js
+
++ sur une autre fenetre curl http://localhost:8080
+
+Hello from boogieland !'
+
+
+
+On va pouvoir améliorer le rendu en générant du html 
+on défini le content type html 
+res.writeHead(200, {"Content-Type": "text/html"});
+
+puis on envoi du vrai html dans notre réponse :
+res.end('<p>Voici un paragraphe <strong>HTML</strong> !</p>');
+
+
+ca marche mais notre html n'est pas conforme il faut envoyer les doctype et autres infos. On va donc découper dans notre code pour être plus lisible.
+
+
+var server = http.createServer(function(req, res) {
+res.writeHead(200, {"Content-Type": "text/html"} );
+res.write('<!DOCTYPE html>'+
+'<html>'+
+' <head>'+
+' <meta charset="utf-8" />'+
+' <title> Node.js !</title>'+
+' </head>'+
+' <body>'+
+' <p>hey <strong>get it down!</strong> !</p>'+
+' </body>'+
+'</html>');
+res.end('<h2>Hello from boogieland !</h2>');
+});
+server.listen(8080);
+
+ biensur cette solution n'est pas viable à terme et des modules de templates seront à utiliser pour être efficace ....
+
+
