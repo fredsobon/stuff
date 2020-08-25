@@ -50,6 +50,38 @@ label_values(node_uname_info{job="proxmox-monit-node-exporter"}, nodename)
 et on peut continuer en utilisant ainsi le résultat de requette combinant du promql et des variables grafana.
 
 
+exemple 2 :
+
+on va pouvoir récupérer le nom d'un host défini en variable pour récupérer l'espace occupé de ses  volumes groupes (vg) . pour cela on va s'appuyer sur plusieurs variables définies :
+
+
+on va renregistrer dans une variable $job le résultat de la requete : label_values(node_uname_info, job)
+ex: 
+node_uname_info{domainname="(none)",endpoint="metrics",instance="192.168.0.82:9100",job="node-exporter",machine="x86_64",namespace="prometheus-operator",nodename="worker01",pod="prometheus-prometheus-node-exporter-8dmc5",release="3.10.0-1062.9.1.el7.x86_64",service="prometheus-prometheus-node-exporter",sysname="Linux",version="#1 SMP Fri Dec 6 15:49:49 UTC 2019"}	
+node_uname_info{domainname="(none)",endpoint="metrics",instance="192.168.0.83:9100",job="node-exporter",machine="x86_64",namespace="prometheus-operator",nodename="worker02",pod="prometheus-prometheus-node-exporter-j29cd",release="3.10.0-1062.9.1.el7.x86_64",service="prometheus-prometheus-node-exporter",sysname="Linux",version="#1 SMP Fri Dec 6 15:49:49 UTC 2019"}
+
+resultat : 
+node-exporter
+
+
+on va enregistrer une variable hostname alimentée par label_values(node_uname_info{job=~"$job"}, nodename)
+ex : 
+node_uname_info{domainname="(none)",endpoint="metrics",instance="192.168.0.82:9100",job="node-exporter",machine="x86_64",namespace="prometheus-operator",nodename="worker01",pod="prometheus-prometheus-node-exporter-8dmc5",release="3.10.0-1062.9.1.el7.x86_64",service="prometheus-prometheus-node-exporter",sysname="Linux",version="#1 SMP Fri Dec 6 15:49:49 UTC 2019"}
+node_uname_info{domainname="(none)",endpoint="metrics",instance="192.168.0.83:9100",job="node-exporter",machine="x86_64",namespace="prometheus-operator",nodename="worker02",pod="prometheus-prometheus-node-exporter-8dmc5",release="3.10.0-1062.9.1.el7.x86_64",service="prometheus-prometheus-node-exporter",sysname="Linux",version="#1 SMP Fri Dec 6 15:49:49 UTC 2019"}
+resulat : 
+worker01 , worker02 ...
+
+on a une variable node alimentée par label_values(node_uname_info{nodename=~"$hostname"},instance)   <<< ici on va filtrer sur le hostname selectionné dans grafana et recupérer les valeurs du champ instance qui seront mis dans la variable $node
+ex: 192.168.0.82:9100 , 192.168.0.83:9100
+
+on va maintenant récupérer les vg associés au "$node" passé dans notre requette ( cela sera le champ selectionable dans le dashboard grafana.)
+on va setter une variabe $vg_node alimentée par la requette : 
+label_values(node_vg_size_pct_used{instance=~"$node"},vgname)   <<<< les vg resultant de la requette seront injectés dans la variable $vg_node
+
+on pourra donc construire un dashboard par exemple comportant la requette suivante :
+
+node_vg_size_pct_used{instance=~"$node",vgname=~"$vg_node"}
+
 
 
 = affichage champ de variable  =
