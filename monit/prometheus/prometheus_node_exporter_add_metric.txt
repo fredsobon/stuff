@@ -47,32 +47,60 @@ et utiliser les bonne pratiques prometheus : non de sonde / valeur /help etc ..
 
 exemple fichier test :
 
-root@virt17:~# cat /var/lib/prometheus/node-exporter/lvm_thin_free_space.prom
-# HELP node_vg_size_bytes Volumegroup size in bytes.
-# TYPE node_vg_size_bytes gauge
-node_vg_size_bytes{vgname="pve"} 1745454547
-# HELP node_vg_free_bytes Volumegroup size in bytes.
-# TYPE node_vg_free_bytes gauge
-node_vg_free_bytes{vgname="pve"} 536870912
+ajouter  un point de mesure sur l'espace occupé des vg de lvm-thin provisionning proxmox 
 
-
-
-root@xinfvirtrc17b:~# lvs |grep "<"
+on peut récupérer l'info de la maniere suivante : 
+root@virt01b:~# lvs |grep "<"
   data          pve       twi-a-tz-- <76.20g                  0.00   1.60                            
-  vmdata17a     vmdata17a twi-aotz--  <1.72t                  37.49  2.21                            
-  vmdata17b     vmdata17b twi-aotz--  <1.72t                  29.38  1.76  
+  data1   vmdata17a twi-aotz--  <1.72t                  37.49  2.21      <<<< 37.49% espace occupé                        
+  datab    vmdata17b twi-aotz--  <1.72t                  29.38  1.76  
+
+- on génere un script : 
+
+qui va nous permettre de forger les champ et valeur qu'on retrouve dans prometheus 
+
+cat /usr/bin/vg_used_pct_size.sh
+#!/bin/bash
+
+## vars :
+vg_size_file=$(mktemp /tmp/vgsize.XXXX)
+prometheus_file_tmp="/var/lib/prometheus/node-exporter/lvm_thin_used_pct.prom.$$"
+prometheus_file="/var/lib/prometheus/node-exporter/lvm_thin_used_pct.prom"
+
+#clean prom file
+> $prometheus_file
+
+# retrieve pct free on vgs :
+/usr/sbin/lvs |grep "<" |awk '{print $2, $5}' > $vg_size_file
+
+echo "# HELP node_vg_size_pct_used Volumegroup size in pct."  >> $prometheus_file_tmp
+echo "# TYPE node_vg_size_pct_used gauge" >> $prometheus_file_tmp
+while read vg pct
+do
+  echo "node_vg_size_pct_used{vgname=\""$vg"\",nodename=\""$(hostname)"\"} $pct" >> $prometheus_file_tmp
+done < $vg_size_file
+
+# cleanup tmp file and rename the temp prom file too :
+rm $vg_size_file
+mv $prometheus_file_tmp $prometheus_file
 
 
+- on met le script en cron :
 
-root@virt17b:~# lvs |grep "<" |awk '{print $1,$5}'
-data 0.00
-vmdata17a 37.49
-vmdata17b 29.38
-root@xinfvirtrc17b:~# cat /var/lib/prometheus/node-exporter/lvm_thin_free_space.prom
-# HELP node_vg_size_bytes Volumegroup size in bytes.
-# TYPE node_vg_size_bytes gauge
-node_vg_size_bytes{vgname="pve"} 1745454547
-# HELP node_vg_free_bytes Volumegroup size in bytes.
-# TYPE node_vg_free_bytes gauge
-node_vg_free_bytes{vgname="pve"} 536870912
+root@virtrc01:~# cat /etc/cron.d/lvm-thin-used-size
 
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+# run batch to retrieve  lvm-thin pool free size
+* * * * * root /usr/bin/vg_used_pct_size.sh 2&>1 /dev/null
+
+on aura en résultat :
+
+root@virtrc01:~# cat /var/lib/prometheus/node-exporter/lvm_thin_used_pct.prom
+# HELP node_vg_size_pct_used Volumegroup size in pct.
+# TYPE node_vg_size_pct_used gauge
+node_vg_size_pct_used{vgname="pve",nodename="virtrc01"} 0.00
+node_vg_size_pct_used{vgname="data1",nodename="virtrc01"} 30.92
+node_vg_size_pct_used{vgname="datab",nodename="virtr01"} 37.71
+
+
+on pourra donc filtrer dans grafana par exemple sur les vgname et nodename 
