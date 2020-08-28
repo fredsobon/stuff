@@ -62,12 +62,9 @@ exemple :
 
 `pve_up{id="cluster/kubeRCnewyork"} 1.0`
 
-`pve_up{id="node/xinfvirtrc18u"} 1.0`
+`pve_up{id="node/virtrc18u"} 1.0`
 
 `...`
-
-
-
 
 
 
