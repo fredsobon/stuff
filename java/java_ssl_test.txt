@@ -1,0 +1,150 @@
+=   notes sur outil de debug connex ssl ( certif ko ...) =
+
+
+https://matthewdavis111.com/java/poke-ssl-test-java-certs/
+
+
+Create SSLPoke.javaPermalink
+Create a new file called SSLPoke.java and copy the code below and save it
+
+
+
+
+cat SSLPoke.java
+
+import javax.net.ssl.SSLSocket;
+import javax.net.ssl.SSLSocketFactory;
+import java.io.*;
+
+/** Establish a SSL connection to a host and port, writes a byte and
+ * prints the response. See
+ * http://confluence.atlassian.com/display/JIRA/Connecting+to+SSL+services
+ */
+public class SSLPoke {
+    public static void main(String[] args) {
+		if (args.length != 2) {
+			System.out.println("Usage: "+SSLPoke.class.getName()+" <host> <port>");
+			System.exit(1);
+		}
+		try {
+			SSLSocketFactory sslsocketfactory = (SSLSocketFactory) SSLSocketFactory.getDefault();
+			SSLSocket sslsocket = (SSLSocket) sslsocketfactory.createSocket(args[0], Integer.parseInt(args[1]));
+
+			InputStream in = sslsocket.getInputStream();
+			OutputStream out = sslsocket.getOutputStream();
+
+			// Write a test byte to get a reaction :)
+			out.write(1);
+
+			while (in.available() > 0) {
+				System.out.print(in.read());
+			}
+			System.out.println("Successfully connected");
+
+		} catch (Exception exception) {
+			exception.printStackTrace();
+		}
+	}
+
+}
+
+If you haven’t got the Java jdk, you can install it with on ubuntu with:
+
+apt-get install default-jdk -y
+
+Now run Javac:
+
+javac SSLPoke.java
+This produces a Java class file.
+
+
+
+
+
+Use SSL Poke to test Java SSL connection
+ 1 minute read
+ On This Page
+Overview
+Create SSLPoke.java
+Summary
+January 2019
+
+OverviewPermalink
+Java uses the cacerts file as its certificate authority to validate certificates used in https connections made by Java applications. It is useful to be able to verify that the cacerts file has the correct certificates added to it to connect securely and this is a common scenario when connecting to internal sites in a network that use an internal PKI to issue certificates for internal sites. Atlassian (the company that makes Jira and Confluence) has created a small Java program called SSL Poke to test this connectivity.
+
+Below is a guide how to use SSL Poke.
+
+This is tested on Ubuntu with Java default-jdk 1.7 installed and on the user’s path.
+
+Create SSLPoke.javaPermalink
+Create a new file called SSLPoke.java and copy the code below and save it
+
+import javax.net.ssl.SSLSocket;
+import javax.net.ssl.SSLSocketFactory;
+import java.io.*;
+
+/** Establish a SSL connection to a host and port, writes a byte and
+ * prints the response. See
+ * http://confluence.atlassian.com/display/JIRA/Connecting+to+SSL+services
+ */
+public class SSLPoke {
+    public static void main(String[] args) {
+		if (args.length != 2) {
+			System.out.println("Usage: "+SSLPoke.class.getName()+" <host> <port>");
+			System.exit(1);
+		}
+		try {
+			SSLSocketFactory sslsocketfactory = (SSLSocketFactory) SSLSocketFactory.getDefault();
+			SSLSocket sslsocket = (SSLSocket) sslsocketfactory.createSocket(args[0], Integer.parseInt(args[1]));
+
+			InputStream in = sslsocket.getInputStream();
+			OutputStream out = sslsocket.getOutputStream();
+
+			// Write a test byte to get a reaction :)
+			out.write(1);
+
+			while (in.available() > 0) {
+				System.out.print(in.read());
+			}
+			System.out.println("Successfully connected");
+
+		} catch (Exception exception) {
+			exception.printStackTrace();
+		}
+	}
+}
+view rawSSLPoke.java hosted with ❤ by GitHub
+￼
+
+If you haven’t got the Java jdk, you can install it with on ubuntu with:
+
+apt-get install default-jdk -y
+Now run Javac:
+
+javac SSLPoke.java
+This produces a Java class file.
+
+￼
+
+If needs be, you can copy the class file to the machine where you are testing from if it doesn’t have the Java jdk installed and just has the Java runtime.
+
+To run the test, run the following with a hostname and port:
+
+java SSLPoke hostname port
+# Example for google
+java SSLPoke google.com 443
+Here is a successful connection to google.com.
+
+￼
+
+And here is the error if the cert is not in the cacerts file (this is my test Jenkins instance running with a self signed certificate)
+
+java SSLPoke jenkins.matthewdavis111.com 443
+￼
+
+Below is the same Jenkins instance being trusted by chrome because I added it into the Windows certificate store. To get Java to trust it, I would have to do the same with the cacerts file.
+
+￼
+
+SummaryPermalink
+The SSL Poke tool from Atlassian is handy when troubleshooting SSL connections with Java applications. For information on how to add a certificate to the carcerts file, see the Atlassian guide.
