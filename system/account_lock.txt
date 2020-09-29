@@ -1,0 +1,337 @@
+=== lock account : ===
+
+on peut se retrouver avec des comptes lockés sur un serveur.Même le compte root :
+
+
+pour le délocker il faudra essayer de booter en single ou sur une iso , setté un mdp root provisoire puis reset le lock 
+ex :
+pam_tally2 --user=root --reset
+Login           Failures Latest failure     From
+root               24    09/29/20 18:03:35  tty1
+
+pam_tally2 --user=root --reset
+Login           Failures Latest failure     From
+root                0
+
+
+https://www.tecmint.com/use-pam_tally2-to-lock-and-unlock-ssh-failed-login-attempts/
+
+
+https://www.golinuxhub.com/2018/08/how-to-lock-or-unlock-root-normal-user-pamtally2-pamfaillock-linux/
+
+How to lock or unlock a root and normal user account using pam_tally2 and pam_faillock after certain number of failed login attempts in Linux
+Below list of topics will be covered in this article
+Lock account using pam_tally2
+Lock non-root user (normal user) for failed login attempts
+Lock "root" user for failed login attempts
+Unlock non-root (normal) user account using pam_tally2
+Unlock "root" user account using pam_tally2
+Lock account using pam_faillock
+Lock non-root user using pam_faillock for 3 failed login attempts
+Lock "root" user using pam_faillock for 3 failed login attempts
+Unlock normal (non-root) user account using faillock
+Unlock root user account using faillock
+To secure your server against unwanted attempts to login from third party it is always a good idea to implement login related hardening so that a user is denied login after certain amount of failed login attempts.
+
+￼
+In my last article I had shared steps to check the status if your account is locked
+
+Lock account using pam_tally2
+pam_tally2 is a login counter (tallying) module. This module maintains a count of attempted accesses, can reset count on success, can deny access if too many attempts fail.
+
+Below two configuration files must be modified to perform all the account lock or unlock related changes
+
+/etc/pam.d/system-auth
+/etc/pam.d/password-auth
+By default these login attempts related information is stored under "/var/log/tallylog" but this can be changed as per your requirement using "file=/path/to/counter" in the pam.d file.
+
+Some more variables which can be used for additional restrictions/modifications.
+
+onerr=[fail|succeed]
+    If something weird happens (like unable to open the file), return with PAM_SUCCESS if onerr=succeed is given, else with the corresponding PAM error code.
+deny=n
+    Deny access if tally for this user exceeds n.
+
+lock_time=n
+    Always deny for n seconds after failed attempt.
+
+unlock_time=n
+    Allow access after n seconds after failed attempt. If this option is used the user will be locked out for the specified amount of time after he exceeded his maximum allowed attempts. Otherwise the account is locked until the lock is removed by a manual intervention of the system administrator.
+
+file=/path/to/counter
+    File where to keep counts. Default is /var/log/tallylog.
+
+Syntax to be used
+
+pam_tally2.so [file=/path/to/counter] [onerr=[fail|succeed]] [even_deny_root] [deny=n] [lock_time=n] [unlock_time=n] [root_unlock_time=n] [audit] [silent]
+lock non-root user (normal user) for failed login attempts
+below is the minimal configuration. Here we are locking a normal user account if incorrect password is used for 3 attempts
+
+Add the below two lines in both these configuration file
+
+auth        required      pam_tally2.so deny=3 onerr=fail
+account     required      pam_tally2.so
+My sample system-auth and password-auth file
+
+auth        required      pam_env.so
+auth        required      pam_tally2.so deny=3 onerr=fail
+auth        sufficient    pam_unix.so nullok try_first_pass
+auth        requisite     pam_succeed_if.so uid >= 1000 quiet_success
+auth        required      pam_deny.so
+account     required      pam_tally2.so
+account     required      pam_unix.so
+account     sufficient    pam_localuser.so
+account     sufficient    pam_succeed_if.so uid < 500 quiet
+account     required      pam_permit.so
+
+password    requisite     pam_cracklib.so try_first_pass retry=3 type=
+password    sufficient    pam_unix.so sha512 shadow nullok try_first_pass use_authtok
+password    required      pam_deny.so
+
+session     optional      pam_keyinit.so revoke
+session     required      pam_limits.so
+session     optional      pam_oddjob_mkhomedir.so
+session     [success=1 default=ignore] pam_succeed_if.so service in crond quiet use_uid
+session     required      pam_unix.so
+
+lock "root" user for failed login attempts
+Here we have appended "even_deny_root" as shown below to make sure "root" user is also block if incorrect password is used for 3 times
+
+auth        required      pam_tally2.so deny=3 even_deny_root onerr=fail
+account     required      pam_tally2.so
+My sample system-auth and password-auth file
+
+auth        required      pam_env.so
+auth        required      pam_tally2.so deny=3 even_deny_root onerr=fail
+auth        sufficient    pam_unix.so nullok try_first_pass
+auth        requisite     pam_succeed_if.so uid >= 1000 quiet_success
+auth        required      pam_deny.so
+account     required      pam_tally2.so
+account     required      pam_unix.so
+account     sufficient    pam_localuser.so
+account     sufficient    pam_succeed_if.so uid < 500 quiet
+account     required      pam_permit.so
+
+password    requisite     pam_cracklib.so try_first_pass retry=3 type=
+password    sufficient    pam_unix.so sha512 shadow nullok try_first_pass use_authtok
+password    required      pam_deny.so
+
+session     optional      pam_keyinit.so revoke
+session     required      pam_limits.so
+session     optional      pam_oddjob_mkhomedir.so
+session     [success=1 default=ignore] pam_succeed_if.so service in crond quiet use_uid
+session     required      pam_unix.so
+
+NOTE: The above changes do not need a reboot or any service restart to activate the changes
+
+Unlock non-root (normal) user account using pam_tally2
+Once above changes are successfully done, attempt to login to your server using incorrect password for more than 3 attempts using a normal user.
+
+For example I did some failed login attempts for user "deepak" from "10.43.138.2"
+
+To check the existing status
+
+# pam_tally2
+Login           Failures Latest failure     From
+deepak              3    08/03/18 11:20:18  10.43.138.3
+After 3 failed login attempts now I get below message when attempting to do ssh
+
+# ssh deepak@10.43.138.4
+Password:
+Account locked due to 3 failed logins
+Password:
+So as expected our account is locked.
+
+To unlock the user use the below command
+
+# pam_tally2 --user deepak --reset
+Login           Failures Latest failure     From
+deepak              3    07/28/18 22:35:51  10.43.138.2
+Next check the status again
+
+# pam_tally2 --user deepak
+Login           Failures Latest failure     From
+deepak              0
+So the failed login attempts has been cleared.
+
+Unlock "root" user account using pam_tally2
+To check the status of all the users
+
+# pam_tally2
+Login           Failures Latest failure     From
+root                5    08/03/18 11:20:33  10.43.138.3
+To unlock the "root" user use the below command
+
+# pam_tally2 --user root --reset
+Login           Failures Latest failure     From
+root                7    08/03/18 11:52:55  10.43.138.3
+IMPORTANT NOTE: I would recommend to lock "root" user only with "unlock_time" or else you may end up in a situation where you will not have any active session and will fail to unlock the "root" user.
+Lock account using pam_faillock for failled login attempts
+pam_faillock is a module counting authentication failures during a specified interval
+
+In Red Hat Enterprise Linux 7, the pam_faillock PAM module allows system administrators to lock out user accounts after a specified number of failed attempts. Limiting user login attempts serves mainly as a security measure that aims to prevent possible brute force attacks targeted to obtain a user's account password.
+
+With the pam_faillock module, failed login attempts are stored in a separate file for each user in the /var/run/faillock directory.
+
+Below two configuration files must be modified to achieve this
+
+/etc/pam.d/system-auth
+/etc/pam.d/password-auth
+Below are some of the configurable options
+
+{preauth|authfail|authsucc}
+    This argument must be set accordingly to the position of this module instance in the PAM stack.
+    The preauth argument must be used when the module is called before the modules which ask for the user credentials such as the password. The module just examines whether the user should be blocked from accessing the service in case there were anomalous number of failed consecutive authentication attempts recently. This call is optional if authsucc is used.
+    The authfail argument must be used when the module is called after the modules which determine the authentication outcome, failed. Unless the user is already blocked due to previous authentication failures, the module will record the failure into the appropriate user tally file.
+    The authsucc argument must be used when the module is called after the modules which determine the authentication outcome, succeded. Unless the user is already blocked due to previous authentication failures, the module will then clear the record of the failures in the respective user tally file. Otherwise it will return authentication error. If this call is not done, the pam_faillock will not distinguish between consecutive and non-consecutive failed authentication attempts. The preauth call must be used in such case. Due to complications in the way the PAM stack can be configured it is also possible to call pam_faillock as an account module. In such configuration the module must be also called in the preauth stage.
+fail_interval=n
+    The length of the interval during which the consecutive authentication failures must happen for the user account lock out is n seconds. The default is 900 (15 minutes).
+
+unlock_time=n
+    The access will be reenabled after n seconds after the lock out. The default is 600 (10 minutes).
+    If the n is set to never or 0 the access will not be reenabled at all until administrator explicitly reenables it with the faillock command. Note though that the default directory that pam_faillock uses is usually cleared on system boot so the access will be also reenabled after system reboot. If that is undesirable a different tally directory must be set with the dir option.
+    Also note that it is usually undesirable to permanently lock out the users as they can become easily a target of denial of service attack unless the usernames are random and kept secret to potential attackers.
+
+even_deny_root
+    Root account can become locked as well as regular accounts.
+
+root_unlock_time=n
+    This option implies even_deny_root option. Allow access after n seconds to root account after the account is locked. In case the option is not specified the value is the same as of the unlock_time option.
+
+audit
+    Will log the user name into the system log if the user is not found.
+
+silent
+    Don't print informative messages. This option is implicite in the authfail and authsucc functions.
+
+Syntax to be used
+
+auth ... pam_faillock.so {preauth|authfail|authsucc} [dir=/path/to/tally-directory] [even_deny_root] [deny=n] [fail_interval=n] [unlock_time=n] [root_unlock_time=n] [admin_group=name] [audit] [silent] [no_log_info]
+account ... pam_faillock.so [dir=/path/to/tally-directory] [no_log_info]
+
+Lock non-root user using pam_faillock for 3 failed login attempts
+Add the below lines to lock a non-root user for 10 minutes after 3 failed login attempts
+
+auth        required      pam_faillock.so preauth silent deny=3 fail_interval=900 unlock_time=600
+auth        required      pam_faillock.so authfail deny=3 fail_interval=900 unlock_time=600
+account     required      pam_faillock.so
+
+My sample system-auth and password-auth file
+
+auth        required      pam_env.so
+auth        required      pam_faillock.so preauth silent audit deny=3 unlock_time=600
+auth        sufficient    pam_unix.so nullok try_first_pass
+auth        required      pam_faillock.so authfail audit deny=3 fail_interval=900 unlock_time=600
+auth        requisite     pam_succeed_if.so uid >= 1000 quiet_success
+auth        required      pam_deny.so
+account     required      pam_faillock.so
+account     required      pam_unix.so
+account     sufficient    pam_localuser.so
+account     sufficient    pam_succeed_if.so uid < 500 quiet
+account     required      pam_permit.so
+
+password    requisite     pam_cracklib.so try_first_pass retry=3 type=
+password    sufficient    pam_unix.so sha512 shadow nullok try_first_pass use_authtok
+password    required      pam_deny.so
+
+session     optional      pam_keyinit.so revoke
+session     required      pam_limits.so
+session     optional      pam_oddjob_mkhomedir.so
+session     [success=1 default=ignore] pam_succeed_if.so service in crond quiet use_uid
+session     required      pam_unix.so
+
+Lock "root" user using pam_faillock for 3 failed login attempts
+To apply account locking for the "root" user as well, add the even_deny_root option to the pam_faillock entries both the configuration file in the below format
+
+auth        required      pam_faillock.so preauth silent audit deny=3 even_deny_root unlock_time=600
+auth        [default=die] pam_faillock.so authfail audit deny=3 even_deny_root unlock_time=600
+account     required      pam_faillock.so
+
+My sample system-auth and password-auth file
+
+auth        required      pam_env.so
+auth        required      pam_faillock.so preauth silent audit deny=3 even_deny_root unlock_time=600
+auth        sufficient    pam_unix.so nullok try_first_pass
+auth        required      pam_faillock.so authfail audit deny=3 fail_interval=900 unlock_time=600
+auth        requisite     pam_succeed_if.so uid >= 1000 quiet_success
+auth        required      pam_deny.so
+account     required      pam_faillock.so
+account     required      pam_unix.so
+account     sufficient    pam_localuser.so
+account     sufficient    pam_succeed_if.so uid < 500 quiet
+account     required      pam_permit.so
+
+password    requisite     pam_cracklib.so try_first_pass retry=3 type=
+password    sufficient    pam_unix.so sha512 shadow nullok try_first_pass use_authtok
+password    required      pam_deny.so
+
+session     optional      pam_keyinit.so revoke
+session     required      pam_limits.so
+session     optional      pam_oddjob_mkhomedir.so
+session     [success=1 default=ignore] pam_succeed_if.so service in crond quiet use_uid
+session     required      pam_unix.so
+
+IMPORTANT NOTE: If pam_faillock.so is not working as expected, the following changes may have to be made to SSHD's configuration:
+
+# vi /etc/ssh/sshd_config
+ChallengeResponseAuthentication yes
+PasswordAuthentication no -> to make sure the password input always goes through this PAM conversation
+Restart the sshd service to make the changes affect
+
+# systemctl restart sshd
+Unlock normal (non-root) user account using faillock
+By default if there are no failed login attempts then the output of "faillock" will be blank as below
+
+# faillock
+deepak:
+When                Type  Source                                           Valid
+root:
+When                Type  Source                                           Valid
+Once I intentionally give wrong password while attempting ssh the faillock values will get appeneded automatically
+
+# faillock
+deepak:
+When                Type  Source                                           Valid
+2018-08-02 11:49:31 RHOST 10.43.138.2                                          V
+2018-08-02 11:49:39 RHOST 10.43.138.2                                          V
+2018-08-02 11:49:43 RHOST 10.43.138.2                                          V
+root:
+When                Type  Source                                           Valid
+Once the number of attempt has reached the threshold, the user account will be locked
+Below messages can be seen in /var/log/secure after more than 3 failed login attempts
+
+Aug  2 11:49:43 openstack sshd[29038]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=10.43.138.2  user=deepak
+Aug  2 11:49:43 openstack sshd[29038]: pam_faillock(sshd:auth): Consecutive login failures for user deepak account temporarily locked
+To unlock the user "deepak"
+
+# faillock --user deepak --reset
+Next if you check the current status, everything related to user "deepak" should be clean
+
+# faillock
+deepak:
+When                Type  Source                                           Valid
+root:
+When                Type  Source                                           Valid
+Unlock root user account using faillock
+To demonstrate I have attempted some failed logins using "root" user
+
+So after a couple of failed logins I see faillock now shows me about all the attempts
+
+# faillock
+deepak:
+When                Type  Source                                           Valid
+root:
+When                Type  Source                                           Valid
+2018-08-03 11:54:01 RHOST 10.43.138.3                                          V
+2018-08-03 11:54:07 RHOST 10.43.138.3                                          V
+2018-08-03 11:54:11 RHOST 10.43.138.3                                          V
+2018-08-03 11:54:15 RHOST 10.43.138.3                                          V
+2018-08-03 11:54:19 RHOST 10.43.138.3                                          V
+2018-08-03 11:54:21 RHOST 10.43.138.3                                          V
+From the /var/log/secure we see that user "root" is locked
+
+Aug  2 22:36:44 openstack sshd[8486]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=10.43.138.3  user=root
+Aug  2 22:36:44 openstack sshd[8486]: pam_faillock(sshd:auth): Consecutive login failures for user root account temporarily locked
+To unlock the "root" user
+
+# faillock --user root --reset
