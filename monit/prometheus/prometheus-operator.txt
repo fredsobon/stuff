@@ -1,0 +1,220 @@
+=== prometheus-operator notes : ===
+
+l'operateur prometheus est une bonne manière d'installer le pack prometheus / alertmanager / grafana
+
+on peut recup les chart officiel et construire un chart umbrella qui chargera nos données persos 
+
+exemple :
+
+on creee un chart lapin-prometheus-operator
+
+tree                                                                      
+.
+├── CHANGELOG.md
+├── Chart.lock
+├── charts
+│   ├── prometheus-operator-9.3.1.tgz
+│   └── secrets-0.1.4.tgz
+├── Chart.yaml
+├── helm_vars
+│   ├── ci
+│   │   ├── secrets.ci.yaml
+│   │   └── values.yaml
+│   ├── prod
+│   │   ├── secrets.srs.yaml
+│   │   └── values.yaml
+│   
+├── README.md
+├── requirements.lock
+├── templates
+│   ├── calico
+│   │   ├── endpoints.yaml
+│   │   ├── servicemonitor.yaml
+│   │   ├── service.yaml
+│   │   ├── typha-endpoints.yaml
+│   │   ├── typha-servicemonitor.yaml
+│   │   └── typha-service.yaml
+│   ├── grafana
+│   │   └── dashboards
+│   │       ├── calico-felix.yaml
+│   │       ├── calico-typha.yaml
+│   │       └── prometheus-alertmanager.yaml
+│   ├── _helpers.tpl
+│   ├── ssl
+│   │   └── grafana-certmanager.yaml
+│   └── storage
+│       └── prometheus
+│           └── persistentvolume.yaml
+└── values.yaml
+
+
+on va pouvoir set up de base des valeurs dans le values par defaut ex :
+values.yaml
+
+calicoNode:
+  enabled: true
+  namespace: kube-system
+  serviceMonitor:
+    interval: ""
+  service:
+    port: 9091
+    targetPort: 9091
+
+# Enable monitoring for Calico with Typha mode
+calicoTypha:
+  enabled: false
+  namespace: kube-system
+  serviceMonitor:
+    interval: ""
+  service:
+    port: 9093
+    targetPort: 9093
+
+# Disable Grafana SSL
+ssl:
+  grafana:
+    enabled: false
+
+storage:
+  prometheus:
+    persistentVolume:
+      enabled: false
+
+et on va ovverider certains params dans notre env de prod par exemple :
+
+cat helm_vars/prod/values.yaml                                           [☸ |kubernetes-admin@fso_sandbox:monitoring]
+calicoNode:
+  enabled: true
+  ## If your calico-node is not deployed as a pod, specify IPs it can be found on
+  endpoints: []
+  # - 10.141.4.22
+  # - 10.141.4.23
+  # - 10.141.4.24
+  service:
+    port: 9091
+    targetPort: 9091
+    # selector:
+    #  k8s-app: calico-node
+  serviceMonitor:
+    ## Scrape interval. If not set, the Prometheus default scrape interval is used.
+    ##
+    interval: ""
+    ## Enable scraping kube-proxy over https.
+    ## Requires proper certs (not self-signed) and delegated authentication/authorization checks
+    ##
+    https: false
+    ## 	metric relabel configs to apply to samples before ingestion.
+    ##
+    metricRelabelings: []
+    # - action: keep
+    #   regex: 'kube_(daemonset|deployment|pod|namespace|node|statefulset).+'
+    #   sourceLabels: [__name__]
+
+    # 	relabel configs to apply to samples before ingestion.
+    ##
+    relabelings: []
+    # - action: keep
+    #   regex: 'kube_(daemonset|deployment|pod|namespace|node|statefulset).+'
+    #   sourceLabels: [__name__]
+calicoTypha:
+  enabled: true
+  ## If your calico-node is not deployed as a pod, specify IPs it can be found on
+  endpoints: []
+  # - 10.141.4.22
+  # - 10.141.4.23
+  # - 10.141.4.24
+  service:
+    port: 9093
+    targetPort: 9093
+    # selector:
+    #  k8s-app: calico-node
+  serviceMonitor:
+    ## Scrape interval. If not set, the Prometheus default scrape interval is used.
+    ##
+    interval: ""
+    ## Enable scraping kube-proxy over https.
+    ## Requires proper certs (not self-signed) and delegated authentication/authorization checks
+    ##
+    https: false
+    ## 	metric relabel configs to apply to samples before ingestion.
+    ##
+    metricRelabelings: []
+    # - action: keep
+    #   regex: 'kube_(daemonset|deployment|pod|namespace|node|statefulset).+'
+    #   sourceLabels: [__name__]
+
+    # 	relabel configs to apply to samples before ingestion.
+    ##
+    relabelings: []
+    # - action: keep
+    #   regex: 'kube_(daemonset|deployment|pod|namespace|node|statefulset).+'
+    #   sourceLabels: [__name__]
+
+secret:
+  enabled: false
+
+storage:
+  prometheus:
+    persistentVolume:
+      enabled: true
+      labels:
+        app: prometheus-operator-prometheus
+      name: prometheus-hostpath-pv
+      capacity:
+        storage: 10Gi
+      hostPath:
+        path: /data/prometheus-database
+
+prometheus-operator:
+  prometheus:
+    prometheusSpec:
+      storageSpec:
+        volumeClaimTemplate:
+          spec:
+            selector:
+              matchLabels:
+                app: prometheus-operator-prometheus
+            resources:
+              requests:
+                storage: 10Gi
+
+  grafana:
+    adminUser: ilius-admin
+    adminPassword: admin
+
+    plugins:
+      - "https://artifact.lapin.net/artifactory/infra-releases/grafana/plugins/alertmanager/0.0.7-0/camptocamp-grafana-prometheus-alertmanager-datasource-0.0.7-0-gc4d8c51.zip;camptocamp-prometheus-alertmanager-datasource"
+      - "https://artifact.lapin.net/artifactory/infra-releases/grafana/plugins/grafana-piechart-panel/1.3.9/grafana-piechart-panel-v1.3.9.zip;grafana-piechart-panel"
+      - "https://artifact.lapin.net/artifactory/infra-releases/grafana/plugins/yesoreyeram-boomtable-panel/1.2.0-12/yesoreyeram-yesoreyeram-boomtable-panel-v1.2.0-12-g3c1ad62.zip;boomtable-panel"
+    additionalDataSources:
+      - name: Alertmanager
+        type: camptocamp-prometheus-alertmanager-datasource
+        url: 'http://prometheus-operator-alertmanager:9093'
+        access: proxy
+        isDefault: false
+        editable: true
+    grafana.ini:
+      analytics:
+        check_for_updates: false
+      metrics:
+        enabled: true
+        interval_seconds: 10
+      users:
+        allow_sign_up: false
+
+
+on va sur notre cluster creer un namespace par exemple monitoring
+et on va deployer notre chart : 
+
+helm install prometheus-operator  . -f helm_vars/prod/values.yaml
+
+on va avoir un souci lors de notre deployment lié au stockage db prometheus : il manque un repertoire avec les droits donnés au user root :
+on repere le serveur worker qui va heberger l'appli et on cree les droits :
+
+cd /data/
+mkdir prometheus-database ; chown -R 1000:1000 prometheus-database
+
+et au bout de quelque temps tous les pods et services sont up.
+
+
+
