@@ -1,0 +1,32 @@
+==== notes sur token kube : ====
+
+
+de base un token kube à un ttl de 24h , si on veut ajouter un nouveau noeud à notre cluster apres ces 24 heures, ont va devoir générer un nouveau token depuis un serveur api, générer la ligne de conf qu'on passera sur nos nouveaux nodes / workers 
+
+- on génère notre token 
+[controller01 ~] $ sudo kubeadm token  generate
+asuk3j.kof5yuljitw1g0iv
+- on affiche la commande qui sortira qu'il faudra passer à nos nouveaux workers :
+[controller01 ~] $ sudo kubeadm token create asuk3j.kof5yuljitw1g0iv --print-join-command
+kubeadm join 10.121.253.36:443 --token asuk3j.kof5yuljitw1g0iv     --discovery-token-ca-cert-hash sha256:45ff6c13359406a6e6dedffc6f0d84eff6b5658e7cda94da69f059f3cbd5ea05
+
+- sur un nouveau worker on passe la commande : 
+
+[worker01 ~] $ sudo kubeadm join 10.121.253.36:443 --token asuk3j.kof5yuljitw1g0iv     --discovery-token-ca-cert-hash sha256:45ff6c13359406a6e6dedffc6f0d84eff6b5658e7cda94da69f059f3cbd5ea05
+[preflight] Running pre-flight checks
+[preflight] Reading configuration from the cluster...
+[preflight] FYI: You can look at this config file with 'kubectl -n kube-system get cm kubeadm-config -oyaml'
+[kubelet-start] Downloading configuration for the kubelet from the "kubelet-config-1.16" ConfigMap in the kube-system namespace
+[kubelet-start] Writing kubelet configuration to file "/var/lib/kubelet/config.yaml"
+[kubelet-start] Writing kubelet environment file with flags to file "/var/lib/kubelet/kubeadm-flags.env"
+[kubelet-start] Activating the kubelet service
+[kubelet-start] Waiting for the kubelet to perform the TLS Bootstrap...
+
+This node has joined the cluster:
+* Certificate signing request was sent to apiserver and a response was received.
+* The Kubelet was informed of the new secure connection details.
+
+Run 'kubectl get nodes' on the control-plane to see this node join the cluster.
+
+le node au bout d'un certain moment apparaitra sans notre cluster.
+
