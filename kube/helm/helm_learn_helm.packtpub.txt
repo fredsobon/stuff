@@ -1,0 +1,307 @@
+===== notes learn helm packpub : =====
+
+
+- chap2 : install chart :
+
+on va set up un wordpress 
+minikube 4gb de ram driver / vm-driver: kvm2
+
+helm repo add bitnami https://charts.bitnami.com/bitnami
+
+kubectl create namespace chapter3
+namespace/chapter3 created
+
+on va pouvoir overrider les values de base que l'on peut examiner avaec la commande suivante : 
+
+ helm show values bitnami/wordpress --version 8.1.0
+The result of this command should be a long list of possible values that you
+...
+
+on va créer un fichier contenant les valeurs que nous voulons personaliser ( user , mdp bdd, nom du blog ...
+on va comme on travaille dans minikube modifier la conf reseau en modifiant la conf loadbalancer en nodeport 
+
+cat wordpress-values.yaml
+wordpressUsername: helm-user
+wordpressPassword: my-pass
+wordpressEmail: helm-user@example.com
+wordpressFirstName: boogie
+wordpressLastName: man
+wordpressBlogName: Learn Helm!
+service:
+ type: NodePort
+
+on lance l'install :
+
+helm install [NAME] [CHART] [flags]
+
+-> Name : le nom que l'on veut donner à notre release helm
+-> Chart : est le nom du chart helm installer (on peut utiliser la forme  <repo name>/<chart name>
+-> flags : params que l'on peut passer pour overrider des valeurs par exemple.
+
+on lance l'install :
+
+helm install wordpress bitnami/wordpress --values=wordpress-values.yaml --namespace chapter3 --version 8.1.0
+NAME: wordpress
+LAST DEPLOYED: Sun Oct  4 17:22:23 2020
+NAMESPACE: chapter3
+STATUS: deployed
+REVISION: 1
+NOTES:
+1. Get the WordPress URL:
+
+  export NODE_PORT=$(kubectl get --namespace chapter3 -o jsonpath="{.spec.ports[0].nodePort}" services wordpress)
+  export NODE_IP=$(kubectl get nodes --namespace chapter3 -o jsonpath="{.items[0].status.addresses[0].address}")
+  echo "WordPress URL: http://$NODE_IP:$NODE_PORT/"
+  echo "WordPress Admin URL: http://$NODE_IP:$NODE_PORT/admin"
+
+2. Login with the following credentials to see your blog
+
+  echo Username: helm-user
+  echo Password: $(kubectl get secret --namespace chapter3 wordpress -o jsonpath="{.data.wordpress-password}" | base64 --decode)
+
+
+on voit le contenu du fichier note du chart  affiché 
+on peut examiner le chart installé :
+
+helm list --namespace chapter3
+NAME     	NAMESPACE	REVISION	UPDATED                                 	STATUS  	CHART          	APP VERSION
+wordpress	chapter3 	1       	2020-10-04 17:22:23.914776076 +0200 CEST	deployed	wordpress-8.1.0	5.3.2
+
+The list subcommand provides the following information:
+• The release name
+• The release namespace
+• The latest revision number of the release
+• A timestamp of the latest revision
+• The release status
+• The chart name
+• The application version
+
+-  helm namespace variable d'environment :
+on peut definir une variable d'env définissant le namespace dans lequel on travaille avec notre helm :
+
+export HELM_NAMESPACE=chapter3-  helm namespace variable d'environment :
+on peut definir une variable d'env définissant le namespace dans lequel on travaille avec notre helm :
+
+export HELM_NAMESPACE=chapter3
+verif :
+helm env
+HELM_BIN="helm"
+HELM_DEBUG="false"
+HELM_KUBEAPISERVER=""
+HELM_KUBECONTEXT=""
+HELM_KUBETOKEN=""
+HELM_NAMESPACE="chapter3"
+HELM_PLUGINS="/home/boogie/.local/share/helm/plugins"
+HELM_REGISTRY_CONFIG="/home/boogie/.config/helm/registry.json"
+HELM_REPOSITORY_CACHE="/home/boogie/.cache/helm/repository"
+HELM_REPOSITORY_CONFIG="/home/boogie/.config/helm/repositories.yaml"
+
+
+- choisir entre --set et --values :
+on peut overrider des valeur en cli avec --set ,
+une bonne pratique est d'utiliser un fichier de values que l'on pourra versionner par ex dans git.
+Biensur on ne met pas les secret dans git et on verra plus tard comment passer des secrets dans nos charts.
+
+= exam de notre wordpress :
+
+export NODE_PORT=$(kubectl get --namespace chapter3 -o jsonpath="{.spec.ports[0].nodePort}" services wordpress)
+
+export NODE_IP=$(kubectl get nodes --namespace chapter3 -o jsonpath="{.items[0].status.addresses[0].address}")
+
+echo "WordPress URL: http://$NODE_IP:$NODE_PORT/"
+WordPress URL: http://192.168.39.214:32575/
+
+
+on se logge dans notre navigo :
+
+echo "WordPress Admin URL: http://$NODE_IP:$NODE_PORT/admin"
+WordPress Admin URL: http://192.168.39.214:32575/admin
+
+on se loggue en recupérant les infos user et mdp defini dans le fichier values
+
+
+echo Username: helm-user
+on peut onterroger kube pour retrouver le mdpt stocké en secret : 
+echo Password: $(kubectl get secret --namespace chapter3 wordpress -o jsonpath='{.data.wordpress-password}' | base64 --decode)
+Password: my-pass
+
+
+on va maintenant upgrader notre chart en ajoutant un replicat et definisssant des ressources pour notre appli : on modifie donc notre fichier de values :
+
+cat wordpress-values.yaml
+wordpressUsername: helm-user
+wordpressPassword: my-pass
+wordpressEmail: helm-user@example.com
+wordpressFirstName: boogie
+wordpressLastName: man
+wordpressBlogName: Boogie Learn Helm!
+service:
+  type: NodePort
+replicaCount: 2
+resources:
+  requests:
+   memory: 256Mi
+   cpu: 100m  
+
+
+helm upgrade [RELEASE] [CHART] [flags]
+
+helm upgrade wordpress bitnami/wordpress --values wordpress-values.yaml -n chapter3 --version 8.1.0
+Release "wordpress" has been upgraded. Happy Helming!
+NAME: wordpress
+LAST DEPLOYED: Sun Oct  4 18:14:33 2020
+NAMESPACE: chapter3
+STATUS: deployed
+REVISION: 4
+NOTES:
+1. Get the WordPress URL:
+
+  export NODE_PORT=$(kubectl get --namespace chapter3 -o jsonpath="{.spec.ports[0].nodePort}" services wordpress)
+  export NODE_IP=$(kubectl get nodes --namespace chapter3 -o jsonpath="{.items[0].status.addresses[0].address}")
+  echo "WordPress URL: http://$NODE_IP:$NODE_PORT/"
+  echo "WordPress Admin URL: http://$NODE_IP:$NODE_PORT/admin"
+
+2. Login with the following credentials to see your blog
+
+  echo Username: helm-user
+  echo Password: $(kubectl get secret --namespace chapter3 wordpress -o jsonpath="{.data.wordpress-password}" | base64 --decode)
+
+
+Reusing and resetting values during an upgrade
+The helm upgrade command includes two additional flags that are used to manipulate
+values that are not present in the helm install command.
+Let's look at these flags now:
+• --reuse-values: When upgrading, reuse the last release's values.
+• --reset-values: When upgrading, reset the values to the chart defaults.
+
+
+par default si on ne precise rien le reuse-values est utilisé.
+
+si on fait un upgrade avec un --set seule la valeur modifiée est changée : le reste des valeurs definies dans notre fichier sont ignorées :
+helm upgrade wordpress bitnami/wordpress --set replicaCount=1 -n chapter3 --version 8.1.0
+
+helm get values wordpress -n chapter3
+USER-SUPPLIED VALUES:
+replicaCount: 1
+
+
+on a donc un reset des values défnies au préalable.
+Users can manually provide the --reset-values or --reuse-values flags to
+explicitly determine the behavior of values during an upgrade. Use the --resetvalues flag if you would like the next upgrade to reset each value to its default before
+overriding it from the command line. Provide the --reuse-values flag if you would
+like to reuse each of the values from a previous revision while setting different values from
+the command line. To help simplify the management of values during an upgrade, try to
+keep your values in a file that can be used to declaratively set values for each upgrade
+
+- History :
+
+les revisions des releases sont conservées en secret dans kube ( par defautl on peut les definir en configmap ou en mémoire que l'on defini dans la var HELM_DRIVER 
+ex: 
+
+ kubectl get secrets -n chapter3
+NAME                              TYPE                                  DATA   AGE
+default-token-n8m5s               kubernetes.io/service-account-token   3      118m
+sh.helm.release.v1.wordpress.v1   helm.sh/release.v1                    1      96m
+sh.helm.release.v1.wordpress.v2   helm.sh/release.v1                    1      83m
+sh.helm.release.v1.wordpress.v3   helm.sh/release.v1                    1      52m
+sh.helm.release.v1.wordpress.v4   helm.sh/release.v1                    1      44m
+sh.helm.release.v1.wordpress.v5   helm.sh/release.v1                    1      31m
+sh.helm.release.v1.wordpress.v6   helm.sh/release.v1                    1      26m
+wordpress                         Opaque                                1      96m
+wordpress-mariadb                 Opaque                                2      96m
+
+helm history wordpress -n chapter3
+REVISION	UPDATED                 	STATUS    	CHART          	APP VERSION	DESCRIPTION
+1       	Sun Oct  4 17:22:23 2020	superseded	wordpress-8.1.0	5.3.2      	Install complete
+2       	Sun Oct  4 17:36:10 2020	superseded	wordpress-8.1.0	5.3.2      	Upgrade complete
+3       	Sun Oct  4 18:06:46 2020	superseded	wordpress-8.1.0	5.3.2      	Upgrade complete
+4       	Sun Oct  4 18:14:33 2020	superseded	wordpress-8.1.0	5.3.2      	Upgrade complete
+5       	Sun Oct  4 18:27:41 2020	superseded	wordpress-8.1.0	5.3.2      	Upgrade complete
+6       	Sun Oct  4 18:32:46 2020	deployed  	wordpress-8.1.0	5.3.2      	Upgrade complete
+
+
+on peut examiner les valeurs d'une revision : 
+
+helm get values wordpress --revision 3 -n chapter3
+USER-SUPPLIED VALUES:
+service:
+  type: NodePort
+wordpressBlogName: Learn Helm!
+wordpressEmail: helm-user@example.com
+wordpressFirstName: boogie
+wordpressLastName: man
+wordpressPassword: my-pass
+wordpressUsername: helm-user
+
+
+ helm get values wordpress --revision 6 -n chapter3
+USER-SUPPLIED VALUES:
+replicaCount: 1
+
+
+- rollback :
+
+helm rollback <RELEASE> [REVISION] [flags]
+
+helm rollback wordpress 5 -n chapter3
+Rollback was a success! Happy Helming!
+
+on peut voir le rollback dans l'history :
+
+helm history wordpress -n chapter3
+REVISION	UPDATED                 	STATUS    	CHART          	APP VERSION	DESCRIPTION
+1       	Sun Oct  4 17:22:23 2020	superseded	wordpress-8.1.0	5.3.2      	Install complete
+2       	Sun Oct  4 17:36:10 2020	superseded	wordpress-8.1.0	5.3.2      	Upgrade complete
+3       	Sun Oct  4 18:06:46 2020	superseded	wordpress-8.1.0	5.3.2      	Upgrade complete
+4       	Sun Oct  4 18:14:33 2020	superseded	wordpress-8.1.0	5.3.2      	Upgrade complete
+5       	Sun Oct  4 18:27:41 2020	superseded	wordpress-8.1.0	5.3.2      	Upgrade complete
+6       	Sun Oct  4 18:32:46 2020	superseded	wordpress-8.1.0	5.3.2      	Upgrade complete
+7       	Sun Oct  4 19:09:33 2020	deployed  	wordpress-8.1.0	5.3.2      	Rollback to 5
+
+on retrouve bien les valeurs voulues dans notre version rollbackée :
+
+helm get values wordpress -n chapter3
+USER-SUPPLIED VALUES:
+replicaCount: 2
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+service:
+  type: NodePort
+wordpressBlogName: Boogie Learn Helm!
+wordpressEmail: helm-user@example.com
+wordpressFirstName: boogie
+wordpressLastName: man
+wordpressPassword: my-pass
+wordpressUsername: helm-user
+
+
+- Desinstallation de chart :
+
+helm uninstall RELEASE_NAME [...] [flags]
+
+helm uninstall wordpress -n chapter3
+release "wordpress" uninstalled
+
+helm list -n chapter3
+NAME	NAMESPACE	REVISION	UPDATED	STATUS	CHART	APP VERSION
+
+
+Attention il va rester un persistantvolumeclaim defini dans le statefullset qui n'est pas supprimé lors de la désinstallation du chart.
+le statefullset est deleted mais le pvc associé a ce statfullset ne l'est pas.
+
+kctl get pvc -n chapter3
+NAME                       STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS   AGE
+data-wordpress-mariadb-0   Bound    pvc-014b0631-6f4e-4dfb-9182-068750a2cff0   8Gi        RWO            standard       114m
+
+
+on va donc le supprimer manuellement :
+
+ kubectl delete pvc -l release=wordpress -n chapter3
+
+-suppression de notre namespace et arret de minikube :
+ kubectl delete namespace chapter3
+  minikube stop
+
+

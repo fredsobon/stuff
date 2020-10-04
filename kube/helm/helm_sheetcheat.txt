@@ -1,4 +1,4 @@
---dry-run --debug === cheatsheet helm : ===
+ === cheatsheet helm : ===
 
 = setup :
 on dowload la version qui nous interresse : 
@@ -57,6 +57,54 @@ brigade/brigade             	1.3.2        	v1.2.1     	Brigade provides event-dr
 brigade/brigade-github-app  	0.4.1        	v0.2.1     	The Brigade GitHub App, an advanced gateway for...
 ....
 
+helm repo add bitnami https://charts.bitnami.com/bitnami                                                                    
+"bitnami" has been added to your repositories
+
+
+L'affichage de la sortie peut être tronquée :
+helm search hub wordpress
+URL                                               	CHART VERSION	APP VERSION	DESCRIPTION
+https://hub.helm.sh/charts/presslabs/wordpress-...	0.10.5       	0.10.5     	Presslabs WordPress Operator Helm Chart
+https://hub.helm.sh/charts/presslabs/wordpress-...	v0.10.3      	v0.10.3    	A Helm chart for deploying a WordPress site on ...
+https://hub.helm.sh/charts/fasterbytes/wordpres...	v0.8.4       	v0.8.4     	FasterBytes WordPress Operator Helm Chart
+https://hub.helm.sh/charts/fasterbytes/wordpres...	v0.10.2      	v0.10.2    	A Helm chart for deploying a WordPress site on ...
+https://hub.helm.sh/charts/bitnami/wordpress      	9.6.4        	5.5.1      	Web publishing platform for building blogs and ...
+ boogie@boogieland  ~/.kube   helm search hub wordpress --max-col-width=0
+
+
+on peut y remédier en passant l'option suivante :
+helm search hub wordpress --max-col-width=0
+URL                                                      	CHART VERSION	APP VERSION	DESCRIPTION
+https://hub.helm.sh/charts/presslabs/wordpress-operator  	0.10.5       	0.10.5     	Presslabs WordPress Operator Helm Chart
+https://hub.helm.sh/charts/presslabs/wordpress-site      	v0.10.3      	v0.10.3    	A Helm chart for deploying a WordPress site on Presslabs Stack
+https://hub.helm.sh/charts/fasterbytes/wordpress-operator	v0.8.4       	v0.8.4     	FasterBytes WordPress Operator Helm Chart
+https://hub.helm.sh/charts/fasterbytes/wordpress-site    	v0.10.2      	v0.10.2    	A Helm chart for deploying a WordPress site on FasterBytes Stack
+https://hub.helm.sh/charts/bitnami/wordpress             	9.6.4        	5.5.1      	Web publishing platform for building blogs and websites.
+
+on peut aussi utiliser la sortie sous format yaml :
+ helm search hub wordpress --output yaml
+ - app_version: 0.10.5
+  description: Presslabs WordPress Operator Helm Chart
+  url: https://hub.helm.sh/charts/presslabs/wordpress-operator
+  version: 0.10.5
+- app_version: v0.10.3
+  description: A Helm chart for deploying a WordPress site on Presslabs Stack
+  url: https://hub.helm.sh/charts/presslabs/wordpress-site
+  version: v0.10.3
+- app_version: v0.8.4
+  description: FasterBytes WordPress Operator Helm Chart
+  url: https://hub.helm.sh/charts/fasterbytes/wordpress-operator
+  version: v0.8.4
+- app_version: v0.10.2
+  description: A Helm chart for deploying a WordPress site on FasterBytes Stack
+  url: https://hub.helm.sh/charts/fasterbytes/wordpress-site
+  version: v0.10.2
+- app_version: 5.5.1
+  description: Web publishing platform for building blogs and websites.
+  url: https://hub.helm.sh/charts/bitnami/wordpress
+  version: 9.6.4
+
+
 $ helm repo list
 
 - update :
@@ -68,7 +116,6 @@ helm repo update
 
 helm repo remove 
 
-
 - Examiner les dependances :
 un chart peut avoir des dependances d'autres charts :
 
@@ -76,7 +123,6 @@ helm dep list                                                                   
 NAME               	VERSION	REPOSITORY                                                         	STATUS
 prometheus-operator	8.9.2  	https://artifact.lapin.net/artifactory/helm-remote-stable/  	missing
 secrets            	0.1.4  	https://artifact.lapinnet/artifactory/helm-ilius-incubator/	missing
-
 
 
 - Update des dépendance de repos ( chart umbrella )
@@ -161,6 +207,130 @@ ex:
 name: "value1,value2"    
 
 
+- on peut examiner différentes infos de notre chart en plus des values :
+
+helm show chart ourchart
+helm show chart bitnami/wordpress --version 8.1.0
+
+
+helm show readme ourchart
+helm show readme bitnami/wordpress --version 8.1.0
+
+
+helm show all  ourchart
+helm show all bitnami/wordpress --version 8.1.0
+
+- on peut recup des infos d'un chart déployé :
+
+-> helm get hooks wordpress
+---
+# Source: wordpress/charts/mariadb/templates/test-runner.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "wordpress-mariadb-test-5qyjd"
+  annotations:
+    "helm.sh/hook": test-success
+
+-> helm get manifest wordpress |head
+---
+# Source: wordpress/charts/mariadb/templates/secrets.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: wordpress-mariadb
+  labels:
+    app: "mariadb"
+    chart: "mariadb-7.3.1"
+    release: "wordpress"
+
+
+-> helm get notes wordpress
+NOTES:
+1. Get the WordPress URL:
+
+  export NODE_PORT=$(kubectl get --namespace chapter3 -o jsonpath="{.spec.ports[0].nodePort}" services wordpress)
+  export NODE_IP=$(kubectl get nodes --namespace chapter3 -o jsonpath="{.items[0].status.addresses[0].address}")
+  echo "WordPress URL: http://$NODE_IP:$NODE_PORT/"
+  echo "WordPress Admin URL: http://$NODE_IP:$NODE_PORT/admin"
+
+2. Login with the following credentials to see your blog
+
+  echo Username: helm-user
+  echo Password: $(kubectl get secret --namespace chapter3 wordpress -o jsonpath="{.data.wordpress-password}" | base64 --decode)
+
+
+-> helm get values
+
+-> helm get all 
+
+=  helm namespace variable d'environment :
+on peut definir une variable d'env définissant le namespace dans lequel on travaille avec notre helm :
+
+export HELM_NAMESPACE=monitoring
+verif :
+helm env
+HELM_BIN="helm"
+HELM_DEBUG="false"
+HELM_KUBEAPISERVER=""
+HELM_KUBECONTEXT=""
+HELM_KUBETOKEN=""
+HELM_NAMESPACE="monitoring"
+HELM_PLUGINS="/home/boogie/.local/share/helm/plugins"
+HELM_REGISTRY_CONFIG="/home/boogie/.config/helm/registry.json"
+HELM_REPOSITORY_CACHE="/home/boogie/.cache/helm/repository"
+HELM_REPOSITORY_CONFIG="/home/boogie/.config/helm/repositories.yaml"
+
+
+on peut sinon biensur utiliser --namespace ou -n en argument avec le namespace qui nous interresse
+
+
+= helm config : 
+Environment variables
+
+Helm relies on the existence of externalized variables to configure low-level options. The
+
+Helm documentation lists six primary environment variables used to configure Helm:
+• XDG_CACHE_HOME: Sets an alternative location for storing cached files
+• XDG_CONFIG_HOME: Sets an alternative location for storing
+
+Helm configuration
+• XDG_DATA_HOME: Sets an alternative location for storing Helm data
+• HELM_DRIVER: Sets the backend storage driver
+• HELM_NO_PLUGINS: Disables plugins
+
+Configuring Helm 
+• KUBECONFIG: Sets an alternative Kubernetes configuration file
+
+Helm adheres to The XDG Base Directory Specification, which is designed to provide
+a standardized way of defining where different files are located on an operating system's
+filesystem. Based on the XDG specification, Helm automatically creates three different
+default directories on each operating system as required:
+Helm uses the cache path for charts that are downloaded from upstream chart
+repositories. Installed charts are cached to the local machine to enable faster installation
+of the chart the next time it is referenced. To update the cache, a user can run the helm
+repo update command, which will refresh the repository metadata with the most
+recent information available, as well as save the chart to the local cache.
+The configuration path is used to save repository information that was added by running
+the helm repo add command. When a chart that has not been cached is installed,
+Helm uses the configuration path to look up the URL of the chart repository. Helm uses
+that URL to understand where the chart resides for it to be downloaded.
+The data path is used to store plugins. When a plugin is installed using the helm
+plugin install command, the plugin data is stored in this location.
+Regarding the remaining environment variables we previously detailed, HELM_DRIVER
+is used to determine how the release state is stored in Kubernetes. The default value is
+secret, which is also the recommended value. Secret will Base64-encode the state in
+a Kubernetes Secret. Other options are configmap, which will store state in a plaintext
+Kubernetes ConfigMap and memory, which will store the state in the local process's
+memory. The use of local memory is intended for testing purposes and is not suitable for
+general purpose or production environments.
+The HELM_NO_PLUGINS environment variable is used to disable plugins. If unset, the
+default value that keeps plugins enabled is 0. To disable plugins, the variable should be
+set to 1.
+The KUBECONFIG environment variable is used to set the file used for authentication to
+the Kubernetes cluster. If unset, the default value will be ~/.kube/config. In most
+cases, users will not need to modify this value.
+
 
 = recup en local d'un chart : 
 
@@ -229,6 +399,89 @@ helm get values happy-panda
 mariadbUser: user1
 
 
+Reusing and resetting values during an upgrade
+The helm upgrade command includes two additional flags that are used to manipulate
+values that are not present in the helm install command.
+Let's look at these flags now:
+• --reuse-values: When upgrading, reuse the last release's values.
+• --reset-values: When upgrading, reset the values to the chart defaults.
+
+
+par default si on ne precise rien le reuse-values est utilisé.
+
+
+
+
+
+spec:
+  initContainers:
+    - name: "test-framework"
+      image: docker.io/dduportal/bats:0.4.0
+      command:
+        - "bash"
+        - "-c"
+        - |
+          set -ex
+          # copy bats to tools dir
+          cp -R /usr/local/libexec/ /tools/bats/
+      volumeMounts:
+      - mountPath: /tools
+        name: tools
+  containers:
+    - name: mariadb-test
+      image: docker.io/bitnami/mariadb:10.3.21-debian-9-r0
+      imagePullPolicy: "IfNotPresent"
+      command: ["/tools/bats/bats", "-t", "/tests/run.sh"]
+      env:
+        - name: MARIADB_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: wordpress-mariadb
+              key: mariadb-root-password
+      volumeMounts:
+      - mountPath: /tests
+        name: tests
+        readOnly: true
+      - mountPath: /tools
+        name: tools
+  volumes:
+  - name: tests
+    configMap:
+      name: wordpress-mariadb-tests
+  - name: tools
+    emptyDir: {}
+  restartPolicy: Never
+---
+# Source: wordpress/templates/tests/test-mariadb-connection.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "wordpress-credentials-test"
+  annotations:
+    "helm.sh/hook": test-success
+spec:
+  containers:
+  - name: wordpress-credentials-test
+    image: docker.io/bitnami/wordpress:5.3.2-debian-9-r0
+    imagePullPolicy: "IfNotPresent"
+    env:
+      - name: MARIADB_HOST
+        value: wordpress-mariadb
+      - name: MARIADB_PORT
+        value: "3306"
+      - name: WORDPRESS_DATABASE_NAME
+        value: "bitnami_wordpress"
+      - name: WORDPRESS_DATABASE_USER
+        value: "bn_wordpress"
+      - name: WORDPRESS_DATABASE_PASSWORD
+        valueFrom:
+          secretKeyRef:
+            name: wordpress-mariadb
+            key: mariadb-password
+    command: ["sh", "-c", "mysql --host=$MARIADB_HOST --port=$MARIADB_PORT --user=$WORDPRESS_DATABASE_USER --password=$WORDPRESS_DATABASE_PASSWORD"]
+  restartPolicy: Never
+
+
 = rollback :
 
 si on a un souci dans notre appli on peut rollback :
@@ -239,6 +492,42 @@ helm rollback happy-panda 1
 
 On peut voir les num de version avec :
 helm history release
+
+
+
+les revisions des releases sont conservées en secret dans kube ( par defautl on peut les definir en confi
+gmap ou en mémoire que l'on defini dans la var HELM_DRIVER
+ex:
+
+ kubectl get secrets -n chapter3
+NAME                              TYPE                                  DATA   AGE
+default-token-n8m5s               kubernetes.io/service-account-token   3      118m
+sh.helm.release.v1.wordpress.v1   helm.sh/release.v1                    1      96m
+sh.helm.release.v1.wordpress.v2   helm.sh/release.v1                    1      83m
+sh.helm.release.v1.wordpress.v3   helm.sh/release.v1                    1      52m
+sh.helm.release.v1.wordpress.v4   helm.sh/release.v1                    1      44m
+sh.helm.release.v1.wordpress.v5   helm.sh/release.v1                    1      31m
+sh.helm.release.v1.wordpress.v6   helm.sh/release.v1                    1      26m
+wordpress                         Opaque                                1      96m
+wordpress-mariadb                 Opaque                                2      96m
+
+
+helm history wordpress -n chapter3
+REVISION	UPDATED                 	STATUS    	CHART          	APP VERSION	DESCRIPTION     
+1       	Sun Oct  4 17:22:23 2020	superseded	wordpress-8.1.0	5.3.2      	Install complete
+2       	Sun Oct  4 17:36:10 2020	superseded	wordpress-8.1.0	5.3.2      	Upgrade complete
+3       	Sun Oct  4 18:06:46 2020	superseded	wordpress-8.1.0	5.3.2      	Upgrade complete
+4       	Sun Oct  4 18:14:33 2020	superseded	wordpress-8.1.0	5.3.2      	Upgrade complete
+5       	Sun Oct  4 18:27:41 2020	superseded	wordpress-8.1.0	5.3.2      	Upgrade complete
+6       	Sun Oct  4 18:32:46 2020	deployed  	wordpress-8.1.0	5.3.2      	Upgrade complete
+
+o
+
+
+pour rollback a une version precise : 
+
+helm rollback wordpress 5 -n chapter3
+
 
 = Desinstallation de release :
 
