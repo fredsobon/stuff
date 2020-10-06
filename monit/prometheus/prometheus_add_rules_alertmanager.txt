@@ -1,0 +1,34 @@
+=== notes sur la creation de rules pour le monitoring prometheus avec alertmanager : ===
+
+
+on va vouloir être alerter sur un espace disque par ex dont l'espace libre est inférieur a 20% :
+
+on va d'abord effectuer notre requette promql :
+
+on recupere tous les nodes qui nous interessent virt 
+on divise l'espace occupé par la taille totale du disque , on multiplie par 100 : on a notre pourcentage occupé.
+
+on soustrait ce pourcentage à 100 : on a l'espace libre.
+si l'espace  libre est inférrieur a 20 alors le test est vrai et nous remonte une ou des machinnes 
+
+100.0 - 100 * (pve_disk_usage_bytes{id=~"node/virt.*"} / pve_disk_size_bytes{id=~"node/virt.*"} ) < 20
+
+{endpoint="pve-exporter",id="node/virt02u",instance="10.160.71.130:9221",job="proxmox-monit-pve-exporter",namespace="prometheus-operator",pod="proxmox-monit-6ff8dc6b75-2g7q5",service="proxmox-monit-pve-exporter"}	10.857288601481812
+
+on a ici un serveur dont l'espace libre est de 10% on va donc lever une alerte.
+
+
+
+groups:
+- name: Windows Disk Alerts
+  rules:
+
+  # Sends an alert when disk space usage is above 95%
+  - alert: DiskSpaceUsage
+    expr: 100.0 - 100 * (windows_logical_disk_free_bytes / windows_logical_disk_size_bytes) > 95
+    for: 10m
+    labels:
+      severity: high
+    annotations:
+      summary: "Disk Space Usage (instance {{ $labels.instance }})"
+      description: "Disk Space on Drive is used more than 95%\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
