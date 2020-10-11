@@ -304,4 +304,208 @@ on va donc le supprimer manuellement :
  kubectl delete namespace chapter3
   minikube stop
 
+== understanding helm charts : ==
 
+= yaml format :
+
+format utilisé entre autre dans kube et helm.
+"YAML files follow a key-value format to declare configuration." 
+
+- definition d'une simple paire clé / valeur
+ex: 
+name: LearnHelm
+
+clé = name
+valeur = LearnHelm
+
+on a un separateur ":" entre les deux ET un espace qui est obligatoire.
+on peut imbriquer dans yaml plusieurs blocs :
+ex :
+resources:
+ limits:
+ cpu: 100m
+ memory: 512Mi
+
+cette ressource contient une map de 2 paires de clés / valeurs
+Clé                       valeur
+ressources.limits.cpu     100m
+ressources.limits.memory  512Mi
+Les clés sont déterminées par l'indentation yaml . Chaque indentation ajoute un "." separateur au nom de la clé.
+La valeur de la clé est atteinte quand il ne reste plus d'indentation dans le yaml.
+De base l'indentation yaml est de 2 espaces. Attention les tabulations ne sont pas admises et font ressortir une parse error.
+
+- types de valeurs :
+
+-> string : en principe on peut entourer le texte de ".
+
+Les multi lignes peuvent être construites avec un |
+ex: 
+configuration: |
+ server.port=8443
+ logging.file.path=/var/log
+-> integer :
+ex: 
+replicas: 1
+
+Attention si on quote la valeur elle sera considérée comme une string:
+replicas: "1"
+
+-> boolean :
+ex: 
+ingress:
+ enable: true
+
+ prend 2 valeurs true ou false
+mais aussi yes, no, on, off, y, n, Y, and N
+
+-> list :
+
+les éléments d'une liste sont présentées par "-" :
+ex: 
+servicePorts:
+ - 8080
+ - 8443
+
+autre exemple :
+deployment:
+  env:
+   - name: MY_VAR
+     value: MY_VALUE
+   - name: SERVICE_NAME
+     value: MY_SERVICE
+
+dans cet exemple la tableau contient une liste d'objects contenant des champs name et value 
+
+
+= json :
+
+" JSON is a string of key-value
+pairs, similar to YAML. The key difference is that while YAML relies on spacing and
+indentation to properly configure key-value pairs, JSON relies on braces and brackets."
+
+exemple precedent en json :
+{
+ 'deployment': {
+ 'env': [
+   {
+     'name': 'MY_VAR',
+     'value': 'MY_VALUE'
+   },
+   {
+     'name': 'SERVICE_NAME',
+     'value': 'MY_SERVICE'
+   }
+  ]
+ }
+
+Toutes les clés sont entourées de simple quote "'" précédent un ":"
+
+"Curly braces ({) denote a block in a similar way to how indentations denote a
+block in YAML.
+• Square brackets ([) denote a list in a similar way to how dashes denote a list
+in YAML."
+
+= helm chart structure : =
+
+un chart est un packaging de ressources kube permettant de déployer des applis de maniere plus ou moins complexes.
+Une structure est cependant  respecter :
+
+mychart  > le repertoire top level domaine est le nom du chart par bonne pratique.
+
+Chart.yaml -> fichier contenant les metadata du chart. mandatory
+templates -> repertoire contenant les ressources kube sous format yaml  mandatory en principe
+templates/NOTES.txt -> fichier d'instruction qui donnent des informations sur l'installation d'un chart . pas mandatory 
+values.yaml -> fichier contenant les valeurs par défaut du chart. Ce fichier est une best practice de helm.
+.helmignore -> fichier contenant une list de fichiers et repertoire à exclure pour le packaging de helm.
+charts/   -> repertoire contenant les charts dont ce chart dépend. PAs mandatory car le process de helm dependancy va créer automatiquement ce rep.
+Chart.lock -> fichier pour sauvegarder la version des precedentes dépendances appliquées.PAs mandatory car le process de helm dependancy va créer automatiquement ce rep.
+crds/ -> repertoire contenant des crd en yaml devant être installées avant les fichiers dans le rep templates.
+README.md -> fichier contenant les consignes d'install du chart. Best practice.
+LICENCE -> fichier contenant la licence d'un chart . pas mandatory
+values.schema.json -> fichier contenant les données du fichier values sous format json. pas mandatory
+
+
+- Charts templates :
+
+Le principal but d'un chart est de creer et manager les ressources kube pour faire une application.Ceci est fat grace aux templates dont les valeurs passées en parametres vont customiser ces templates.
+le rep template contient des ressources kube en yaml 
+
+ex: 
+templates/
+ configmap.yaml
+ deployment.yaml
+ service.yaml
+
+la configmap pourra être comme ceci :
+apiVersion: v1
+kind: ConfigMap
+metadata:
+ name: {{ .Release.Name }}
+data:
+ configuration.txt: |-
+ {{ .Values.configurationData }}
+
+Les {{ et }} sont issues du templating go et ces blocs seront remplacés et alimentés par les valeurs des éléments trouvés dans le / les fichiers values et par les variables internes builin à helm.
+
+- Go templating :
+
+language go initié par google en 2009, utilisé par kube, helm et autres ...
+un des éléments au coeur de go est son moteur de templating qui va permettre de générer des fichiers sous différents formats.
+le templating go controle et process les blocs compris entre {{ et }}, lors de l'install ou l'upgrade d'un chart ce fait ces accolades sont supprimées.
+
+- paramétrage de base et objects builtin :
+
+les charts helm contiennent au moins un fichier values.yaml qui contient les valeurs par défault du chart qui sont reférencées par les templates go et procéssées par helm pour générer une ressource kube.
+ex: values.yaml
+
+## chapterNumber lists the current chapter number
+chapterNumber: 4
+## chapterName gives a description of the current chapter
+chapterName: Understanding Helm Charts
+
+les lignes commencant par un # sont des commentaires qui peuvent nous aider à comprendre les valeurs.
+Les templates go commancant par .Values vont référencer les valeurs définies dans le fichier values.yaml ou passées en argument avec les flags --set ou --values pendant l'installation ou l'upgrade d'un chart
+L'exemple suivant nous montre le template avant son traitement : 
+env:
+ - name: CHAPTER_NUMBER
+ value: {{ .Values.chapterNumber }}
+ - name: CHAPTER_NAME
+ values: {{ .Values.chapterName }}
+
+Apres le traitement le code de la ressource  concernée sera donc comme suivant : 
+env:
+ - name: CHAPTER_NUMBER
+ value: 4
+ - name: CHAPTER_NAME
+ values: Understanding Helm Charts
+
+
+
+- built in :
+
+Le .Values est un objet builtin utilisé pour le paramétrage.
+cf list des built in dans la  documentation (https://helm.sh/docs/chart_template_guide/builtin_objects/)
+
+les élément suivants sont les principaux :
+
+.Release.Name -> nom de la release utilisé pour l'installation
+.Release.Namespace -> namespace utilisé pour le déployement du chart.
+.Release.Revision -> num de revision d'install ou d'upgrade
+.Values -> utilisé pour pour référencer les valeurs du ou des fichiers values.yaml ou defini en param sur la ligne de cimmande par le user.
+
+.Values -> utilisé pour pour référencer les valeurs du ou des fichiers values.yaml ou defini en param sur la ligne de cimmande par le user.
+.Chart.Name, .Chart.Version, .Chart.AppVersion ... -> utilisés pour référencer les champs dans le fichier Chart.yaml : on peut utiliser les différents champ de ce fichier par .Chart.$Field
+.Files.Get -> utilisé pour recupérer un fichier dans un rep du chart.
+.Files.AsSecrets -> retourne un fichier encodé en base64 pour créer un secret depuis un fichier dans un repertoire du chart.
+.Files.AsConfig -> retourne les données d'un fichier sous format yaml pour créer les data d'une configmap avec les données d'un fichier dans un rep du chart.
+.Capabilities.APIversions -> retourne une liste de l&pi kube du cluster
+.Template.Name -> retourne le chemin relatif du fichier utilisé par l'object.
+
+Le "." prefixant chaque objet représente le scope de l'object.
+Un "." suivi d'un nom d'object limite le scope à cet object :
+ex: .Release > limite au scope .Release , .Values au scope .Values 
+
+Le "." représente le scope global : rendant tous les objects visibles.
+
+
+ 
