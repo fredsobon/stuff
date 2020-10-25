@@ -691,6 +691,561 @@ la liste des fonctions Go est importante :
  https://golang.org/pkg/text/template/#hdr-Functions 
  and in the Sprig template library at http://masterminds.github.io/sprig/. 
 
+- Reutilisation de code avec les "named template" :
+
+quand on cree des templates on peut etre confronter à la répétition de bloc qui peut être longue 
+ex :
+
+labels:
+ 'app.kubernetes.io/instance': {{ .Release.Name }}
+ 'app.kubernetes.io/managed-by': {{ .Release.Service }}
+ ....
+dans certains cas ces labels doivent être inclus dans toutes les ressources helm ...ce qui peut être long , fastidieux et source d'oubli et encore plus si le label doit être modifié.
+helm permet de créer des named template pour pouvoir facilement réutiliser des blocs de code.
+Ils doivent être sous le repertoire templates et finir par l'extension ".tpl"
+Beaucoup de charts sont crées avec le fichier  _helpers.tpl mais ce n'est pas une obligation.
+
+pour créer un named template on utilisera le mot define dans notre fichier .tpl 
+ex : pour l'exemple de nos labels : 
+
+{{- define 'mychart.labels' }}
+labels:
+ 'app.kubernetes.io/instance': {{ .Release.Name }}
+ 'app.kubernetes.io/managed-by': {{ .Release.Service }}
+{{- end }}
+
+L'action define prend un nom de template en argument.Dans notre exemple mychart.labels
+La convention de nommage est que le template est $CHART_NAME.$TEMPLATE_NAME dans lequel $CHART_NAME est le nom du chart et $TEMPLATE_NAME est un nom court décrivant le but du template
+mychart.labels implique que le template est natif au chart helm mychart et qu'il va générer des labels pour les ressources du chart.
+
+pour utiliser un named template on saisira la fonction include 
+
+include [TEMPLATE_NAME] [SCOPE]
+
+le param TEMPLATE_NAME  est le nom du named template qui va être appliqué 
+le param SCOPE est le scope des valeurs et objects builtin qui doivent être traités 
+dans la plupart du temps le params est "." pour signaler le top scope level
+le $ peut être utiliser si le named scope références des valeurs en dehors du scope actuel 
+ex d'utilisation : 
+
+metadata:
+ name: {{ .Release.Name }}
+{{- include 'mychart.labels' . | indent 2 }}
+
+on a ici l'exemple qui defini le nom de la ressource comme le nom de la release et ensuite la fonction include qui va process les labels et les indentés de 2 espaces comme déclarer dans le pipe
+a la fin du traitement on peut avoir une ressource de type :  
+metadata:
+ name: template-demonstration
+ labels:
+ 'app.kubernetes.io/instance': template-demonstration
+ 'app.kubernetes.io/managed-by': Helm
+
+Helm also provides a template action that can also expand named templates. This
+action has the same usage as include, but with one major limitation—it cannot be used
+in a pipeline to provide additional formatting and processing. The template action is
+used to simply display data inline. Because of this limitation, chart developers should use
+the include function over the template action since include has feature parity with
+template but also provides the additional benefit of pipeline processing
 
 
-!!!!! p 118 to be completed !!!!!!
+
+!!!!! p 114 to be completed !!!!!!
+
+
+
+== Building your first chart : ==
+
+on va utiliser une appli fourni par la communauté kube pour comprendre notre build helm : "https://kubernetes.io/docs/
+tutorials/stateless-application/guestbook/"
+code php  en front et une boite de dialogue pour saisir nos data et redis pour stocker les data 
+
+on aura une replication redis : un master qui prendra les ecritures saisies lors de l'envoi de data et un node qui servira aux lectures
+ https://github.com/PacktPublishing/-Learn-Helm -> repertoire the helm-charts/charts/guestbook 
+
+ kubectl create namespace chapter5
+
+pour avoir un chart fonctionnel on doit avoir des éléments mandatory :
+• Chart.yaml: Used to define chart metadata
+• values.yaml: Used to define default chart values
+• templates/: Used to define chart templates and Kubernetes resources to be
+created
+
+la commande helm create va nous créer automatiquement tous les éléments nécéssaires et même plus : 
+
+ogie@boogieland  ~/Documents/lab/helm/guestbook   helm create guestbook                                                                                                                [☸ |minikube:chapter5]
+WARNING: Kubernetes configuration file is group-readable. This is insecure. Location: /home/boogie/.kube/config
+WARNING: Kubernetes configuration file is world-readable. This is insecure. Location: /home/boogie/.kube/config
+Creating guestbook
+ boogie@boogieland  ~/Documents/lab/helm/guestbook  tree                                                                                                                                  [☸ |minikube:chapter5]
+.
+└── guestbook
+    ├── charts
+    ├── Chart.yaml
+    ├── templates
+    │   ├── deployment.yaml
+    │   ├── _helpers.tpl
+    │   ├── hpa.yaml
+    │   ├── ingress.yaml
+    │   ├── NOTES.txt
+    │   ├── serviceaccount.yaml
+    │   ├── service.yaml
+    │   └── tests
+    │       └── test-connection.yaml
+    └── values.yaml
+
+on va supprimer le rep tests que l'on verra plus tard pour les tests unitaires 
+ rm -rf guestbook/templates/tests
+ tree                                                                                                                                  [☸ |minikube:chapter5]
+.
+└── guestbook
+    ├── charts
+    ├── Chart.yaml
+    ├── templates
+    │   ├── deployment.yaml
+    │   ├── _helpers.tpl
+    │   ├── hpa.yaml
+    │   ├── ingress.yaml
+    │   ├── NOTES.txt
+    │   ├── serviceaccount.yaml
+    │   └── service.yaml
+    └── values.yaml
+
+examen des ressources 
+
+-  Chart.yaml 
+cat Chart.yaml                                                                                                              [☸ |minikube:chapter5]
+
+
+apiVersion: v2   <<<<<< version d'api : en helm3 v2 est préférable 
+name: guestbook  <<<<<<  nom de notre chart 
+description: A Helm chart for Kubernetes  <<<<< description rapide de notre chart
+
+# A chart can be either an 'application' or a 'library' chart.
+#
+# Application charts are a collection of templates that can be packaged into versioned archives
+# to be deployed.
+#
+# Library charts provide useful utilities or functions for the chart developer. They're included as
+# a dependency of application charts to inject those utilities and functions into the rendering
+# pipeline. Library charts do not define any templates and therefore cannot be deployed.
+type: application  <<<<<<< type de chart application ou library ( library vient avec des addons et helpers qui peuvent être utilisés dans d'autres charts pour éviter les répétitions.
+
+# This is the chart version. This version number should be incremented each time you make changes
+# to the chart and its templates, including the app version.
+# Versions are expected to follow Semantic Versioning (https://semver.org/)
+version: 0.1.0   <<<< numéro de version qui doit être conforme au Semantic Versioning specifications (SemVer).
+
+
+# This is the version number of the application being deployed. This version number should be
+# incremented each time you make changes to the application. Versions are not expected to
+# follow Semantic Versioning. They should reflect the version the application is using.
+appVersion: 1.16.0    <<<<< version de l'application déployée par le chart helm
+
+Il n'y a pas ici pour l'instant de section :
+
+dependencies: une list de charts dont ce Helm chart depend
+
+- Ajout de la dépendance redis :
+comme on l'a vu notre appli a besoin d'une db redis pour fonctionner
+
+on va chercher le chart redis :
+
+helm search hub redis                                                                                                      [☸ |minikube:chapter5]
+WARNING: Kubernetes configuration file is group-readable. This is insecure. Location: /home/boogie/.kube/config
+WARNING: Kubernetes configuration file is world-readable. This is insecure. Location: /home/boogie/.kube/config
+URL                                               	CHART VERSION	APP VERSION  	DESCRIPTION
+https://hub.helm.sh/charts/drycc-canary/redis     	1.0.0        	             	A Redis database for use inside a Kubernetes cl...
+https://hub.helm.sh/charts/choerodon/redis        	0.2.5        	0.2.5        	redis for Choerodon
+https://hub.helm.sh/charts/drycc/redis            	1.1.0        	             	A Redis database for use inside a Kubernetes cl...
+https://hub.helm.sh/charts/wener/redis            	10.8.2       	6.0.8        	Open source, advanced key-value store. It is of...
+https://hub.helm.sh/charts/bitnami/redis          	11.2.2       	6.0.8        	Open source, advanced key-value store. It is of...
+https://hub.helm.sh/charts/hephy/redis            	2.4.2        	             	A Redis database for use inside a Kubernetes cl...
+https://hub.helm.sh/charts/helm-incubator/redis...	0.5.0        	4.0.12-alpine	A pure in-memory redis cache, using statefulset...
+https://hub.helm.sh/charts/inspur/redis-cluster   	0.0.2        	5.0.6        	Highly available Kubernetes implementation of R...
+https://hub.helm.sh/charts/helm-stable/redis-ha   	4.4.4        	5.0.6        	Highly available Kubernetes implementation of R...
+https://hub.helm.sh/charts/hkube/redis-ha         	3.6.1005     	5.0.5        	Highly available Kubernetes implementation of R...
+https://hub.helm.sh/charts/dandydeveloper/redis-ha	4.10.2       	6.0.7        	Highly available Kubernetes implementation of R...
+https://hub.helm.sh/charts/softonic/redis-sharded 	0.3.0        	6.0.6        	A Helm chart for sharded redis
+https://hub.helm.sh/charts/bitnami/redis-cluster  	3.2.8        	6.0.8        	Open source, advanced key-value store. It is of...
+https://hub.helm.sh/charts/prometheus-community...	3.6.0        	1.11.1       	Prometheus exporter for Redis metrics
+https://hub.helm.sh/charts/hmdmph/redis-pod-lab...	1.0.2        	1.0.0        	Labelling redis pods as master/slave periodical...
+https://hub.helm.sh/charts/wyrihaximusnet/redis...	1.0.1        	v1.0.0       	Redis Database Assignment Operator
+https://hub.helm.sh/charts/pozetron/keydb         	0.5.1        	v5.3.3       	A Helm chart for multimaster KeyDB optionally w...
+https://hub.helm.sh/charts/enapter/keydb          	0.16.2       	6.0.16       	A Helm chart for KeyDB multimaster setup
+https://hub.helm.sh/charts/helm-stable/sensu      	0.2.3        	0.28         	Sensu monitoring framework backed by the Redis ...
+
+on va si nous ne l'avons pas encore ajouter le repo bitnami :
+helm repo add bitnami https://charts.bitnami.com
+
+on va chercher un num de version de chart pas d'appli : le num de l'appli correspond a la version de redis pas celle du chart.
+
+helm search repo redis --versions --max-col-width 100 |grep bit |head                                                       [☸ |minikube:chapter5]
+WARNING: Kubernetes configuration file is group-readable. This is insecure. Location: /home/boogie/.kube/config
+WARNING: Kubernetes configuration file is world-readable. This is insecure. Location: /home/boogie/.kube/config
+bitnami/redis                                 	11.2.1       	6.0.8          	Open source, advanced key-value store. It is often referred to as a data structure server since k...
+bitnami/redis                                 	11.2.0       	6.0.8          	Open source, advanced key-value store. It is often referred to as a data structure server since k...
+bitnami/redis                                 	11.1.3       	6.0.8          	Open source, advanced key-value store. It is often referred to as a data structure server since k...
+bitnami/redis                                 	11.1.1       	6.0.8          	Open source, advanced key-value store. It is often referred to as a data structure server since k...
+bitnami/redis                                 	11.1.0       	6.0.8          	Open source, advanced key-value store. It is often referred to as a data structure server since k...
+bitnami/redis                                 	11.0.7       	6.0.8          	Open source, advanced key-value store. It is often referred to as a data structure server since k...
+bitnami/redis                                 	11.0.6       	6.0.8          	Open source, advanced key-value store. It is often referred to as a data structure server since k...
+bitnami/redis                                 	11.0.5       	6.0.8          	Open source, advanced key-value store. It is often referred to as a data structure server since k...
+bitnami/redis                                 	11.0.4       	6.0.8          	Open source, advanced key-value store. It is often referred to as a data structure server since k...
+bitnami/redis                                 	11.0.3       	6.0.8          	Open source, advanced key-value store. It is often referred to as a data structure server since k..
+
+Dependencies allow you to choose a particular chart version, or a wildcard such
+as 10.5.x. Using a wildcard allows you to easily keep your chart updated with
+the latest Redis version matching that wildcard (which, in this case, is version
+10.5.14). In this example, we will use version 11.x.x
+
+en épurant notre fichier Chart.yaml on a :
+
+cat Chart.yaml                                                                                                              [☸ |minikube:chapter5]
+
+apiVersion: v2
+name: guestbook
+description: A Helm chart for Kubernetes
+type: application
+version: 0.1.0
+appVersion: 1.16.0
+dependencies:
+ - name: redis
+ version: 11.x.x
+ repository: https://charts.bitnami.com/bitnami
+
+on va maintenant download notre dépendance :
+
+ceci va dl le chart redis dans le rep charts et créer le fichier Chart.lock 
+helm dependency update .
+
+tree                       [☸ |minikube:chapter5]
+.
+└── guestbook
+    ├── Chart.lock
+    ├── charts
+    │   └── redis-11.2.2.tgz
+    ├── Chart.yaml
+    ├── templates
+    │   ├── deployment.yaml
+    │   ├── _helpers.tpl
+    │   ├── hpa.yaml
+    │   ├── ingress.yaml
+    │   ├── NOTES.txt
+    │   ├── serviceaccount.yaml
+    │   └── service.yaml
+    └── values.yaml
+
+- modification du fichier values.yaml 
+
+en mode interractif on peut utliser les flags : --set or --values 
+on va ajouter les valeurs qui nous interressent. Un chart doit être bien autodocumenté.
+
+on va examiner les valeurs possible dans notre chart redis : 
+
+helm show values charts/redis-11.2.2.tgz |head                                                                              [☸ |minikube:chapter5]
+WARNING: Kubernetes configuration file is group-readable. This is insecure. Location: /home/boogie/.kube/config
+WARNING: Kubernetes configuration file is world-readable. This is insecure. Location: /home/boogie/.kube/config
+## Global Docker image parameters
+## Please, note that this will override the image parameters, including dependencies, configured to use the global value
+## Current available global Docker image parameters: imageRegistry and imagePullSecrets
+##
+global:
+  # imageRegistry: myRegistryName
+  # imagePullSecrets:
+  #   - myRegistryKeySecretName
+  # storageClass: myStorageClass
+  redis: {}
+....
+.......
+
+La premiere valeur qu'on va modifier est fullnameOverride :
+
+## String to partially override redis.fullname template (will maintain the release name)
+##
+# nameOverride:
+
+## String to fully override redis.fullname template
+##
+# fullnameOverride:
+
+
+les charts utilisent souvent cette valeur dans un named template appellé "$CHART_NAME.fullname"
+quand fullnameOverride est définie le named template va definir a cette valeur sinon le resultat de ce template se basera sur l'object ".Release.Name object, ou le nom de la release utilisée pour l'install.
+La dependance redis utilise redis.fullname  pour aider la conf redis avec son master et slave.
+
+ex d'une utilisation : 
+name: {{ template 'redis.fullname' . }}-master
+
+The Guestbook application requires the Redis services to be named redismaster and redis-slave. As a result, the fullnameOverride value should
+be set to redis.
+
+on peut decompresser le chart redis et examiner le fichier _helpers.tpl qui nous montre comment est defini le named template 
+....
+{{- define "redis.fullname" -}}
+{{- if .Values.fullnameOverride -}}
+{{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" -}}
+{{- else -}}
+{{- $name := default .Chart.Name .Values.nameOverride -}}
+...
+Le code source de l'appli guestbook est dispo :
+https://github.com/kubernetes/examples/blob/master/guestbook/php-redis/guestbook.php
+
+dans le fichier values on va donc définir  des valeurs mandatory pour faire fonctionner l'appli guestbook 
+
+fullnameOverride: "redis"  <<<< c'est le nom attendu pour l'appli
+usePassword: false  <<<< l'appli simple n'utilise pas d'autent
+on va aussi desactiver une option d'ecriture de backup de redis dans un configmap ( nous utiliserons plus tard un snapshot) 
+configmap: |-
+ appendonly no
+
+
+Avec ces éléments de configs déterminés on va ajouter un bloc dans notre fichier values.yaml qui sera dédié à notre dépendance redis c'est pourquoi une section redis est ajoutée avec les valeurs dédiées overridées.
+redis:
+ # Override the redis.fullname template
+ fullnameOverride: redis
+ # Enable unauthenticated access to Redis
+ usePassword: false
+ # Disable AOF persistence
+ configmap: |-
+   appendonly no
+
+L'utilisation de helm create a auto provisionner des fichiers qui vont devoir être modifiés car ils servent d'exemple
+
+ex : dans le fichier values.yaml on a une image nginx de définie , un num de version
+
+on va modifier les valeurs :
+..
+image:
+  repository: repository: gcr.io/google-samples/gb-frontend  <<< on remplace l'image nginx par celle de notre appli
+...
+service:
+  type: NodePort  <<<<< on met NodePort à la place de ClusterIp
+  port: 80
+
+on va modifier le fichier Chart.yaml pour changer le appVersion :
+
+appVersion: v4
+
+on lance l'install de notre chart :
+
+helm install my-guestbook . -n chapter5                                                                                    [☸ |minikube:chapter5]
+WARNING: Kubernetes configuration file is group-readable. This is insecure. Location: /home/boogie/.kube/config
+WARNING: Kubernetes configuration file is world-readable. This is insecure. Location: /home/boogie/.kube/config
+Error: cannot load values.yaml: error converting YAML to JSON: yaml: line 8: mapping values are not allowed in this context
+ ✘ boogie@boogieland  ~/Documents/lab/helm/guestbook/guestbook  vi values.yaml                                                                                                            [☸ |minikube:chapter5]
+ boogie@boogieland  ~/Documents/lab/helm/guestbook/guestbook  helm install my-guestbook . -n chapter5                                                                                     [☸ |minikube:chapter5]
+WARNING: Kubernetes configuration file is group-readable. This is insecure. Location: /home/boogie/.kube/config
+WARNING: Kubernetes configuration file is world-readable. This is insecure. Location: /home/boogie/.kube/config
+NAME: my-guestbook
+LAST DEPLOYED: Sun Oct 25 18:42:11 2020
+NAMESPACE: chapter5
+STATUS: deployed
+REVISION: 1
+TEST SUITE: None
+NOTES:
+1. Get the application URL by running these commands:
+  export NODE_PORT=$(kubectl get --namespace chapter5 -o jsonpath="{.spec.ports[0].nodePort}" services my-guestbook)
+  export NODE_IP=$(kubectl get nodes --namespace chapter5 -o jsonpath="{.items[0].status.addresses[0].address}")
+  echo http://$NODE_IP:$NODE_PORT
+
+
+on verifie notre install : 
+kctl get pods                                                                                                               [☸ |minikube:chapter5]
+NAME                            READY   STATUS    RESTARTS   AGE
+my-guestbook-794d6fbfd7-kldj5   1/1     Running   0          79s
+redis-master-0                  1/1     Running   0          79s
+redis-slave-0                   1/1     Running   0          79s
+redis-slave-1                   1/1     Running   0          27s
+
+on va lancer les commandes fournies dans le NOTES de notre install pour acceder à l'appli :
+
+  export NODE_PORT=$(kubectl get --namespace chapter5 -o jsonpath="{.spec.ports[0].nodePort}" services my-guestbook)
+  export NODE_IP=$(kubectl get nodes --namespace chapter5 -o jsonpath="{.items[0].status.addresses[0].address}")
+  echo http://$NODE_IP:$NODE_PORT
+http://192.168.39.214:32256
+
+curl -I http://192.168.39.214:32256                                                                                         [☸ |minikube:chapter5]
+
+HTTP/1.1 200 OK
+Date: Sun, 25 Oct 2020 17:44:58 GMT
+Server: Apache/2.4.10 (Debian) PHP/5.6.20
+Last-Modified: Wed, 09 Sep 2015 18:35:04 GMT
+ETag: "399-51f54bdb4a600"
+Accept-Ranges: bytes
+Content-Length: 921
+Vary: Accept-Encoding
+Content-Type: text/html
+
+
+si on reussi a saisir un message dans le champ c'est que tout est ok et que c'est ecrit en db
+
+on va desinstaller notre chart et detruire le pvc manuellement pour améliorer notre chart 
+
+helm uninstall my-guestbook -n chapter5                                                                                    [☸ |minikube:chapter5]
+WARNING: Kubernetes configuration file is group-readable. This is insecure. Location: /home/boogie/.kube/config
+WARNING: Kubernetes configuration file is world-readable. This is insecure. Location: /home/boogie/.kube/config
+release "my-guestbook" uninstalled
+ boogie@boogieland  ~/Documents/lab/helm/guestbook/guestbook  kubectl delete pvc -l app=redis -n chapter5                                                                                 [☸ |minikube:chapter5]
+persistentvolumeclaim "redis-data-redis-master-0" deleted
+persistentvolumeclaim "redis-data-redis-slave-0" deleted
+persistentvolumeclaim "redis-data-redis-slave-1" deleted
+
+= Amelioration du chart guestbook : =
+
+toutes les applis peuvent être améliorées ..dans notre cas on veut ameliorer deux éléments 
+> ajouter des hooks de backup et restoration de db redis 
+> ajouter un controle de saisi dans le formulaire web de notre app.
+
+- creation de hooks pré-upgrade et pré-rollback 
+
+> pré-upgrade : ce hook intervient des que la commande upgrade est executée mais avant la modif de ressources kube. On va créer un snapshot de db au cas ou l'upgrade se passe mal.
+> pre-rollback : ce hook intervient des que la commande rollback est executée mais avant le revert des ressources kube : une restoration du snap de db va être fait pour s'assurer qu'on va revenir sur les data correspondante à notre version rollbackée
+
+
+- pre-upgrade hook :
+dans redis les data de snapshots sont stockées dans un fichier  dump.rdb 
+on peut backuper ce fichier en creant un pvc , ce hook peut créer un job qui copie le fichier dans le nouveau pvc crée
+
+on va donc créer nous même ce hook 
+
+dans le rep templates on crée un rep backup :
+mkdir backup
+
+on va ensuite créer deux fichiers pour nos deux taches 
+
+touch persistentvolumeclaim.yaml ; touch job.yaml
+
+
+- pvc : 
+
+cat  persistentvolumeclaim.yaml                                                                         
+{{- if .Values.redis.master.persistence.enabled }}   <<<< ici tout le bloc du if est appliqué si la valeur redis.master.persistence.enabled  est définie à vrai : ce qui est le cas quand on examine les valeurs du chart de dependance redis : helm show values charts/redis-11.2.2.tgz |grep persistence
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: redis-data-{{ .Values.redis.fullnameOverride }}-master-0-backup-{{ sub .Release.Revision 1 }} <<< ici on defini le nom de notre pvc dédié au backup il contient le mot backup et comporte le num de version qui est celui de la version de l'upgrade -1 grace a la fonction sub ..1 : on a donc un snap avec nos data fraiches au cas ou l'upgrade se passe mal. 
+  labels:
+    {{- include "guestbook.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-upgrade <<< on crée un annotation pre upgrade 
+    "helm.sh/hook-weight": "0"   <<< on donne un poid a notre hook : la valeur 0 indique que ce hook est executé avant tous les autres .
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.redis.master.persistence.size }}
+{{- end }}
+
+
+
+- job :
+
+cat job.yaml                                                                                             
+{{- if .Values.redis.master.persistence.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "guestbook.fullname" . }}-backup
+  labels:
+    {{- include "guestbook.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-upgrade   <<<<<  on defini ici une annotation de pre-upgrade 
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded  <<< on pose ici une annotation qui va permettre de delete le hook ( de base les hook ne sont pas détruit . on ajoute la policy before-hook-creation,hook-succeeded : qui va donc détruire le job pendant les phases d'upgrade : pour relancer un bacth frais , de plus le job sera delete si le run c'est bien passé.
+    "helm.sh/hook-weight": "1" <<<< la valeur ici est de 1 : ce hook passe donc apres notre hook de pvc 
+spec:
+  template:
+    spec:
+      containers:
+        - name: backup
+          image: redis:alpine3.11
+          command: ["/bin/sh", "-c"]
+          args: ["redis-cli -h {{ .Values.redis.fullnameOverride }}-master save && cp /data/dump.rdb /backup/dump.rdb"]  <<<<<< ici on defini la commande qui va va se connecter au master , faire le backup et le copier sur le pvc crée pour 
+          volumeMounts:
+            - name: redis-data
+              mountPath: /data
+            - name: backup
+              mountPath: /backup
+      restartPolicy: Never
+      volumes:                     <<<<<<  on defini ici les pvc master et backup qui seront montés pour l'operation de backup 
+        - name: redis-data
+          persistentVolumeClaim:
+            claimName: redis-data-{{ .Values.redis.fullnameOverride }}-master-0
+        - name: backup
+          persistentVolumeClaim:
+            claimName: redis-data-{{ .Values.redis.fullnameOverride }}-master-0-backup-{{ sub .Release.Revision 1 }}
+{{- end }}
+
+
+
+- creation du hook de pre-rollback : 
+
+sous le rep templates : mkdir restore
+
+cat job.yaml                                                                                            
+
+{{- if .Values.redis.master.persistence.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "guestbook.fullname" . }}-restore
+  labels:
+    {{- include "guestbook.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-rollback   <<<< on defini un hook de pre rollback 
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  template:
+    spec:
+      containers:
+        - name: restore
+          image: redis:alpine3.11
+          command: ["/bin/sh", "-c"]
+          args: ["cp /backup/dump.rdb /data/dump.rdb &&  <<<< ici on copie depuis notre pvc backup le snap et on reinjecte sur le master db , on restart la base redis.
+            redis-cli -h {{ .Values.redis.fullnameOverride }}-master debug restart || true"]  <<< on s'assure que le code retour du redemarrage de la base est n'est pas ok  : on a un retour "normal" de redis qui nous dis que la connexion a la db s'est terminée ,on a un code retour different de 0 .. on rajoute un || true qui va donc sortir si on a un code retour à 0 ..ce qui prouverai que le redémarrage n'a pas eu lieu. 
+          volumeMounts:
+            - name: redis-data
+              mountPath: /data
+            - name: backup
+              mountPath: /backup
+      restartPolicy: Never
+      volumes:
+        - name: redis-data
+          persistentVolumeClaim:
+            claimName: redis-data-{{ .Values.redis.fullnameOverride }}-master-0
+        - name: backup
+          persistentVolumeClaim:
+            claimName: redis-data-{{ .Values.redis.fullnameOverride }}-master-0-backup-{{ .Release.Revision }}  <<< on defini le volume de backup voulu avec le num de revision.
+{{- end }}
+
+
+- reinstall de notre chart avec les hooks :
+
+helm install  guestbook .
+
+on va tester qu'on a acces a l'appli et qu'on peut ecrire un message 
+
+quand c'est ok on lance notre upgrade :
+
+helm upgrade  guestbook .
+
+on voit que notre pvc de backup  est créee :
+
+kctl get pvc                                                                                                                [☸ |minikube:chapter5]
+NAME                                 STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS   AGE
+redis-data-redis-master-0            Bound    pvc-fcfc75d3-c4b3-4ca7-9d47-284fe8ab06a9   8Gi        RWO            standard       2m43s
+redis-data-redis-master-0-backup-1   Bound    pvc-d6369288-924a-4399-b56b-547feffc2b3b   8Gi        RWO            standard       39s
+redis-data-redis-slave-0             Bound    pvc-655ed8cc-b873-4c20-a474-2b2c61e15b58   8Gi        RWO            standard       2m43s
+redis-data-redis-slave-1             Bound    pvc-7d523ddf-71f5-4295-8b9d-198ff635386c   8Gi        RWO            standard       2m2s
+
+on ajoute un message dans le champ de notre appli :
+on a deux messages visibles 
+
+on va maintenant faire un rollback pour tester la resto de notre snap :
+
+helm rollback   guestbook 1 .                                                                                               [☸ |minikube:chapter5]
+WARNING: Kubernetes configuration file is group-readable. This is insecure. Location: /home/boogie/.kube/config
+WARNING: Kubernetes configuration file is world-readable. This is insecure. Location: /home/boogie/.kube/config
+Rollback was a success! Happy Helming!
+
+on a donc trigger notre rollback qui a injecté le snap ..en examinant notre frontend on a plus que le message initial présent apres l'install de notre chart
