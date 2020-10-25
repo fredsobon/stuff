@@ -507,5 +507,190 @@ ex: .Release > limite au scope .Release , .Values au scope .Values
 
 Le "." représente le scope global : rendant tous les objects visibles.
 
+- fichier values.schema.json 
+optionnel, il va servir en renforcer les controlles de saisies dans le fichier values.yaml
 
+ex :
+{
+ '$schema': 'https://json-schema.org/draft-07/schema#',
+ 'properties': {
+   'replicas': {
+     'description': 'number of application instances to deploy',
+     'minimum': 0
+     'type' 'integer'
+   },
+ . . .
+ 'title': 'values',
+ 'type': 'object'
+}
  
+on voit ici que le minimum de replica a definir est de 0 et que le type attendu est un entier.
+
+- control de flux :
+
+if/else > utilisé pour inclure ou exlure un bloc dans un fichier 
+
+ex: ici si la valeur definie dans .Values.probeType.httpGet est vrai ou non nulle on defini la soned avec un httpGet port 8080 .. si aucune valeur n'est définie dans notre values.yaml alors on défini une sonde de type tcpSocket 
+
+
+readinessProbe:
+{{- if .Values.probeType.httpGet }}
+  httpGet:
+    path: /healthz
+    port: 8080
+    scheme: HTTP
+{{- else }}
+  tcpSocket:
+    port: 8080
+{{- end }}
+ initialDelaySeconds: 30
+ periodSeconds: 10
+
+with > va être defini pour modifier le scope des valeurs référencées
+pratique pour des cascades de valeurs définies 
+
+ex : values.yaml 
+application:
+  resources:
+    limits:
+      cpu: 100m
+       memory: 512Mi
+
+sans l'utilisation de with dans nos templates on sera obliger de définir les champs comme suivants :
+
+cpu: {{ .Values.application.resources.limits.cpu }}
+memory: {{ .Values.application.resources.limits.memory }}
+
+avec with on aura une syntaxe plus concise et lisible 
+
+{{- with .Values.application.resources.limits }}
+cpu: {{ .cpu }}
+memory: {{ .memory }}
+{{- end }}
+       
+- range > va permettre de boucler sur une liste de valeurs :
+
+servicePorts:
+  - name: http
+  port: 8080
+  - name: https
+  port: 8443
+  - name: jolokia
+  port: 8778
+       
+spec:
+  ports:
+{{- range .Values.servicePorts }}
+  - name: {{ - name }}
+  port: {{ .port }}
+{{- end }}
+
+Attention : with et range limitent leur action dans le scope des objets définis (ex : .Values, .Release) ..si on veut agir au niveau du scope global : on doit préfixer les références avec "$" 
+
+ex:  ici on boucle sur les valeurs de ports de l'objet .Values mais on va ajouter le nom de notre release issu de l'objet .Release dans un autre scope en préfixant avec "$" :
+{{- range .Values.servicePorts }}
+ - name: {{ $.Release.Name }}-{{ .name }}
+ port: {{ .port }}
+{{- end }}
+
+
+- Variables de templates :
+
+on peut créer des variables dans nos templates pour ajouter des options de processing 
+
+definition de variable :
+
+ex : 
+{{ $myvar := 'Hello World!' }}
+
+Les variables peuvent être assignées à des objects :
+ex :
+{{ $myvar := .Values.greeting }}
+
+on pourra referencer la variable par ex comme ceci :
+
+data:
+ greeting.txt: |
+   {{ $myvar }}
+
+
+un exemple d'utilisation est la capture des index dans une boucle sur une liste :
+
+data:
+ greetings.txt: |
+{{- range $index, $value := .Values.greetings }}
+ Greeting {{ $index }}: {{ $value }}
+{{- end }}
+Les résulats pourront donner quelque chose comme : 
+data:
+ greetings.txt: |
+ Greeting 0: Hello
+ Greeting 1: Hola
+ Greeting 2: Hallo
+
+on peut biensur aussi boucler sur une map / hash / dictionnaire :
+
+data:
+  greetings.txt: |
+{{- range $key, $val := .Values.greetings }}
+  Greeting in {{ $key }}: {{ $val }}
+{{- end }}
+
+avec comme résultat par exemple :
+
+data:
+ greetings.txt: |
+ Greeting in English: Hello
+ Greeting in Spanish: Hola
+ Greeting in German: Hallo
+
+on peut aussi utiliser les variables pour référencer des objects en dehors de notre scope : 
+
+ex: le template suivant va echouer car .Release.Name n'est pas sous le scope de .Values.application.configuration 
+
+{{- with .Values.application.configuration }}
+My application is called {{ .Release.Name }}
+{{- end }}
+
+scope of .Values.application.configuration. One way this can be remedied is
+by setting a variable to .Release.Name above the with block:
+une manière de remedier à ce pb est de définir une variable avant le bloc with :
+{{ $appName := .Release.Name }}
+{{- with .Values.application.configuration }}
+My application is called {{ $appName }}
+{{- end }}
+
+Cependant la methode utilisant le $ pour référencer le scope global est meilleure car plus lisible et moins longue a écrire : 
+
+- process complexes avec les pipes  / pipelines :
+
+on va pouvoir chainer les commandes avec des fonctions comme dans linux :
+
+on peut  par exemple utiliser la fonction indent qui va ajouter des espaces :
+
+on peut ecrire et utiliser les fonctions ( en tout cas indent de plusieurs manieres) 
+ex 
+data:
+ application-config: |-
+{{ indent 4 .Values.config }}
+
+ou alors avec un pipe :
+
+data:
+ application-config: |-
+{{ .Values.config | indent 4 }}
+
+l'avantage du pipe est qu'on peut chainer les commandes / fonctions :
+ex :
+data:
+ application-config: |-
+{{ .Values.config | indent 4 | quote }}
+
+la liste des fonctions Go est importante :
+
+ https://golang.org/pkg/text/template/#hdr-Functions 
+ and in the Sprig template library at http://masterminds.github.io/sprig/. 
+
+
+
+!!!!! p 118 to be completed !!!!!!
