@@ -343,6 +343,7 @@ ex:
 configuration: |
  server.port=8443
  logging.file.path=/var/log
+
 -> integer :
 ex: 
 replicas: 1
@@ -374,7 +375,7 @@ deployment:
    - name: SERVICE_NAME
      value: MY_SERVICE
 
-dans cet exemple la tableau contient une liste d'objects contenant des champs name et value 
+dans cet exemple le tableau contient une liste d'objects contenant des champs name et value 
 
 
 = json :
@@ -384,6 +385,7 @@ pairs, similar to YAML. The key difference is that while YAML relies on spacing 
 indentation to properly configure key-value pairs, JSON relies on braces and brackets."
 
 exemple precedent en json :
+
 {
  'deployment': {
  'env': [
@@ -427,7 +429,7 @@ values.schema.json -> fichier contenant les données du fichier values sous form
 
 - Charts templates :
 
-Le principal but d'un chart est de creer et manager les ressources kube pour faire une application.Ceci est fat grace aux templates dont les valeurs passées en parametres vont customiser ces templates.
+Le principal but d'un chart est de creer et manager les ressources kube pour faire une application.Ceci est fait grace aux templates dont les valeurs passées en parametres vont customiser ces templates.
 le rep template contient des ressources kube en yaml 
 
 ex: 
@@ -464,8 +466,9 @@ chapterNumber: 4
 chapterName: Understanding Helm Charts
 
 les lignes commencant par un # sont des commentaires qui peuvent nous aider à comprendre les valeurs.
-Les templates go commancant par .Values vont référencer les valeurs définies dans le fichier values.yaml ou passées en argument avec les flags --set ou --values pendant l'installation ou l'upgrade d'un chart
+Les templates go commencant par .Values vont référencer les valeurs définies dans le fichier values.yaml ou passées en argument avec les flags --set ou --values pendant l'installation ou l'upgrade d'un chart
 L'exemple suivant nous montre le template avant son traitement : 
+
 env:
  - name: CHAPTER_NUMBER
  value: {{ .Values.chapterNumber }}
@@ -493,7 +496,7 @@ les élément suivants sont les principaux :
 .Release.Revision -> num de revision d'install ou d'upgrade
 .Values -> utilisé pour pour référencer les valeurs du ou des fichiers values.yaml ou defini en param sur la ligne de cimmande par le user.
 
-.Values -> utilisé pour pour référencer les valeurs du ou des fichiers values.yaml ou defini en param sur la ligne de cimmande par le user.
+.Values -> utilisé pour pour référencer les valeurs du ou des fichiers values.yaml ou defini en param sur la ligne de commande par le user.
 .Chart.Name, .Chart.Version, .Chart.AppVersion ... -> utilisés pour référencer les champs dans le fichier Chart.yaml : on peut utiliser les différents champ de ce fichier par .Chart.$Field
 .Files.Get -> utilisé pour recupérer un fichier dans un rep du chart.
 .Files.AsSecrets -> retourne un fichier encodé en base64 pour créer un secret depuis un fichier dans un repertoire du chart.
@@ -530,7 +533,7 @@ on voit ici que le minimum de replica a definir est de 0 et que le type attendu 
 
 if/else > utilisé pour inclure ou exlure un bloc dans un fichier 
 
-ex: ici si la valeur definie dans .Values.probeType.httpGet est vrai ou non nulle on defini la soned avec un httpGet port 8080 .. si aucune valeur n'est définie dans notre values.yaml alors on défini une sonde de type tcpSocket 
+ex: ici si la valeur definie dans .Values.probeType.httpGet est vrai ou non nulle : on defini la sonde avec un httpGet port 8080 .. si aucune valeur n'est définie dans notre values.yaml alors on défini une sonde de type tcpSocket 
 
 
 readinessProbe:
@@ -660,7 +663,7 @@ une manière de remedier à ce pb est de définir une variable avant le bloc wit
 My application is called {{ $appName }}
 {{- end }}
 
-Cependant la methode utilisant le $ pour référencer le scope global est meilleure car plus lisible et moins longue a écrire : 
+Cependant la methode utilisant le $ pour référencer le scope global est meilleure car plus lisible et moins longue a écrire. 
 
 - process complexes avec les pipes  / pipelines :
 
@@ -1251,4 +1254,188 @@ Rollback was a success! Happy Helming!
 on a donc trigger notre rollback qui a injecté le snap ..en examinant notre frontend on a plus que le message initial présent apres l'install de notre chart
 
 
-p166
+= Ajout de controle de validation de saisie :
+
+en travaillant avec kube et helm, des controles de saisies sont effectués par l'api de kube : si une ressource crée par helm est invalide : une erreur sera retournée par l'api de kube.
+Il va rester des cas ou on va vouloir pendant le developpement de notre chart s'assurer de controle avant de pousser et atteindre l'api de kube.
+On peut utiliser la fonction fail dans notre chart guestbook.
+
+- function fail :
+
+elle est utilisée pour echouer directement dans le process de templating si un user a saisi une mauvaise valeur par ex.
+
+ex dans notre chart guestbook on a une valeur qui défini le type de service qui sera utilisé.
+cat values.yaml
+...
+service:
+  type: NodePort
+  port: 80
+...
+
+ici on a defini NodePort (pour minikube) .
+On pourrait vouloir limiter la saisi à NodePort ou ClusterIP par exemple.
+
+si on regarde le template service.yaml, on a la section :
+cat templates/service.yaml
+..
+spec:
+  type: {{ .Values.service.type }}
+...
+
+on va vouloir qu'assurer que le service est défini à ClusterIP ou NodePort avant de définir le type de service.On va pouvoir définir une variable avec la liste des bon settings puis vérifier que la valeur de service.type est bien dans la liste de bon settings : sinon le processing de chart retournera une erreur sur le type de service saisi comme invalide.
+Notre template va donc être structuré comme suivant :
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "guestbook.fullname" . }}
+  labels:
+    {{- include "guestbook.labels" . | nindent 4 }}
+spec:
+{{- $serviceTypes := list "ClusterIP" "NodePort" }}   <<<<< on defini une variable contenant la liste des type de services authorisés.
+{{- if has .Values.service.type $serviceTypes }}      <<<<< on évalue la valeur définie pour .Values.service.type et on examine si on a bien une valeur a "ClusterIP" ou "NodePort"
+  type: {{ .Values.service.type }}                    <<<<< si la valeur définie dans notre fichier de values est valide ("ClusterIP" ou "NodePort") : alors on défini notre type a la valeur saisie
+{{- else }}                                       
+  {{- fail "value 'service.type' must be either 'ClusterIP' or 'NodePort'" }}   <<<<<< sinon on lève une erreur en précisant que nous avons saisi une mauvaise valeur dans notre fichier pour le type de service.
+{{- end }}
+
+Si on test en définissant un service de type LoadBalancer on a bien une erreur de sortie :
+
+helm upgrade guestbook . -n chapter5 --set service.type=LoadBalancer                                                        
+WARNING: Kubernetes configuration file is group-readable. This is insecure. Location: /home/boogie/.kube/config
+WARNING: Kubernetes configuration file is world-readable. This is insecure. Location: /home/boogie/.kube/config
+Error: UPGRADE FAILED: template: guestbook/templates/service.yaml:12:6: executing "guestbook/templates/service.yaml" at <fail "value 'service.type' must be either 'ClusterIP' or 'NodePort'">: error calling fail: value 'service.type' must be either 'ClusterIP' or 'NodePort'
+
+
+- require : fonction de validation de valeur saisie
+on va aussi pouvoir s'assurer que les users ont bien saisi une valeur par defaut dans le fichier de values et qu'en aucun cas une valeur vide ne peut fonctionner 
+
+exemple : on va pouvoir s'assurer qu'une image précise sra utilisée dans notre déploiement :
+
+cat templates/deployment.yaml                                                                                     
+          ..
+          image: '{{ .Values.image.repository }}:{{ .Chart.AppVersion }}'
+          #image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"   <<<<< valeur definie dans le tpls de base mais ne collant pas avec l'explication du book.
+on va utiliser la fonction require pour nous assurer de l'tilisation d'une image précise :
+
+require prend deux args :
+> un message d'erreur pour afficher la valeur attendue 
+> la valeur attendue
+
+on aura dans notre cas donc :
+
+          image: "{{ required "value 'image.repository' is required" .Values.image.repository }}:{{ .Chart.AppVersion }}"
+
+si on essaye d'upgrader avec une valeur vide on aura un message d'erreur :
+
+helm upgrade guestbook . -n chapter5 --set image.repository=''                                                            [☸ |minikube:chapter5]
+WARNING: Kubernetes configuration file is group-readable. This is insecure. Location: /home/boogie/.kube/config
+WARNING: Kubernetes configuration file is world-readable. This is insecure. Location: /home/boogie/.kube/config
+Error: UPGRADE FAILED: execution error at (guestbook/templates/deployment.yaml:28:21): value 'image.repository' is required
+
+= Publication de notre chart dans un repo : 
+
+maintenant qu'on a un chart on va pouvoir le publier dans un repo pour le rendre dispo :
+
+- creation de repo :
+
+un repo helm contient :
+> des chart sous la forme de tgz
+> un fichier index.yaml contenant les metadata des charts présents dans le repo
+
+un repo basic nécéssite qu'un maintener s'occupe de la gestion du fichier index.yaml.
+Des solutions plus élaborées comme chartmuseum gèrent automatiquement ce fichier.
+on va ici utiliser github pages pour faire un repo simple.
+
+une fois notre compte crée, on cree un repo avec un readme et on active github pages dans les settings en choississant la branche main (anciennement master) et en choississant un theme graphique qui nous plait.
+
+on clone en local de repo  dans une arbo voulu ex /tmp 
+
+git clone https://github.com/billbongo/helm-charts.git
+
+on va modifier la version du chart dans le Chart.yaml :
+on passe en version 1.0.0 : une majeure. 
+
+version: 1.0.0
+
+on va maintenant packager notre chart :
+cd ..
+helm package guestbook
+
+
+on a maintenant un chart tgz au même niveau que le repertoire de notre chart :
+
+tree                                                                                                                               
+.
+├── guestbook
+│   ├── Chart.lock
+│   ├── charts
+│   │   └── redis-10.5.14.tgz
+│   ├── Chart.yaml
+│   ├── helm-charts
+│   │   └── README.md
+│   ├── templates
+│   │   ├── backup
+│   │   │   ├── job.yaml
+│   │   │   └── persistentvolumeclaim.yaml
+│   │   ├── deployment.yaml
+│   │   ├── _helpers.tpl
+│   │   ├── hpa.yaml
+│   │   ├── ingress.yaml
+│   │   ├── NOTES.txt
+│   │   ├── restore
+│   │   │   └── job.yaml
+│   │   ├── serviceaccount.yaml
+│   │   └── service.yaml
+│   └── values.yaml
+└── guestbook-1.0.0.tgz
+
+
+si on a un souci on peut s'assurer que les dépendances de notre chart sont bien présentes en ajoutant :
+--dependency-update flag a la commande helm package ,ce qui a download les dependance et packager le chart dans la même commande 
+
+
+on va maintenant copier le tgz dans notre repo git cloné :
+cp guestbook-1.0.0.tgz /tmp/helm-charts
+
+on va maintenant créer notre fichier index :
+avec la commande helm repo index <nom du repo git cloné en local> 
+
+helm repo index helm-charts                                     
+ boogie@boogieland  /tmp  cd helm-charts                                                                                                                                                  [☸ |minikube:chapter5]
+ boogie@boogieland  /tmp/helm-charts   main  ls                                                                                                                                         [☸ |minikube:chapter5]
+guestbook-1.0.0.tgz  index.yaml  README.md
+ boogie@boogieland  /tmp/helm-charts   main  cat index.yaml                                                                                                                             [☸ |minikube:chapter5]
+apiVersion: v1
+entries:
+  guestbook:
+  - apiVersion: v2
+    appVersion: v4
+    created: "2020-11-01T18:11:23.696154925+01:00"
+    dependencies:
+    - name: redis
+      repository: https://charts.bitnami.com/bitnami
+      version: 10.5.x
+    description: A Helm chart for Kubernetes
+    digest: a1bb696d44ebb3fdb7f0823b3f394b2b093712fda426081de08fec686403a725
+    name: guestbook
+    type: application
+    urls:
+    - guestbook-1.0.0.tgz
+    version: 1.0.0
+generated: "2020-11-01T18:11:23.691250105+01:00"
+
+on ajoute les fichiers, on commit et on pousse dans le repo :
+
+git add --all
+git commit -m 'feat: adding the guestbook helm chart'
+git push origin main
+
+on va maintenant ajouter notre repo dans notre liste 
+on doit récupérer l'url de github pages qu'on peut voir dans les settings 
+
+https://billbongo.github.io/helm-charts/
+
+helm repo add billbongo https://billbongo.github.io/helm-charts
+"billbongo" has been added to your repositories
+
