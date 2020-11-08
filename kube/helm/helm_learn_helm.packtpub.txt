@@ -1596,6 +1596,557 @@ yamllint guestbook/values.yaml
 
 = test live dans cluster kube :
 
+Il est important de créer des tests functionnels de nos charts pour nous assurer qu'il n'y a pas de régression et qu'on fixe bien ce que l'on veut.
+Lss tests  consistent en deux etapes :
+> créer un template de pod sous le rep templates qui contient une annotation helm.sh/hook: test
+ces pods vont tester le fonctionnement de notre appli
+> executer  la commande helm test sui va générer un hook qui va créer notre pod précédent.
+
+Par mesures pratique on va stocker nos tests dans un repertoire tests placé dans le repertoire templates.
+
+ex :
+guestbook/templates
+mkdir tests && touch tests/frontend-connection.yaml && touch tests/redis-connection.yaml
+
+on va créer nos tests :
+
+- le premier va tester qu'on a bien une connection fonctionnelle a notre db et qu'on recupere bien les messages : 
+
+cat tests/backend-connection.yaml                                                                               
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ include "guestbook.fullname" . }}-test-backend-connection
+  labels:
+    {{- include "guestbook.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  containers:
+    - name: test-backend-connection
+      image: redis:alpine3.11
+      command: ["/bin/sh", "-c"]
+      args: ["redis-cli -h {{ .Values.redis.fullnameOverride }}-master MGET messages"]
+  restartPolicy: Never
+
+
+
+- le second va tester qu'on a bien une reponse de nos frontends : en curlant l'ip de service du lb  
+cat tests/frontend-connection.yaml   
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ include "guestbook.fullname" . }}-test-frontend-connection
+  labels:
+    {{- include "guestbook.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  containers:
+    - name: test-frontend-connection
+      image: curlimages/curl:7.68.0
+      command: ["/bin/sh", "-c"]
+      args: ["curl {{ include "guestbook.fullname" . }}"]
+  restartPolicy: Never
+
+on va devoir installer si ce n'est fait notre chart avant de tester : 
+
+helm install   my-guestbook .
+
+on va maintenant tester notre chart :
+
+helm test my-guestbook                                                                                           
+Pod my-guestbook-test-backend-connection pending
+Pod my-guestbook-test-backend-connection pending
+Pod my-guestbook-test-backend-connection pending
+Pod my-guestbook-test-backend-connection succeeded
+Pod my-guestbook-test-frontend-connection pending
+Pod my-guestbook-test-frontend-connection pending
+Pod my-guestbook-test-frontend-connection succeeded
+NAME: my-guestbook
+LAST DEPLOYED: Sun Nov  8 17:03:04 2020
+NAMESPACE: chapter6
+STATUS: deployed
+REVISION: 1
+TEST SUITE:     my-guestbook-test-backend-connection
+Last Started:   Sun Nov  8 17:08:57 2020
+Last Completed: Sun Nov  8 17:08:58 2020
+Phase:          Succeeded
+TEST SUITE:     my-guestbook-test-frontend-connection
+Last Started:   Sun Nov  8 17:08:58 2020
+Last Completed: Sun Nov  8 17:09:01 2020
+Phase:          Succeeded
+NOTES:
+1. Get the application URL by running these commands:
+  export NODE_PORT=$(kubectl get --namespace chapter6 -o jsonpath="{.spec.ports[0].nodePort}" services my-guestbook)
+  export NODE_IP=$(kubectl get nodes --namespace chapter6 -o jsonpath="{.items[0].status.addresses[0].address}")
+  echo http://$NODE_IP:$NODE_PORT
+
+
+on peut si on veut ajouter un mode plus verbeux et un niveau de logs bavard :
+ helm test my-guestbook --logs         
+WARNING: Kubernetes configuration file is group-readable. This is insecure. Location: /home/boogie/.kube/config
+WARNING: Kubernetes configuration file is world-readable. This is insecure. Location: /home/boogie/.kube/config
+Pod my-guestbook-test-backend-connection pending
+Pod my-guestbook-test-backend-connection pending
+Pod my-guestbook-test-backend-connection succeeded
+Pod my-guestbook-test-frontend-connection pending
+Pod my-guestbook-test-frontend-connection pending
+Pod my-guestbook-test-frontend-connection succeeded
+NAME: my-guestbook
+LAST DEPLOYED: Sun Nov  8 17:03:04 2020
+NAMESPACE: chapter6
+STATUS: deployed
+REVISION: 1
+TEST SUITE:     my-guestbook-test-backend-connection
+Last Started:   Sun Nov  8 17:10:33 2020
+Last Completed: Sun Nov  8 17:10:34 2020
+Phase:          Succeeded
+TEST SUITE:     my-guestbook-test-frontend-connection
+Last Started:   Sun Nov  8 17:10:34 2020
+Last Completed: Sun Nov  8 17:10:35 2020
+Phase:          Succeeded
+NOTES:
+1. Get the application URL by running these commands:
+  export NODE_PORT=$(kubectl get --namespace chapter6 -o jsonpath="{.spec.ports[0].nodePort}" services my-guestbook)
+  export NODE_IP=$(kubectl get nodes --namespace chapter6 -o jsonpath="{.items[0].status.addresses[0].address}")
+  echo http://$NODE_IP:$NODE_PORT
+
+POD LOGS: my-guestbook-test-backend-connection
+
+
+POD LOGS: my-guestbook-test-frontend-connection
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+<html ng-app="redis">
+  <head>
+    <title>Guestbook</title>
+    <link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap.min.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.2.12/angular.min.js"></script>
+    <script src="controllers.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/angular-ui-bootstrap/0.13.0/ui-bootstrap-tpls.js"></script>
+  </head>
+  <body ng-controller="RedisCtrl">
+    <div style="width: 50%; margin-left: 20px">
+      <h2>Guestbook</h2>
+    <form>
+    <fieldset>
+    <input ng-model="msg" placeholder="Messages" class="form-control" type="text" name="input"><br>
+    <button type="button" class="btn btn-primary" ng-click="controller.onRedis()">Submit</button>
+    </fieldset>
+    </form>
+    <div>
+      <div ng-repeat="msg in messages track by $index">
+        {{msg}}
+      </div>
+    </div>
+    </div>
+  </body>
+</html>
+100   921  100   921    0     0   899k      0 --:--:-- --:--:-- --:--:--  899k
+
+
+test avec niveau de verbosité augmenté : 
+
+helm test my-guestbook --logs -v7       
+WARNING: Kubernetes configuration file is group-readable. This is insecure. Location: /home/boogie/.kube/config
+WARNING: Kubernetes configuration file is world-readable. This is insecure. Location: /home/boogie/.kube/config
+I1108 17:11:01.695842  125524 loader.go:375] Config loaded from file:  /home/boogie/.kube/config
+I1108 17:11:01.696896  125524 loader.go:375] Config loaded from file:  /home/boogie/.kube/config
+I1108 17:11:01.697773  125524 loader.go:375] Config loaded from file:  /home/boogie/.kube/config
+I1108 17:11:01.698638  125524 cert_rotation.go:137] Starting client certificate rotation controller
+I1108 17:11:01.700110  125524 round_trippers.go:420] GET https://192.168.39.214:8443/version?timeout=32s
+I1108 17:11:01.700120  125524 round_trippers.go:427] Request Headers:
+I1108 17:11:01.700125  125524 round_trippers.go:431]     Accept: application/json, */*
+I1108 17:11:01.700129  125524 round_trippers.go:431]     User-Agent: helm/v0.0.0 (linux/amd64) kubernetes/$Format
+I1108 17:11:01.708476  125524 round_trippers.go:446] Response Status: 200 OK in 8 milliseconds
+I1108 17:11:01.709122  125524 loader.go:375] Config loaded from file:  /home/boogie/.kube/config
+I1108 17:11:01.710555  125524 round_trippers.go:420] GET https://192.168.39.214:8443/api/v1/namespaces/chapter6/secrets?labelSelector=name%3Dmy-guestbook%2Cowner%3Dhelm
+I1108 17:11:01.710578  125524 round_trippers.go:427] Request Headers:
+I1108 17:11:01.710583  125524 round_trippers.go:431]     User-Agent: helm/v0.0.0 (linux/amd64) kubernetes/$Format
+I1108 17:11:01.710587  125524 round_trippers.go:431]     Accept: application/json, */*
+I1108 17:11:01.713302  125524 round_trippers.go:446] Response Status: 200 OK in 2 milliseconds
+I1108 17:11:01.715923  125524 loader.go:375] Config loaded from file:  /home/boogie/.kube/config
+I1108 17:11:01.716981  125524 loader.go:375] Config loaded from file:  /home/boogie/.kube/config
+I1108 17:11:01.720422  125524 loader.go:375] Config loaded from file:  /home/boogie/.kube/config
+I1108 17:11:01.720839  125524 round_trippers.go:420] DELETE https://192.168.39.214:8443/api/v1/namespaces/chapter6/pods/my-guestbook-test-backend-connection
+I1108 17:11:01.720851  125524 round_trippers.go:427] Request Headers:
+I1108 17:11:01.720860  125524 round_trippers.go:431]     Accept: application/json
+I1108 17:11:01.720867  125524 round_trippers.go:431]     Content-Type: application/json
+I1108 17:11:01.737311  125524 round_trippers.go:446] Response Status: 200 OK in 16 milliseconds
+I1108 17:11:01.738225  125524 loader.go:375] Config loaded from file:  /home/boogie/.kube/config
+I1108 17:11:01.738627  125524 round_trippers.go:420] GET https://192.168.39.214:8443/openapi/v2?timeout=32s
+I1108 17:11:01.738636  125524 round_trippers.go:427] Request Headers:
+I1108 17:11:01.738642  125524 round_trippers.go:431]     Accept: application/com.github.proto-openapi.spec.v2@v1.0+protobuf
+I1108 17:11:01.738648  125524 round_trippers.go:431]     User-Agent: helm/v0.0.0 (linux/amd64) kubernetes/$Format
+I1108 17:11:01.743634  125524 round_trippers.go:446] Response Status: 200 OK in 4 milliseconds
+I1108 17:11:01.808435  125524 loader.go:375] Config loaded from file:  /home/boogie/.kube/config
+I1108 17:11:01.809202  125524 loader.go:375] Config loaded from file:  /home/boogie/.kube/config
+I1108 17:11:01.810963  125524 loader.go:375] Config loaded from file:  /home/boogie/.kube/config
+I1108 17:11:01.814274  125524 round_trippers.go:420] PUT https://192.168.39.214:8443/api/v1/namespaces/chapter6/secrets/sh.helm.release.v1.my-guestbook.v1
+I1108 17:11:01.814290  125524 round_trippers.go:427] Request Headers:
+I1108 17:11:01.814295  125524 round_trippers.go:431]     Content-Type: application/json
+I1108 17:11:01.814299  125524 round_trippers.go:431]     Accept: application/json, */*
+I1108 17:11:01.814302  125524 round_trippers.go:431]     User-Agent: helm/v0.0.0 (linux/amd64) kubernetes/$Format
+I1108 17:11:01.817577  125524 round_trippers.go:446] Response Status: 200 OK in 3 milliseconds
+I1108 17:11:01.818662  125524 round_trippers.go:420] POST https://192.168.39.214:8443/api/v1/namespaces/chapter6/pods
+I1108 17:11:01.818677  125524 round_trippers.go:427] Request Headers:
+I1108 17:11:01.818685  125524 round_trippers.go:431]     Accept: application/json
+I1108 17:11:01.818690  125524 round_trippers.go:431]     Content-Type: application/json
+I1108 17:11:01.823343  125524 round_trippers.go:446] Response Status: 201 Created in 4 milliseconds
+I1108 17:11:01.823716  125524 round_trippers.go:420] GET https://192.168.39.214:8443/api/v1/namespaces/chapter6/pods?fieldSelector=metadata.name%3Dmy-guestbook-test-backend-connection
+I1108 17:11:01.823730  125524 round_trippers.go:427] Request Headers:
+I1108 17:11:01.823738  125524 round_trippers.go:431]     Accept: application/json
+I1108 17:11:01.832003  125524 round_trippers.go:446] Response Status: 200 OK in 8 milliseconds
+Pod my-guestbook-test-backend-connection pending
+I1108 17:11:01.837754  125524 retrywatcher.go:244] Starting RetryWatcher.
+I1108 17:11:01.837851  125524 round_trippers.go:420] GET https://192.168.39.214:8443/api/v1/namespaces/chapter6/pods?fieldSelector=metadata.name%3Dmy-guestbook-test-backend-connection&resourceVersion=371180&watch=true
+I1108 17:11:01.837863  125524 round_trippers.go:427] Request Headers:
+I1108 17:11:01.837870  125524 round_trippers.go:431]     Accept: application/json
+I1108 17:11:01.838991  125524 round_trippers.go:446] Response Status: 200 OK in 1 milliseconds
+Pod my-guestbook-test-backend-connection pending
+Pod my-guestbook-test-backend-connection pending
+Pod my-guestbook-test-backend-connection succeeded
+I1108 17:11:02.751443  125524 retrywatcher.go:146] Stopping RetryWatcher.
+I1108 17:11:02.751573  125524 retrywatcher.go:272] Stopping RetryWatcher.
+I1108 17:11:02.752131  125524 loader.go:375] Config loaded from file:  /home/boogie/.kube/config
+I1108 17:11:02.753055  125524 loader.go:375] Config loaded from file:  /home/boogie/.kube/config
+I1108 17:11:02.755448  125524 loader.go:375] Config loaded from file:  /home/boogie/.kube/config
+I1108 17:11:02.755833  125524 round_trippers.go:420] DELETE https://192.168.39.214:8443/api/v1/namespaces/chapter6/pods/my-guestbook-test-frontend-connection
+I1108 17:11:02.755844  125524 round_trippers.go:427] Request Headers:
+I1108 17:11:02.755849  125524 round_trippers.go:431]     Accept: application/json
+I1108 17:11:02.755853  125524 round_trippers.go:431]     Content-Type: application/json
+I1108 17:11:02.774864  125524 round_trippers.go:446] Response Status: 200 OK in 18 milliseconds
+I1108 17:11:02.776695  125524 loader.go:375] Config loaded from file:  /home/boogie/.kube/config
+I1108 17:11:02.778474  125524 loader.go:375] Config loaded from file:  /home/boogie/.kube/config
+I1108 17:11:02.779811  125524 loader.go:375] Config loaded from file:  /home/boogie/.kube/config
+I1108 17:11:02.783136  125524 loader.go:375] Config loaded from file:  /home/boogie/.kube/config
+I1108 17:11:02.786099  125524 round_trippers.go:420] PUT https://192.168.39.214:8443/api/v1/namespaces/chapter6/secrets/sh.helm.release.v1.my-guestbook.v1
+I1108 17:11:02.786120  125524 round_trippers.go:427] Request Headers:
+I1108 17:11:02.786130  125524 round_trippers.go:431]     Accept: application/json, */*
+I1108 17:11:02.786138  125524 round_trippers.go:431]     Content-Type: application/json
+I1108 17:11:02.786145  125524 round_trippers.go:431]     User-Agent: helm/v0.0.0 (linux/amd64) kubernetes/$Format
+I1108 17:11:02.796165  125524 round_trippers.go:446] Response Status: 200 OK in 10 milliseconds
+I1108 17:11:02.796975  125524 round_trippers.go:420] POST https://192.168.39.214:8443/api/v1/namespaces/chapter6/pods
+I1108 17:11:02.796993  125524 round_trippers.go:427] Request Headers:
+I1108 17:11:02.797003  125524 round_trippers.go:431]     Accept: application/json
+I1108 17:11:02.797013  125524 round_trippers.go:431]     Content-Type: application/json
+I1108 17:11:02.801998  125524 round_trippers.go:446] Response Status: 201 Created in 4 milliseconds
+I1108 17:11:02.802471  125524 round_trippers.go:420] GET https://192.168.39.214:8443/api/v1/namespaces/chapter6/pods?fieldSelector=metadata.name%3Dmy-guestbook-test-frontend-connection
+I1108 17:11:02.802492  125524 round_trippers.go:427] Request Headers:
+I1108 17:11:02.802503  125524 round_trippers.go:431]     Accept: application/json
+I1108 17:11:02.828145  125524 round_trippers.go:446] Response Status: 200 OK in 25 milliseconds
+Pod my-guestbook-test-frontend-connection pending
+I1108 17:11:02.828996  125524 retrywatcher.go:244] Starting RetryWatcher.
+I1108 17:11:02.829103  125524 round_trippers.go:420] GET https://192.168.39.214:8443/api/v1/namespaces/chapter6/pods?fieldSelector=metadata.name%3Dmy-guestbook-test-frontend-connection&resourceVersion=371192&watch=true
+I1108 17:11:02.829119  125524 round_trippers.go:427] Request Headers:
+I1108 17:11:02.829129  125524 round_trippers.go:431]     Accept: application/json
+I1108 17:11:02.830364  125524 round_trippers.go:446] Response Status: 200 OK in 1 milliseconds
+Pod my-guestbook-test-frontend-connection pending
+Pod my-guestbook-test-frontend-connection succeeded
+I1108 17:11:03.778710  125524 retrywatcher.go:146] Stopping RetryWatcher.
+I1108 17:11:03.778788  125524 retrywatcher.go:272] Stopping RetryWatcher.
+I1108 17:11:03.781352  125524 round_trippers.go:420] PUT https://192.168.39.214:8443/api/v1/namespaces/chapter6/secrets/sh.helm.release.v1.my-guestbook.v1
+I1108 17:11:03.781372  125524 round_trippers.go:427] Request Headers:
+I1108 17:11:03.781381  125524 round_trippers.go:431]     User-Agent: helm/v0.0.0 (linux/amd64) kubernetes/$Format
+I1108 17:11:03.781389  125524 round_trippers.go:431]     Accept: application/json, */*
+I1108 17:11:03.781396  125524 round_trippers.go:431]     Content-Type: application/json
+I1108 17:11:03.785335  125524 round_trippers.go:446] Response Status: 200 OK in 3 milliseconds
+NAME: my-guestbook
+LAST DEPLOYED: Sun Nov  8 17:03:04 2020
+NAMESPACE: chapter6
+STATUS: deployed
+REVISION: 1
+TEST SUITE:     my-guestbook-test-backend-connection
+Last Started:   Sun Nov  8 17:11:01 2020
+Last Completed: Sun Nov  8 17:11:02 2020
+Phase:          Succeeded
+TEST SUITE:     my-guestbook-test-frontend-connection
+Last Started:   Sun Nov  8 17:11:02 2020
+Last Completed: Sun Nov  8 17:11:03 2020
+Phase:          Succeeded
+NOTES:
+1. Get the application URL by running these commands:
+  export NODE_PORT=$(kubectl get --namespace chapter6 -o jsonpath="{.spec.ports[0].nodePort}" services my-guestbook)
+  export NODE_IP=$(kubectl get nodes --namespace chapter6 -o jsonpath="{.items[0].status.addresses[0].address}")
+  echo http://$NODE_IP:$NODE_PORT
+
+I1108 17:11:03.786415  125524 loader.go:375] Config loaded from file:  /home/boogie/.kube/config
+I1108 17:11:03.787809  125524 round_trippers.go:420] GET https://192.168.39.214:8443/api/v1/namespaces/chapter6/pods/my-guestbook-test-backend-connection/log
+I1108 17:11:03.787826  125524 round_trippers.go:427] Request Headers:
+I1108 17:11:03.787838  125524 round_trippers.go:431]     Accept: application/json, */*
+I1108 17:11:03.787846  125524 round_trippers.go:431]     User-Agent: helm/v0.0.0 (linux/amd64) kubernetes/$Format
+I1108 17:11:03.795397  125524 round_trippers.go:446] Response Status: 200 OK in 7 milliseconds
+POD LOGS: my-guestbook-test-backend-connection
+,bob,lapin   <<<<<<<<<<<<<<<<<<< ici on voit les messages qui sont affichés en db ( ce qu'on a saisi dans notre formulaire web au préalable. )
+
+
+I1108 17:11:03.813691  125524 round_trippers.go:420] GET https://192.168.39.214:8443/api/v1/namespaces/chapter6/pods/my-guestbook-test-frontend-connection/log
+I1108 17:11:03.813704  125524 round_trippers.go:427] Request Headers:
+I1108 17:11:03.813714  125524 round_trippers.go:431]     Accept: application/json, */*
+I1108 17:11:03.813724  125524 round_trippers.go:431]     User-Agent: helm/v0.0.0 (linux/amd64) kubernetes/$Format
+I1108 17:11:03.823649  125524 round_trippers.go:446] Response Status: 200 OK in 9 milliseconds
+POD LOGS: my-guestbook-test-frontend-connection
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+<html ng-app="redis">
+  <head>
+    <title>Guestbook</title>
+    <link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap.min.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.2.12/angular.min.js"></script>
+    <script src="controllers.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/angular-ui-bootstrap/0.13.0/ui-bootstrap-tpls.js"></script>
+  </head>
+  <body ng-controller="RedisCtrl">
+    <div style="width: 50%; margin-left: 20px">
+      <h2>Guestbook</h2>
+    <form>
+    <fieldset>
+    <input ng-model="msg" placeholder="Messages" class="form-control" type="text" name="input"><br>
+    <button type="button" class="btn btn-primary" ng-click="controller.onRedis()">Submit</button>
+    </fieldset>
+    </form>
+    <div>
+      <div ng-repeat="msg in messages track by $index">
+        {{msg}}
+      </div>
+    </div>
+    </div>
+  </body>
+</html>
+100   921  100   921    0     0   899k      0 --:--:-- --:--:-- --:--:--  899k
+
+
+= Amélioration de test avec le project de chart testing : 
+
+on a des limitations avec la commande test : si on va pouvoir tester des éléments précis on est soumis a un workflow assez lourd pour evaluer une nouvelle valeur par exemple :
+
+1. Install your chart with an initial set of values.
+2. Run helm test against your release.
+3. Delete your release.
+4. Install your chart with a different set of values.
+5. Repeat steps 2 through 4 until a significant amount of value possibilities are tested.
+
+idem pour les upgrade on a un workflow pénible à gérer :
+
+1. Install a previous chart version.
+2. Upgrade your release to the newer chart version.
+3. Delete the release.
+4. Install the newer chart version.
+
+
+si on a plusieurs charts à maintenir on va utiliser un repo git de type monorepo : les charts auront une structure identique :
+exemple : 
+
+helm-charts/
+  guestbook/
+    Chart.yaml
+    templates/
+    README.md
+    values.yaml
+  redis/           # Contains the same file structure as 'guestbook'
+  wordpress/       # Contains the same file structure as 'guestbook'
+  README.md
+
+quand on va faire evoluer un chart on va modifier le semver en fonction dy type de modif (MAJOR.MINOR.PATCH version numbering format.) dans le fichier Chart.yaml
+il faut nous assurer que tout fonctionne dans l'arbo du repo 
+
+• Increment the MAJOR version if you are making a breaking change to your chart. A breaking change is a change that is not backward-compatible with the previous chart version.
+• Increment the MINOR version if you are adding a feature but you are not making a breaking change. You should increment this version if the change you are making is backward-compatible with the previous chart version.
+• Increment the PATCH version if you are making a patch to a bug or a security vulnerability that will not result in a breaking change. This version should be incremented if the change is backward-compatible with the previous chart version.
+
+il faut donc nous assurer que les num de versions sont automatiquement incrémentés de manière auto.
+La communauté a crée un outil ct pour structurer et automatiser les tests et la maintenance.
+https://github.com/helm/chart-testing
+
+
+git clone https://github.com/helm/chart-testing
+
+Les tests auto vont utiliser git pour voir les modifs sur une branche cible : si le chart n'a pas bouger pas de test, sinon les tests sont éxécutés.
+ct va dont :
+• lint : Lints and validates charts that have been modified
+• install : Installs and tests charts that have been modified
+• lint-and-install : Lints, installs, and tests charts that have been modified
+• list-changed : Lists charts that have been modified
+
+
+list-changed ne fait pas de test.
+lint-and-install Lints, installs, and tests et s'assure que le num de version a été changé : si le num de version n'a pas été changé mais que le contenu du chart si : alors il y'a un fail.
+
+on va egalement pouvoir tester différents fichiers de values.
+On va pouvoir créer des values dédiées à notre ci avec l'arbo suivante par exemple : ce qui permettra d'overrider / preserver ce qu'il y a dans le fichier de values original.
+
+guestbook/
+  Chart.yaml
+  ci/
+    nodeport-service-values.yaml
+    ingress-values.yaml
+  templates/
+  values.yaml
+
+
+La commande principale que l'on va utiliser est lint-and-install
+command. 
+The following lists the steps that this command uses to lint, install, and test
+charts that are modified in a git monorepo:
+1. Detect the charts that have been modified.
+2. Update the local Helm cache with the helm repo update command.
+3. Download each modified chart's dependencies with the helm dependency
+build command.
+4. Check whether each modified chart's version has been incremented.
+5. For each chart that evaluates to true in step 4, lint the chart and each values file
+under the ci/ folder.
+6. For each chart that evaluates to true in step 4, perform the following
+additional steps:
+Install the chart in an automatically created namespace.
+Run tests by executing helm test .
+Delete the namespace.
+Repeat for each values file under the ci/ folder.
+
+As you can see, this command performs a variety of different steps to ensure that your charts are properly linted and tested by installing and testing each modified chart in a separate namespace, repeating the process for each values file defined under the ci/ folder. 
+However, by default, the lint-and-install command does not check for backward compatibility by performing an upgrade from an older version of the chart. This feature can be enabled by adding the --upgrade flag:
+If a breaking change is not indicated, the --upgrade flag modifies step 6 of the previous set of steps by running the following steps:
+
+1. Install the older version of the chart in an automatically created namespace.
+2. Run tests by executing helm test .
+3. Upgrade the release to the modified version of the chart and run the tests again.
+4. Delete the namespace.
+5. Install the modified version of the chart in a new, automatically created namespace.
+6. Run tests by executing helm test .
+7. Upgrade the release again using the same chart version and rerun the tests.
+8. Delete the namespace.
+9. Repeat for each values file under the ci/ folder.
+
+It is recommended that you add the --upgrade flag to perform additional testing on
+Helm upgrades and to prevent possible regressions.
+
+Important note:
+The --upgrade flag will not take effect if you have incremented the MAJOR version of your Helm chart as this indicates that you made a breaking change and that an in-place upgrade on this version would not be successful.
+
+- Installing the chart testing : 
+
+pre requi :
+
+helm / git /yamllint/ yamale /kubectl
+
+yamale : outil qui va valider le Chart.yaml files avec un Chart.yaml "schema file".
+
+pip install yamale --user
+Collecting yamale
+  Downloading yamale-3.0.4.tar.gz (30 kB)
+Requirement already satisfied: pyyaml in /usr/lib/python3/dist-packages (from yamale) (5.3.1)
+Building wheels for collected packages: yamale
+  Building wheel for yamale (setup.py) ... done
+  Created wheel for yamale: filename=yamale-3.0.4-py3-none-any.whl size=48030 sha256=cbe2199a8eb99a9bf16d5dc49e51de0012f505c04c322498491198d9f61cbd1b
+  Stored in directory: /home/boogie/.cache/pip/wheels/76/b8/66/e3e6d60082384b3e52071ad81b3f3ed8aac98cb7f62a6033fb
+Successfully built yamale
+Installing collected packages: yamale
+Successfully installed yamale-3.0.4
+
+on recupere un tgz de ct : 
+https://github.com/helm/chart-testing/releases
+
+wget  https://github.com/helm/chart-testing/releases/download/v3.3.0/chart-testing_3.3.0_linux_amd64.tar.gz
+
+tar -xzvf chart-testing_3.3.0_linux_arm64.tar.gz        
+LICENSE
+README.md
+etc/chart_schema.yaml
+etc/lintconf.yaml
+ct
+
+on supprime le fichier de licence et le README.md. On déplace les fichiers yaml dans un rep qu'on crée pour l'occasion et on deplace le binaire dans un rep du path 
+mkdir $HOME/.ct
+mv etc/* $HOME/.ct/ 
+ls ~/.ct      
+chart_schema.yaml  lintconf.yaml
+sudo mv ct /usr/local/bin
+
+ct  version                                                                                                                                   [☸ |minikube:chapter6]
+Version:	 v3.3.0
+Git commit:	 2a4dfd420d066f821b39724fba89133f930a9953
+Date:		 2020-11-03T19:17:04Z
+License:	 Apache 2.0
+
+tests avec ct dans un repos "monorepo" contenant plusieurs charts : 
+
+cat ct.yaml       
+chart-dirs:                     <<<< ici on indique que le chart dir pour ct est le path relatif au fichier ct.yaml
+  - helm-charts/charts
+
+chart-repos:                    <<<< le chart repos indique une liste de repo qui doivent être ajoutés pour être sur de pouvoir dl les dependances de charts.
+  - bitnami=https://charts.bitnami.com/bitnami
+
+validate-maintainers: false
+
+on peut definir beaucoup d'options supplémentaires pour la conf de l'outil : voir les options en examinant le repo  https://github.com/helm/chart-testing
+
+on va se mettre a la racine de notre repo qui va contenir plusieurs charts comme definis dans le path du fichier : ct.yaml 
+ls                                                                                                             [☸ |minikube:chapter6]
+chart_schema.yaml  ct.yaml  guestbook-operator  helm-charts  jenkins  LICENSE  nginx-cd  README.md
+ boogie@boogieland  ~/Documents/lab/helm/learn_helm/Learn-Helm   master  ls helm-charts                                                                                                 [☸ |minikube:chapter6]
+charts  Jenkinsfile
+ boogie@boogieland  ~/Documents/lab/helm/learn_helm/Learn-Helm   master  ls helm-charts/charts                                                                                          [☸ |minikube:chapter6]
+guestbook  nginx
+
+on a donc deux charts .
+
+On lance la commande : 
+
+ct lint-and-install                                                                                          [☸ |minikube:chapter6]
+Linting and installing charts...
+Using config file:  /home/boogie/Documents/lab/helm/learn_helm/Learn-Helm/ct.yaml
+------------------------------------------------------------------------------------------------------------------------
+ Configuration
+------------------------------------------------------------------------------------------------------------------------
+Remote: origin
+TargetBranch: master
+Since: HEAD
+BuildId: 
+LintConf: /home/boogie/.ct/lintconf.yaml
+ChartYamlSchema: /home/boogie/.ct/chart_schema.yaml
+ValidateMaintainers: false
+ValidateChartSchema: true
+ValidateYaml: true
+CheckVersionIncrement: true
+ProcessAllCharts: false
+Charts: []
+ChartRepos: [bitnami=https://charts.bitnami.com/bitnami]
+ChartDirs: [helm-charts/charts]
+ExcludedCharts: []
+HelmExtraArgs: 
+HelmRepoExtraArgs: []
+Debug: false
+Upgrade: false
+SkipMissingValues: false
+Namespace: 
+ReleaseLabel: app.kubernetes.io/instance
+------------------------------------------------------------------------------------------------------------------------
+Error: Invalid Semantic Version
+Invalid Semantic Version
+
+
+on a donc des erreurs dans le versionning d'un ou de plusieurs de nos charts :
+
+ex  :
+version: v4
+
+> on change en mettant un semver et c'est ok 
+
+version: 1.1.0
+
+ct lint-install 
+
+
+Si on modifie ne serais que basiquement dans la description d'un chart son role et qu'on ne modifie pas le num de version on a une erreur.
+
+Si on veut upgrader notre chart on va pouvoir le faire en utilisant le flag --upgrade :
+
+ct lint-and-install --upgrade
+
+Dans ce cas nous devons upgrader la version MAJOR de notre Chart.yaml version sinon on a une erreur.
 
 
 
