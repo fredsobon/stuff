@@ -1448,6 +1448,155 @@ on va pouvoir vérifier de plusieurs manières :
 on va créer un nouveau namespace pour tester notre chart 
 kctl create ns chapter6 
 
-- helm template :
+= helm template :
+
+une des premieres méthodes de test est de s'assurer que le processing des templates helm fonctionne bien et qu'on alimente correctement les données de nos fichiers values dans ces templates en testant juste sur la sortie standart. On s'assure egalement que nos section avec des if, range, with , fonctions, pipeline , indentations sont bien remplies. 
+
+helm template <nom de release> <nom de chart>(path du chart)  
+
+helm template myguestbook guestbook |head                   
+WARNING: Kubernetes configuration file is group-readable. This is insecure. Location: /home/boogie/.kube/config
+WARNING: Kubernetes configuration file is world-readable. This is insecure. Location: /home/boogie/.kube/config
+---
+# Source: guestbook/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: myguestbook
+  labels:
+    helm.sh/chart: guestbook-1.0.0
+    app.kubernetes.io/name: guestbook
+    app.kubernetes.io/instance: myguestbook
+
+on peut également tester le remplacement de nos valeurs de chartà la volée en utilisant --set :
+ex: 
+helm template my-chart $CHART_DIRECTORY --set replicas=2
+
+ex on défini dans notre fichier de value un nombre de replicas a 1 
+grep replica guestbook/values.yaml                                                                                                    [☸ |minikube:chapter6]
+replicaCount: 1
+
+on voit que dans le template de déploiement on a la valeur de notre fichier de value récupérée :
+
+grep -r replicas *                                                                                                                    [☸ |minikube:chapter6]
+guestbook/templates/deployment.yaml:  replicas: {{ .Values.replicaCount }}
+
+
+on peut vouloir simuler la bonne prise en compte d'une autre valeur en cli :
+
+helm template guestbook guestbook --set replicaCount=15
+
+# Source: guestbook/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: guestbook
+  labels:
+..
+.....
+  replicas: 15
+
+on peut aussi passer en argument un fichier de values pour voir si le rendering de template est correct : 
+helm template guestbook guestbook --values guestbook/values.yaml |more                                                      
+---
+# Source: guestbook/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: guestbook
+  labels:
+    helm.sh/chart: guestbook-1.0.0
+    app.kubernetes.io/name: guestbook
+    app.kubernetes.io/instance: guestbook
+    app.kubernetes.io/version: "v4"
+..
+.....
+
+Il est important de tester régulièrement le rendu de nos templates avec helm template.
+A noter que des valeurs d'un tableau et des valeurs de test (if) non définies dans nos fichiers de values ne génère aucune entrée dans le test de helm template : c'est un bon moyen de voir qu'on a rien oublier de définir dans nos fichiers de values.
+ on peut mettre des commentaires explicites dans nos fichiers de values. 
+
+ex :
+
+#required :
+image: repo/name
+
+on peut tester les fonctions et pipeline également :
+ex :
+
+apiVersion: apps/v1
+kind: Deployment
+...  
+  resources:
+{{ .Values.resources | toYaml | indent 12 }}
+
+dans notre fichier de values : 
+resources:
+  limits:
+    cpu: 200m
+    memory: 256Mi
+
+
+= server side validation :
+
+sans argument particulier helm template est fait pour vérifier le bon developpement de notre chart coté client.
+On va pouvoir rajouter un flag pour s'assurer du rendu du chart en interrogeant l'api kube.
+
+ex : 
+helm template my-chart $CHART_DIRECTORY --validate
+helm template guestbook guestbook --set replicaCount=2 --validate
+si notre chart comporte une erreur exemple on met un mauvais num de version d'api dans le déploiment :
+
+ex : 
+apiVersion: apps/v5
+kind: Deployment
+
+...la commande template avec le flag --validate lévera une erreur car l'api kube attend une version correcte pour l'object déployment.
+helm template guestbook guestbook --set replicaCount=0 --validate                                                              
+Error: unable to build kubernetes objects from release manifest: unable to recognize "": no matches for kind "Deployment" in version "apps/v5"
+
+on peut utiliser la commande install et --dry-run qui génère le template et passe l'option --validate :
+
+helm install my-chart $CHART --dry-run
+
+helm install --dry-run guestbook guestbook --set replicaCount=0                                                               
+Error: unable to build kubernetes objects from release manifest: unable to recognize "": no matches for kind "Deployment" in version "apps/v5"
+
+= Lint :
+
+la commande helm lint va elle permettre de s'assurer que les fichiers sont correctement formatés (indentations ....) 
+helm lint PATH [flags]
+helm lint guestbook                                                                                                             
+==> Linting guestbook
+[INFO] Chart.yaml: icon is recommended
+
+1 chart(s) linted, 0 chart(s) failed
+
+
+on a ici un message d'info qui demande l'insertion d'une icon. Ceci n'est pas mandatory.
+Les messages de warning et d'erreur doivent eux être traités.
+
+Le linter va aussi s'assurer de la présence de fichiers mandatory,examiner les num de version d'api fournis, s'assurer que le num de version est bien compatible avec le standart semver.
+
+on va pouvoir installer un linter qui va nous aider également :
+
+pip install yamllint --user 
+
+on peut combiner son utilisation avec la commande helm template pour générer nos ressources proprement indentées.
+
+/!\ echec d'utilisation :
+
+helm template mybook guestbook |yamllint                                                                                      
+✖ YAML Lint failed.
+✖ No YAML files were found matching your selection.
+
+par contre yamllint ok sur fichier en argument :
+yamllint guestbook/values.yaml    
+✔ YAML Lint successful.
+
+= test live dans cluster kube :
+
+
+
 
 
