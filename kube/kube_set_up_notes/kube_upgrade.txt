@@ -1,0 +1,73 @@
+==== notes upgrade cluster kube : ====
+
+
+== validation applications systeme : ==
+
+                                         
+NAME                  STATUS   AGE
+authent               Active   300d
+cert-manager          Active   300d
+default               Active   312d
+external-dns          Active   61d
+ingress-controller    Active   301d
+kube-public           Active   312d
+kube-system           Active   312d
+metallb-system        Active   307d
+prometheus-operator   Active   306d
+
+
+> set up helm
+calico ok (values pod cidr)
+
+prometheus-operator ok
+proxmox-monitoring ok MAIS pb flux 10.121.253.0/24 9100 / 9200
+
+cert-manager ok ( modif values pour proxy )   > branch FeatureUpgradek8s
+
+external-dns ok 
+
+traefik  ok  (ajout values-fso avec record pour externalIP) > branch FeatureUpgradek8s  
+setting label sur node pour ingress :
+kubectl label nodes fso-controller01 node-role.kubernetes.io/ingress=true
+
+ helm ls --all-namespaces                                 [☸ |kubernetes-admin@fso_sandbox:ingress-controller]
+NAME                            	NAMESPACE          	REVISION	UPDATED                                	STATUS  	CHART                           	APP VERSION
+calico                          	tigera-operator    	1       	2020-11-09 13:42:34.166036512 +0100 CET	deployed	calico-0.0.3              	1.7.0      
+cert-manager                    	cert-manager       	2       	2020-11-10 15:05:41.91617385 +0100 CET 	deployed	cert-manager-0.0.3        	           
+external-dns                    	external-dns       	1       	2020-11-10 15:10:16.841578866 +0100 CET	deployed	external-dns-0.0.3        	0.7.3      
+sandbox-proxmox-monitoring	        prometheus-operator	1       	2020-11-10 14:08:47.263970456 +0100 CET	deployed	proxmox-monitoring-0.1.0  	1.0.0      
+prometheus-operator             	prometheus-operator	1       	2020-11-10 13:55:14.420673396 +0100 CET	deployed	prometheus-operator-0.0.18	9.3.1      
+traefik                         	ingress-controller 	1       	2020-11-10 15:37:16.61327572 +0100 CET 	deployed	traefik-0.0.4             	           
+
+
+cluster 3 controllers / 3 workers 
+
+version de départ v1.16.3
+version cible 1.19.3
+
+Attention on ne pas peut upgrader de plusieurs versions en une fois ( 1.16 > 1.18 = impossible ) .on va donc upgrader unitairement version par version ( 1.16.3 > 1.17.x puis 1.17.x > 1.18.x puis 1.18.x > 1.19.3)
+
+
+= upgrade step 1 des composants 
+
+on va mettre a jour les composants suivants : kubeadm / kubectl / kubelet 
+
+
+- On va identifier la version présente sur nos repos pour notre premier upgrade : 
+
+yum -v list kubeadm --show-duplicates |grep 1.17
+kubeadm.x86_64                  1.17.0-0                    kubernetes_el7
+kubeadm.x86_64                  1.17.1-0                    kubernetes_el7
+kubeadm.x86_64                  1.17.2-0                    kubernetes_el7
+kubeadm.x86_64                  1.17.3-0                    kubernetes_el7
+kubeadm.x86_64                  1.17.4-0                    kubernetes_el7
+kubeadm.x86_64                  1.17.5-0                    kubernetes_el7
+kubeadm.x86_64                  1.17.6-0                    kubernetes_el7
+kubeadm.x86_64                  1.17.7-0                    kubernetes_el7
+kubeadm.x86_64                  1.17.7-1                    kubernetes_el7
+kubeadm.x86_64                  1.17.8-0                    kubernetes_el7
+
+on va donc installer la version 1.17.8-0 
+
+
+
