@@ -2151,5 +2151,500 @@ Dans ce cas nous devons upgrader la version MAJOR de notre Chart.yaml version si
 
 === automating helm : ci / cd /gitops ===
 
+Il va être fastidieux de maintenir manuellement plusieurs charts, les tester et déployer le code à chaque modif.On va pouvoir intégrer les concepts de ci / cd et gitops pour builder, tester et packager nos charts.
+On va devoir s'assurer pour les déployments en production que les bonnes pratiques de developpement de charts sont respectées, et s'assurer de la bonne implication de toutes les personnes travaillant sur le chart.
+L'utilisation de concept comme ci / cd va permettre la répétition de tâches helm en cli pour prendre de bonnes habitudes.
+Le but de la ci va être de supprimer le fameux "c'a marche sur mon pc." ...
+on va donc utiliser un vcs (code versionning system) pour stocker le code source de notre helm.
+Les taches de test seront automatisées par la ci et le developpement pur sera augmenté. Une notification est souvent envoyée pour avertir du resultat du test afin d'avertir le / les devs du chart.
+On va incorporer le déployement dans la même idée que la ci et donc déployer de nouvelles versions de nos applis avec les mêmes concepts.
+"The process of implementing a fully automated build, test, deployment, and release process without any human intervention is known as continuous deployment."
 
-ch7
+kube utilise un language déclaratif dont le code sera stocké dans git puis seront ensuite excutés le build, test, deployment process ..
+Des outils comme Argocd et Flux ont été dev pour permettre de s'integrer avec kube : ces outils srcutent les repos git et controlle que la conf du cluster kube correspond aux valeurs définies dans notre repo giten utilisant le referentiel défini comme source (branche , tag etc ...)
+
+- setting de l'env :
+
+on va utiliser jenkins pour nos tests ci / cd avec un minikube comportant 4gb de ram 
+
+> check de l'env minikube :
+minikube config view                                                                                                                                  [☸ |minikube:default]
+- memory: 4000
+- vm-driver: kvm2
+> si on a pas 4 gb de ram : on delete puis on rebuild minikube avec les bons params :
+
+minikube delete
+minikube start --memory=4g
+
+creation d'un namespace dédié :
+kubectl create ns chapter7
+
+on  fork le projet sur github > clic sur icone fork > https://github.com/billbongo/-Learn-Helm
+on clone en local le repo dans un rep nommé spécialement : 
+
+git clone https://github.com/billbongo/-Learn-Helm.git learn_helm_fork
+
+on va delete le chart initial poussé sur github : on va clean le repo initial 
+
+billbongo/helm-charts/guestbook   main  rm -f guestbook-1.0.0.tgz index.yaml
+git commit -am 'clean up bedore ci' && git push origin main
+
+= creation d'un pipeline de CI : =
+
+The concept of CI can be applied to the perspective of a chart developer who builds, tests,
+packages, and releases Helm charts to a chart repository.
+
+Workflow de developpement : 
+
+The following steps outline an example CI workflow using the commands and tooling . It will assume that the resulting charts are saved in
+a GitHub Pages repository:
+
+1. A chart developer makes a code change to a chart or a set of charts in a
+git monorepo.
+2. The developer pushes the change(s) to the remote repository.
+3. The charts that have been modified are automatically linted and tested in a
+Kubernetes namespace by running the ct lint and ct install commands.
+4. If linting and testing is successful, the charts are automatically packaged with the
+helm package command.
+
+- jenkins :
+
+server qui va exécuter des taches et workflows regulierement utilisé pour créer des pipelines de ci / cd en utilisant une feature de jenkins qui decrit le pipeline sous forme dans un fichier nommé Jenkinsfile utilisant le languange DSL (description specific language) groovy (language similaire à java mais utilisable en modele de scripting pour faciliter la lecture et la comprehension du code.)
+quand un Jenkinsfile est crée on a donc de défini toutes les étapes de nos workflows qui seront exécutées sur le server jenkins ou sur un agent dédié à ce job.
+Dans kube on peut instancier des agents qui des que la tache est finie sont détruits. Ce qui permet de toujours demarrer avec un agent from scratch.
+Jenkins permet d'utiliser la methode gitops en scannant les branch d'un repo à la decouverte des jenkinsfile : des qu'un fichier est trouvé : un nouveau job est crée d'apres le clone de la branche concernée : cela permet de tester de nouvelles features ou fix comme les jobs sont crées automatiquement d'après leur branches.
+
+Installation :
+
+ajout de repo :
+
+helm repo add codecentric https://codecentric.github.io/helm-charts                 [☸ |minikube:chapter7]
+WARNING: Kubernetes configuration file is group-readable. This is insecure. Location: /home/boogie/.kube/config
+WARNING: Kubernetes configuration file is world-readable. This is insecure. Location: /home/boogie/.kube/config
+"codecentric" has been added to your repositories
+
+Since configuring these values requires a deeper understanding of Jenkins that is beyond
+the scope of this book, a values file is provided for you that will automatically prepare
+the following Jenkins configurations:
+• Add relevant Jenkins plugins that are not included in the base image.
+• Configure the credentials required to authenticate with GitHub.
+• Configure a Jenkins agent specifically designed for testing and installing Helm
+charts.
+• Configure Jenkins to automatically create a new job based on the presence of the
+Jenkinsfile file.
+• Skip manual prompts that normally occur on the startup of a new installation.
+• Disable authentication to simplify Jenkins access for this chapter.
+The values file will also configure the following Kubernetes-related details:
+• Set resource limits against the Jenkins server.
+• Set the Jenkins service type to NodePort.
+• Create the ServiceAccounts and RBAC rules required for Jenkins and Jenkins agents
+to run jobs and deploy Helm charts in the Kubernetes environment.
+• Set the Jenkins PersistentVolumeClaim size to 2Gi.
+
+on va recupérer un fichier de values avec le setting correct :
+on remarquera la section en commentaire de la partie fileContent permettant d'utiliser du templating go dans un fichier de values.
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 2Gi
+service:
+  master:
+    type: NodePort
+serviceAccount:
+  master:
+    create: true
+  agent:
+    create: true
+rbac:
+  master:
+    create: true
+    rules:
+      - apiGroups:
+          - ""
+        resources:
+          - pods
+        verbs:
+          - create
+          - delete
+          - get
+          - list
+          - watch
+      - apiGroups:
+          - ""
+        resources:
+          - pods/exec
+        verbs:
+          - get
+  agent:
+    create: true
+    rules:
+      - apiGroups:
+          - ""
+        resources:
+          - pods
+          - pods/log
+          - services
+          - configmaps
+          - secrets
+          - serviceaccounts
+          - persistentvolumeclaims
+          - namespaces
+          - events
+        verbs:
+          - get
+          - list
+          - update
+          - watch
+          - create
+          - delete
+      - apiGroups:
+          - "apps"
+        resources:
+          - statefulsets
+          - deployments
+          - replicasets
+        verbs:
+          - get
+          - list
+          - update
+          - watch
+          - create
+          - delete
+persistence:
+  size: 2Gi
+javaOpts: >-
+  -Dhudson.slaves.NodeProvisioner.initialDelay=0
+  -Dhudson.model.LoadStatistics.decay=0.7
+  -Dhudson.slaves.NodeProvisioner.MARGIN=30
+  -Dhudson.slaves.NodeProvisioner.MARGIN0=0.6
+  -XX:+UnlockExperimentalVMOptions
+  -XX:+UseCGroupMemoryLimitForHeap
+  -XX:MaxRAMFraction=2
+  -XshowSettings:vm
+  -Djenkins.install.runSetupWizard=false
+referenceContent:
+  - data:
+      - fileName: plugins.txt
+        fileContent: |
+          configuration-as-code:1.35
+          configuration-as-code-support:1.18
+          git:4.1.1
+          job-dsl:1.76
+          kubernetes:1.23.2
+          workflow-aggregator:2.6
+      - fileName: jenkins.yaml
+        fileContent: |
+          credentials:
+            system:
+              domainCredentials:
+                - credentials:
+                    - usernamePassword:
+                        scope: GLOBAL
+                        id: github-auth
+                        username: {{ required "value 'githubUsername' is required" .Values.githubUsername }}     <<<<<<<< templating go dans un values utilisé grace a la fonction fileContent: | ex dans la partie template : {{- tpl .Values.fileContent }}  : ce qui va permettre d'utiliser du templating go dans un fichier values.yaml
+                        password: {{ required "value 'githubPassword' is required" .Values.githubPassword }}
+                        description: Password to authenticate with GitHub
+          jenkins:
+            numExecutors: 0
+            clouds:
+              - kubernetes:
+                  name: kubernetes
+                  serverUrl: https://kubernetes.default
+                  namespace: {{ .Release.Namespace }}
+                  jenkinsUrl: http://{{ include "jenkins.fullname" . }}-master:{{ .Values.service.master.port }}
+                  jenkinsTunnel: {{ include "jenkins.fullname" . }}-agent:{{ .Values.service.agent.port }}
+                  templates:
+                    - name: chart-testing-agent
+                      label: chart-testing-agent
+                      idleMinutes: 0
+                      namespace: {{ .Release.Namespace }}
+                      nodeUsageMode: NORMAL
+                      serviceAccount: {{ if .Values.serviceAccount.agent.name }}{{ .Values.serviceAccount.agent.name }}{{ else }}{{ include "jenkins.fullname" . }}-agent{{ end }}
+                      containers:
+                        - name: chart-testing
+                          image: quay.io/helmpack/chart-testing:v3.0.0-beta.1
+                          ttyEnabled: true
+                          resourceLimitCpu: 200m
+                          resourceLimitMemory: 500Mi
+                      envVars:
+                        - envVar:
+                            key: GITHUB_PAGES_REPO_URL
+                            value: {{ required "value 'githubPagesRepoUrl' is required" .Values.githubPagesRepoUrl }}
+                        - envVar:
+                            key: GITHUB_PAGES_SITE_URL
+                            value: {{ .Values.githubPagesSiteUrl }}
+          jobs:
+            - script: |-
+                multibranchPipelineJob('Test and Release Helm Charts') {
+                  factory {
+                    workflowBranchProjectFactory {
+                      scriptPath('helm-charts/Jenkinsfile')
+                    }
+                  }
+                  branchSources {
+                    git {
+                      id('test')
+                      remote({{ required "value 'githubForkUrl' is required" .Values.githubForkUrl | quote }})
+                      credentialsId('github-auth')
+                    }
+                  }
+                  orphanedItemStrategy {
+                    discardOldItems {
+                      numToKeep(10)
+                    }
+                  }
+                }
+                {{- /*
+                The below job will be configured if the githubPagesSiteUrl value has been configured.
+                This will imply that the reader is on the CD portion of Chapter 7, and that this
+                  job is now relevant and should be displayed.
+                */ -}}
+                {{- if .Values.githubPagesSiteUrl }}
+                multibranchPipelineJob('Deploy NGINX Chart') {
+                  factory {
+                    workflowBranchProjectFactory {
+                      scriptPath('nginx-cd/Jenkinsfile')
+                    }
+                  }
+                  branchSources {
+                    git {
+                      id('test')
+                      remote({{ required "value 'githubForkUrl' is required" .Values.githubForkUrl | quote }})
+                      credentialsId('github-auth')
+                    }
+                  }
+                  orphanedItemStrategy {
+                    discardOldItems {
+                      numToKeep(10)
+                    }
+                  }
+                }
+                {{- end }}
+
+
+lancement de l'installation du helm en passant en argument les valeurs avec --set . On peut crée un fichier de values mais attention a ne pas le commiter a cause des infos de connection 
+
+helm install jenkins codecentric/jenkins -n chapter7 --version 1.5.1  --values learn_helm_fork/jenkins/values.yaml --set githubUsername=bob --set githubPassword=xxx --set githubForkUrl=https://github.com/billbongo/-Learn-Helm.git --set githubPagesRepoUrl=https://github.com/billbongo/Learn-Helm.git
+WARNING: Kubernetes configuration file is group-readable. This is insecure. Location: /home/boogie/.kube/config
+WARNING: Kubernetes configuration file is world-readable. This is insecure. Location: /home/boogie/.kube/config
+NAME: jenkins
+LAST DEPLOYED: Wed Nov 11 17:26:56 2020
+NAMESPACE: chapter7
+STATUS: deployed
+REVISION: 1
+TEST SUITE: None
+NOTES:
+************************************************************************
+*                                                                      *
+*                 Jenkins Helm Chart by codecentric AG                 *
+*                                                                      *
+************************************************************************
+
+In case the chart was installed with the default configuration and you did not
+configure an admin user, Jenkins creates one per default. The initial password
+is logged and also stored in '/var/jenkins_home/secrets/initialAdminPassword'.
+
+Use the following command to retrieve it:
+
+export POD_NAME=$(kubectl get pods --namespace chapter7 -l "app.kubernetes.io/name=jenkins,app.kubernetes.io/instance=jenkins" -o jsonpath="{.items[0].metadata.name}")
+kubectl exec --namespace chapter7 "$POD_NAME" cat /var/jenkins_home/secrets/initialAdminPassword
+
+
+Accessing your Jenkins server:
+
+export NODE_PORT=$(kubectl get service --namespace chapter7 -o jsonpath="{.spec.ports[0].nodePort}" jenkins-master)
+export NODE_IP=$(kubectl get nodes --namespace chapter7 -o jsonpath="{.items[0].status.addresses[0].address}")
+echo "http://$NODE_IP:$NODE_PORT"
+
+apres un petit moment (~10 mnts ) jenkins est accessible via l'url identifiée http://$NODE_IP:$NODE_PORT
+http://192.168.39.214:30441/
+
+on voit un job deja configuré . On remarque le status de l'executeur a gauche aussi.
+
+- revue principale du fonctionnement du pipeline via l'examen des grandes section du jenkinsfile qui seront alimentées en partie par le fichier de values de jenkins affiché précedemment : 
+
+> agent { label "chart-testing-agent" }  :  la premiere chose qui est faite est la creation de l'agent "chart-testing-agent" qui va utiliser l'image  quay.io/helmpack/chart-testing contenant les outils de tests (yamale yamllint  ct ..) 
+ quand un agent run il clone notre repo fork avec l'argument "githubForkUrl" en utilisant githubUsername et  githubPassword pour l'authent : ceci est fait de manière implicite par jenkins.
+ sans code additionnel dans le jenkinsfile.
+des le clone du repo fait l'agent commence les stage du jenkinsfile et commence donc a tester. les  stages servent a regrouper les etapes du job de maniere logique.
+
+agent { label "chart-testing-agent" }    <<<<<<  la premiere chose qui est faite est la creation de l'agent 
+
+> la premiere etape du stage est le lint et le container "chart-testing" va lancer un shell puis "ct lint" > sh "ct lint"
+
+    stages {
+        stage("Lint") {
+            steps {
+                container("chart-testing") {
+                    sh "ct lint"
+                }
+
+> on poursuit apres le test si c'est ok avec le stage "Install & Test" >  sh 'ct install --upgrade' qui va installer la version du chart sur la branch master et s'assurer du bon set up.
+
+        stage("Install & Test") {
+            steps {
+                container("chart-testing") {
+                    sh "ct install --upgrade"
+                }
+            }
+Nb :on aura pu réunir les deux etapes précédentes en une seule avec "ct lint-and-install --upgrade" ..mais pour plus de visibilité c'est mieux de séparer.
+
+> on va maintenant que tout est ok passer au stage suivant "Package Charts"" : packager notre chart : sh 'helm package --dependency-update helm-charts/charts/*'
+
+        stage("package charts") {
+            steps {
+                script {
+                    container("chart-testing") {
+			sh "helm package --dependency-update helm-charts/charts/*"
+                    }
+                }
+
+
+> si c'est ok on va pousser dans notre repo  :
+on va decomposer les etapes : 
+on doit pousser le helm chart dans le repo github pages ( qui est different du repo git de base) pour publier et avoir l'index.yaml. 
+On clone ce repo , a ce moment la la variable repoType est défini en fonction de la branche  sur laquelle la ci /cd run afin de déterminer si le chart packagé doit etre poussé en stable ou staging .
+ceci implique que pour stable le chart a été testé, validé et mergé sur la branche master.Staging implique que le chart est en dev et pas publié sur la branche master.
+on va pouvoir créer deux repertoires distincts pour héberger les charts stable ou en dev :
+ex : 
+Learn-Helm-Repository/
+  stable/
+  staging
+
+
+        stage("Push Charts to Chart Repo") {
+            steps {
+                script {
+                    container("chart-testing") {
+                        // Clone GitHub Pages repository to a folder called "chart-repo"
+                        sh "git clone ${env.GITHUB_PAGES_REPO_URL} chart-repo"
+
+                        // Determine if these charts should be pushed to "stable" or "staging" based on the branch
+                        def repoType
+                        if (env.BRANCH_NAME == "master") {
+                            repoType = "stable"
+                        } else {
+                            repoType = "staging"
+                        }
+
+                        // Create the corresponding "stable" or "staging" folder if it does not exist
+                        def files = sh(script: "ls chart-repo", returnStdout: true)
+                        if (!files.contains(repoType)) {
+                            sh "mkdir chart-repo/${repoType}"
+                        }
+
+
+on poursuit le stage avec la copie des charts packagés dans les repo cibles (stable ou staging ) et on lance un helm repo index pour mettre a jour les fichiers index de nos charts ( pas nécéssaire quand on utilise un chartmuseum pour mémo repo chart maintenu par la communauté helm.)  
+on va ensuite preparer la conf git pour pousser (username et email adresse) puis pousser la conf 
+
+
+// Move charts from the packaged-charts folder to the
+corresponding 'stable' or 'staging' folder
+sh "mv packaged-charts/*.tgz chart-repo/${repoType}"
+// Generate the updated index.yaml
+sh "helm repo index chart-repo/${repoType}"
+// Update git config details
+sh "git config --global user.email ' chartrepo-robot@example.
+com'"
+sh "git config --global user.name 'chartrepo-robot'"
+...
+dir("chart-repo") {
+           // Add and commit the changes
+           sh "git add --all"
+           sh "git commit -m 'pushing charts from branch ${env.BRANCH_NAME}'"
+           withCredentials([usernameColonPassword(credentialsId: 'github-auth', variable: 'USERPASS')]) {
+               script {
+
+                   // Inject GitHub auth and push to the master branch, where the charts are being served
+                   def authRepo = env.GITHUB_PAGES_REPO_URL.replace("://", "://${USERPASS}@")
+                   sh "git push ${authRepo} master"
+               }
+           }
+
+
+fichier Jenkinsfile complet : 
+
+pipeline {
+    agent { label "chart-testing-agent" }    <<<<<<  la premiere chose qui est faite est la creation de l'agent 
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+    }
+    stages {
+        stage("Lint") {
+            steps {
+                container("chart-testing") {
+                    sh "ct lint"
+                }
+            }
+        }
+        stage("Install & Test") {
+            steps {
+                container("chart-testing") {
+                    sh "ct install --upgrade"
+                }
+            }
+        }
+        stage("package charts") {
+            steps {
+                script {
+                    container("chart-testing") {
+			sh "helm package --dependency-update helm-charts/charts/*"
+                    }
+                }
+            }
+        }
+        stage("Push Charts to Chart Repo") {
+            steps {
+                script {
+                    container("chart-testing") {
+                        // Clone GitHub Pages repository to a folder called "chart-repo"
+                        sh "git clone ${env.GITHUB_PAGES_REPO_URL} chart-repo"
+
+                        // Determine if these charts should be pushed to "stable" or "staging" based on the branch
+                        def repoType
+                        if (env.BRANCH_NAME == "master") {
+                            repoType = "stable"
+                        } else {
+                            repoType = "staging"
+                        }
+
+                        // Create the corresponding "stable" or "staging" folder if it does not exist
+                        def files = sh(script: "ls chart-repo", returnStdout: true)
+                        if (!files.contains(repoType)) {
+                            sh "mkdir chart-repo/${repoType}"
+                        }
+
+                        // Move packaged charts to the corresponding "stable" or "staging" folder
+                        sh "mv *.tgz chart-repo/${repoType}"
+
+                        // Generate the updated index.yaml
+                        sh "helm repo index chart-repo/${repoType}"
+
+                        // Update git config details
+                        sh "git config --global user.email 'chartrepo-robot@example.com'"
+                        sh "git config --global user.name 'chartrepo-robot'"
+
+                        dir("chart-repo") {
+			    // Add and commit the changes
+		 	    sh "git add --all"
+			    sh "git commit -m 'pushing charts from branch ${env.BRANCH_NAME}'"
+			    withCredentials([usernameColonPassword(credentialsId: 'github-auth', variable: 'USERPASS')]) {
+			        script {
+
+				    // Inject GitHub auth and push to the master branch, where the charts are being served
+				    def authRepo = env.GITHUB_PAGES_REPO_URL.replace("://", "://${USERPASS}@")
+				    sh "git push ${authRepo} master"
+			        }
+			    }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+Note that the Helm community has published a tool called Chart Releaser( https://github.com/helm/chart-releaser ) that can be used as analternative to generating the index.yaml file with the helm repo index command and uploading it to GitHub with git push . The Chart Releaser tool is designed to abstract some of this additional complexity by managing the Helm charts contained in GitHub Pages
+
+
