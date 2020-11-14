@@ -2536,7 +2536,7 @@ Learn-Helm-Repository/
 
 
 on poursuit le stage avec la copie des charts packagés dans les repo cibles (stable ou staging ) et on lance un helm repo index pour mettre a jour les fichiers index de nos charts ( pas nécéssaire quand on utilise un chartmuseum pour mémo repo chart maintenu par la communauté helm.)  
-on va ensuite preparer la conf git pour pousser (username et email adresse) puis pousser la conf 
+on va ensuite preparer la conf git pour pousser (username et email adresse) puis pousser la conf . Les credentials ne vont pas être en clair car enregistrés dans "github-auth" lors du set up de notre chart.
 
 
 // Move charts from the packaged-charts folder to the
@@ -2646,5 +2646,256 @@ pipeline {
 }
 
 Note that the Helm community has published a tool called Chart Releaser( https://github.com/helm/chart-releaser ) that can be used as analternative to generating the index.yaml file with the helm repo index command and uploading it to GitHub with git push . The Chart Releaser tool is designed to abstract some of this additional complexity by managing the Helm charts contained in GitHub Pages
+
+
+Ce premier pipeline montre ce qui se passe lors de la creation initiale d'un set de charts stable.
+Nous allons voir maintenant comment les charts passent de staging a stable et ainsi dispos pour les users :
+on va pource faire :
+
+créer une branche depuis notre repo master :
+git checkout -b FeatureNginx
+on va changer la version de nginx pour valider le lint, test
+ex: 
+helm-charts/charts/nginx/Chart.yaml
+version: 1.0.0
+on passe la version à 
+version: 1.0.1
+
+on commit la diff 
+$ gitcommit -am 'bumping NGINX chart version to demonstrate testing pipeline'
+git push origin FeatureNginx
+
+
+on retourne dans jenkins on clic sur notre job et on clic sur "scan multibranch pipeline now" > cela va permettre a jenkins de parser les repos et voir qu'une nouvelle branche est dispo
+> le job va ensuite être lancé automatiquement.
+
+on va avoir ensuite le push du chart dans notre repo staging distant.
+
+on va donc maintenant merger notre branche FeatureNginx  dna master et pousser sur le repo
+git checkout master
+git merge FeatureNginx
+git push origin master
+
+
+on va retourner sur jenkins dans notre job et sur la branch master > on clic sur build now 
+a la fin on doit avoir sur github dans le repo stable notre chart nginx 
+
+on peut tester notre chart en ajoutant notre repo distant :
+
+helm repo add learnhelm $GITHUB_PAGES_SITE_URL/stable
+
+on peut trouver le lien exact dans les settings de notre repo.
+
+= CD :
+
+on va maintenant s'occuper de la creation d'un pipeline de cd du chart nginx créer et pousser dans notre repo stable.
+La phase de cd fait abstraction des envs et permet de déployer dans differents envs 
+nous allons en créer pour l'occasion :
+
+kubectl create ns dev
+kubectl create ns qa
+kubectl create ns prod
+
+on detruit notre branch precédente FeatureNginx : car jenkins va scanner toutes les branches pour eviter les confusions on ne conserve que la branche master.
+git branch -d FeatureNginx
+
+
+on va associer GITHUB_PAGES_SITE_URL à notre repo stable : https://$GITHUB_USERNAME.github.io/Learn-Helm-Chart-Repository/stable
+
+
+on va ensuite lancer un upgrade de helm en réutilisant les valeurs précédentes grace à --reuse-values
+on change juste notre repo : 
+$ helm upgrade jenkins codecentric/jenkins -n chapter7 --version 1.5.1 --reuse-values --set githubPagesSiteUrl=$GITHUB_PAGES_SITE_URL
+
+on va ensuite voir dans jenkins une fois up un nouveau job : Deploy-nginx-chart 
+etude du jenkinsfile par etapes 
+
+> creation de l'agent :
+agent { label 'chart-testing-agent' }
+
+> ensuite vient le setup : on ajoute notre repo stable dans la conf helm de notre agent jenkins : 
+sh "helm repo add learnhelm ${env.GITHUB_PAGES_SITE_URL}"
+
+> on va maintenant deployer le chart dans chacun des envs :
+on va definir le rep nginx-cd comme notre working dir : syntaxe jenkins / groovy 
+on lance ensuite l'upgraed de notre chart avec la valeur --install : c'est tres pratique pour une cd : on upgrade si le chart existe mais on install q'il n'existe pas dans la foulée. ( pas besoin de faire un test d'existence d'un chart au préalable.) 
+On voit qu'on charge deux fichiers de values : common-values et /dev/values.yaml <<<< on override donc par env 
+On voit qu'on lance la commande dans le namespace dev
+
+dir('nginx-cd') { <<<< nginx-cd working dir 
+  sh "helm upgrade --install nginx-${env.BRANCH_NAME}
+learnhelm/nginx --values common-values.yaml --values dev/
+values.yaml -n dev --wait"
+}
+
+
+> on a ensuite un test  qui basiquement va tester que la connex a un pod est ok 
+
+(ex: 
+cat templates/tests/test-connection.yaml                                                   [☸ |minikube:default]
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ include "nginx.fullname" . }}-test-connection"
+  labels:
+{{ include "nginx.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test-success
+spec:
+  containers:
+    - name: wget
+      image: busybox
+      command: ['wget']
+      args:  ['{{ include "nginx.fullname" . }}:{{ .Values.service.port }}']
+  restartPolicy: Never
+)
+
+
+sh 'helm test nginx -n dev'
+
+> on va ensuite si le test est ok deployer dans l'env qa : 
+on va ici grace au test conditionnel pourvoir tester le deployment de code contenu dans le values.yaml sur des branches de feature 
+
+        stage("Deploy to QA") {
+            when {
+                expression {
+                    return env.BRANCH_NAME == "master"
+                }
+            }
+            steps {
+                container("chart-testing") {
+                    dir("nginx-cd") {
+                        sh "helm upgrade --install nginx-${env.BRANCH_NAME} learnhelm/nginx --values common-values.yaml --values qa/values.yaml -n qa --wait"
+                    }
+                }
+            }
+        }
+
+
+
+> le stage suivant est "Wait for Input" : ici jenkins va faire une pause et poser une question au user "Deploy to Prod?"  : est ce qu'on continue et on deploy en prod ou on reste en qa ?
+Le user peut saisir Proceed ou Abort
+
+stage('Wait for Input') {
+    when {
+        expression {
+            return env.BRANCH_NAME == 'master'
+        }
+    }
+    steps {
+        container('chart-testing') {
+            input 'Deploy to Prod?'
+        }
+    }
+}
+
+> on va pousser en prod dans le stage suivant si le user a bien saisi Proceed dans la question précédente . Comme d'habitude le fichier de values relatives au stage est sélectionné en plus des common-values.
+
+dir('nginx-cd') {
+  sh "helm upgrade --install nginx-${env.BRANCH_NAME}
+learnhelm/nginx --values common-values.yaml --values prod/
+values.yaml -n prod --wait"
+}
+
+
+
+Jenkinsfile complet : 
+
+cat nginx-cd/Jenkinsfile                                              
+pipeline {
+    agent { label "chart-testing-agent" }
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+    }
+    stages {
+        stage("Setup") {
+            steps {
+                container("chart-testing") {
+                    sh "helm repo add learnhelm ${env.GITHUB_PAGES_SITE_URL}"
+                }
+            }
+        }
+        stage("Deploy to Dev") {
+            steps {
+                container("chart-testing") {
+                    dir("nginx-cd") {
+                        sh "helm upgrade --install nginx-${env.BRANCH_NAME} learnhelm/nginx --values common-values.yaml --values dev/values.yaml -n dev --wait"
+                    }
+                }
+            }
+        }
+        stage("Smoke Test") {
+            steps {
+                container("chart-testing") {
+                    sh "helm test nginx-${env.BRANCH_NAME} -n dev"
+                }
+            }
+        }
+        stage("Deploy to QA") {
+            when {
+                expression {
+                    return env.BRANCH_NAME == "master"
+                }
+            }
+            steps {
+                container("chart-testing") {
+                    dir("nginx-cd") {
+                        sh "helm upgrade --install nginx-${env.BRANCH_NAME} learnhelm/nginx --values common-values.yaml --values qa/values.yaml -n qa --wait"
+                    }
+                }
+            }
+        }
+        stage("Wait for Input") {
+            when {
+                expression {
+                    return env.BRANCH_NAME == "master"
+                }
+            }
+            steps {
+                container("chart-testing") {
+                    input "Deploy to Prod?"
+                }
+            }
+        }
+        stage("Deploy to Prod") {
+            when {
+                expression {
+                    return env.BRANCH_NAME == "master"
+                }
+            }
+            steps {
+                container("chart-testing") {
+                    dir("nginx-cd") {
+                        sh "helm upgrade --install nginx-${env.BRANCH_NAME} learnhelm/nginx --values common-values.yaml --values prod/values.yaml -n prod --wait"
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+en examinant la console jenkins et Deploy NGINX Chart branche master on va lancer le job et examiner les logs  de la console
+
+on voit le deployement en dev, le test, le deployment en qa puis la question :
+si on clic sur proceed on deploy en prod sinon en reste en qa 
+
+on va pouvoir examiner dans chaque namespace le deployment de nginx .
+
+
+To learn more about the chart testing container image, go to https://helm.sh/blog/chart-testing-intro/.
+
+To learn more about Jenkins and Jenkins pipelines, check out the Jenkins project documentation 
+( https://jenkins.io/doc/ )
+
+the Jenkins pipeline documentation
+( https://jenkins.io/doc/book/pipeline/ ) 
+
+and the Multibranch Pipeline plugin documentation 
+( https://plugins.jenkins.io/workflow-multibranch/ ).
+
+
+== utilisation de helm avec le framework operator ==
+
 
 
