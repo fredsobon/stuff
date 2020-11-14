@@ -2897,5 +2897,38 @@ and the Multibranch Pipeline plugin documentation
 
 == utilisation de helm avec le framework operator ==
 
+un des avantages de helm est de synchro notre conf de fichiers de valeurs locale avec le cluster via les commandes install / upgrade.
+un autre moyen est de créer une application dans le cluster qui va checker périodiquement que la conf désirée est bien celle en place dans le cluster.
+Si c'a ne match pas l'application peut setter automatiquement l'env avec les bonnes valeurs et restaurer la conf.
+Cette application se nomme un operator kubernetes.
+
+- operators kubernetes : 
+
+on peut injecter des données dans kube via kubectl , des manifests ..dans tous les cas on aura une systeme de controle loop qui sera effectué pour s'assurer que les ressources déclarées et attendues sont bien celles qui tournent dans le cluster.
+Ils y a beaucoup de type de controller dans kube ( admission controller qui vont intercepter les requettes faites à l'api kube, replication controllers qui assure le nbre de replicats d'une app ....)
+
+L'interet pour kube ayant grandi, un second type de developpement est apparu pour permettre d'étendre les capacités de kube. ce qui a permi l'émergence :
+> crds : custom ressources definitions : permettent au users d'etendre les fonctionnalités de kube en creant des nouvelles ressources.
+Enregistrer un nouveau type de ressource consiste a creer un nouveau path de l'api restfull . Donc de la même manière qu'on peut faire un kubctl get pods on pourra par exemple faire un kubectl get guestbook si on a enregistrer un nouvel object guestbook de type crd .
+avec ces particularités les devs peuvent maintenant créer un controller pour monitorer ces crs et manager le déployment d'application qui peuvent être décrites a l'aide de l'usage de crds.
+
+Une seconde tendance dans le monde kube a été l'émergence de deployment de plus en plus complexes (avec des statefull, replications ...) : necessitant le deployment de multiples composants et des activitées classique de prod ( backup, restauration ..) 
+Biensur il faut une connaissance approfondi de ces applications .
+La combinaison de l'utilisation de CRs de leur pilotage s'appelle un operator.
+Les operators sont déployes en tant que pods classiques et que reagissent au changement de l'api sur les custom ressources.
+
+Les operators sont classiquement  ecrits en utilisant des toolkit 'operator frameworks' (souvent basés sur les technos suivante : go / ansible /helm.)
+
+"Go-based Operators leverage the Go programming language to implement control loop
+logic. 
+Ansible-based Operators leverage the Ansible CLI tool and Ansible playbooks.
+Ansible is an automation tool whose logic is written in YAML files called playbooks.
+Helm Operators base their control loop logic on Helm charts and a subset of the features provided by the Helm CLI.
+As a result, they represent an easy way for Helm users to implement their Operators."
+
+
+
+
+
 
 
