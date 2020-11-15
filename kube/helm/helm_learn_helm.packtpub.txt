@@ -2957,9 +2957,338 @@ on a besoin de l'operator sdk, de docker / podman ou buildah pour construire not
 -> le sdk operator est le kit d'outillage pour développer un operator kube : il contient toute la logique pour simplifier le process de developpement de l'operator.
 le sdk nécéssite un outil de management de container ( docker, podman buildah ...) 
 
+on va recupérer le sdk operator cli via l'url : https://github.com/operator-framework/operator-sdk/releases
+
+curl -L https://github.com/operator-framework/operator-sdk/releases/download/v1.2.0/operator-sdk-v1.2.0-x86_64-linux-gnu -o operator-sdk
+chmod +x operator-sdk; sudo mv operator-sdk /usr/local/bin
+/usr/local/bin/operator-sdk version    
+operator-sdk version: "v1.2.0", commit: "215fc50b2d4acc7d92b36828f42d7d1ae212015c", kubernetes version: "v1.18.8", go version: "go1.15.3", GOOS: "linux", GOARCH: "amd64"
+
+- structure d'un operator helm :
+
+comme les charts, les operator helm ont une arborescence précise :
+
+
+https://sdk.operatorframework.io/docs/building-operators/helm/reference/project_layout/
+
+File/Folders	Purpose
+config	Contains kustomize manifests for deploying this operator on a Kubernetes cluster.
+helm-charts/	Contains a Helm chart initialized with operator-sdk create api.
+Dockerfile	Used to build the operator image with make docker-build.
+watches.yaml	Contains Group, Version, Kind, and Helm chart location.
+Makefile	Contains the targets used to manage the project.
+PROJECT	Contains meta information about the project.
+
+on va générer l'operateur helm du chart :
+
+on cree un rep qui contiendra notre projet  et on lance la creation de notre operateur qui sera de type helm et prendra comme source le path de notre chart  :
+
+mkdir guestbook-helm-operator && cd guestbook-helm-operator
+
+operator-sdk init --plugins=helm --helm-chart=/home/boogie/Documents/lab/helm/Learn-Helm/helm-charts/charts/guestbook 
+Created helm-charts/guestbook
+Generating RBAC rules
+WARN[0135] The RBAC rules generated in config/rbac/role.yaml are based on the chart's default manifest. Some rules may be missing for resources that are only enabled with custom values, and some existing rules may be overly broad. Double check the rules generated in config/rbac/role.yaml to ensure they meet the operator's permission requirements.
+
+
+tree                                                                                                                     [☸ |minikube:default]
+.
+├── config
+│   ├── crd
+│   │   ├── bases
+│   │   │   └── charts.my.domain_guestbooks.yaml
+│   │   └── kustomization.yaml
+│   ├── default
+│   │   ├── kustomization.yaml
+│   │   └── manager_auth_proxy_patch.yaml
+│   ├── manager
+│   │   ├── kustomization.yaml
+│   │   └── manager.yaml
+│   ├── prometheus
+│   │   ├── kustomization.yaml
+│   │   └── monitor.yaml
+│   ├── rbac
+│   │   ├── auth_proxy_client_clusterrole.yaml
+│   │   ├── auth_proxy_role_binding.yaml
+│   │   ├── auth_proxy_role.yaml
+│   │   ├── auth_proxy_service.yaml
+│   │   ├── guestbook_editor_role.yaml
+│   │   ├── guestbook_viewer_role.yaml
+│   │   ├── kustomization.yaml
+│   │   ├── leader_election_role_binding.yaml
+│   │   ├── leader_election_role.yaml
+│   │   ├── role_binding.yaml
+│   │   └── role.yaml
+│   ├── samples
+│   │   └── charts_v1alpha1_guestbook.yaml
+│   └── scorecard
+│       ├── bases
+│       │   └── config.yaml
+│       ├── kustomization.yaml
+│       └── patches
+│           ├── basic.config.yaml
+│           └── olm.config.yaml
+├── Dockerfile
+├── helm-charts
+│   └── guestbook
+│       ├── Chart.lock
+│       ├── charts
+│       │   └── redis-10.5.14.tgz
+│       ├── Chart.yaml
+│       ├── templates
+│       │   ├── backup
+│       │   │   ├── job.yaml
+│       │   │   └── persistentvolumeclaim.yaml
+│       │   ├── deployment.yaml
+│       │   ├── _helpers.tpl
+│       │   ├── ingress.yaml
+│       │   ├── NOTES.txt
+│       │   ├── restore
+│       │   │   └── job.yaml
+│       │   ├── serviceaccount.yaml
+│       │   ├── service.yaml
+│       │   └── test
+│       │       ├── backend-connection.yaml
+│       │       └── frontend-connection.yaml
+│       └── values.yaml
+├── Makefile
+├── PROJECT
+└── watches.yaml
+
+https://sdk.operatorframework.io/docs/building-operators/helm/tutorial/
+
+Le repertoire crd contient les ressources yaml qui vont permettre de creer le crd guestbook. ce fichier est nécéssaire pour créer le nouveau endpoint de l'api guestbook avec kube 
+
+
+On va avoir la custom resource definition de notre objet et le nouveau type de custom resource "guestbook" de crée : 
+
+
+- CRD : 
+
+cat config/crd/bases/charts.my.domain_guestbooks.yaml     
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: guestbooks.charts.my.domain
+spec:
+  group: charts.my.domain
+  names:
+    kind: Guestbook
+    listKind: GuestbookList
+    plural: guestbooks
+    singular: guestbook
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Guestbook is the Schema for the guestbooks API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: Spec defines the desired state of Guestbook
+            type: object
+            x-kubernetes-preserve-unknown-fields: true
+          status:
+            description: Status defines the observed state of Guestbook
+            type: object
+            x-kubernetes-preserve-unknown-fields: true
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+
+
+- CR : notre custom resource :  on voit ici que ce sont les default values de notre chart qui sont utilisées pour la creation de l'objet :
+
+head config/samples/charts_v1alpha1_guestbook.yaml  
+apiVersion: charts.my.domain/v1alpha1
+kind: Guestbook
+metadata:
+  name: guestbook-sample
+spec:
+  # Default values copied from <project_dir>/helm-charts/guestbook/values.yaml
+  affinity: {}
+  fullnameOverride: ""
+  image:
+    pullPolicy: IfNotPresent
+...
 
 
 
 
 
 
+
+on va maintenant lancer l'installation de notre crd :
+
+make install                                                                                                             [☸ |minikube:default]
+/usr/local/bin/kustomize build config/crd | kubectl apply -f -
+customresourcedefinition.apiextensions.k8s.io/guestbooks.charts.my.domain created
+
+on peut utiliser notre operateur comme un pod dans kube ou comme un programme go exterrieur a notre cluster via la commande operator-sdk 
+
+1/ pod :
+
+on va devoir builder notre image, la pousser dans une registry afin de la deployer dans notre cluster :
+
+docker login quay.io --username $QUAY_USERNAME --password
+$QUAY_PASSWORD
+
+WARNING! Using --password via the CLI is insecure. Use --password-stdin.
+WARNING! Your password will be stored unencrypted in /home/boogie/.docker/config.json.
+Configure a credential helper to remove this warning. See
+https://docs.docker.com/engine/reference/commandline/login/#credentials-store
+
+Login Succeeded
+
+export IMG=quay.io/billbongo/guestbook-operator:v0.0.1       
+
+make docker-build docker-push IMG=$IMG         
+
+docker build . -t quay.io/billbongo/guestbook-operator:v0.0.1
+
+Sending build context to Docker daemon  109.1kB
+Step 1/5 : FROM quay.io/operator-framework/helm-operator:v1.2.0
+ ---> 16b9c17cdfce
+Step 2/5 : ENV HOME=/opt/helm
+ ---> Using cache
+ ---> faadca67a68a
+Step 3/5 : COPY watches.yaml ${HOME}/watches.yaml
+ ---> Using cache
+ ---> a67af8eeffec
+Step 4/5 : COPY helm-charts  ${HOME}/helm-charts
+ ---> Using cache
+ ---> 7605b754d1ac
+Step 5/5 : WORKDIR ${HOME}
+ ---> Using cache
+ ---> 4f79bbf4416f
+Successfully built 4f79bbf4416f
+Successfully tagged quay.io/billbongo/guestbook-operator:v0.0.1
+docker push quay.io/billbongo/guestbook-operator:v0.0.1
+The push refers to repository [quay.io/billbongo/guestbook-operator]
+aaea588910a8: Pushed 
+655f447547ea: Pushed 
+20acaf8fcea7: Pushed 
+9c2b721a715f: Pushed 
+ba8840240cdf: Pushed 
+37330a2a1954: Pushed 
+d6ec160dc60f: Pushed 
+v0.0.1: digest: sha256:701b7dcc2441e6a6736912baa0cabaf54e980f3281fa9a7126f35afc5cc42552 size: 1779
+
+on a bien notre image de poussée sur le repo, qu'on peut pull :
+docker pull quay.io/billbongo/guestbook-operator:v0.0.1
+
+on peut deployer dans notre cluster kube : 
+
+la conf du deployment est dans l'arbo suivante : config/manager/manager.yaml
+
+on va maintenant deployer notre oparateur :
+
+make deploy IMG=$IMG                                                                                                     [☸ |minikube:default]
+cd config/manager && /usr/local/bin/kustomize edit set image controller=quay.io/billbongo/guestbook-operator:v0.0.1
+/usr/local/bin/kustomize build config/default | kubectl apply -f -
+namespace/guestbook-helm-operator-system created
+customresourcedefinition.apiextensions.k8s.io/guestbooks.charts.my.domain unchanged
+role.rbac.authorization.k8s.io/guestbook-helm-operator-leader-election-role created
+clusterrole.rbac.authorization.k8s.io/guestbook-helm-operator-manager-role created
+clusterrole.rbac.authorization.k8s.io/guestbook-helm-operator-metrics-reader created
+clusterrole.rbac.authorization.k8s.io/guestbook-helm-operator-proxy-role created
+rolebinding.rbac.authorization.k8s.io/guestbook-helm-operator-leader-election-rolebinding created
+clusterrolebinding.rbac.authorization.k8s.io/guestbook-helm-operator-manager-rolebinding created
+clusterrolebinding.rbac.authorization.k8s.io/guestbook-helm-operator-proxy-rolebinding created
+service/guestbook-helm-operator-controller-manager-metrics-service created
+deployment.apps/guestbook-helm-operator-controller-manager created
+
+
+on voit qu'un namespace est crée avec des ressources : 
+
+kctl get ns                                
+NAME                             STATUS   AGE
+default                          Active   38h
+guestbook-helm-operator-system   Active   2m
+kube-node-lease                  Active   38h
+kube-public                      Active   38h
+kube-system                      Active   38h
+
+kcns guestbook-helm-operator-system       
+Context "minikube" modified.
+Active namespace is "guestbook-helm-operator-system".
+ boogie@boogieland  ~/Documents/lab/helm/guestbook-helm-operator  kctl get all    
+NAME                                                              READY   STATUS    RESTARTS   AGE
+pod/guestbook-helm-operator-controller-manager-775cdf8646-wf8gs   2/2     Running   0          2m30s
+
+NAME                                                                 TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)    AGE
+service/guestbook-helm-operator-controller-manager-metrics-service   ClusterIP   10.104.154.115   <none>        8443/TCP   2m31s
+
+NAME                                                         READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/guestbook-helm-operator-controller-manager   1/1     1            1           2m31s
+
+NAME                                                                    DESIRED   CURRENT   READY   AGE
+replicaset.apps/guestbook-helm-operator-controller-manager-775cdf8646   1         1         1       2m30s
+ boogie@boogieland  ~/Documents/lab/helm/guestbook-helm-operator 
+
+2/ on peut deployer via la commande operator-sdk : c'est souvent utile pendant les phases de developpement : 
+
+Run the operator locally with the default Kubernetes config file present at $HOME/.kube/config via the Makefile target make run
+
+
+- Modif de notre crd : 
+
+on voit qu'on a un replicat pour notre cr ..modifions le nombre de replica et applicons notre modif pour exminer la gestion de l'operateur : 
+dans notre cr guestbook (config/samples/charts_v1alpha1_guestbook.yaml )on passe à 2 le nombre de replica
+
+
+quand on examine notre deployment 2 pods sont bien déployés.
+deployment.apps/guestbook-sample                             2/2     2            2           10s
+
+
+/!\ attention dans notre cas dans les logs ont voit des pb de droits pour modif de ressources :
+on a du delete la ressource puis la recréer pour voir la prise en compte des modifs dans le fichier correctement effectuées.
+la gestion par l'operateur n'a pas fonctionné correctement.
+
+
+
+- clean up :
+
+pour supprimer notre objet cr : 
+
+kctl delete -f config/samples/charts_v1alpha1_guestbook.yaml 
+guestbook.charts.my.domain "guestbook-sample" deleted
+
+pour supprimer l'operator : 
+
+make undeploy                                                                                                            [☸ |minikube:default]
+/usr/local/bin/kustomize build config/default | kubectl delete -f -
+namespace "guestbook-helm-operator-system" deleted
+customresourcedefinition.apiextensions.k8s.io "guestbooks.charts.my.domain" deleted
+role.rbac.authorization.k8s.io "guestbook-helm-operator-leader-election-role" deleted
+clusterrole.rbac.authorization.k8s.io "guestbook-helm-operator-manager-role" deleted
+clusterrole.rbac.authorization.k8s.io "guestbook-helm-operator-metrics-reader" deleted
+clusterrole.rbac.authorization.k8s.io "guestbook-helm-operator-proxy-role" deleted
+rolebinding.rbac.authorization.k8s.io "guestbook-helm-operator-leader-election-rolebinding" deleted
+clusterrolebinding.rbac.authorization.k8s.io "guestbook-helm-operator-manager-rolebinding" deleted
+clusterrolebinding.rbac.authorization.k8s.io "guestbook-helm-operator-proxy-rolebinding" deleted
+service "guestbook-helm-operator-controller-manager-metrics-service" deleted
+deployment.apps "guestbook-helm-operator-controller-manager" deleted
+
+> tout est supprimé
+
+
+
+doc operator : 
+https://github.com/operator-framework/awesome-Operators .
+https://kubernetes.io/docs/concepts/extend-kubernetes/operator/
