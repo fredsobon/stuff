@@ -3196,7 +3196,7 @@ on peut deployer dans notre cluster kube :
 
 la conf du deployment est dans l'arbo suivante : config/manager/manager.yaml
 
-on va maintenant deployer notre oparateur :
+on va maintenant deployer notre operateur :
 
 make deploy IMG=$IMG                                                                                                     [☸ |minikube:default]
 cd config/manager && /usr/local/bin/kustomize edit set image controller=quay.io/billbongo/guestbook-operator:v0.0.1
@@ -3214,7 +3214,7 @@ service/guestbook-helm-operator-controller-manager-metrics-service created
 deployment.apps/guestbook-helm-operator-controller-manager created
 
 
-on voit qu'un namespace est crée avec des ressources : 
+on voit qu'un namespace pour notre operator est crée : 
 
 kctl get ns                                
 NAME                             STATUS   AGE
@@ -3246,11 +3246,42 @@ replicaset.apps/guestbook-helm-operator-controller-manager-775cdf8646   1       
 Run the operator locally with the default Kubernetes config file present at $HOME/.kube/config via the Makefile target make run
 
 
+- deployement de notre ressource : 
+
+kctl apply -f config/samples/charts_v1alpha1_guestbook.yaml
+kctl get all                                                                                                             [☸ |minikube:default]
+NAME                                   READY   STATUS    RESTARTS   AGE
+pod/guestbook-sample-b89f5559f-bxz5w   1/1     Running   0          58s
+pod/redis-master-0                     1/1     Running   0          58s
+pod/redis-slave-0                      1/1     Running   0          58s
+pod/redis-slave-1                      1/1     Running   0          16s
+
+NAME                       TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)        AGE
+service/guestbook-sample   NodePort    10.103.211.195   <none>        80:30576/TCP   58s
+service/kubernetes         ClusterIP   10.96.0.1        <none>        443/TCP        39h
+service/redis-headless     ClusterIP   None             <none>        6379/TCP       58s
+service/redis-master       ClusterIP   10.101.113.115   <none>        6379/TCP       58s
+service/redis-slave        ClusterIP   10.105.227.64    <none>        6379/TCP       58s
+
+NAME                               READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/guestbook-sample   1/1     1            1           58s
+
+NAME                                         DESIRED   CURRENT   READY   AGE
+replicaset.apps/guestbook-sample-b89f5559f   1         1         1       58s
+
+NAME                            READY   AGE
+statefulset.apps/redis-master   1/1     58s
+statefulset.apps/redis-slave    2/2     58s
+
+
+
+
 - Modif de notre crd : 
 
 on voit qu'on a un replicat pour notre cr ..modifions le nombre de replica et applicons notre modif pour exminer la gestion de l'operateur : 
 dans notre cr guestbook (config/samples/charts_v1alpha1_guestbook.yaml )on passe à 2 le nombre de replica
 
+kctl apply -f config/samples/charts_v1alpha1_guestbook.yaml
 
 quand on examine notre deployment 2 pods sont bien déployés.
 deployment.apps/guestbook-sample                             2/2     2            2           10s
@@ -3258,16 +3289,17 @@ deployment.apps/guestbook-sample                             2/2     2          
 
 /!\ attention dans notre cas dans les logs ont voit des pb de droits pour modif de ressources :
 on a du delete la ressource puis la recréer pour voir la prise en compte des modifs dans le fichier correctement effectuées.
-la gestion par l'operateur n'a pas fonctionné correctement.
-
+la gestion par l'operateur n'a pas fonctionné correctement. même en mettant les droits max dans le fichier config/rbac/role.yaml
 
 
 - clean up :
 
-pour supprimer notre objet cr : 
+pour supprimer notre appli : le suppression de l'objet cr est suffisante car les differents objects (pod, statefullset, deploy, services ...) sont supprimés automatiquement
 
 kctl delete -f config/samples/charts_v1alpha1_guestbook.yaml 
 guestbook.charts.my.domain "guestbook-sample" deleted
+
+Il est important de supprimer les resources avant l'operator qui les gèrent
 
 pour supprimer l'operator : 
 
@@ -3287,8 +3319,46 @@ deployment.apps "guestbook-helm-operator-controller-manager" deleted
 
 > tout est supprimé
 
+une des limitations dans la gestion via operator helm est que nous n'avons pas l'historisation : donc pas la possibilité de rollback sur une version donnée.
+
 
 
 doc operator : 
 https://github.com/operator-framework/awesome-Operators .
 https://kubernetes.io/docs/concepts/extend-kubernetes/operator/
+
+
+Il est possible de mettre les crds dans un repertoire de notre chart helm dedié : helm deploit en premier les crds.
+
+guestbook-operator/
+  Chart.yaml
+  crds/
+    charts.helm.k8s.io_guestbooks_crd.yaml
+  templates/
+    operator.yaml
+    role_binding.yaml
+    role.yaml
+    Service_account.yaml
+  values.yaml
+
+dans ce cas de figure le crd est installé en premier , s'il y a un upgrade le crd n'est pas réinstallé.
+Si on doit modifier le crd : il faut  le faire manuellement ,ce qui est difficile a suivre de plus il faut les droits cluster-admin.Il faut aussi  savoir que le templating go ne fonctionne pas dans cette arbo.
+
+comment faire pour les users qui ne sont pas cluster-admin ?
+il est possible d'utiliser une arbo comme suivant :
+
+guestbook-cr
+  Chart.yaml
+  templates/
+    guestbook.yaml
+  values.yaml
+
+
+dans cette arbo le fichier dans le rep templates est une cr Guestbook CR originellement generée avec la cli de l'operator-sdk. cette cr porte le nom charts.helm.k8s.io_v1alpha1_guestbook_cr.yaml
+ici on bénéficie de la possibilité de templating go.
+
+
+
+
+
+
