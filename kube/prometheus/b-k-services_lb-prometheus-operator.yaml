@@ -18,3 +18,53 @@ coreDns:
 
 kubeDns:
   enabled: false
+
+
+==== utilisation d'external-dns et external ips ====
+
+
+
+on va pouvoir utiliser external-dns pour publier dynamiquement nos entrées dns et on va pouvoir exposer des ip de services afin de pouvoir acceder aux points d'entrées prometheus / alertmanger et grafana depuis un laptop par exemple :
+
+
+prometheus-operator:
+  prometheus:
+    service:
+      type: LoadBalancer
+      port: 80
+      externalIPs:
+        - '192.168.0.80'   <<<< external ip de service qui pourra être fournies par un service metallb ou autre 
+      annotations:    <<< entrées nécéssaires pour declencher la creation auto de records dns sur la zone prod.lapin.net 
+        external-dns.alpha.kubernetes.io/hostname: prom.prod.lapin.net   
+        external-dns.alpha.kubernetes.io/ttl: "10"
+    prometheusSpec:
+      externalUrl: http://prom.prod.lapin.net
+
+  alertmanager:
+    service:
+      type: LoadBalancer
+      port: 80
+      externalIPs:
+        - '192.168.0.81'
+      annotations:
+        external-dns.alpha.kubernetes.io/hostname: alerts.prod.lapin.net
+        external-dns.alpha.kubernetes.io/ttl: "10"
+    alertmanagerSpec:
+      externalUrl: http://alerts.prod.lapin.net
+
+  grafana:
+    readinessProbe:
+      httpGet:
+        scheme: HTTP
+    livenessProbe:
+      httpGet:
+        scheme: HTTP
+    service:
+      type: LoadBalancer
+      port: 80
+      externalIPs:
+        - '192.168.0.85'
+      annotations:
+        external-dns.alpha.kubernetes.io/hostname: dash.prod.lapin.net
+        external-dns.alpha.kubernetes.io/ttl: "10"
+
