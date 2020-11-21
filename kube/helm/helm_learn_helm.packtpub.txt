@@ -3358,7 +3358,433 @@ dans cette arbo le fichier dans le rep templates est une cr Guestbook CR origine
 ici on bénéficie de la possibilité de templating go.
 
 
+== securité dans helm ==
+
+quand on travaille avec des données, on se demande :
+> si la provenance de ces données est fiable. : provenance 
+> si les données sont correctes. : integrité.
+
+on peut vérifier les deux avec des signatures digitales.
+un auteur de données peut les signer avec des outils cryptographiques et un consommateur de données peut s'assurer de l'autheticité de la signature.
+
+l'auteur peu créer une paire de clé pgp ( pretty good privacy) ( utilise openpgp ) avec le chiffrement assymétrique.
+
+1/ l'auteur signe avec sa clé ses data
+2/ un hash est construit avec la valeur des data ( la taille du hash est fixe et représente le message digest.) 
+3/ le message digest est chiffré avec la clé priv de l'auteur. : la sortie est la signature numérique 
+3/ le user va déchiffrer la signature numérique de l'auteur avec la clé pub de celui-ci pour s'assurer de la provenance.
+
+pour helm : on va pouvoir s'assurer de la provenance du chart et de son contenu avec les signatures numériques.
 
 
+- creation de clé gpg :
+
+sudo apt install gnupg
+
+gpg --generate-key
+
+on renseigne le nom du user, sa boite mail etc ... les infos seront visible dans la clé pub.
+
+on va ensuite rentrer un mdp pour la clé priv.
+
+gpg -k : pour lister nos clés :
+
+uid           [ultimate] f.sobon <bob@lapin.net>
+sub   rsa4096 2020-01-27 [E]
+
+pub   rsa4096 2020-08-3 [C] [expires: 2021-07-12]
+      4044F7323FEAEABBFDEBA1B75F3ED9FAD04FDDA
+
+pour vérifier la signature d'un  chart on va pouvoir télécharger la clé pub de celui ci : fichier présent sur les page de download avec unex extension de type .asc
+
+ex : dl de chart + digest chiffré 
+
+helm-v3.0.0-linux-amd64.tar.gz
+helm-v3.0.0-linux-amd64.tar.gz.asc
+
+
+on va importer ensuite la clé du mainteneur de chart dans notre trousseau de clé gpg 
+ce qui va nous permettre de déchiffrer le contenu du fichier asc
+
+on va pouvoir dl la clé du user par exemple en cherchant sur le site du chart le lien de la clé .
+ex: https://keybase.io/bacongobbler/pgp_keys.asc .
+
+- dl de clé :
+$ curl -o release_key.asc https://keybase.io/
+bacongobbler/pgp_keys.asc
+
+- import dans trousseau : 
+$ gpg --import release_key.asc
+gpg: key 92AA783CBAAE8E3B: public key 'Matthew Fisher
+<matt.fisher@microsoft.com>' imported
+gpg: Total number processed: 1
+gpg:               imported: 1
+
+- verif du fichier digest du chart :
+$ gpg --verify helm-v3.0.0-linux-amd64.tar.gz.asc
+gpg: assuming signed data in 'helm-v3.0.0-linux-amd64.
+tar.gz'
+gpg: Signature made Wed 13 Nov 2019 08:05:01 AM CST
+gpg:                using RSA key
+967F8AC5E2216F9F4FD270AD92AA783CBAAE8E3B
+gpg: Good signature from 'Matthew Fisher <matt.fisher@
+microsoft.com>' [unknown]
+gpg: WARNING: This key is not certified with a trusted
+signature!
+gpg:          There is no indication that the signature
+belongs to the owner.
+Primary key fingerprint: 967F 8AC5 E221 6F9F 4FD2  70AD
+92AA 783C BAAE 8E3B
+
+
+on va déchiffrer le fichier asc : si c'est ok le chart dl a bien été signé par la bonne personne et n'a pas subi d'alteration pendant le dl.
+
+On a pas cependant de certitude que la signature appartient à la bonne personne  comme le montre le warning 
+on va check que les derniers 64bits de la clé sont bien presents sur la page de la release helm 
+
+This release was signed with 92AA 783C BAAE 8E3B and can
+be found at @bacongobbler's keybase account.
+
+on voit que c'est correct. 
+on va donc maintenant certifier la clé :
+
+$ gpg --sign-key 92AA783CBAAE8E3B # Last 64 bits of fingerprint
+
+maintentant si on relance le test plus de warning :
+
+erification can now be run without displaying a WARNING message in the output:
+$ gpg --verify helm-v3.0.0-linux-amd64.tar.gz.asc
+gpg: assuming signed data in 'helm-v3.0.0-linux-amd64.
+tar.gz'
+gpg: Signature made Wed 13 Nov 2019 08:05:01 AM CST
+gpg:                using RSA key
+967F8AC5E2216F9F4FD270AD92AA783CBAAE8E3B
+gpg: checking the trustdb
+gpg: marginals needed: 3  completes needed: 1  trust
+model: pgp
+gpg: depth: 0  valid:   2  signed:   1  trust: 0-, 0q,
+0n, 0m, 0f, 2u
+gpg: depth: 1  valid:   1  signed:   0  trust: 1-, 0q,
+0n, 0m, 0f, 0u
+gpg: next trustdb check due at 2022-03-11
+gpg: Good signature from 'Matthew Fisher <matt.fisher@
+microsoft.com>' [full]
+
+
+- signature de helm charts : 
+
+on va pouvoir signer nos charts comme les mainteneurs :
+
+Attention si on utilise gpg v2 on va devoir exporter nos clés sous un format legacy attendu par helm ( format finissant par .gpg ) 
+
+- verif de version : 
+gpg --version    
+gpg (GnuPG) 2.2.20
+
+- export de clé pub et priv :
+gpg --export > ~/.gnupg/pubring.gpg
+gpg --export-secret-keys > ~/.gnupg/secring.gpg
+
+la commande helm package fournie trois flag de clé pour signer n chart : 
+--sign : Allows you to sign a chart using a PGP private key
+--key : The name of the key to use when signing
+--keyring : The location of the keyring containing the PGP private key
+
+$ helm package --sign --key '$KEY_NAME' --keyring   <<< $KEY_NAME correspond à l'adresse mail rensignée dans la clé ou le fingerprint associé on peut examiner en faisant un gpg --list-keys
+~/.gnupg/secring.gpg guestbook
+
+on va avoir en sortie deux fichiers : 
+
+guestbook-1.0.0.tgz
+guestbook-1.0.0.tgz.prov
+
+
+une fois packagé et signé notre chart,  on va pouvoir exporter la clé pub correspondant a la clé priv utilisée pendant le chiffrement de notre signature.ce qui permet aux users de dl notre clé pub et de verif le chart.
+
+$ gpg --armor --export $KEY_NAME > pubkey.asc
+
+La commande suivante va permettre de vérifier la signature du chart : 
+helm verify --keyring ~/.gnupg/pubring.gpg guestbook-1.0.0.tgz
+
+si c'est ok pas de message. Sinon on a une erreur qui peut avoir plusieurs origines :
+
+The .tgz and .tgz.prov files are not in the same directory.
+The .tgz.prov file is corrupt.
+The file hashes do not match, indicating a loss of integrity.
+The public key used to decrypt the signature does not match the private key
+used to originally encrypt it.
+
+la commande helm verify ne le fait que localement 
+on va pouvoir utiliser la commande suivante pour dl et vérifier en même temps :
+
+helm install my-guestbook $CHART_REPO/guestbook --verify--keyring ~/.gnupg/pubring.gpg
+
+= developpement de charts secure : =
+
+
+des bests practices sont à suivre :
+
+> utilisation d'image de containers secure.
+on va s'assurer de charger des imgs possédant un tag "humain".
+Il va être conseillé aussi d'examiner les digests des images.
+ex :
+
+au lieu de référencer une image comme ceci dans notre template de chart : quay.io/bitnami/redis:5.0.9
+on peut référncer le digest de l'image :  quay.io/bitnami/redissha256:70b816f2127afb5d4af7ec9d6e8636b2f0f973a3cd8dda7032f9dcffa38ba11f 
+ce qui va nous apporter la certitude qu'il n'ya pas eu d'altération ou de regression avec le même num de tag.
+
+ Il va être nécéssaire de scanner régulièrement les images utilisées en production ( la registrie quay.io permet de voir le scann des images) des outils existent ( clair ...) 
+
+ 
+> settings de bon droits d'execution de containers :
+
+Capabilities are used
+to give a process a subset of root permissions. Some examples of capabilities are NET_
+ADMIN , which allows a process to perform network-related operations, and SYS_TIME ,
+which allows a process to modify a system's clock. Running a container as root gives the
+container access to all the capabilities, which should be limited whenever possible. A list
+of capabilities can be found in the CAPABILITIES(7) page of the Linux manual pages
+( http://man7.org/linux/man-pages/man7/capabilities.7.html ).
+Granting a container capability or allowing it to run as root gives malicious processes
+more leverage to damage the underlying host. Not only does this impact the container
+that introduced the vulnerability, but also any other container running on that host
+and, potentially, the entire Kubernetes cluster. If a container does have vulnerabilities
+but does not have any capabilities granted to it, the attack vector is much smaller and
+could possibly be prevented altogether. When developing a Helm chart, both an image's
+vulnerabilities and permission requirements must be taken into account to keep your
+users, as well as other tenants of the Kubernetes cluster, safe.
+In addition to the container image that is deployed, chart developers should also focus on
+the resources granted to an application. We will dive into this topic in the next section.
+
+
+> definition de limitation de ressources :
+
+sans definition de ressources un pod peut consommer toutes les ressources d'un node.
+et générer de l'eviction de pods.
+il va être important dans nos charts de définir des ressources par défaut :
+ex :
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 2Gi
+
+on pourra alors overrider ces valeurs dans un fichier de values 
+
+on va aussi pouvoir définir des limites au niveau d'un namespace pour les containers utilisés dans ce namespace :
+ceci se fait au niveau de l'administration du cluster kube.
+
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: limits-per-container
+spec:
+  limits:
+    - max:
+        cpu: 1
+        memory: 4Gi
+      default:
+        cpu: 500m
+        memory: 2Gi
+      type: Container
+
+
+ici on set des valeurs max par container et des valeurs par défaut egalement.
+
+on peut aussi setter des valeurs par pods 
+
+
+la limite pour les pvc est aussi possible : 
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: limits-per-pvc
+spec:
+  - max:
+      storage: 4Gi
+    type: PersistentVolumeClaim
+
+
+on peut definir des ressources globales max par namespaces  :
+
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: pod-and-pvc-quota
+spec:
+  hard:
+    limits.cpu: '4'
+    limits.memory: 8Gi
+    requests.storage: 20Gi
+
+> gestion des secrets :
+
+il va falloir s'assurer que les données sensibles soient bien conservées dans des secrets
+que les mdp ne soient pas versionnés 
+
+on peut passer les secrets en cli en command line avec le flag --set ..c'a limite la casse.
+on peut chiffer les mdp avec gpg ou utiliser Sops ( https://github.com/mozilla/sops ) un outils pour chiffrer yaml et json
+
+ex de contenu de value chiffrée : 
+password:ENC[AES256GCM,data:xhdUx7DVUG8bitGnqjGvPMygpw==,
+iv:3LR9KcttchCvZNpRKqE5LcXRyWD1I00v2kEAIl1ttco=,
+tag:9HEwxhT9s1pxo9lg19wyNg==,type:str]
+
+
+on peut utiliser d'autre outils (vault ....)
+
+
+= Rbac : =
+
+dans le contexte helm les rbac concernent :
+
+• The user installing a Helm chart
+• The service account associated with the pod running the workload
+
+user or service account using either a role binding or a cluster role
+binding, depending on the type of policy being targeted. While Kubernetes has a number
+of included roles that can be applied, the concept of least-privileged access should be
+used wherever possible. Least-privileged access refers to a user or application that is
+granted only the minimum set of permissions that is needed to properly function. For
+example, take the guestbook chart that we developed earlier. Imagine we wanted to
+add new functionality that can query the metadata of pods in the guestbook
+application's namespace.
+
+
+While Kubernetes contains a built-in role called view that provides the necessary
+permissions to read pod manifests in a given namespace, it also gives access to other
+resources, such as ConfigMaps and deployments. To minimize the level of access that
+is granted to an application, a custom policy in the form of a role or cluster role can be
+created that provides only the necessary permissions that the application needs. Since
+most typical users of a Kubernetes cluster do not have access to create resources at a
+cluster level, let's create a role that is applied to the namespace that the Helm chart is
+deployed in.
+To create a new role, the kubectl create role command can be used. A basic role
+contains two key elements:
+• The type of action (verb) made against the Kubernetes API
+• The list of Kubernetes resources to target
+
+
+let's configure a set of RBAC rules to allow an authenticated user to view pods within a namespace
+
+
+1. kubectl create role guestbook-pod-viewer --resource=pods --verb=get,list -n chapter9
+
+With this new role created, it needs to be associated with a user or service account.
+Since we want to associate it with an application running in Kubernetes, we
+will apply the role to a service account. When a pod is created, it makes use of a
+service account called default . When attempting to abide by the least-privileged
+access principle, it is recommended that a separate service account is used. This
+is to ensure that no other workloads are deployed in the same namespace as the
+guestbook application as it would also inherit the same permissions.
+
+2. Create a new service account called guestbook by executing the following command:
+
+$ kubectl create sa guestbook -n chapter9
+
+3. Next, create a role binding called guestbook-pod-viewers to associate
+guestbook-pod-viewer with guestbook ServiceAccount :
+
+$ kubectl create rolebinding guestbook-pod-viewers --role=guestbook-pod-viewer --serviceaccount=chapter9:guestbook -n chapter9
+
+Finally, to run the guestbook application itself using the newly created guestbook ServiceAccount , the name of the service account would need to be applied to the deployment.
+
+The following shows how the serviceAccount configuration appears in the
+deployment YAML: serviceAccountName: guestbook
+
+ex: on va setup nootre chart habituel sans la creation du service account puis qu'on vient de le créer avec kubectl 
+$ helm install my-guestbook Learn-Helm/helm-charts/charts/guestbook --set serviceAccount.name=guestbook --set serviceAccount.create=false -n chapter9
+
+However, the ability to create additional resources related to RBAC during chart installation does not need to end at creating
+service accounts. In fact, you could perform steps 1, 2, and 3 in a single chart
+installation if your Helm chart contained the YAML resources necessary to create
+roles and role bindings as well.
+
+5. At this point, the guestbook application has the permissions necessary to list
+and get pods. To verify this assumption, kubectl has a command that queries
+whether a user or service account has the authority to perform an action. Execute
+the following command to verify that the ServiceAccount guestbook has access
+to query all the pods in the guestbook namespace:
+
+$ kubectl auth can-i list pods --as=system:serviceaccount:chapter9:guestbook -n chapter9
+
+The --as flag makes use of the user impersonation feature in Kubernetes to allow the debugging of authorization policies.
+
+6. The result of the command should print yes as output. To confirm that the service
+account cannot access a resource that it should not be able to, such as listing
+deployments, execute the following command:
+
+$ kubectl can-i list deployments --as=system:serviceaccount:guestbook:guestbook -n chapter9
+
+
+= Accessing secure chart repositories : = 
+
+Chart repositories provide the ability to discover Helm charts and install them on your
+Kubernetes cluster. Repositories were introduced in Chapter 1, Understanding Kubernetes
+and Helm, as an HTTP server that includes an index.yaml file containing metadata
+related to charts present in the repository. In previous chapters, we made use of charts
+that were sourced from various upstream repositories and also implemented our own
+repository using GitHub Pages. Each of these repositories is freely available for use
+for whoever may be interested. However, Helm does support incorporating additional
+security measures to protect the content stored within the repository, including
+the following:
+• Authentication
+• Secure Sockets Layer/Transport Layer Security (SSL/TLS) encryption
+
+
+While the majority of public Helm repositories do not require any form of authentication,
+Helm does allow users to perform basic and certificate-based authentication against
+a secured chart repository. For basic authentication, a username and password can be
+provided when adding a repository using the helm repo add command through the
+use of the --username and --password flags. For example, if you want to access a
+repository that is protected using basic authentication, adding the repository would take
+the following form:
+$ helm repo add $REPO_URL --username=<username>
+--password=<password>
+Then, the repository can be interacted with without needing to repeatedly provide
+the credentials.
+For certificate-based authentication, the helm repo add command provides the
+--ca-file , --cert-file , and --key-file flags. The --ca-file flag is used
+to verify the chart repository's certificate authority, while the --cert-file and
+--key-file flags are used to specify your client certificate and key, respectively.
+Enabling basic authentication and certificate authentication on the chart repository itself
+depends on the repository implementation that is used. For example, ChartMuseum, the
+popular chart repository, provides the --basic-auth-user and --basic-auth-
+pass flags that can be used at startup to configure the username and password for basic
+authentication. It also provides the --tls-ca-cert flag to configure the Certificate
+Authority (CA) certificate for certificate authentication. Other chart repository
+implementations may provide other flags or require you to provide a configuration file.
+Even with authentication in place, it is important that the transmission between the
+HTTP server and your Helm client is facilitated securely. This can be performed using
+Secure Sockets Layer (SSL) / Transport Layer Security (TLS) based encryption to secure
+communication between your Helm client and your Helm chart repository. While a
+requirement for certificate authentication, repositories requiring basic authentication
+(and unauthenticated repositories) can still benefit from encrypting network traffic as
+this will protect authentication attempts as well as the contents of the repository. As
+with authentication, configuring TLS on the chart repository depends on the repository
+implementation that is used. ChartMuseum provides the --tls-cert and --tls-
+key flags to provide the certificate chain and key files. More general web servers, such as
+NGINX, typically require a configuration file that provides the location of the certificate
+and key files on the server. Offerings such as GitHub Pages already have TLS configured.
+
+Each of the Helm repositories that we have used so far have used certificates signed by
+publicly available CAs that are stored in both your web browser as well as your underlying
+operating system. Many large organizations have their own CAs that can be used to
+produce the certificates configured in the chart repository. Since this certificate is likely
+not from a publicly available CA, the Helm CLI may not trust the certificate, and adding
+the repository results in the following error:
+Error: looks like '$REPO_URL' is not a valid chart repository
+or cannot be reached: Get $REPO_URL/index.yaml: x509:
+certificate signed by unknown authority
+To allow the Helm CLI to trust the chart repository's certificate, the CA certificate, or
+CA bundle containing multiple certificates, can either be added to the trust store of the
+operating system or explicitly specified using the --ca-file flag of the helm repo
+add command. This allows the command to be executed without error.
+Finally, depending on how the chart repository is configured, additional metrics can
+also be obtained to perform request-level auditing and logging to determine who has
+attempted to access the repository.
+Through the use of authentication and managing certificates governing the transport
+layer, additional capabilities are realized for enhancing the security footprint of
+Helm repositories.
 
 
