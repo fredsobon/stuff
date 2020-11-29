@@ -13,27 +13,59 @@ archi distribuée, resilients ,scalable , très rapide (très peu de latence)
 
 = topics / partitions / offsets : =
 
+les messages stockés sont sous forme clé / valeur et de base ne dépassent pas 1Mb.
+Chaque message est enregistré dans un topic kafka : 
+
 - topics : est la base de kafka.
 -> c'est une flux de données ( similaire a une table en bdd )
 -> il est identifié par son nom 
 -> nombre de topic illimité
 les topics sont  découpés en partitions 
 
+chaque topic est multisubscriber : 0 à n producer et 0 à n consumer
+
 - partitions :
-conteneur pour topics
+conteneur pour topics.
+chaque partition va contenir des records spécifiques.
+
+ex : 
+partition   message 
+p1          a  b c 
+p2          d  e f g
+p3          i
+
+Les nouveaux messages arrivent toujours à la fin de la partition 
+Les messages sont immuables et ordonnés.
+
 ex : 
 1 topic est découpé en trois partitions 
 Chaque  partition est ordonnées
-chaque  message arrivant dans une partition ont un id incrementés : c'est un offset
+chaque  message arrivant dans une partition ont un id incrementés : c'est un offset. Id unique 
+
 Chaque offset n'a un sens que pour sa propre partition.
-
 on defini le nombre de partition d'un topic à sa creation
-
 L'ordre est garanti uniquement au sein de la même partition.
 
-Les données dans kafka on une durée de vie limitée ( de base un message est conservé 1 semaine )
+Les données dans kafka on une durée de vie limitée ( de base un message est conservé 1 semaine ) : durée de retention. On peut aussi définir en fonction de la taille du topic. > delete les messages les plus anciens quand on arrive à la limite de la taille définie.
+
 Dès qu'une data est ecrite on ne peut pas la modifier : c'est l'immutabilité.
 Les données sont assignées aléatoirement à une partition. Sauf si une clé est fournie.
+
+exemple d'un topic spilté en 3 partitions 
+
+/opt/kafka/bin/kafka-topics.sh  --describe  --zookeeper localhost:2181 |more
+...
+Topic:email_validation	PartitionCount:3	ReplicationFactor:2	Configs:
+	Topic: email_validation	Partition: 0	Leader: 3	Replicas: 3,4	Isr: 3,4
+	Topic: email_validation	Partition: 1	Leader: 3	Replicas: 3,4	Isr: 3,4
+	Topic: email_validation	Partition: 2	Leader: 3	Replicas: 3,4	Isr: 3,4
+...
+
+on va pouvoir paralléliser les  traitements grâce aux partitions 
+ex : on a un producer qui ecrit dans trois partitions différentes.
+on pourra donc mettre 3 producers et chaqun pourra ecrire dans une partition : on ira trois fois plus vite.
+
+
 
 
 = brokers =
@@ -46,6 +78,18 @@ Une fois connecté à un broker : on est automatiquement connecté à tous les n
 
 = topic replication facter : =
 
+Le facteur de réplication va être utiliser pour la tolérance aux pannes : defini le nombre de fois ou la donnée est répliquée dans un cluster kafka.
+le facteur de replication va de 1 à N ( N = nombre de broker du cluster. )
+
+
+Tolérance de (replication facter -1 ) broker en panne.
+
+si on a 4 brokers avec un facteur de réplication à 3 on pourra donc avoir 3 -1 = 2 brokers en panne. Les données du cluster seront toujours dispo dans cette configuration car chaque partition encore dispo.
+
+Biensur les performances seront amoindries.
+
+On estime par défaut que le replication facter défini à 3 est recommandé.
+
 -> les topics doivent avoir un facter de replication (ex : 2 , 3 ..) : si un broker est HS on continu à disposer de la data
 ex : un topic est reparti sur deux partitions avec un facter de repliaction de 2 : le tout hebergé sur un cluster de 3 broker :
 b : broker
@@ -57,18 +101,32 @@ rp : replication de topic ( donc de partition )
   p0    p1    rp1
         rp0
 
-on a donc  2 boker qui heberge les deux partitions du topics
+on a donc  2 brokers qui hebergent les deux partitions du topics
 on a aussi deux partition répliquées des deux partitions initiale de topic
 
 Un facter de replication de 2 : signifie donc qu'on a deux copies de données.
 Si on perd b2 : on a peut toujours servir les données depuis b1 et b3
 
+
+
 = Leader de partition : =
 
+
+On va définir pour chaque partition un broker leader 
+
 un broker et un seul peut être à tout moment le leader d'une partition donnée.
-Seulement le leader de la parition peut recevoir et distribuer les données pour une partition.
-Les autres brokers vont juste synchroniser  les data.
-Donc chaque partition a un leader et plusieurs ISR : in-sync-replica
+Seulement le leader de la partition peut recevoir et distribuer les données pour une partition.
+Les producers ne peuvent écrirent que dans partitions Leaders des brokers.
+Les consumers ne peuvent récupérer les données que depuis les partitions Leader des brokers.
+
+Les autres brokers vont juste synchroniser les data. On les appelle aussi des followers.
+La partitions leaders va répliquer les données sur les followers.
+Donc chaque partition a un leader et plusieurs ISR : in-sync-replica : qui est le status de réplication des followers.
+
+Si on a un fail d'une partition Leader sur un broker : une nouvelle election de Leader est faite pour avoir un broker désigné comme Leader sur la partition.
+On peut avoir un broker biensur Leader de plusieurs partitions.
+
+Si notre machinne en panne revient up : nous n'avons pas de nouvelle élection. Le/les broker qui ont pris le lead sur une ou des partitions de la machinne tombée en panne,  restent Leader et la machinne maintenant réparée devient follower des partitions sur lesquelles etaient leader avant la panne. 
 
 pour reprendre notre exemple 
 pour un topic de deux paritions avec un facter de replication de 2 :
@@ -86,10 +144,26 @@ Si on pert un broker leader d'une partition alors une élection à lieu et ici s
 les synchros, elections sont faites par zookeeper.
 
 
+exemple de topic réparti en trois partition avec un facteur de réplication de 2 dans un cluster de 2 brokers 
+Chaque partition est répliquée 1 fois. On voit que chaque partition est sur un leader différent et que nous avons bien 2 réplicats. Les partitions sont bien répliquées et synchro : isr
+
+/opt/kafka/bin/kafka-topics.sh  --describe  --zookeeper localhost:2181 |more
+...
+Topic:email_validation  PartitionCount:3        ReplicationFactor:2     Configs:
+        Topic: email_validation Partition: 0    Leader: 1       Replicas: 1,2   Isr: 1,2
+        Topic: email_validation Partition: 1    Leader: 2       Replicas: 1,2   Isr: 1,2
+        Topic: email_validation Partition: 2    Leader: 1       Replicas: 1,2   Isr: 1,2
+...
+
+
+
 =  producers : =
 
 les producers ecrivent des messages dans des topics ( constitués de partitions.)
 ils savent automatiquement vers quels brokers et partitions ils doivent ecrire.
+
+Les messages sont envoyés par batchs.
+
 En cas de panne d'un broker , le producer sait contourner le souci
 
                          b1 partition1 :  012345...
@@ -109,9 +183,40 @@ si la clé est nulle alors les messages sont envoyés en round robin sur les bro
 key=null : round robin
 si une clé est définie : tous les messages pour cette clé iront sur la même partition : c'est capital dans le cas ou l'ordre des messages est important pour un champ particulier par exemple.
 
+on peut donc avoir différentes stratégies de partitionnement pour l'envoie de messages 
+
+> round roubin :
+chaque message est envoyé à chacune des partitions 
+0 puis 1 puis 2 puis 0 puis 1 puis 2 ...
+
+> hash de clé :
+au moment ou on envoi la données on hash la clé du message puis on envoie a une partition donnée 
+idem pour la clé suivante ..
+On enverra donc toujours les messages correspondants au hash de la clé à la même partition.
+
+ producer                 partition
+ message 
+
+clé  valeur 
+
+A     bob    (hash de A envoi sur partition 1)   >>>                1    
+B     bib    (hash de B envoi sur partition 2 )  >>>                2
+A     bab  >>> envoie sur partition 1 car hash de A 
+
+...
+
+Il est important de bien choisir son mode partitionnement 
+
+Si on a un hash de clé tres présent on aura une partition qui sera tres remplie et donc un consummer qui aura beaucoup de données à dépiler : ce qui peut engendrer du lag ( données qui s'empilent dans le topic. )
+
 = consumers / consumers group =
 
-les consumers lisent les data des topics
+
+les consumers lisent les data des topics. un consumer s'abonne a un ou plusiers topics.
+Ce sont les consumers qui demandent aux brokers de recupérer les données en faisant des fetchs requests.
+L'ordre de lecture est bien garanti par partition : le consumer va lire les données les plus anciennes en premier.
+
+
 les consumers savent depuis quel broker lire
 En cas de crash d'un broker : comme les produceurs , les consumers savent retablir la situation.
 Les data sont lues dans l'ordre au sein d'UNE même partition.
@@ -123,6 +228,16 @@ Un consumer peut lire plusieurs partitions mais c'est toujours ordonné pour cha
 Les lectures de chaque partition se font en parrallèle.
 
 consumers groups :
+
+un consumer group est un ensemble de consumer.
+chaque consumer va lire une ou des partitions mais uniquement les partitions non lues par d'autre consumers du consumers group.
+On a une repartition des partitions des consumers au sein d'un consumer group.
+
+si on un un consumer group de 3 consumer et un topic reparti en trois partitions , chaque consumer pourra lire les données d'une partitions précise.
+Si un consumer tombe en panne on a donc une partition qui n'est plus consommée. Dans ce cas on aura une élection de consummer qui lira cette partition.
+
+On défini un group ip pour les consumer group 
+
 afin de pouvoir lire les data de plusieurs partitions, les consumers lisent les data dans des consumer groups.
 chaque consumer dans un group de consumer lit des data exclusives à une partition donnée.
 si on a plus de consumers que de partitions alors certains consumers seront inactifs.
@@ -141,9 +256,32 @@ Si on a 3 partitions a consommer et qu'on a un consumer-group de 4 consumers : u
 
 = consumer offset =
 
+On a vu que l'offset identifie de manière unique un message dans une partition
+On peut utiliser aussi un tripet : 
+
+offset + consumer group + num de partition pour identifier précisement l'endroit ou se trouve notre application / notre consumer dans la lecture de données dans le topic.
+Les consumers d'un consumer group partagent le même offset.
+La mise à jour de l'offset set fait en continue au fur et à mesure de la lecture.
+
+Un consumer peut relire un topic depuis un ancien offset ou passer des records et lire depuis maintenant.
+
+
+on va choisir à la creation du consumer group, la politique de lecture des données.
+exemple si on a un nouveau consumer group qui va lire un topic jamais consummé par ce consumer group on va utiliser le param : auto.offset.reset 
+
+> earliest ( plus vieux offset)
+> latest ( le plus recent)
+> non ( exeption si pas d'offset dans le consumer group.) 
+
+
 kafka enregistre les offset que chaque consumer-group est en train de lire.
 Quand un consumer a recu les data de kafka , il commit les infos et les renvoient à kafka en ecrivant dans un topic special : __consumer_offset
 Si un consumer crash, a son retour en prod, il pourra reprendre la lecture à l'endroit ou il s'est arrêté.
+
+
+La strategie par defaut des offset dans kafka est l'autocommit : les offset sont enregistrés automatiquement
+On peut commiter en manuel. 
+
 
 = Delivery semantic for consumer =
 
@@ -168,6 +306,10 @@ kafka client    1-> connexion + metadata request                                
                 3 -> connexion possible aux brokers nécéssaires (ex :broker4 )                             
 
 = zookeeper =
+
+
+zookeeper va servir à l'admin de notre cluster. 
+composé de znodes qui vont servir à l'élection de leader
 
 zookeeper gére les broker ( leur liste). 
 Il aide à l'election de leader pour les partitions
@@ -220,6 +362,21 @@ source system   ->      producers        ->          kafka cluster              
                                                          zookeeper 
                                                           - leader / follower
                                                           - broker management 
+
+
+=== schema registry : ==
+
+developpé par confluent.
+schema versionné avec un id unique.
+permet de garder une cohérence dans la structure des records de nos topics
+Les schemats définissent la structure des records. (ex : topic user : on veut un nom en string etc ....) 
+On va avoir un schema de défini par topic.
+Les produceurs vont être obligés de respecter ce schemat pour produire les données dans ce topic.
+Les producers vont créer un record avec un id de schema registry associé.
+
+Les consumers vont pouvoir récupérer les schemats du topic et désérialiser directement les données du topic dans le bon format.
+
+
 
 === cluster set up ===                                                           
 
