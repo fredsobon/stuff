@@ -31,3 +31,172 @@ kind-linux-amd64  kind_notes.txt
 NAME                 STATUS   ROLES    AGE     VERSION
 kind-control-plane   Ready    master   4m15s   v1.19.1
 
+
+= suppression de cluster : 
+
+Deleting a Cluster
+If you created a cluster with kind create cluster then deleting is equally simple:
+
+kind delete cluster
+If the flag --name is not specified, kind will use the default cluster context name kind and delete that cluster.
+
+= chargement d'image dans notre cluster : 
+
+Loading an Image Into Your Cluster
+Docker images can be loaded into your cluster nodes with: kind load docker-image my-custom-image
+
+NOTE: If using a named cluster you will need to specify the name of the cluster you wish to load the image into: kind load docker-image my-custom-image --name kind-2
+
+Additionally, image archives can be loaded with: kind load image-archive /my-image-archive.tar
+
+This allows a workflow like:
+
+docker build -t my-custom-image:unique-tag ./my-image-dir
+kind load docker-image my-custom-image:unique-tag
+kubectl apply -f my-manifest-using-my-image:unique-tag
+
+
+= lister les images de notre cluster : 
+
+docker  exec -it node-name crictl images
+
+
+docker  exec -it kind-control-plane crictl images                                                                                       [☸ |kind-kind:default]
+IMAGE                                      TAG                  IMAGE ID            SIZE
+docker.io/kindest/kindnetd                 v20200725-4d6bea59   b77790820d015       119MB
+docker.io/rancher/local-path-provisioner   v0.0.14              e422121c9c5f9       42MB
+k8s.gcr.io/build-image/debian-base         v2.1.0               c7c6c86897b63       53.9MB
+k8s.gcr.io/coredns                         1.7.0                bfe3a36ebd252       45.4MB
+k8s.gcr.io/etcd                            3.4.13-0             0369cf4303ffd       255MB
+k8s.gcr.io/kube-apiserver                  v1.19.1              8cba89a89aaa8       95MB
+k8s.gcr.io/kube-controller-manager         v1.19.1              7dafbafe72c90       84.1MB
+k8s.gcr.io/kube-proxy                      v1.19.1              47e289e332426       136MB
+k8s.gcr.io/kube-scheduler                  v1.19.1              4d648fc900179       65.1MB
+k8s.gcr.io/pause                           3.3                  0184c1613d929       686kB
+
+
+
+= build de cluster custom: 
+
+For a sample kind configuration file see kind-example-config. To specify a configuration file when creating a cluster, use the --config flag:
+On peut determiner le topologie de notre cluster en passant en argument un fichier de conf a la creation de notre cluster.
+
+kind create cluster --config kind-example-config.yaml
+
+
+= Multi-node clusters : 
+In particular, many users may be interested in multi-node clusters. A simple configuration for this can be achieved with the following config file contents:
+
+# three node (two workers) cluster config
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+- role: control-plane
+- role: worker
+- role: worker
+
+Control-plane HA
+You can also have a cluster with multiple control-plane nodes:
+
+# a cluster with 3 control-plane nodes and 3 workers
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+- role: control-plane
+- role: control-plane
+- role: control-plane
+- role: worker
+- role: worker
+- role: worker
+
+
+
+= mapping de ports sur notre hosts local : ==
+
+Mapping ports to the host machine
+You can map extra ports from the nodes to the host machine with extraPortMappings:
+
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+- role: control-plane
+  extraPortMappings:
+  - containerPort: 80
+    hostPort: 80
+    listenAddress: "0.0.0.0" # Optional, defaults to "0.0.0.0"
+    protocol: udp # Optional, defaults to tcp
+This can be useful if using NodePort services or daemonsets exposing host ports.
+
+Note: binding the listenAddress to 127.0.0.1 may affect your ability to access the service.
+
+
+= gestion de la version désirée de kube : 
+
+Setting Kubernetes version
+
+You can also set a specific Kubernetes version by setting the node's container image. You can find available image tags on the releases page. Please use the sha256 shasum for your desired kubernetes version, as seen in this example:
+
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+- role: control-plane
+  image: kindest/node:v1.16.4@sha256:b91a2c2317a000f3a783489dfb755064177dbc3a0b2f4147d50f04825d016f55
+- role: worker
+  image: kindest/node:v1.16.4@sha256:b91a2c2317a000f3a783489dfb755064177dbc3a0b2f4147d50f04825d016f55
+
+
+
+= activation de feature kube : 
+
+Enable Feature Gates in Your Cluster
+Feature gates are a set of key=value pairs that describe alpha or experimental features. In order to enable a gate you have to customize your kubeadm configuration, and it will depend on what gate and component you want to enable. An example kind config can be:
+
+
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+featureGates:
+  FeatureGateName: true
+
+
+= utilisation de proxy : 
+
+Configure kind to use a proxy
+If you are running kind in an environment that requires a proxy, you may need to configure kind to use it.
+
+You can configure kind to use a proxy using one or more of the following environment variables (uppercase takes precedence):
+
+HTTP_PROXY or http_proxy
+HTTPS_PROXY or https_proxy
+NO_PROXY or no_proxy
+
+NOTE: If you set a proxy it would be passed along to everything in the kind nodes. kind will automatically append certain addresses into NO_PROXY before passing it to the nodes so that Kubernetes components connect to each other directly, but you may need to configure additional addresses depending on your usage.
+
+
+= export de logs : 
+
+Exporting Cluster Logs
+kind has the ability to export all kind related logs for you to explore. To export all logs from the default cluster (context name kind):
+
+kind export logs
+Exported logs to: /tmp/396758314
+Like all other commands, if you want to perform the action on a cluster with a different context name use the --name flag.
+
+As you can see, kind placed all the logs for the cluster kind in a temporary directory. If you want to specify a location then simply add the path to the directory after the command:
+
+kind export logs ./somedir  
+Exported logs to: ./somedir
+The structure of the logs will look more or less like this:
+
+.
+├── docker-info.txt
+└── kind-control-plane/
+    ├── containers
+    ├── docker.log
+    ├── inspect.json
+    ├── journal.log
+    ├── kubelet.log
+    ├── kubernetes-version.txt
+    └── pods/
+The logs contain information about the Docker host, the containers running kind, the Kubernetes cluster itself, etc.  
+
+
