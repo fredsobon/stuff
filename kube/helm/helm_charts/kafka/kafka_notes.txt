@@ -1,0 +1,247 @@
+==== notes setup kafka sur minikube : ===
+
+minikube avec kvm en driver et 4 gb de ram 
+minikube start 
+
+= clone du repo de confluent puis copie du values.yaml =
+
+on va utiliser le repo de confluent qui fourni kafka et tout l'ecosystème 
+
+git clone https://github.com/confluentinc/cp-helm-charts.git                                                                                    [☸ |minikube:default]
+Cloning into 'cp-helm-charts'...
+remote: Enumerating objects: 74, done.
+remote: Counting objects: 100% (74/74), done.
+remote: Compressing objects: 100% (41/41), done.
+remote: Total 2538 (delta 47), reused 43 (delta 33), pack-reused 2464
+Receiving objects: 100% (2538/2538), 3.84 MiB | 3.95 MiB/s, done.
+Resolving deltas: 100% (1780/1780), done.
+
+
+cp cp-helm-charts/values.yaml .
+ ls                                                                                                                                              [☸ |minikube:default]
+cp-helm-charts  values.yaml
+
+
+On aura uncluster kafka avec 3 brokers, 3 zookeeper. une schemat registry, kakfa-connect ...
+= conf de notre fichier de values : =
+
+on va ajouter la possibilité d'un acces externe à notre cluster dans le fichier de conf.
+On va ajouter dans la section de kafka les infos suivantes : 
+
+
+cp-kafka:
+  enabled: true
+  brokers: 3
+  image: confluentinc/cp-enterprise-kafka
+  imageTag: 5.5.0
+...
+.......
+  nodeport:
+    enabled: true
+    servicePort: 19092
+    firstListenerPort: 31090
+  configurationOverrides:
+    "offsets.topic.replication.factor": "3"
+    "advertised.listeners": |-
+     EXTERNAL://localhost:$((31090 + ${KAFKA_BROKER_ID}))
+    "listener.security.protocol.map": |-
+     PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT  nodeport:
+    enabled: true
+    servicePort: 19092
+    firstListenerPort: 31090
+  configurationOverrides:
+    "offsets.topic.replication.factor": "3"
+    "advertised.listeners": |-
+     EXTERNAL://localhost:$((31090 + ${KAFKA_BROKER_ID}))
+    "listener.security.protocol.map": |-
+     PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
+
+
+on install notre helm ensuite 
+
+helm install kafka cp-helm-charts -f values.yaml 
+..
+.....
+
+## Kafka
+## ------------------------------------------------------
+To connect from a client pod:
+
+1. Deploy a kafka client pod with configuration:
+
+    apiVersion: v1
+    kind: Pod
+    metadata:
+      name: kafka-client
+      namespace: kafka
+    spec:
+      containers:
+      - name: kafka-client
+        image: confluentinc/cp-enterprise-kafka:5.5.0
+        command:
+          - sh
+          - -c
+          - "exec tail -f /dev/null"
+
+2. Log into the Pod
+
+  kubectl exec -it kafka-client -- /bin/bash
+
+3. Explore with kafka commands:
+
+  # Create the topic
+  kafka-topics --zookeeper kafka-cp-zookeeper-headless:2181 --topic kafka-topic --create --partitions 1 --replication-factor 1 --if-not-exists
+
+  # Create a message
+
+  MESSAGE="`date -u`"
+
+  # Produce a test message to the topic
+  echo "$MESSAGE" | kafka-console-producer --broker-list kafka-cp-kafka-headless:9092 --topic kafka-topic
+
+  # Consume a test message from the topic
+  kafka-console-consumer --bootstrap-server kafka-cp-kafka-headless:9092 --topic kafka-topic --from-beginning --timeout-ms 2000 --max-messages 1 | grep "$MESSAGE"
+
+
+on install kafkacat pour interreagir avec notre cluster kakfa :
+
+sudo apt install kafkacat -y
+
+
+on a au bout de 5 mnts env notre conf ok :
+
+ kctl get pods                                                                                                                                     [☸ |minikube:kafka]
+NAME                                        READY   STATUS    RESTARTS   AGE
+kafka-cp-control-center-5f8b7c85dd-ckrmm    1/1     Running   4          3m56s
+kafka-cp-kafka-0                            2/2     Running   0          3m56s
+kafka-cp-kafka-1                            2/2     Running   0          117s
+kafka-cp-kafka-2                            2/2     Running   0          113s
+kafka-cp-kafka-connect-f6cd6bbc8-6dh7v      2/2     Running   3          3m56s
+kafka-cp-kafka-rest-65755b57cd-xrsm4        2/2     Running   0          3m56s
+kafka-cp-ksql-server-66fccd668b-7lczj       2/2     Running   4          3m56s
+kafka-cp-schema-registry-57848787d8-t859t   2/2     Running   4          3m56s
+kafka-cp-zookeeper-0                        2/2     Running   0          3m56s
+kafka-cp-zookeeper-1                        2/2     Running   0          114s
+kafka-cp-zookeeper-2                        2/2     Running   0          109s
+
+
+on voit qu'on a 3 nodes ports de configurés pour nos tests sur minikube : 
+
+kctl get svc                                                                                                                                    [☸ |minikube:kafka]
+NAME                          TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)             AGE
+kafka-cp-control-center       ClusterIP   10.97.15.9       <none>        9021/TCP            5m47s
+kafka-cp-kafka                ClusterIP   10.102.56.88     <none>        9092/TCP,5556/TCP   5m47s
+kafka-cp-kafka-0-nodeport     NodePort    10.100.175.52    <none>        19092:31090/TCP     5m47s
+kafka-cp-kafka-1-nodeport     NodePort    10.106.30.131    <none>        19092:31091/TCP     5m47s
+kafka-cp-kafka-2-nodeport     NodePort    10.104.220.151   <none>        19092:31092/TCP     5m47s
+kafka-cp-kafka-connect        ClusterIP   10.101.187.173   <none>        8083/TCP,5556/TCP   5m47s
+kafka-cp-kafka-headless       ClusterIP   None             <none>        9092/TCP            5m47s
+kafka-cp-kafka-rest           ClusterIP   10.108.148.208   <none>        8082/TCP,5556/TCP   5m47s
+kafka-cp-ksql-server          ClusterIP   10.107.128.60    <none>        8088/TCP,5556/TCP   5m47s
+kafka-cp-schema-registry      ClusterIP   10.102.128.109   <none>        8081/TCP,5556/TCP   5m47s
+kafka-cp-zookeeper            ClusterIP   10.105.192.154   <none>        2181/TCP,5556/TCP   5m47s
+kafka-cp-zookeeper-headless   ClusterIP   None             <none>        2888/TCP,3888/TCP   5m47s
+
+
+on va pouvoir utiliser kafkacat pour interroger depuis notre poste le cluster kafka :
+
+on recupere l'ip de notre minikube : 
+
+minikube ip 
+192.168.39.178
+
+
+on lance le kafkacat en précisant l'ip minikube et le port d'un de nos broker vers lequel on envoi les requettes : 
+
+kafkacat -b 192.168.39.178:31090 -L                                                                          [☸ |minikube:default]
+Metadata for all topics (from broker -1: 192.168.39.178:31090/bootstrap):
+ 3 brokers:
+  broker 0 at localhost:31090 (controller)
+  broker 2 at localhost:31092
+  broker 1 at localhost:31091
+ 45 topics:
+  topic "_confluent-controlcenter-5-5-0-1-metrics-trigger-measurement-rekey" with 4 partitions:
+    partition 0, leader 2, replicas: 2,1,0, isrs: 2,1,0
+    partition 1, leader 1, replicas: 1,0,2, isrs: 1,0,2
+    partition 2, leader 0, replicas: 0,2,1, isrs: 0,2,1
+    partition 3, leader 2, replicas: 2,0,1, isrs: 2,0,1
+
+
+
+= creation d'un client kafka :
+
+on a un fichier de client pret a etre déployer dans le chart : 
+
+cd cp-helm-charts/examples                                                                                                                    [☸ |minikube:default]
+ boogie@boogieland  ~/Documents/lab/kafka/cp-helm-charts/examples   master  ls                                                                                                           [☸ |minikube:default]
+avro-client.yaml  create-connectors.sh  kafka-client.yaml  ksql-demo.yaml  zookeeper-client.yaml
+ boogie@boogieland  ~/Documents/lab/kafka/cp-helm-charts/examples   master  cat kafka-client.yaml                                                                                        [☸ |minikube:default]
+apiVersion: v1
+kind: Pod
+metadata:
+  name: kafka-client
+  namespace: default
+spec:
+  containers:
+  - name: kafka-client
+    image: confluentinc/cp-kafka:5.5.0
+    command:
+      - sh
+      - -c
+      - "exec tail -f /dev/null"
+ boogie@boogieland  ~/Documents/lab/kafka/cp-helm-charts/examples   master  kctl apply -f kafka-client.yaml                                                                              [☸ |minikube:default]
+pod/kafka-client created
+
+
+on se connecte en shell sur notre client et on crée un topic :
+
+root@kafka-client:/usr/bin# /usr/bin/kafka-topics --zookeeper kafka-cp-zookeeper:2181 --topic boogie-topic --create --partitions 3 --replication-factor 3 --if-not-exists
+Created topic boogie-topic.
+
+ kafkacat -b 192.168.39.178:31090 -L
+..
+ topic "boogie-topic" with 3 partitions:
+    partition 0, leader 0, replicas: 0,2,1, isrs: 0,2,1
+    partition 1, leader 1, replicas: 1,0,2, isrs: 1,0,2
+    partition 2, leader 2, replicas: 2,1,0, isrs: 2,1,0
+
+...
+
+on va ensuite se connecter à un container kakfa de nos pods kakfa ( les pods contiennent 2 containers : 1 pour prometheus et le second pour kafka ) :
+
+on peut utiliser kafkacat pour simuler un producer ( mode P) ou un consumer ( mode C) pour tester notre cluster :
+
+/!\ echec pas réussi en minikube a recupérer le contenu de notre topic en local .
+
+On a executé les commandes depuis un pod kafkacat en shell :
+
+cat kafkacat.yaml                     [☸ |minikube:default]
+kind: Pod
+apiVersion: v1
+metadata:
+  name: kafka-cat
+spec:
+  containers:
+    - name: kafka-cat
+      image: confluentinc/cp-kafkacat
+      command: ["/bin/sh"]
+      args: ["-c", "trap : TERM INT; sleep infinity & wait"]
+
+
+on recupere le nom du service kafka dans notre cluster suivi du port kakfa pour injecter / lire nos données : 
+- en produceur on envoit dans nostre topic du text : 
+[appuser@kafka-cat ~]$ kafkacat -P -b kafka-cp-kafka:9092 -t boogie-topic
+bob is in the kitchen !
+
+
+- en consumer on recupère le contenu de notre topic.
+[appuser@kafka-cat ~]$ kafkacat -C -b kafka-cp-kafka:9092 -t boogie-topic
+ping
+bob is in the kitchen !
+oh yeah !
+boogie!
+% Reached end of topic boogie-topic [1] at offset 1
+% Reached end of topic boogie-topic [0] at offset 2
+% Reached end of topic boogie-topic [2] at offset 2
+
+
