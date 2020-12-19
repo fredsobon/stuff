@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bob-nginx
+  labels:
+    app: bob-nginx
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bob-nginx
+  template:
+    metadata:
+      labels:
+        app: bob-nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.11.9
+        ports:
+        - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bob-nginx-service
+spec:
+  selector:
+    app: bob-nginx
+  ports:
+    - protocol: TCP
+      port: 80
+  externalIPs:
+  - 10.160.17.7  
+
+
+---
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  name: bob-nginx-ingress
+  annotations:
+    kubernetes.io/ingress.class: traefik
+    external-dns.alpha.kubernetes.io/hostname: bob.prod.lapin.io
+    external-dns.alpha.kubernetes.io/ttl: "10"
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /
+        backend:
+          serviceName: bob-nginx-service
+          servicePort: 80
+    host: bob.prod.lapin.io      
+          
