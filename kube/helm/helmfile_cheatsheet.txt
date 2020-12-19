@@ -1,0 +1,146 @@
+==  helmfile ==
+
+= helmfile commandes : =
+
+/!\ : pour lancer nos commandes helmfile on doit être dans le repertoire qui contient le fichier helmfile.yaml
+
+
+On peut lancer tous les helms présents dans un helmfile ou alors lancer unitairement les helm en utilisant un label défini par helm dans le fichier helmfile
+
+
+- helmfile template test : 
+génération du template pour identifier la génération des conf helm 
+
+helmfile  -l job=monitoring template
+
+
+- test de diff entre charts deployé par helmfile et modif de chart : 
+on est obligé de le faire via helm :
+helm secrets  diff upgrade  lapin-prod-proxmox-monit -n prometheus-operator lapin-stable/lapin-proxmox-monitoring  --version 0.1.27 -f proxmox-monit/values.yaml -f proxmox-monit/secrets.yaml
+
+ou d'avoir une version de helmfile egale au moins à :
+helmfile version 
+helmfile version v0.135.0
+
+helmfile  -l job=dns-kube diff
+
+- apply envoi des confs sur le cluster kube :
+
+helmfile  -l job=dns-kube apply
+
+
+- sync : synchronisation de nos helm dans le cluster 
+la conf des helm est de nouveau envoyée dans le cluster même si aucune différence visible n'est détectée avec un helm diff ( ex: on a modifier a la main un param dans un object du cluster : helm diff ne voit pas de diff dans les helm sur le cluster et en local : on a pourtant une difference en live sur le cluster )
+
+helmfile  -l job=dns-kube  sync
+
+
+
+= helmfile specs : = 
+
+un helmfile va concretement contenir toute l'arborescence et les fichiers de valeurs et secrets nécéssaires pour l'application de nos charts. L'utilité est de pouvoir configurer notre kube avec toutes les applications nécéssaires en une fois ou unitairement (avec l'utilisation d'un label) et de regrouper nos charts au sein d'un meme endroit : 
+ici on voit qu'on a 5 charts helm différents et un helmfile.yaml :
+tree
+.
+├── cert-manager
+│   ├── secrets.srs.yaml
+│   └── values.yaml
+├── external-dns
+│   ├── secrets.srs.yaml
+│   └── values.yaml
+├── helmfile.yaml
+├── metallb
+│   └── values.yaml
+├── prometheus
+│   ├── secrets.srs.yaml
+│   └── values.yaml
+└── traefik
+    └── values.yaml
+
+
+on va pouvoir examiner la structure du helmfile : 
+
+
+cat helmfile.yaml
+
+repositories:   <<<     on va ici définir la liste des repositories helm contenant nos charts  
+  - name: lapin-stable
+    url: https://artifact.lapin.net/artifactory/helm-lapin-stable
+  - name: lapin-incubator
+    url: https://artifact.lapin.net/artifactory/helm-lapin-incubator
+helmDefaults:   <<< on va définir les specs : quel cluster kube /verif/timeout etc .. 
+  kubeContext: kubernetes-admin@k8s_recette #dedicated default key for kube-context (--kube-context)
+  # verify the chart before upgrading (only works with packaged charts not directories) (default false)
+  verify: false
+  # wait for k8s resources via --wait. (default false)
+  wait: true
+  # time in seconds to wait for any individual Kubernetes operation (like Jobs for hooks, and waits on pod/pvc/svc/deployment readiness) (default 300)
+  timeout: 600
+  # forces resource update through delete/recreate if needed (default false)
+  force: true
+  # limit the maximum number of revisions saved per release. Use 0 for no limit. (default 10)
+  historyMax: 10
+  # when using helm 3.2+, automatically create release namespaces if they do not exist (default true)
+  createNamespace: true
+
+releases:     <<< ici on va placer la liste des charts qui feront partis de notre release. on retrouve le num de version du chart qui doit être présent sur notre repo helm et les fichiers de values et secrets chacun dans une section propre : 
+
+  - name: prometheus      # name of this release
+    namespace: prometheus-operator # target namespace
+    labels:               # Arbitrary key value pairs for filtering releases
+      job: monitoring
+    chart: lapin-stable/lapin-prometheus-operator # the chart being installed to create this release, referenced by `repository/chart` syntax
+    version: 0.7.7                                # the semver of the chart. range constraint is supported
+    #    disableValidation: true                       # DisableValidation is rarely used to bypass the whole validation of manifests against the Kubernetes cluster (https://github.com/roboll/helmfile/pull/1373)
+    #condition: monitoring.enabled                      # The values lookup key for filtering releases. Corresponds to the boolean value of `monitoring.enabled`, where `monitoring` is an arbitrary value
+    #missingFileHandler: Warn                           # set to either "Error" or "Warn". "Error" instructs helmfile to fail when unable to find a values or secrets file. When "Warn", it prints the file and continues.
+    values:
+      - prometheus/values.yaml
+    secrets:
+      - prometheus/secrets.srs.yaml
+    needs:
+      - cert-manager/cert-manager
+
+  - name: cert-manager
+    namespace: cert-manager
+    labels:
+      job: cert-manager
+    chart: lapin-stable/lapin-cert-manager
+    version: 0.5
+    values:
+      - cert-manager/values.yaml
+    secrets:
+      - cert-manager/secrets.srs.yaml
+
+  - name: external-dns
+    namespace: external-dns
+    labels:
+      job: external-dns
+    chart: lapin-stable/lapin-external-dns
+    version: 1.2
+    values:
+      - external-dns/values.yaml
+    secrets:
+      - external-dns/secrets.srs.yaml
+
+  - name: traefik-ingress-controller
+    namespace: ingress-controller
+    labels:
+      job: traefik-ingress
+    chart: lapin-stable/lapin-traefik
+    version: 2.1
+    values:
+      - traefik/values.yaml
+    needs:
+      - external-dns/external-dns
+      - cert-manager/cert-manager
+
+  - name: metallb
+    namespace: metallb-system
+    labels:
+      job: metallb
+    chart: artifact-stable/lapin-metallb
+    version: 0.0.3
+    values:
+      - metallb/values.yaml
+
