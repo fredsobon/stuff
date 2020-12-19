@@ -1,0 +1,127 @@
+---
+variables:
+  CI_DEBUG_TRACE: "false"
+  FROMIMAGE: artifact-docker-lapin.net/debian/helm
+  FROMIMAGEVERSION: latest
+  HELM_BASE_REPO: https://artifactlapin.net/artifactory
+  HELM_REPO: helm-lapin-local
+
+stages:
+  - open-merge-request
+  - lint
+  - template
+  - package
+  - push-incubator
+  - push-stable
+  - tag
+
+.common: &common
+  tags:
+    - infraci
+  image: ${FROMIMAGE}
+  except:
+    - tags
+
+before_script:
+  - git config --global user.name "${GITLAB_USER_NAME}"
+  - git config --global user.email "${GITLAB_USER_EMAIL}"
+  - helm version
+  - helm repo add "${HELM_REPO}"-incubator "${HELM_BASE_REPO}"/"${HELM_REPO}"-incubator/ --username "${CONTAINER_REGISTRY_USER}" --password "${CONTAINER_REGISTRY_PWD}"
+  - helm repo add "${HELM_REPO}"-stable "${HELM_BASE_REPO}"/"${HELM_REPO}"-stable/ --username "${CONTAINER_REGISTRY_USER}" --password "${CONTAINER_REGISTRY_PWD}"
+  - helm repo list
+  - helm dependency list
+  - helm dependency update
+  - CUR_CHARTVERSION=$(git describe --tags $(git rev-list --tags --max-count=1)) || CUR_CHARTVERSION=0.0.0
+  - echo $CUR_CHARTVERSION
+  - DEV_CHARTVERSION=$(semver bump prerel "${CI_COMMIT_BRANCH}" "${CUR_CHARTVERSION}")
+  - NEW_CHARTVERSION=$(semver bump patch "${CUR_CHARTVERSION}")
+
+open_merge_request:
+  image: artifact-docker-infra.lapin.lapin.net/lapin/gitlab-auto-merge-request:1.1
+  before_script: []  # We do not need any setup work, let's remove the global one (if any)
+  variables:
+    GIT_STRATEGY: none  # We do not need a clone of the GIT repository to create a Merge Request
+  tags:
+    - infraci
+  stage: open-merge-request
+  only:
+    - /^Feature*/  # Starting a branch naming convention
+    - /^HotFix*/
+  script:
+    - merge-request.sh
+  allow_failure: true
+
+lint:
+  stage: lint
+  <<: *common
+  script:
+    - helm lint .
+
+template:
+  stage: template
+  <<: *common
+  script:
+    - RELEASE_SUFFIX=$(echo ${CI_COMMIT_REF_NAME} | tr '[:upper:]' '[:lower:]')
+    - sed -i "s/^version.*/version:\ ${DEV_CHARTVERSION}/" Chart.yaml
+    - helm template ${RELEASE_SUFFIX}-${CI_PIPELINE_ID} . --namespace ${RELEASE_SUFFIX}-${CI_PIPELINE_ID}
+
+package-incubator:
+  stage: package
+  <<: *common
+  except:
+    - master
+    - tags
+  script:
+    - sed -i "s/^version.*/version:\ ${DEV_CHARTVERSION}/" Chart.yaml
+    - helm package .
+  artifacts:
+    when: on_success
+    expire_in: 1 day
+    paths:
+      - "*.tgz"
+
+package-stable:
+  stage: package
+  <<: *common
+  only:
+    - master
+  script:
+    - sed -i "s/^version.*/version:\ ${NEW_CHARTVERSION}/" Chart.yaml
+    - helm package .
+  artifacts:
+    when: on_success
+    expire_in: 1 day
+    paths:
+      - "*.tgz"
+
+push-incubator:
+  stage: push-incubator
+  <<: *common
+  except:
+    - master
+    - tags
+  script:
+    - helm push-artifactory *.tgz "${HELM_REPO}"-incubator || true
+    - helm search repo "${HELM_REPO}-incubator/${CI_PROJECT_NAME}" --version "${DEV_CHARTVERSION}"
+    - helm search repo "${HELM_REPO}-incubator/${CI_PROJECT_NAME}" --version "${DEV_CHARTVERSION}" | awk '/"${CI_PROJECT_NAME}"/ && ($2 != '"${DEV_CHARTVERSION}"') {exit 1}'
+
+push-stable:
+  stage: push-stable
+  <<: *common
+  only:
+    - master
+  script:
+    - helm push-artifactory *.tgz "${HELM_REPO}"-stable || true
+    - helm search repo "${HELM_REPO}-incubator/${CI_PROJECT_NAME}" --version "${NEW_CHARTVERSION}"
+    - helm search repo "${HELM_REPO}-stable/${CI_PROJECT_NAME}" --version "${NEW_CHARTVERSION}" | awk '/"${CI_PROJECT_NAME}"/ && ($2 != '"${NEW_CHARTVERSION}"') {exit 1}'
+
+tag-master:
+  stage: tag
+  <<: *common
+  only:
+    - master
+  script:
+    - git clone https://gitlab-ci-token:${GITLAB_PRIVATE_TOKEN}@gitlab.lapin.lapin.net/infra-prod/helm-charts/${CI_PROJECT_NAME}.git /tmp/${CI_PROJECT_NAME}
+    - cd /tmp/${CI_PROJECT_NAME}
+    - git tag -a ${NEW_CHARTVERSION} -m "Tag version ${NEW_CHARTVERSION}"
+    - git push --tags origin master
