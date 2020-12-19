@@ -1,0 +1,15 @@
+# Handle a simple connexion to test pve exporter service and resolv to ensure svc are handled by endpoints
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pve-resolv
+  annotations:
+    "helm.sh/hook": test
+spec:
+  containers:
+    - name: test-resolv-pve-target-svc
+      image: gcr.io/kubernetes-e2e-test-images/dnsutils:1.3
+      command: ["dig", "-t", "A", "+short"]
+      args: ["{{ .Release.Name }}-pve-exporter-hypervisor.prometheus-operator.svc.cluster.local"]
+  restartPolicy: Never
+

@@ -1,0 +1,29 @@
+{{- if .Values.monitRules.proxmoxMonit.enabled }}
+apiVersion:  monitoring.coreos.com/v1
+kind:        PrometheusRule
+metadata:
+  name:         proxmox-prometheus-operator-alertmanager.rules
+  namespace:    prometheus-operator
+  labels:
+    app: prometheus-operator
+    release: prometheus
+spec:
+  groups:
+  - name:  proxmox-monit
+    rules:
+    - alert:  proxmox-lvm-thin provisionning
+      annotations:
+        message:  Alertmanager few disk free
+      expr: node_vg_size_pct_used{nodename=~"xinfvirt.*"} > 75
+      for:        5m
+      labels:
+        severity:  warning
+
+    - alert:  proxmox-lvm-thin provisionning
+      annotations:
+        message:  Alertmanager few disk free
+      expr: node_vg_size_pct_used{nodename=~"xinfvirt.*"} > 85
+      for:        5m
+      labels:
+        severity:  critical
+{{- end }}

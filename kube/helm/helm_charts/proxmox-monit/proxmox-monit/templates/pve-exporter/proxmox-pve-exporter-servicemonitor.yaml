@@ -1,0 +1,25 @@
+{{- if .Values.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+{{ toYaml .Values.serviceMonitor.selector | indent 4 }}
+  name: {{ .Release.Name }}-pve-exporter-metrics
+spec:
+  jobLabel: prometheus-pve-exporter
+  selector:
+    matchLabels:
+      release: {{ .Release.Name }}
+      exporter: {{ .Values.serviceMonitor.serviceLabel }}
+  namespaceSelector:
+    matchNames:
+    - {{ .Release.Namespace }}
+  endpoints:
+    - port: pve-exporter
+      interval: {{ .Values.serviceMonitor.interval }}
+      scrapeTimeout: {{ .Values.serviceMonitor.scrapeTimeout }}
+      path: "/pve"
+      params:
+        target:
+        - {{ .Release.Name }}-pve-exporter-hypervisor
+{{- end }}

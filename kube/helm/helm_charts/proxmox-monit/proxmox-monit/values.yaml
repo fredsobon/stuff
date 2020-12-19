@@ -1,0 +1,50 @@
+## proxmox pve section : proxmox api to monitor vms on cluster :
+# enable monitoring dashboard :
+monitoring:
+  dashboard: false
+
+# set deployment context and params :  
+replicaCount: 1
+securityContext:
+  runAsUser: 65534
+  runAsGroup: 65534
+image:
+  repository: artifact-docker-lapin.net/prometheus-exporter/prometheus-proxmox-exporter
+  pullPolicy: IfNotPresent
+  tag: "1.0"
+
+# secret and credential part dedicated to api proxmox : 
+secret:
+  name: proxmox-api
+
+pveExporter:
+  user: kiki@pve        
+  password: kiki 
+
+# section about servicemonitor   
+serviceMonitor:
+  enabled: true
+  selector:
+    release: monitoring
+  serviceLabel: "proxmox"
+  interval: 30s
+  scrapeTimeout: 10s
+
+
+# proxmox node exporter section : hosts  part of the cluster
+nodeExporter:
+  nodeExporterTarget:
+    - ip: 192.168.0.77
+  serviceMonitor:
+    enabled: true
+    selector:
+      app: prometheus-node-exporter
+    serviceLabel: "node-exporter"
+    interval: 30s
+    scrapeTimeout: 10s
+
+# monitoring rules defined for proxmox using lvm-thin provisionning     
+monitRules:
+  proxmoxMonit:
+    enabled: false
+    
