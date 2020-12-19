@@ -1,0 +1,185 @@
+---
+variables:
+  CI_DEBUG_TRACE: "false"
+  FROMIMAGE: artifact-docker-lapin.net/debian/helm
+  FROMIMAGEVERSION: latest
+  HELM_BASE_REPO: https://artifact.lapin.net/artifactory
+  HELM_REPO: helm-lapin-local
+
+stages:
+  - open-merge-request
+  - validate
+  - package
+  - push-incubator
+  - deploy
+  - test
+  - cleanup-release
+  - cleanup-resources
+  - push-stable
+  - tag
+
+.common: &common
+  tags:
+    - infraci
+  image: ${FROMIMAGE}
+  except:
+    - tags
+
+default:
+  before_script:
+    - mkdir -p $HOME/.kube
+    - echo "${kube_config}" | base64 -d > $HOME/.kube/config
+    - chmod 0600 -R $HOME/.kube
+    - CUR_CHARTVERSION=$(git describe --tags $(git rev-list --tags --max-count=1)) || CUR_CHARTVERSION=0.0.0
+    - echo $CUR_CHARTVERSION
+    - DEV_CHARTVERSION="${CUR_CHARTVERSION}-${CI_COMMIT_BRANCH}"
+    - NEW_CHARTVERSION=$(semver bump patch "${CUR_CHARTVERSION}")
+    - git config --global user.name "${GITLAB_USER_NAME}"
+    - git config --global user.email "${GITLAB_USER_EMAIL}"
+    - helm version
+    - helm repo add ilius-incubator "${HELM_BASE_REPO}"/helm-ilius-incubator/ --username "${CONTAINER_REGISTRY_USER}" --password "${CONTAINER_REGISTRY_PWD}"
+    - helm repo add ilius-stable "${HELM_BASE_REPO}"/helm-ilius-stable/ --username "${CONTAINER_REGISTRY_USER}" --password "${CONTAINER_REGISTRY_PWD}"
+    - helm repo add "${HELM_REPO}"-incubator "${HELM_BASE_REPO}"/"${HELM_REPO}"-incubator/ --username "${CONTAINER_REGISTRY_USER}" --password "${CONTAINER_REGISTRY_PWD}"
+    - helm repo add "${HELM_REPO}"-stable "${HELM_BASE_REPO}"/"${HELM_REPO}"-stable/ --username "${CONTAINER_REGISTRY_USER}" --password "${CONTAINER_REGISTRY_PWD}"
+    - helm repo list
+    - helm repo update
+    - helm dependency list
+    - helm dependency update
+
+open_merge_request:
+  image: artifact-docker-lapin.net/ilius/gitlab-auto-merge-request:1.1
+  before_script: []  # We do not need any setup work, let's remove the global one (if any)
+  variables:
+    GIT_STRATEGY: none  # We do not need a clone of the GIT repository to create a Merge Request
+  tags:
+    - infraci
+  stage: open-merge-request
+  only:
+    - /^feature*/  # Starting a branch naming convention
+    - /^hotfix*/
+  script:
+    - merge-request.sh
+  allow_failure: true
+
+lint:
+  stage: validate
+  <<: *common
+  script:
+    - helm lint .
+
+template:
+  stage: validate
+  <<: *common
+  script:
+    - RELEASE_SUFFIX=$(echo ${CI_COMMIT_REF_NAME} | tr '[:upper:]' '[:lower:]')
+    - sed -i "s/^version.*/version:\ ${DEV_CHARTVERSION}/" Chart.yaml
+    - helm template ${CI_PROJECT_NAME} . --namespace ${CI_PROJECT_NAME}
+
+package-incubator:
+  stage: package
+  <<: *common
+  except:
+    - master
+    - tags
+  script:
+    - sed -i "s/^version.*/version:\ ${DEV_CHARTVERSION}/" Chart.yaml
+    - helm package .
+  artifacts:
+    when: on_success
+    expire_in: 1 day
+    paths:
+      - "*.tgz"
+
+package-stable:
+  stage: package
+  <<: *common
+  only:
+    - master
+  script:
+    - sed -i "s/^version.*/version:\ ${NEW_CHARTVERSION}/" Chart.yaml
+    - helm package .
+  artifacts:
+    when: on_success
+    expire_in: 1 day
+    paths:
+      - "*.tgz"
+
+push-incubator:
+  stage: push-incubator
+  <<: *common
+  except:
+    - master
+    - tags
+  script:
+    - helm push-artifactory *.tgz "${HELM_REPO}"-incubator || true
+    - helm repo update
+    - helm search repo "${HELM_REPO}-incubator/${CI_PROJECT_NAME}" --devel | grep "${DEV_CHARTVERSION}" || exit 1
+
+deploy:
+  stage: deploy
+  <<: *common
+  except:
+    - master
+    - tags
+  script:
+    - helm search repo ilius-incubator/${CI_PROJECT_NAME} --devel | grep "${DEV_CHARTVERSION}" || exit 1
+    - helm install -n ci-${CI_PIPELINE_ID} ci-${CI_PIPELINE_ID} ilius-incubator/${CI_PROJECT_NAME} --devel --version "${DEV_CHARTVERSION}" --create-namespace
+
+test:
+  stage: test
+  <<: *common
+  except:
+    - master
+    - tags
+  script:
+    - echo test for in namespace ci-${CI_PIPELINE_ID} for release ci-${CI_PIPELINE_ID}
+
+cleanup-release:
+  stage: cleanup-release
+  <<: *common
+  except:
+    - master
+    - tags
+  script:
+    - helm uninstall -n ci-${CI_PIPELINE_ID} ci-${CI_PIPELINE_ID}
+
+cleanup-namespace:
+  inherit:
+    default: false
+  image: artifact-docker-lapin.net/debian/kubectl
+  stage: cleanup-resources
+  variables:
+    GIT_STRATEGY: none  # We do not need a clone of the GIT repository to create a Merge Request
+  tags:
+    - infraci
+  except:
+    - master
+    - tags
+  script:
+    - mkdir -p $HOME/.kube
+    - echo "${kube_config}" | base64 -d > $HOME/.kube/config
+    - chmod 0600 -R $HOME/.kube
+    - kubectl get namespaces
+    - kubectl delete namespace ci-${CI_PIPELINE_ID}
+
+push-stable:
+  stage: push-stable
+  <<: *common
+  only:
+    - master
+  script:
+    - helm push-artifactory *.tgz "${HELM_REPO}"-stable || true
+    - helm repo update
+    - helm search repo "${HELM_REPO}-stable/${CI_PROJECT_NAME}" --version "${NEW_CHARTVERSION}" | awk '/"${CI_PROJECT_NAME}"/ && ($2 != '"${NEW_CHARTVERSION}"') {exit 1}'
+
+tag-master:
+  stage: tag
+  <<: *common
+  only:
+    - master
+  script:
+    - git clone https://gitlab-ci-token:${GITLAB_PRIVATE_TOKEN}@gitlab.meetic.ilius.net/infra-prod/helm-charts/${CI_PROJECT_NAME}.git /tmp/${CI_PROJECT_NAME}
+    - cd /tmp/${CI_PROJECT_NAME}
+    - git tag -a ${NEW_CHARTVERSION} -m "Tag version ${NEW_CHARTVERSION}"
+    - git push --tags origin master
+
