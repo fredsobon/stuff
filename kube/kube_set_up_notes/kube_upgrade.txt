@@ -1,6 +1,91 @@
 ==== notes upgrade cluster kube : ====
 
 
+kubeadm / kubelet / kubeconfig >> on set up le pkgs correspondants à la version kube que l'on veut installer sur notre cluster .
+
+
+1/ on installe sur notre premier controller la version de kubeadm correspondant à la version kube cible 
+
+apt / yum install kubeadmx.xx
+
+2/ 
+on drain le premier controller : 
+kubectl drain controller01 --ignore-daemonsets
+
+3/ on examine le plan de migration :
+kubeadm upgrade plan
+
+
+4/ on lance l'upgrade de la version :
+
+kubeadm upgrade apply v1.xx.x
+
+5/ on remet en prod le premier controller 
+
+kubectl uncordon controller01
+
+6/ on install kubeadm sur les autres controller
+
+7/ on drain notre second controller : 
+
+kubectl drain controller02 --ignore-daemonsets
+
+8/ on upgrade le deuxieme controller :
+
+kubeadm upgrade node
+
+9/ on remet en prod le deuxieme controller 
+
+kubectl uncordon  controller02
+
+
+10 / on repete les opérations sur les autres controllers :
+
+apt / yum install kubeadm
+kubectl drain controllerxx --ignore-daemonsets
+kubeadm upgrade node
+kubectl uncordon  controllerxx
+
+11/  on install kubelet et kubectl sur tous les controllers :
+
+yum install -y kubelet-1.17.8-0 kubectl-1.17.8-0 --disableexcludes=kubernetes
+on reload kubelet :
+systemctl restart kubelet && systemctl daemon-reload
+
+
+12/ upgrade workers :
+
+on installe / upgrade kubeadm sur tous les workers : 
+yum install -y kubeadm-1.17.8-0 --disableexcludes=kubernetes
+
+13/ on drain un par un tous les workers :
+kubectl drain worker01 --ignore-daemonsets
+
+14/ on met à jours kubelet : 
+yum install -y kubelet-1.17.8-0 kubectl-1.17.8-0 --disableexcludes=kubernetes
+systemctl restart kubelet
+systemctl daemon-reload
+
+15/ on remet en prod notre worker 
+
+kubectl uncordon worker01 
+
+16/ on repette l'operation sur tous les workers.
+
+==== help / debug :
+
+- tips upgrade controller : 
+en cas de souci pour l'upgrade on peut forcer en passsant le fichier de conf
+# kubeadm upgrade apply v1.19.4 --config config.yaml
+
+
+- sur les workers portant du storage : 
+
+kubectl drain fso-worker02 --ignore-daemonsets --delete-local-data
+
+
+
+
 == validation applications systeme : ==
 
                                          
