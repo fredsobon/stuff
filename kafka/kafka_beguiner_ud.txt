@@ -236,7 +236,7 @@ On a une repartition des partitions des consumers au sein d'un consumer group.
 si on un un consumer group de 3 consumer et un topic reparti en trois partitions , chaque consumer pourra lire les données d'une partitions précise.
 Si un consumer tombe en panne on a donc une partition qui n'est plus consommée. Dans ce cas on aura une élection de consummer qui lira cette partition.
 
-On défini un group ip pour les consumer group 
+On défini un group id pour les consumer group 
 
 afin de pouvoir lire les data de plusieurs partitions, les consumers lisent les data dans des consumer groups.
 chaque consumer dans un group de consumer lit des data exclusives à une partition donnée.
@@ -528,6 +528,44 @@ broker.id=0
 
 == kafka cli ==
 
+
+on va pouvoir utiliser des commandes directement embarquées lors de l'install de kafka, cela permet de gérer facilement l'administration des topics( replication, partition, modif de retention, offset etc ..) et de pouvoir debuguer facilement en utilisant un produceur et un consumer en cli sans avoir besoin d'être developper.
+
+/!\ les examples qui vont suivre seront issus de l'utilisation des commandes via un cluster kafka monté dans kube : on a aura des différences d'options sur un cluster standalone : notamment pour l'utilisation des arg bootstrap-server ( à la place de zookeeper  et <le nom du service zookeeper:2181> dans kube > mais qui devrait être obsolete à terme )  
+
+- lister les topics :
+
+root@kafka-client:/usr/bin# /usr/bin/kafka-topics --zookeeper kafka-cp-zookeeper:2181 --list
+__confluent.support.metrics
+__consumer_offsets
+_confluent-command
+_confluent-controlcenter-5-5-0-1-AlertHistoryStore-changelog
+_confluent-controlcenter-5-5-0-1-Group-ONE_MINUTE-changelog
+....
+......
+_confluent-ksql-kafka_command_topic
+_confluent-metrics
+_confluent-monitoring
+_schemas
+boogie-topic
+kafka-cp-kafka-connect-config
+kafka-cp-kafka-connect-offset
+kafka-cp-kafka-connect-status
+my-confluent-topic
+
+
+- description d'un topic :
+
+root@kafka-client:/# kafka-topics --describe --zookeeper kafka-cp-zookeeper:2181 --topic boogie-topic
+Topic: boogie-topic	PartitionCount: 3	ReplicationFactor: 3	Configs: 
+	Topic: boogie-topic	Partition: 0	Leader: 0	Replicas: 0,2,1	Isr: 2,1,0
+	Topic: boogie-topic	Partition: 1	Leader: 1	Replicas: 1,0,2	Isr: 2,1,0
+	Topic: boogie-topic	Partition: 2	Leader: 2	Replicas: 2,1,0	Isr: 2,1,0
+
+
+- creation topic :
+
+on examinera le path de nos binaires kafka (l'emplacement peut changer en fonction du set up : standalone, kubernetes ...) 
 
 
 
