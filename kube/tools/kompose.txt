@@ -1,0 +1,293 @@
+=== notes kompose :===
+
+
+outil permettant la convertion d'un fichier docker-compose.yaml en manifests kube
+
+https://kubernetes.io/fr/docs/tasks/configure-pod-container/translate-compose-kubernetes/
+
+https://github.com/kubernetes/kompose/releases
+
+
+exemple :
+
+cat docker-compose.yaml                                                                                                                                          [☸ |minikube:default]
+version: "2"
+
+services:
+
+  redis-master:
+    image: k8s.gcr.io/redis:e2e
+    ports:
+      - "6379"
+
+  redis-slave:
+    image: gcr.io/google_samples/gb-redisslave:v3
+    ports:
+      - "6379"
+    environment:
+      - GET_HOSTS_FROM=dns
+
+  frontend:
+    image: gcr.io/google-samples/gb-frontend:v4
+    ports:
+      - "80:80"
+    environment:
+      - GET_HOSTS_FROM=dns
+    labels:
+      kompose.service.type: LoadBalancer
+
+
+- pour déployer a la volée dans un kube :
+
+$ kompose up
+We are going to create Kubernetes Deployments, Services and PersistentVolumeClaims for your Dockerized application.
+If you need different kind of resources, use the 'kompose convert' and 'kubectl apply -f' commands instead.
+
+INFO Successfully created Service: redis
+INFO Successfully created Service: web
+INFO Successfully created Deployment: redis
+INFO Successfully created Deployment: web
+
+Your application has been deployed to Kubernetes. You can run 'kubectl get deployment,svc,pods,pvc' for details.
+
+
+- pour générer les manifests :
+
+$ kompose convert
+INFO Kubernetes file "frontend-service.yaml" created
+INFO Kubernetes file "redis-master-service.yaml" created
+INFO Kubernetes file "redis-slave-service.yaml" created
+INFO Kubernetes file "frontend-deployment.yaml" created
+INFO Kubernetes file "redis-master-deployment.yaml" created
+INFO Kubernetes file "redis-slave-deployment.yaml" created
+
+
+ex: 
+
+cat frontend-service.yaml                                                                                                                                        [☸ |minikube:default]
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.service.type: LoadBalancer
+    kompose.version: 1.22.0 (955b78124)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: frontend
+  name: frontend
+spec:
+  ports:
+    - name: "80"
+      port: 80
+      targetPort: 80
+  selector:
+    io.kompose.service: frontend
+  type: LoadBalancer
+status:
+  loadBalancer: {}
+
+ cat redis-master-service.yaml                                                                                                                                    [☸ |minikube:default]
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.22.0 (955b78124)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: redis-master
+  name: redis-master
+spec:
+  ports:
+    - name: "6379"
+      port: 6379
+      targetPort: 6379
+  selector:
+    io.kompose.service: redis-master
+status:
+  loadBalancer: {}
+
+
+
+cat redis-slave-service.yaml                                                                                                                                     [☸ |minikube:default]
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.22.0 (955b78124)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: redis-slave
+  name: redis-slave
+spec:
+  ports:
+    - name: "6379"
+      port: 6379
+      targetPort: 6379
+  selector:
+    io.kompose.service: redis-slave
+status:
+  loadBalancer: {}
+
+
+ cat frontend-deployment.yaml                                                                                                                                     [☸ |minikube:default]
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.service.type: LoadBalancer
+    kompose.version: 1.22.0 (955b78124)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: frontend
+  name: frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: frontend
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert
+        kompose.service.type: LoadBalancer
+        kompose.version: 1.22.0 (955b78124)
+      creationTimestamp: null
+      labels:
+        io.kompose.service: frontend
+    spec:
+      containers:
+        - env:
+            - name: GET_HOSTS_FROM
+              value: dns
+          image: gcr.io/google-samples/gb-frontend:v4
+          name: frontend
+          ports:
+            - containerPort: 80
+          resources: {}
+      restartPolicy: Always
+status: {}
+
+
+
+cat redis-master-deployment.yaml                                                                                                                                 [☸ |minikube:default]
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.22.0 (955b78124)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: redis-master
+  name: redis-master
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: redis-master
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert
+        kompose.version: 1.22.0 (955b78124)
+      creationTimestamp: null
+      labels:
+        io.kompose.service: redis-master
+    spec:
+      containers:
+        - image: k8s.gcr.io/redis:e2e
+          name: redis-master
+          ports:
+            - containerPort: 6379
+          resources: {}
+      restartPolicy: Always
+status: {}
+
+
+cat redis-slave-deployment.yaml                                                                                                                                  [☸ |minikube:default]
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.22.0 (955b78124)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: redis-slave
+  name: redis-slave
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: redis-slave
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert
+        kompose.version: 1.22.0 (955b78124)
+      creationTimestamp: null
+      labels:
+        io.kompose.service: redis-slave
+    spec:
+      containers:
+        - env:
+            - name: GET_HOSTS_FROM
+              value: dns
+          image: gcr.io/google_samples/gb-redisslave:v3
+          name: redis-slave
+          ports:
+            - containerPort: 6379
+          resources: {}
+      restartPolicy: Always
+status: {}
+
+
+
+
+
+on peut maintenant déployer dans notre kube :
+$ kubectl apply -f frontend-service.yaml,redis-master-service.yaml,redis-slave-service.yaml,frontend-deployment.yaml,redis-master-deployment.yaml,redis-slave-deployment.yaml
+service/frontend created
+service/redis-master created
+service/redis-slave created
+deployment.apps/frontend created
+deployment.apps/redis-master created
+deployment.apps/redis-slave created
+
+minikube service frontend -n kompose-ns                                                                                                                     [☸ |minikube:kompose-ns]
+|------------|----------|-------------|-----------------------------|
+| NAMESPACE  |   NAME   | TARGET PORT |             URL             |
+|------------|----------|-------------|-----------------------------|
+| kompose-ns | frontend | 80/80       | http://192.168.39.178:30785 |
+|------------|----------|-------------|-----------------------------|
+🎉  Opening service kompose-ns/frontend in default browser...
+ boogie@boogieland  /tmp  Opening in existing browser session. 
+
+kubectl describe svc frontend                                                                                                                               [☸ |minikube:kompose-ns]
+Name:                     frontend
+Namespace:                kompose-ns
+Labels:                   io.kompose.service=frontend
+Annotations:              kompose.cmd: kompose convert
+                          kompose.service.type: LoadBalancer
+                          kompose.version: 1.22.0 (955b78124)
+Selector:                 io.kompose.service=frontend
+Type:                     LoadBalancer
+IP Families:              <none>
+IP:                       10.108.62.159
+IPs:                      10.108.62.159
+Port:                     80  80/TCP
+TargetPort:               80/TCP
+NodePort:                 80  30785/TCP
+Endpoints:                172.17.0.16:80
+Session Affinity:         None
+External Traffic Policy:  Cluster
+Events:                   <none>
+
+
