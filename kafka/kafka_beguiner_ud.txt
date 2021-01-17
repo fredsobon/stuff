@@ -533,7 +533,25 @@ on va pouvoir utiliser des commandes directement embarquées lors de l'install d
 
 /!\ les examples qui vont suivre seront issus de l'utilisation des commandes via un cluster kafka monté dans kube : on a aura des différences d'options sur un cluster standalone : notamment pour l'utilisation des arg bootstrap-server ( à la place de zookeeper  et <le nom du service zookeeper:2181> dans kube > mais qui devrait être obsolete à terme )  
 
+on va se connecter en cli dans le pod kafka-client et executer les binaires kafka presents dans le path /usr/bin 
+
+kctl exec -it kafka-client -- /bin/bash                                                                                            [☸ |minikube:default]
+root@kafka-client:/# ls
+bin  boot  dev	etc  home  lib	lib64  media  mnt  opt	proc  root  run  sbin  srv  sys  tmp  usr  var
+
+
+root@kafka-client:/# ls /usr/bin/ka*
+/usr/bin/kadmin			    /usr/bin/kafka-console-producer    /usr/bin/kafka-dump-log			  /usr/bin/kafka-producer-perf-test    /usr/bin/kafka-server-stop
+/usr/bin/kafka-acls		    /usr/bin/kafka-consumer-groups     /usr/bin/kafka-leader-election		  /usr/bin/kafka-reassign-partitions   /usr/bin/kafka-streams-application-reset
+/usr/bin/kafka-broker-api-versions  /usr/bin/kafka-consumer-perf-test  /usr/bin/kafka-log-dirs			  /usr/bin/kafka-replica-verification  /usr/bin/kafka-topics
+/usr/bin/kafka-configs		    /usr/bin/kafka-delegation-tokens   /usr/bin/kafka-mirror-maker		  /usr/bin/kafka-run-class	       /usr/bin/kafka-verifiable-consumer
+/usr/bin/kafka-console-consumer     /usr/bin/kafka-delete-records      /usr/bin/kafka-preferred-replica-election  /usr/bin/kafka-server-start	       /usr/bin/kafka-verifiable-producer
+root@kafka-client:/# 
+
+
 - lister les topics :
+
+-> on peut lister les topics avec l'argument --zookeeper et l'adresse du svc zookeeper:port mais cette methode  devient deprecated 
 
 root@kafka-client:/usr/bin# /usr/bin/kafka-topics --zookeeper kafka-cp-zookeeper:2181 --list
 __confluent.support.metrics
@@ -554,6 +572,24 @@ kafka-cp-kafka-connect-status
 my-confluent-topic
 
 
+- on peut lister les topics en donnant l'adresse du service d'un broker kafka (quand on dans kube) ou la liste des brokers individuels :
+
+^Croot@kafka-client:/# kafka-topics --list --bootstrap-server kafka-cp-kafka:9092
+__confluent.support.metrics
+__consumer_offsets
+_confluent-command
+..
+.....
+_confluent-metrics
+_confluent-monitoring
+_schemas
+boogie-topic
+kafka-cp-kafka-connect-config
+kafka-cp-kafka-connect-offset
+kafka-cp-kafka-connect-status
+my-confluent-topic
+
+
 - description d'un topic :
 
 root@kafka-client:/# kafka-topics --describe --zookeeper kafka-cp-zookeeper:2181 --topic boogie-topic
@@ -563,9 +599,299 @@ Topic: boogie-topic	PartitionCount: 3	ReplicationFactor: 3	Configs:
 	Topic: boogie-topic	Partition: 2	Leader: 2	Replicas: 2,1,0	Isr: 2,1,0
 
 
+root@kafka-client:/# kafka-topics --describe --bootstrap-server kafka-cp-kafka:9092 --topic boogie-topic
+Topic: boogie-topic	PartitionCount: 3	ReplicationFactor: 3	Configs: 
+	Topic: boogie-topic	Partition: 0	Leader: 0	Replicas: 0,2,1	Isr: 1,0,2
+	Topic: boogie-topic	Partition: 1	Leader: 1	Replicas: 1,0,2	Isr: 1,0,2
+	Topic: boogie-topic	Partition: 2	Leader: 2	Replicas: 2,1,0	Isr: 1,0,2
+
+
 - creation topic :
 
 on examinera le path de nos binaires kafka (l'emplacement peut changer en fonction du set up : standalone, kubernetes ...) 
 
+
+root@kafka-client:/# kafka-topics --create --bootstrap-server kafka-cp-kafka:9092 --replication-factor 2 --topic boogie-topic-replication
+Created topic boogie-topic-replication.
+
+root@kafka-client:/# kafka-topics --describe --bootstrap-server kafka-cp-kafka:9092  --topic boogie-topic-replication
+Topic: boogie-topic-replication	PartitionCount: 1	ReplicationFactor: 2	Configs:
+	Topic: boogie-topic-replication	Partition: 0	Leader: 1	Replicas: 1,2	Isr: 1,2
+
+
+on peut créer un topic avec le nombre de partition désiré 
+ex :
+root@kafka-client:/# kafka-topics --create --bootstrap-server kafka-cp-kafka:9092 --partitions 2 --replication-factor 2 --topic boogie-topic-partition
+Created topic boogie-topic-partition.
+
+root@kafka-client:/# kafka-topics --describe --bootstrap-server kafka-cp-kafka:9092  --topic boogie-topic-partition
+Topic: boogie-topic-partition	PartitionCount: 2	ReplicationFactor: 2	Configs:
+	Topic: boogie-topic-partition	Partition: 0	Leader: 2	Replicas: 2,1	Isr: 2,1
+	Topic: boogie-topic-partition	Partition: 1	Leader: 1	Replicas: 1,0	Isr: 1,0
+
+on voit qu'on a deux partitions dans ce topic et que chacune est répliquée deux fois.
+on voit que chacune des partition est sur un broker différent.
+
+
+- producer :
+
+on va pouvoir utiliser pour du debug la console producer qui permet d'injecter directement dans un topic donné :
+
+root@kafka-client:/# kafka-console-producer  --bootstrap-server kafka-cp-kafka:9092 --topic boogie-topic
+>test injection dans topic via console producer
+>ok
+
+on peut ecrire un message de type clé valeur si on veut. on va pour cela definir dans notre ligne de commande la fonction permettant de définir la clé et un séparateur permettant de savoir ce qui sépare la clé de la valeur dans notre message :
+
+root@kafka-client:/# kafka-console-producer  --bootstrap-server kafka-cp-kafka:9092 --property parse.key=true --property key.separator=: --topic boogie-topic
+>user:bob
+>age:77
+
+- consumer :
+
+on va pouvoir vérifier qu'on peut bien consommer les données crées précédemment par notre producer :
+
+on lance dans une console notre consumer avec le topic qu'on veut consommer en argument et dans une seconde console notre produceur dans lequel on envoi les datas 
+
+
+root@kafka-client:/# kafka-console-producer  --bootstrap-server kafka-cp-kafka:9092 --property parse.key=true --property key.separator=: --topic boogie-topic
+>name:boogie
+>age:778
+
+
+
+root@kafka-client:/# kafka-console-consumer --bootstrap-server kafka-cp-kafka:9092 --topic boogie-topic
+boogie
+778
+
+on voit que de base notre consumer ne présente que les valeurs du topic (pas les clés) et que seuls les nouveaux messages du producer sont consommés.
+
+
+- consommation de tout le topic depuis le debut des entrées : 
+on peut consommer tous les messages du topic avec l'option from-beguinning :
+
+root@kafka-client:/# kafka-console-consumer --bootstrap-server kafka-cp-kafka:9092 --topic boogie-topic --from-beginning
+ok
+77
+778
+boogie
+test injection dans topic via console producer
+bob
+
+
+- affichage des clés 
+on va pouvoir afficher les clés du topic.
+les messages qui n'ont pas de clé auront la partie clé affichée à null.
+
+root@kafka-client:/# kafka-console-consumer --bootstrap-server kafka-cp-kafka:9092 --topic boogie-topic --from-beginning --property print.key=true
+null	ok
+age	77
+age	778
+name	boogie
+null	test injection dans topic via console producer
+user	bob
+
+- affichage des timestamps : 
+
+on va pouvoir afficher les timestamps de nos messages 
+
+root@kafka-client:/# kafka-console-consumer --bootstrap-server kafka-cp-kafka:9092 --topic boogie-topic --from-beginning --property print.key=true --property print.timestamp=true
+CreateTime:1610873470522	null	ok
+CreateTime:1610873704150	age	77
+CreateTime:1610873952206	age	778
+CreateTime:1610873941418	name	boogie
+CreateTime:1610873454068	null	test injection dans topic via console producer
+CreateTime:1610873698022	user	bob
+
+- lecture d'une partition en particulier :
+
+il est possible de lire les données d'un topic sur une partition particulière :
+
+ici on va lire sur la partition 0 : 
+root@kafka-client:/# kafka-console-consumer --bootstrap-server kafka-cp-kafka:9092 --topic boogie-topic --from-beginning --property print.key=true --partition 0
+null	ok
+age	77
+age	778
+
+- affichage d'une entrée d'un offset particulier :
+
+on est obligé de préciser la partition du num d'offset que l'on veut lire 
+dans le cas de selection d'un offset on va lire tous les messages a partir de cet offset et skipper tous les messages précédents : 
+
+
+root@kafka-client:/# kafka-console-consumer --bootstrap-server kafka-cp-kafka:9092 --topic boogie-topic  --property print.key=true --partition 0 --offset 2
+null	ok
+age	77
+age	778
+^CProcessed a total of 3 messages
+root@kafka-client:/# kafka-console-consumer --bootstrap-server kafka-cp-kafka:9092 --topic boogie-topic  --property print.key=true --partition 0 --offset 3
+age	77
+age	778
+^CProcessed a total of 2 messages
+root@kafka-client:/# kafka-console-consumer --bootstrap-server kafka-cp-kafka:9092 --topic boogie-topic  --property print.key=true --partition 0 --offset 4
+age	778
+^CProcessed a total of 1 messages
+
+- precision de serialiazer et deserializer a utiliser :
+
+de base le serializer est de type string . si on injecte des données avec le serializer avro la lecture du topic avec le serializer de base string sera illisible .
+
+on peut avoir tout type de serializer et deserializer ( text, avro ...) : on va donc pouvoir préciser le type qu'on veut utiliser :
+
+on va pouvoir le faire pour nos clés et nos valeurs :
+
+root@kafka-client:/# kafka-console-consumer --bootstrap-server kafka-cp-kafka:9092 --topic boogie-topic --from-beginning --property print.key=true --partition 0 --property key.deserializer=org.apache.kafka.common.serialization.StringDeserializer
+null	ok
+age	77
+age	778
+
+
+idem pour nos valeurs :
+
+root@kafka-client:/# kafka-console-consumer --bootstrap-server kafka-cp-kafka:9092 --topic boogie-topic --from-beginning --property print.key=true --partition 0 --property key.deserializer=org.apache.kafka.common.serialization.StringDeserializer --property value.deserializer=org.apache.kafka.common.serialization.StringDeserializer
+null	ok
+age	77
+age	778
+
+ici on a pas de changement vu que l'injection des données est en mode string ..la lecture en mode string par default ne montre donc pas de différence.
+
+
+=  consumer-group :
+
+visualiser, manipuler les consumers groups et leur offset , reset des offset au debut à la fin ou a une position donnée pour le topic.
+
+
+sur la console consumer on va préciser un consumer group en argument ce qui va le créer : 
+root@kafka-client:/# kafka-console-consumer --bootstrap-server kafka-cp-kafka:9092 --topic boogie-topic --group boogiegroup --from-beginning
+ok
+77
+778
+boogie
+test injection dans topic via console producer
+bob
+
+
+- on va lister nos consummers group :
+
+root@kafka-client:/# kafka-consumer-groups --bootstrap-server kafka-cp-kafka:9092 --list
+boogiegroup
+
+- description de consummer group :
+
+root@kafka-client:/# kafka-consumer-groups --bootstrap-server kafka-cp-kafka:9092 --describe --group boogiegroup
+
+GROUP           TOPIC           PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST            CLIENT-ID
+boogiegroup     boogie-topic    0          5               5               0               consumer-boogiegroup-1-55445fc7-d080-4f02-9498-4a43361a1b50 /172.17.0.12    consumer-boogiegroup-1
+boogiegroup     boogie-topic    1          2               2               0               consumer-boogiegroup-1-55445fc7-d080-4f02-9498-4a43361a1b50 /172.17.0.12    consumer-boogiegroup-1
+boogiegroup     boogie-topic    2          4               4               0               consumer-boogiegroup-1-55445fc7-d080-4f02-9498-4a43361a1b50 /172.17.0.12    consumer-boogiegroup-1
+
+on voit ici l'etat de notre consumer group sur le topic . 
+on voit que sur chacune des partition , l'offset courant ou est rendu notre consumer group , le total de message ecrit dans chacune des partitions pour le topic ..et donc on peut en déduire le lag eventuel de consommation de topic.
+
+on va evoyer des messages dans notre topic avec la console producer :
+
+root@kafka-client:/# kafka-console-producer  --bootstrap-server kafka-cp-kafka:9092 --property parse.key=true --property key.separator=: --topic boogie-topic
+>testconsumergroup: offset 1
+>testconsumergroup: offset 2
+
+sur une autre console on voit la consomation du topic par notre group de consumer : 
+
+root@kafka-client:/# kafka-console-consumer --bootstrap-server kafka-cp-kafka:9092 --topic boogie-topic --group boogiegroup --from-beginning
+ok
+77
+778
+boogie
+test injection dans topic via console producer
+bob
+ offset 1
+ offset 2
+
+on examine le consumer group et on voit qu'on a donc deux nouveaux messages d'ecrits :
+
+root@kafka-client:/# kafka-consumer-groups --bootstrap-server kafka-cp-kafka:9092 --describe --group boogiegroup
+
+GROUP           TOPIC           PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST            CLIENT-ID
+boogiegroup     boogie-topic    0          7               7               0               consumer-boogiegroup-1-55445fc7-d080-4f02-9498-4a43361a1b50 /172.17.0.12    consumer-boogiegroup-1
+boogiegroup     boogie-topic    1          2               2               0               consumer-boogiegroup-1-55445fc7-d080-4f02-9498-4a43361a1b50 /172.17.0.12    consumer-boogiegroup-1
+boogiegroup     boogie-topic    2          4               4               0               consumer-boogiegroup-1-55445fc7-d080-4f02-9498-4a43361a1b50 /172.17.0.12    consumer-boogiegroup-1
+
+
+si on continu a publier des nouveaux messages dans le topic et qu'on stoppe la lecture ( on ferme la console consumer ) on va voir du lag apparaitre :
+root@kafka-client:/# kafka-console-producer  --bootstrap-server kafka-cp-kafka:9092 --property parse.key=true --property key.separator=: --topic boogie-topic
+>name:boogie
+>age:778
+>testconsumergroup: offset 1
+>testconsumergroup: offset 2
+>bla1: test
+>bla2: test1
+>bla3: test2           
+
+
+root@kafka-client:/# kafka-consumer-groups --bootstrap-server kafka-cp-kafka:9092 --describe --group boogiegroup
+
+Consumer group 'boogiegroup' has no active members.
+
+GROUP           TOPIC           PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID     HOST            CLIENT-ID
+boogiegroup     boogie-topic    0          7               9               2               -               -               -
+boogiegroup     boogie-topic    1          2               3               1               -               -               -
+boogiegroup     boogie-topic    2          4               4               0               -               -               -
+root@kafka-client:/#
+
+
+on voit donc qu'on a publié 3 nouveaux messages et qu'il y a du lag ( plus de consumer en ecoute suite à la fermeture de console.) 
+
+on voit le message "Consumer group 'boogiegroup' has no active members."
+
+
+- manipulation d'offset :
+
+on va pouvoir reset un offset de consumer group ( il ne faut pas que le consumer group soit actif ) 
+
+root@kafka-client:/# kafka-consumer-groups --bootstrap-server kafka-cp-kafka:9092 --reset-offsets --group boogie-group --to-earliest --topic boogie-topic --dry-run
+
+GROUP                          TOPIC                          PARTITION  NEW-OFFSET
+boogie-group                   boogie-topic                   0          2
+boogie-group                   boogie-topic                   1          1
+boogie-group                   boogie-topic                   2          2
+
+root@kafka-client:/# kafka-consumer-groups --bootstrap-server kafka-cp-kafka:9092 --reset-offsets --group boogie-group --to-earliest --topic boogie-topic --execute
+
+GROUP                          TOPIC                          PARTITION  NEW-OFFSET
+boogie-group                   boogie-topic                   0          2
+boogie-group                   boogie-topic                   1          1
+boogie-group                   boogie-topic                   2          2
+
+
+root@kafka-client:/# kafka-consumer-groups --bootstrap-server kafka-cp-kafka:9092 --reset-offsets --group boogie-group --to-latest --topic boogie-topic --execute
+
+GROUP                          TOPIC                          PARTITION  NEW-OFFSET
+boogie-group                   boogie-topic                   0          15
+boogie-group                   boogie-topic                   1          3
+boogie-group                   boogie-topic                   2          5
+root@kafka-client:/# kafka-consumer-groups --bootstrap-server kafka-cp-kafka:9092 --describe --group boogiegroup
+
+
+
+on peut relire les offset depuis un certain numéro d'offset :
+
+root@kafka-client:/# kafka-consumer-groups --bootstrap-server kafka-cp-kafka:9092 --reset-offsets --group boogie-group --to-offset 3 --topic boogie-topic  --execute
+
+GROUP                          TOPIC                          PARTITION  NEW-OFFSET
+boogie-group                   boogie-topic                   0          3
+boogie-group                   boogie-topic                   1          3
+boogie-group                   boogie-topic                   2          3
+root@kafka-client:/#
+
+
+
+on peut reset les offset  partir d'une certaine date ( relire les offsets du jour par exemple ): 
+on precise la date en milisecondes :
+
+root@kafka-client:/# kafka-consumer-groups --bootstrap-server kafka-cp-kafka:9092 --reset-offsets --group boogie-group --to-datetime 2021-01-17T10:45:00.000 --topic boogie-topic  --execute
+
+GROUP                          TOPIC                          PARTITION  NEW-OFFSET
+boogie-group                   boogie-topic                   0          15
+boogie-group                   boogie-topic                   1          3
+boogie-group                   boogie-topic                   2          5
 
 
