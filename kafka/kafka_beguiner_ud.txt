@@ -897,4 +897,105 @@ boogie-group                   boogie-topic                   2          5
 
 = kafka-connect : =
 
+kafka-connect va permettre de faire le lien entre l'exterrieur ( bdd , fichiers ..) et kafka.
+On va connecter kafka avec les systemes externes.
+On a tout un systeme de plugin qui permettent de se brancher a une bdd ,systeme de fichiers ... (s3, hdfs, elasticsearch ...) 
+
+opensource
+confluent : hub > ensemble de connecters :
+- gratuits faits par la communauté
+- payants commercialisés par confluent.
+
+
+Les connecteur sont divisés en deux catégories :
+-> source
+-> sink
+
+- Les sources :
+
+prennent les infos du monde exterrieur et les envoient dans un topic kafka ( ex kafka-connect jdbc ..)
+
+- Les sinks 
+prennent les infos du topic et envoient vers l'exterrieur ( hdfs , .... )
+
+
+on a un framwork commun pour tous les connecteurs.
+
+kakfa-connect 
+
+> 1 fichier commun a tous les connecter
+> la conf du connecteur en lui même ( ex : mongodb =! s3 )
+
+distribué et scalable
+
+mode standalone > on fait tourner notre connecter en local pour du dev local
+mode distributed > on va demarrer une api rest et on va publier les connecter
+les kafka connect seront en cluster et auront la conf communes.
+
+
+on a une extention commune qui permet les transformations simples de messages  
+smt : simple message transform  ( une 20 de filtres )
+pour transformer des messagess à la volée : ex anonymiser un champ  d'un topic
+
+
+- creation de 2 kakfa-connect :
+1 source file stream 
+1 sink file stream
+
+
+ex : 
+source : on va avoir un fichier texte : on va recup le contenu pour l'envoyer dans un topic kafka
+sink : on va lire un topic et ecrire dans un fichier texte
+
+
+on crée un rep de conf kafka-connect dans lequel on va stocker nos fichiers de properties.
+un fichier de properties par connecter.
+
+on recupere les noms de services connect , kafka dans notre cluster kube et on ajoute la conf dans un rep du pod kafka-client :
+
+on crée un fichier de conf générale et un fichier de conf par connecter 
+ex : conf générale : 
+cat connect-standalone.properties
+bootstrap.servers=kafka-cp-kafka:9092
+key.converter=org.apache.kafka.connect.storage.StringConverter
+value.converter=org.apache.kafka.connect.storage.StringConverter
+offset.storage.file.filename=/root/kafka-connect/offset-storage.offset              <<< fichier ou sauvegarder les offsets
+offset.flush.internal.flush=10000       <<<<<<< frequence de flush des offsets en ms
+plugin.path=/root/plugins                           <<<<<< path des jars dans lequel on stocke nos connecter si en en fait manuellement 
+
+
+on peut tester l'appel a l'api rest de connect : 
+#  curl http://kafka-cp-kafka-connect:8083
+{"version":"5.5.0-ccs","commit":"606822a624024828","kafka_cluster_id":"zrPa3b7YRn2SXFGcEdwxxQ"}root@kafka-client:~/kafka-connect#
+
+
+maintenant on crée un fichier de conf pour notre connecter :
+
+cat connect-file-source.properties
+name=local-file-source      <<<<<<< nom de notre connecteur 
+connector.class=FileStreamSource   <<<<< quelle classe de connector il utilise (text, s3 ...)
+task.max=1              <<<< nombre de tache en //
+topic=boogie-test       <<<< topic destination dans lequel le texte sera envoyé
+file=/root/kafka-connect/test-source.txt   <<<<< fichier source depuis lequel kafka-connect prendra les données.
+
+
+
+on va maintenant lancer le binaire connect qui se trouve dans le path de notre pod kafka-client :
+avec le fichier de conf global et celui du connecteur source :
+
+root@kafka-client:~/kafka-connect# /usr/bin/connect-standalone /root/kafka-connect/connect-standalone.properties /root/kafka-connect/connect-file-source.properties
+
+maintenant on va lancer une console consumer pour voir le résulat dans notre topic :
+on voit que les messages que l'on injecte dans le fichier source sont récupérés par le connector source et ecrits dans le topic que l'on a choisi
+
+
+on ecrit du text dans notre fichier plat 
+root@kafka-client:~/kafka-connect# echo "inject from txt in topic" >> /root/kafka-connect/test-source.txt^C
+root@kafka-client:~/kafka-connect# echo "inject 2 from txt in topic" >> /root/kafka-connect/test-source.txt
+
+notre connecteur le recupére bien et ecrit dans le topic : 
+root@kafka-client:/# kafka-console-consumer --bootstrap-server kafka-cp-kafka:9092 --topic boogie-topic
+inject from txt in topic
+inject 2 from txt in topic
+
 
