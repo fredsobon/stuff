@@ -71,9 +71,25 @@ sudo systemctl stop kubelet
 sudo rm /etc/kubernetes/kubelet.conf
 sudo rm /var/lib/kubelet/pki/*
 
+
+
+
 # Alter the bootstrap token
 new_token=TOKEN-FROM-CREATION-ON-MASTER
-sudo sed -i "s/token: .*/token: $new_token/" /etc/kubernetes/bootstrap-kubelet.conf
+sudo sed -i "s/token: .*/token: $new_token/" /etc/kubernetes/bootstrap-kubelet.conf ou config.yaml depend de la conf 
+
+pour préparer la conf kubelet : 
+kubeadm join phase kubelet-start phase --config /etc/kubernetes/config.yaml
+
+le service démarre 
+
+et on a la conf de pki definie dans : 
+ # ll /var/lib/kubelet/pki/
+-rw------- 1 root root 1,2K 22 janv. 14:03 kubelet-client-2021-01-22-14-03-28.pem
+lrwxrwxrwx 1 root root   59 22 janv. 14:03 kubelet-client-current.pem -> /var/lib/kubelet/pki/kubelet-client-2021-01-22-14-03-28.pem
+-rw-r--r-- 1 root root 2,2K 22 janv. 13:57 kubelet.crt
+-rw------- 1 root root 1,7K 22 janv. 13:57 kubelet.key
+
 
 # Start kubelet
 sudo systemctl start kubelet
@@ -89,3 +105,6 @@ kubectl uncordon WORKER-NODE-NAME
 After all workers have been updated - Remove token - will expire in 24h but lets get rid of it
 On master
 sudo kubeadm token delete TOKEN-FROM-CREATION-ON-MASTER
+
+
+
