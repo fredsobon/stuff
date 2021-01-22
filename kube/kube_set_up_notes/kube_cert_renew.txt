@@ -1,0 +1,91 @@
+# On master - See https://kubernetes.io/docs/setup/certificates/#all-certificates
+
+# Generate the new certificates - you may have to deal with AWS - see above re extra certificate SANs
+sudo kubeadm alpha certs renew apiserver
+sudo kubeadm alpha certs renew apiserver-etcd-client
+sudo kubeadm alpha certs renew apiserver-kubelet-client
+sudo kubeadm alpha certs renew front-proxy-client
+
+# Generate new kube-configs with embedded certificates - Again you may need extra AWS specific content - see above
+sudo kubeadm alpha kubeconfig user --org system:masters --client-name kubernetes-admin  > admin.conf
+sudo kubeadm alpha kubeconfig user --client-name system:kube-controller-manager > controller-manager.conf
+sudo kubeadm alpha kubeconfig user --org system:nodes --client-name system:node:$(hostname) > kubelet.conf
+sudo kubeadm alpha kubeconfig user --client-name system:kube-scheduler > scheduler.conf
+
+# chown and chmod so they match existing files
+sudo chown root:root {admin,controller-manager,kubelet,scheduler}.conf
+sudo chmod 600 {admin,controller-manager,kubelet,scheduler}.conf
+
+# Move to replace existing kubeconfigs
+sudo mv admin.conf /etc/kubernetes/
+sudo mv controller-manager.conf /etc/kubernetes/
+sudo mv kubelet.conf /etc/kubernetes/
+sudo mv scheduler.conf /etc/kubernetes/
+
+# Restart the master components
+sudo kill -s SIGHUP $(pidof kube-apiserver)
+sudo kill -s SIGHUP $(pidof kube-controller-manager)
+sudo kill -s SIGHUP $(pidof kube-scheduler)
+
+# Verify master component certificates - should all be 1 year in the future
+# Cert from api-server
+echo -n | openssl s_client -connect localhost:6443 2>&1 | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' | openssl x509 -text -noout | grep Not
+# Cert from controller manager
+echo -n | openssl s_client -connect localhost:10257 2>&1 | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' | openssl x509 -text -noout | grep Not
+# Cert from scheduler
+echo -n | openssl s_client -connect localhost:10259 2>&1 | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' | openssl x509 -text -noout | grep Not
+
+# Generate kubelet.conf
+sudo kubeadm alpha kubeconfig user --org system:nodes --client-name system:node:$(hostname) > kubelet.conf
+sudo chown root:root kubelet.conf
+sudo chmod 600 kubelet.conf
+
+# Drain
+kubectl drain --ignore-daemonsets $(hostname)
+# Stop kubelet
+sudo systemctl stop kubelet
+# Delete files
+sudo rm /var/lib/kubelet/pki/*
+# Copy file
+sudo mv kubelet.conf /etc/kubernetes/
+# Restart
+sudo systemctl start kubelet
+# Uncordon
+kubectl uncordon $(hostname)
+
+# Check kubelet
+echo -n | openssl s_client -connect localhost:10250 2>&1 | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' | openssl x509 -text -noout | grep Not
+
+Lets create a new token for nodes re-joining the cluster (After kubelet restart)
+# On master
+sudo kubeadm token create
+
+Now for each worker - one at a time
+kubectl drain --ignore-daemonsets --delete-local-data WORKER-NODE-NAME
+
+ssh to worker node
+# Stop kubelet
+sudo systemctl stop kubelet
+
+# Delete files
+sudo rm /etc/kubernetes/kubelet.conf
+sudo rm /var/lib/kubelet/pki/*
+
+# Alter the bootstrap token
+new_token=TOKEN-FROM-CREATION-ON-MASTER
+sudo sed -i "s/token: .*/token: $new_token/" /etc/kubernetes/bootstrap-kubelet.conf
+
+# Start kubelet
+sudo systemctl start kubelet
+        
+# Check kubelet certificate
+echo -n | openssl s_client -connect localhost:10250 2>&1 | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' | openssl x509 -text -noout | grep Not
+sudo openssl x509 -in /var/lib/kubelet/pki/kubelet-client-current.pem -text -noout | grep Not
+sudo openssl x509 -in /var/lib/kubelet/pki/kubelet.crt -text -noout | grep Not
+
+Back to master and uncordon the worker
+kubectl uncordon WORKER-NODE-NAME
+
+After all workers have been updated - Remove token - will expire in 24h but lets get rid of it
+On master
+sudo kubeadm token delete TOKEN-FROM-CREATION-ON-MASTER
