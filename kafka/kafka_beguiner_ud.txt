@@ -901,6 +901,8 @@ kafka-connect va permettre de faire le lien entre l'exterrieur ( bdd , fichiers 
 On va connecter kafka avec les systemes externes.
 On a tout un systeme de plugin qui permettent de se brancher a une bdd ,systeme de fichiers ... (s3, hdfs, elasticsearch ...) 
 
+ex: url https://data-flair.training/blogs/kafka-connect/
+
 opensource
 confluent : hub > ensemble de connecters :
 - gratuits faits par la communauté
@@ -948,13 +950,17 @@ source : on va avoir un fichier texte : on va recup le contenu pour l'envoyer da
 sink : on va lire un topic et ecrire dans un fichier texte
 
 
+
+-- source : 
+
 on crée un rep de conf kafka-connect dans lequel on va stocker nos fichiers de properties.
 un fichier de properties par connecter.
 
 on recupere les noms de services connect , kafka dans notre cluster kube et on ajoute la conf dans un rep du pod kafka-client :
 
 on crée un fichier de conf générale et un fichier de conf par connecter 
-ex : conf générale : 
+ex : conf générale (valable pour les sources et les sinks) 
+
 cat connect-standalone.properties
 bootstrap.servers=kafka-cp-kafka:9092
 key.converter=org.apache.kafka.connect.storage.StringConverter
@@ -997,5 +1003,225 @@ notre connecteur le recupére bien et ecrit dans le topic :
 root@kafka-client:/# kafka-console-consumer --bootstrap-server kafka-cp-kafka:9092 --topic boogie-topic
 inject from txt in topic
 inject 2 from txt in topic
+
+-- sink :
+
+on va créer un fichier de conf pour notre connecteur sink :
+
+connect-file-sink.properties
+
+name=local-file-sink    <<<<<<< nom de notre connecteur
+connector.class=FileStreamSink   <<<<< quelle classe de connector il utilise (text, s3 ...)
+task.max=1              <<<< nombre de tache en //
+topics=boogie-test       <<<< topic destination dans lequel le texte sera envoyé
+file=/root/kafka-connect/test-sink.txt   <<<<< fichier destination dans lequel kafka-connect ecrira les données du topic
+
+on lance notre binaire connect + la conf pour le source et le sink : 
+
+/usr/bin/connect-standalone /root/kafka-connect/connect-standalone.properties /root/kafka-connect/connect-file-source.properties /root/kafka-connect/connect-file-sink.properties
+
+
+on ecrit dans notre fichier source : 
+echo "test777" >> test-source.txt
+
+ce message est recupérer par le connecteur source qui l'ecrit dans le topic puis l'info est recupérée du topic par le connecteur sink et ecrit dans le fichier plat de destination du sink ( on voit que les data présentes dans notre topic sont également ecrite dans le fichier de dest puisque le connecteur sink lit les data du topic. ) 
+
+cat test-sink.txt
+yes
+yopyop
+test recup src et inject dans topic
+test recup src et inject dans topic
+pronto
+pronto
+testo
+write in flat file
+ct
+test1
+test2
+test777 
+
+
+
+-- deserialisation 
+
+ex : avec json 
+
+on va donc modifier la conf générale pour l'adapter au format json.
+On va egalement spécifier que nos clés et nos valeurs ne contiennent pas de schema ( type que l'on pourrait récupérer avant le traitement de l'info (ex : key > string , value > int ... )
+
+cat connect-standalone.properties
+
+bootstrap.servers=kafka-cp-kafka:9092
+key.converter=org.apache.kafka.connect.json.JsonConverter
+value.converter=org.apache.kafka.connect.json.JsonConverter
+key.converter.schemas.enable=false
+value.converter.schemas.enable=false
+offset.storage.file.filename=/root/kafka-connect/offset-storage.offset
+offset.flush.internal.flush=10000
+plugin.path=/root/plugins
+
+on va ecrire directement du json dans notre topic 
+ex : 
+
+root@kafka-client:~/kafka-connect# /usr/bin/kafka-console-producer --bootstrap-server kafka-cp-kafka:9092 --topic boogie-test
+>{"prenom": "bob", "nom": "eponge"}
+
+
+on voit dans notre fichier resultat sink le json on voit que le json a été interprété ( on a plus les " les : spécifique au json dans notre résultat . Si on avait garder le serializer en string on aurait eu le même résultat qu'en entrée.
+
+root@kafka-client:~/kafka-connect# cat test-sink.txt
+...
+test1
+test2
+test777
+{prenom=bob, nom=eponge}  <<<< interprétation du json (suppression des " et remplacemnt du : par = par rapport à la source injectée dans le topic. )
+
+on va maintenant fournir un schema :
+
+
+on va passer à true les section définissant la conf de schema
+cat connect-standalone.properties
+
+bootstrap.servers=kafka-cp-kafka:9092
+key.converter=org.apache.kafka.connect.json.JsonConverter
+value.converter=org.apache.kafka.connect.json.JsonConverter
+key.converter.schemas.enable=true
+value.converter.schemas.enable=true
+offset.storage.file.filename=/root/kafka-connect/offset-storage.offset
+offset.flush.internal.flush=10000
+plugin.path=/root/plugins
+
+on crée le schema  de notre json 
+
+{
+  "schema":          <<<< section de déinition de schema
+  { 
+    "type": "struct",    <<< on defini le type de notre schema ici un hash / struct                        
+    "fields": [         <<< on represente les champs
+      { 
+        "type": "string",  <<< premier champ de type string
+        "optional": "false",  <<< non optionnel
+        "field": "Prenom"    <<<< le champ aura comme clé "Prénom"
+      },   
+      { 
+        "type": "string",    <<< ici definition du second champ pour le nom
+        "optional": "false",
+        "field": "Nom"
+      }   
+    ],
+    "optional": "false",      <<<<< le shema n'est pas optionel
+    "name": "users"           <<<<< le schema represente ici les users 
+  },
+  "payload": {"Prenom": "jack", "Nom": "Oh"} <<< on cree maintenant la donnée que l'on va injecter 
+}
+
+
+quand on injecte dans notre topic le json on met tout sur une seule ligne : 
+
+
+>^Croot@kafka-client:~/kafka-connect# /usr/bin/kafka-console-producer --bootstrap-server kafka-cp-kafka:9 --topic boogie-test
+>{   "schema":   {     "type": "struct",                     "fields": [       {          "type": "string",         "optional": "false",         "field": "Prenom"       },       {         "type": "string",         "optional": "false",         "field": "Nom"       }     ],     "optional": "false",     "name": "users"   },  "payload": {"Prenom": "jack", "Nom": "Oh"} }
+
+
+on voit l'entrée dans notre fichier sink :
+
+root@kafka-client:~/kafka-connect# cat test-sink.txt
+Struct{Prenom=jack,Nom=Oh}   <<<< on voit qu'on a un type de schema et ensuite notre donnée structurée en deux champ json.
+
+si on demande a avoir un schema dans notre conf  et qu'on en fourni pas on aura une erreur dans le kakfa-connect 
+
+
+Il sera possible d'utiliser une shema registry qui elle contiendra notre schema et les données ecrites dans le topic ne seront qu'en format json.
+
+
+Pour cela on definira dans notre conf :
+
+
+cat connect-standalone.properties
+
+bootstrap.servers=kafka-cp-kafka:9092
+key.converter=io.confluent.connect.json.JsonConverter <<<< conf pour indiquer l'utilisation de la schemat registry
+value.converter=io.confluent.connect.json.JsonConverter <<<<< idem
+key.converter.schemas.enable=true
+value.converter.schemas.enable=true
+offset.storage.file.filename=/root/kafka-connect/offset-storage.offset
+offset.flush.internal.flush=10000
+plugin.path=/root/plugins
+
+
+--- kafka smt :
+
+simple message transformation 
+
+on va pouvoir changer des records de manière simple, sorte d'extention de kafka connect
+/!\ attention juste des filtre simple :
+ex : suppression de champ, ajouter un timestamp, masquer un champ pour anonymiser 
+
+on aura souvent besoin d'un shema : ( le plus simple est d'utiliser une shema registry) 
+
+ex: 
+
+cat connect-file-sink.properties
+
+name=local-file-sink   
+connector.class=FileStreamSink 
+task.max=1            
+topics=boogie-test   
+file=/root/kafka-connect/test-sink.txt
+
+transforms=Maskfield
+transforms.Maskfield.type=org.apache.kafka.connect.transforms.MaskField$Value
+transforms.Maskfield.fields=Nom
+
+on injectera notre shema et de la data :
+
+/usr/bin/kafka-console-producer --bootstrap-server kafka-cp-kafka:9092 --topic boogie-test
+
+{   "schema":   {     "type": "struct",                     "fields": [       {          "type": "string",         "optional": "false",         "field": "Prenom"       },       {         "type": "string",         "optional": "false",         "field": "Nom"       }     ],     "optional": "false",     "name": "users"   },  "payload": {"Prenom": "Casper", "Nom": "ouestu"} }
+
+
+et dans notre fichier de destination on a bien notre champ anonymisé :
+
+Struct{Prenom=jack,Nom=Oh}
+Struct{Prenom=Casper,Nom=}  <<< nouveau champ anonymisé.
+
+
+- Chaining smt : 
+
+on va pouvoir enchainer des transformations succéssives avec kafka-connect.
+
+on peut utiliser les smt en source ou sink 
+
+pour enchainer les transformations il suffit de rajouter toutes les transfo qu'on veut faire à la suite et s'assurer de définir  correctement chacune des transfo 
+ex : en plus d'anonymiser un champ on va vouloir rajouter le nom de notre topic dans la sortie du sink
+
+ cat connect-file-sink.properties
+name=local-file-sink
+connector.class=FileStreamSink
+task.max=1
+topics=boogie-test
+file=/root/kafka-connect/test-sink.txt
+
+transforms=anonymisation,InsertFieldTopic
+
+transforms.anonymisation.type=org.apache.kafka.connect.transforms.MaskField$Value
+transforms.anonymisation.fields=Nom
+
+transforms.InsertFieldTopic.type=org.apache.kafka.connect.transforms.InsertField$Value
+transforms.InsertFieldTopic.static.field=topic
+transforms.InsertFieldTopic.static.value=boogie-test
+
+une fois qu'on injecte notre schema et data dans le topic :
+
+root@kafka-client:~/kafka-connect# /usr/bin/kafka-console-producer --bootstrap-server kafka-cp-kafka:9092 --topic boogie-test
+>{   "schema":   {     "type": "struct",                     "fields": [       {          "type": "string",         "optional": "false",         "field": "Prenom"       },       {         "type": "string",         "optional": "false",         "field": "Nom"       }     ],     "optional": "false",     "name": "users"   },  "payload": {"Prenom": "Boogie", "Nom": "Wonderland"} }
+>
+
+
+et qu'on relance notre connect on a bien dans notre fichier cible le resultat de nos transformations :
+
+root@kafka-client:~/kafka-connect# cat test-sink.txt
+Struct{Prenom=Boogie,Nom=,topic=boogie-test}
+
 
 
