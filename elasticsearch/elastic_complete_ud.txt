@@ -1,15 +1,15 @@
-=== elasticsearch ===
+=== elasticsearch complete udfr===
 
 
-= setup elastic : helm - minikube : = 
+
+
+== setup elastic : helm - minikube : == 
 
 helm repo add elastic https://helm.elastic.co
 helm install elasticsearch --version <version> elastic/elasticsearch
 helm install elasticsearch --version 7.10.2 elastic/elasticsearch
 
-
 # Minikube
-
 This example deploy a 3 nodes Elasticsearch 7.10.2 cluster on [Minikube][]
 using [custom values][].
 
@@ -18,7 +18,6 @@ more CPU cores or memory allocated.
 
 Note that this configuration should be used for test only and isn't recommended
 for production.
-
 
 ## Requirements
 
@@ -31,7 +30,6 @@ minikube addons enable default-storageclass
 minikube addons enable storage-provisioner
 ```
 
-
 ## Usage
 
 * Deploy Elasticsearch chart with the default values: `make install`
@@ -43,10 +41,8 @@ minikube addons enable storage-provisioner
   curl localhost:9200/_cat/indices
   ```
 
-
 [custom values]: https://github.com/elastic/helm-charts/tree/7.10/elasticsearch/examples/minikube/values.yaml
 [minikube]: https://minikube.sigs.k8s.io/docs/
-
 
 ---
 # Permit co-located instances for solitary minikube virtual machines.
@@ -71,4 +67,848 @@ volumeClaimTemplate:
   resources:
     requests:
       storage: 100M
+
+setup avec les valeurs suivantes : 
+
+ ✘ boogie@boogieland  ~/Documents/lab/elasticsearch/helm  helm install elasticsearch elastic/elasticsearch -f minikube-values.yaml
+WARNING: Kubernetes configuration file is group-readable. This is insecure. Location: /home/boogie/.kube/config
+WARNING: Kubernetes configuration file is world-readable. This is insecure. Location: /home/boogie/.kube/config
+NAME: elasticsearch
+LAST DEPLOYED: Sun Jan 24 08:45:01 2021
+NAMESPACE: default
+STATUS: deployed
+REVISION: 1
+NOTES:
+1. Watch all cluster members come up.
+  $ kubectl get pods --namespace=default -l app=elasticsearch-master -w
+2. Test cluster health using Helm test.
+  $ helm test elasticsearch
+
+kubectl get pods --namespace=default -l app=elasticsearch-master -w
+NAME                     READY   STATUS    RESTARTS   AGE
+elasticsearch-master-0   1/1     Running   0          116s
+elasticsearch-master-1   1/1     Running   0          116s
+elasticsearch-master-2   1/1     Running   0          116s
+
+✘ boogie@boogieland  ~/Documents/lab/elasticsearch/helm  helm test elasticsearch
+WARNING: Kubernetes configuration file is group-readable. This is insecure. Location: /home/boogie/.kube/config
+WARNING: Kubernetes configuration file is world-readable. This is insecure. Location: /home/boogie/.kube/config
+NAME: elasticsearch
+LAST DEPLOYED: Sun Jan 24 08:45:01 2021
+NAMESPACE: default
+STATUS: deployed
+REVISION: 1
+TEST SUITE:     elasticsearch-kvuab-test
+Last Started:   Sun Jan 24 08:47:16 2021
+Last Completed: Sun Jan 24 08:47:18 2021
+Phase:          Succeeded
+NOTES:
+1. Watch all cluster members come up.
+  $ kubectl get pods --namespace=default -l app=elasticsearch-master -w
+2. Test cluster health using Helm test.
+  $ helm test elasticsearch
+
+on peut faire un port fwd de l'appli pour requetter en local sur notre laptop :
+
+kubectl port-forward svc/elasticsearch-master 9200
+
+curl  localhost:9200                                                                                                               [☸ |minikube:default]
+{
+  "name" : "elasticsearch-master-2",
+  "cluster_name" : "elasticsearch",
+  "cluster_uuid" : "b6WLtdlNSzyVJMl6ZqiGYQ",
+  "version" : {
+    "number" : "7.10.2",
+    "build_flavor" : "default",
+    "build_type" : "docker",
+    "build_hash" : "747e1cc71def077253878a59143c1f785afa92b9",
+    "build_date" : "2021-01-13T00:42:12.435326Z",
+    "build_snapshot" : false,
+    "lucene_version" : "8.7.0",
+    "minimum_wire_compatibility_version" : "6.8.0",
+    "minimum_index_compatibility_version" : "6.0.0-beta1"
+  },
+  "tagline" : "You Know, for Search"
+}
+
+
+- set up kibana :
+
+helm install kibana --version 7.10.2 elastic/kibana
+
+on fait un port forward pour accéder à l'interface kibana : 
+kubectl port-forward kibana-kibana-84579f77bc-vn8nh 5601
+
+
+
+
+=== fin set up helm elastic sur minikube ===
+
+= presention : =
+
+- elasticsearch :
+stocke les données sous forme de documents ( bdd orientée documents.) que l'on peut interroger avec une api rest en http. rechercher / recuperer / updater / supprimer se fait en requette http
+recherche / analyse journaux / analyse megadonnées.
+
+chaque base de donnée ou collection de donnée ayant des caractéristiques communes est appellé un index dans elasticsearch.
+les tables de l'index sont nommées par type.
+chaque ligne est un document
+chaque colonne est un champ
+la maniere dont les docs et champs sont stockés et indexés est un mapping 
+un cluster est en ensemble de serveurs qui contient l'intégralité des données.
+un index peut être constitué de fragments qui contiennent des données.
+L'index est stocké sous format json.
+Les repliques sont les copies des fragments distribués.
+
+- kibana :
+permet de représenter les données sous forme de tableaux de bord et faire des recherches.
+
+- logstash :
+collecte les données de différentes sources les traite et les envoient à elasticsearch
+on peut ajouter des plugins . transforme les données 
+configuration modulaire pour creation de pipeline 
+
+- beats :
+expéditeur de données légers.
+installés sur des serveurs qui vont envoyer les logs vers elasticsearch ou logstash ( plusieurs type filebeat, logbeat ...) 
+
+== Analyse de docs et creation de mapping : ==
+
+= recherche :
+
+2 types : terme exact et "plain text"
+
+les synonymes ou légères fautes de frappes doivent être recupéres.
+on va avoir des poids données sur le "text frequency"  ( par rapport au total de text global )
+
+index inversé : coeur du moteur de recherche 
+
+tous les termes uniques sont stockés dans l'index avec leur position dans le text
+ex :
+
+doc1 :
+je deteste quand les araignées sont assises sur un mur
+
+doc2: 
+je deteste quand l'araignée reste assise la.
+
+on aura donc un index inversé du type suivant utilisé pour les recherches de texte : 
+terme         doc position
+je            1:1, 2:1
+deteste       1:2, 2:2
+quand         1:3, 2:3
+les araignées 1:4
+asseoir       1:5, 2:5
+araignée      2:4
+sur           1:6
+mur           1:7
+la            2:6 
+
+on voit ici que le moteur de recherche stocke l'emplacement du mot et le mot avec les synonymes ou même sens ( assises = assise ==> stocker comme asseoir dans le moteur)
+
+Cela est essentiellent lié au fonctionnement du moteur lucene qui va embarquer des analyseurs ( simple, whitespace, keyword, language) qui vont filtrer le document recu , le découper via le process de tokenizer , eventuellement appliquer des filtres de tokenizers (ex supprimer des mots de jonction ex : dans, vers ...) ecrire le document et créer l'index inversé 
+
+
+> creation d'index :
+
+curl -X PUT http://localhost:9200/test1                                                     
+{"acknowledged":true,"shards_acknowledged":true,"index":"test1"}
+
+> recherche avec utilisation d'analyzer :
+
+- standard :
+
+curl -X GET "http://localhost:9200/_analyze?pretty" -H "Content-Type: application/json" -d '
+{ "analyzer": "standard",
+"text": "Quick Brown Foxes !"}'
+{
+  "tokens" : [
+    {
+      "token" : "quick",
+      "start_offset" : 0,
+      "end_offset" : 5,
+      "type" : "<ALPHANUM>",
+      "position" : 0
+    },
+    {
+      "token" : "brown",
+      "start_offset" : 6,
+      "end_offset" : 11,
+      "type" : "<ALPHANUM>",
+      "position" : 1
+    },
+    {
+      "token" : "foxes",
+      "start_offset" : 12,
+      "end_offset" : 17,
+      "type" : "<ALPHANUM>",
+      "position" : 2
+    }
+  ]
+}
+
+on voit que chaque mot est considéré comme une suite alaphanum , le "!" n'est pas analysé et on a la position des mots
+
+- whitespace : 
+
+curl -X GET "http://localhost:9200/_analyze?pretty" -H "Content-Type: application/json" -d '                                      [☸ |minikube:default]
+{ "analyzer": "whitespace",
+"text": "Quick Brown Foxes !"}'
+{
+  "tokens" : [
+    {
+      "token" : "Quick",
+      "start_offset" : 0,
+      "end_offset" : 5,
+      "type" : "word",
+      "position" : 0
+    },
+    {
+      "token" : "Brown",
+      "start_offset" : 6,
+      "end_offset" : 11,
+      "type" : "word",
+      "position" : 1
+    },
+    {
+      "token" : "Foxes",
+      "start_offset" : 12,
+      "end_offset" : 17,
+      "type" : "word",
+      "position" : 2
+    },
+    {
+      "token" : "!",
+      "start_offset" : 18,
+      "end_offset" : 19,
+      "type" : "word",
+      "position" : 3
+    }
+  ]
+}
+
+ici on voit que tous les termes sont enregistrés ( même le "!" ) et considérés comme des mots.
+
+
+Il va être possible de créer nos analyzers personaliser 
+on peut aussi personaliser les analyzers
+on peut changer un analyzer par defaut
+
+- mapping :
+
+
+ une fois qu'on enregistre un document et un type pour un champ on ne peut pas le modifier par la suite : 
+ ex ici on crée un clé "valid" en entier : 
+curl -XPOST "http://localhost:9200/myindex/type1/1" -H "Content-Type: application/json" -d '{"valid": 5}'                        
+{"_index":"myindex","_type":"type1","_id":"1","_version":1,"result":"created","_shards":{"total":2,"successful":2,"failed":0},"_seq_no":0,"_primary_term":1}%
+
+ici on veut créer dans un autre document d'un autre index un champ "valid" en string :
+
+curl -XPOST "http://localhost:9200/myindex/type2/1" -H "Content-Type: application/json" -d '{"valid": "40"}'                       [☸ |minikube:default]
+{"error":{"root_cause":[{"type":"illegal_argument_exception","reason":"mapper [valid] cannot be changed from type [long] to [text]"}],"type":"illegal_argument_exception","reason":"mapper [valid] cannot be changed from type [long] to [text]"},"status":400}%
+
+
+- metadonnée des doc elasticsearch :
+
+données de structuration
+
+_id : 
+identifiant unique du doc 
+
+_source :
+champ généré par es peut être désactivé. contient les données json réelle du doc . A chaque requette de recherche le champ source est renvoyé au user 
+attention aux comportement es si c'est fait : 
+curl -XPUT index_name/_mapping/doc_type { "_source":{"enable": false}}
+
+_all :
+tous les champs sont indexés séparemment lors de l'indexation d'un doc
+on peut le désactiver :
+curl -XPUT index_name/_mapping/doc_type { "_all":{"enable": false}}
+
+_ttl:
+
+on peut vouloir qu'un doc soit supprimé automatiquement de l'index au bout d'un certain temps.
+
+ex :
+$ curl http://localhost:9200/myindex/mytype/_mapping
+{"mytype":{"_timestamp":{"enabled":true},"_ttl":
+{"enabled":true,"default":86400000},"properties":{}}}
+
+
+dynamic :
+
+on veut pouvoir restreindre l'indexation dynamique des champs
+
+= type de données et options d'analyse d'index : 
+
+
+- type de base :
+int, string ..
+
+- type de données complexe :
+ip, geoloc, tableau .. 
+
+= attributs communs :
+
+- index :
+
+analyzed : on peut utiliser un analyzer particulier pour indexer un champ
+not_analyzed : si on a positionner le not analyzed : le text ne sera pas indexer et donc pas de recherche possible.
+
+store : 
+prend comme valeur oui ou non. valeur par defaut non
+boost : 
+valeur par defaut 1 : precise l'importance du champ dans le document
+
+null_value :
+definir une valeur par default a indexer 
+
+
+=attributs sur les chaines :
+
+- term_vector :
+
+liste des termes du document et leur nombre d'occurence
+utilisé pour les requettes de haut niveaux ( pas fréquents.)
+
+- omit_norms
+
+- analyzer :
+permet de définir un nalyzer pour la chaine.
+
+- index_analyzer :
+analyser utilisé pour l'indexation 
+
+- search_analyzer :
+analyser utilisé pour la recherche
+
+= attributs pour les numeriques :
+
+byte
+short
+long
+floatset
+double 
+
+{"price": {"type": "float"}, "age": {"type": "integer"}}
+
+= attributs sur les dates : 
+
+nombreux formats
+on doit s'assurer du bon format à la création 
+
+ex :
+{ "creation_time":{"type": "date", "format": "YYYY-MM-DD"}, "indexing_time": {"type": "date", "format": "date_optional_time"}}
+
+= attributs booleen :
+vrai / false
+
+= attributs tableaux :
+
+par default les champs sont en tableaux
+toutes les valeurs de données du tableaux doivent être du même type.
+les ordres ne sont pas conservés dans la requette
+
+= attributs objects :
+objects internes a es 
+on ne peut pas modifier le type.
+
+on peut indexer le même champ de différentes manières mais il faut définir un mapping spécifique
+
+= creation de mapping :
+
+on le fait en cli : l'index doit exister au préalable 
+
+curl -XPUT "http://localhost:9200/twitter1?pretty"                                                                               [☸ |minikube:default]
+{
+  "acknowledged" : true,
+  "shards_acknowledged" : true,
+  "index" : "twitter1"
+}
+
+curl -XPUT "http://localhost:9200/twitter1/_mapping?pretty" -H "Content-Type: application/json" -d '{"properties": {"email": {"type": "keyword" }}}'
+{
+  "acknowledged" : true
+}
+
+on peut recupérer notre mapping :
+
+curl -XGET "http://localhost:9200/twitter1/_mapping?pretty"                                                                      [☸ |minikube:default]
+{
+  "twitter1" : {
+    "mappings" : {
+      "properties" : {
+        "email" : {
+          "type" : "keyword"
+        }
+      }
+    }
+  }
+}
+
+ on peut mettre à jour un mapping :
+
+ curl -XPUT "http://localhost:9200/twitter1/_mapping?pretty" -H "Content-Type: application/json" -d '{"properties": {"new_type": {"type": "integer" }}}'
+{
+  "acknowledged" : true
+}
+
+exam :
+
+curl -XGET "http://localhost:9200/twitter1/_mapping?pretty"                                                                        [☸ |minikube:default]
+{
+  "twitter1" : {
+    "mappings" : {
+      "properties" : {
+        "email" : {
+          "type" : "keyword"
+        },
+        "new_type" : {
+          "type" : "integer"
+        }
+      }
+    }
+  }
+}
+
+
+== administration es  : ==
+
+chaque serveur est considéré comme un node 
+
+on peut avoir des noeuds master et des noeuds data
+un ensemble de noeuds forme un cluster
+
+es stocke des doc json et stocke dans les index. On fait des recherches sur les champs en utilisant le moteur de recherche lucene
+on peut faire des requettes simples ou plus complexes 
+
+on peut avoir des points d'api _cluster 
+on peut avoir des filtres sur les nodes
+_all , _local , _master ...
+
+dans les noeuds master on a juste la notion de haute dispo et d'ordonnancement pas de data.
+
+= conventions api :
+
+api rest 
+on peut idealement tout faire via l'api rest
+
+- gestion de plusieurs index :
+
+_all
+ignore_no_available : true ou false
+allow_no_indices : true ou false
+expand_wildcards : open ou close
+<static_name{date_math_expr{date_format|timezone}}>
+
+on peut requetter via kibana en passant par le devtool kibana 
+
+options courantes de l'api :
+
+si on veut modifier certains champs
+
+?pretty=true < utilisé pour le debugage
+
+on  peut ajouter des data de tests > kibana > add data [Flights] Global Flight Dashboard par exemple. une fois installé > view dashboard.
+
+on peut ensuite requetter via la partie devtools :
+
+
+GET _cat/indices?pretty   : voir nos index
+
+GET kibana_sample_data_flights/_search?pretty : examen de l'index kibana_sample_data_flights avec affichage pretty ( pour formattage json visuel )
+
+on peut afficher sous differents formats 
+
+> format yaml :
+
+GET kibana_sample_data_flights/_search?format=yaml
+
+---
+took: 18
+timed_out: false
+_shards:
+  total: 1
+  successful: 1
+  skipped: 0
+  failed: 0
+hits:
+  total:
+    value: 10000
+    relation: "gte"
+  max_score: 1.0
+  hits:
+  - _index: "kibana_sample_data_flights"
+    _type: "_doc"
+    _id: "ajbFNXcBkWffCDp4Jd83"
+    _score: 1.0
+    
+
+> format human readable :
+
+GET kibana_sample_data_flights/_search?human=true
+
+{
+  "took" : 23,
+  "timed_out" : false,
+  "_shards" : {
+    "total" : 1,
+    "successful" : 1,
+    "skipped" : 0,
+    "failed" : 0
+  },
+  "hits" : {
+    "total" : {
+      "value" : 10000,
+      "relation" : "gte"
+    },
+    "max_score" : 1.0,
+
+
+on peut filtrer les champs que l'on veut recupérer :
+
+-ex : on veut uniquement des champs :  hits FlightNum et carrier :
+
+GET kibana_sample_data_flights/_search?filter_path=hits.hits._source.FlightNum,hits.hits._source.Carrier
+
+{
+  "hits" : {
+    "hits" : [
+      {
+        "_source" : {
+          "FlightNum" : "8I8E792",
+          "Carrier" : "Kibana Airlines"
+        }
+      },
+      {
+        "_source" : {
+          "FlightNum" : "DHMO1B5",
+          "Carrier" : "ES-Air"
+        }
+      },
+      ..
+
+
+- modif de l'affichage :
+
+on peut activer le flatsetting ( qui est a false par default ) :
+
+GET  kibana_sample_data_flights/_settings?flat_settings=true
+
+
+{
+  "kibana_sample_data_flights" : {
+    "settings" : {
+      "index.auto_expand_replicas" : "0-1",
+      "index.creation_date" : "1611514841305",
+      "index.number_of_replicas" : "1",
+      "index.number_of_shards" : "1",
+      "index.provided_name" : "kibana_sample_data_flights",
+      "index.routing.allocation.include._tier_preference" : "data_content",
+      "index.uuid" : "kWV2G9CHTGCNr2-7_beJuQ",
+      "index.version.created" : "7100299"
+    }
+  }
+}
+
+par default on a  :
+
+GET  kibana_sample_data_flights/_settings?flat_settings=false
+
+{
+  "kibana_sample_data_flights" : {
+    "settings" : {
+      "index" : {
+        "routing" : {
+          "allocation" : {
+            "include" : {
+              "_tier_preference" : "data_content"
+            }
+          }
+        },
+        "number_of_shards" : "1",
+        "auto_expand_replicas" : "0-1",
+        "provided_name" : "kibana_sample_data_flights",
+        "creation_date" : "1611514841305",
+        "number_of_replicas" : "1",
+        "uuid" : "kWV2G9CHTGCNr2-7_beJuQ",
+        "version" : {
+          "created" : "7100299"
+        }
+      }
+    }
+  }
+}
+
+
+= administration cluster : 
+
+- etat de santé : 
+intégrité du cluster : 
+
+GET _cluster/health
+
+{
+  "cluster_name" : "elasticsearch",  <<< nom du cluster 
+  "status" : "green",
+  "timed_out" : false,
+  "number_of_nodes" : 3,
+  "number_of_data_nodes" : 3,
+  "active_primary_shards" : 11,   <<< nombre de shard (fragment ) primaire 
+  "active_shards" : 22,
+  "relocating_shards" : 0,
+  "initializing_shards" : 0,
+  "unassigned_shards" : 0,
+  "delayed_unassigned_shards" : 0,
+  "number_of_pending_tasks" : 0,
+  "number_of_in_flight_fetch" : 0,
+  "task_max_waiting_in_queue_millis" : 0,
+  "active_shards_percent_as_number" : 100.0
+}
+
+GET _cluster/state
+
+
+
+{
+  "cluster_name" : "elasticsearch",
+  "cluster_uuid" : "b6WLtdlNSzyVJMl6ZqiGYQ",
+  "version" : 150,
+  "state_uuid" : "ksJb1lOCRnKZ0sWlEGOvSw",
+  "master_node" : "8lCeAK5DQ1Wl4vgTTw8uRA",
+  "blocks" : { },
+  "nodes" : {
+    "zVl54Y-9RTyY6NLDaBiLyA" : {
+      "name" : "elasticsearch-master-1",
+      "ephemeral_id" : "VPCVrXvxRVmwpybe80bERg",
+      "transport_address" : "172.17.0.11:9300",
+      "attributes" : {
+        "ml.machine_memory" : "512000000",
+        "ml.max_open_jobs" : "20",
+        "xpack.installed" : "true",
+        "transform.node" : "true"
+      }
+    },
+..
+...
+
+
+GET _cluster/state/version
+
+{
+  "cluster_name" : "elasticsearch",
+  "cluster_uuid" : "b6WLtdlNSzyVJMl6ZqiGYQ",
+  "version" : 150,
+  "state_uuid" : "ksJb1lOCRnKZ0sWlEGOvSw"
+}
+
+
+GET _cluster/state/master_node
+
+{
+  "cluster_name" : "elasticsearch",
+  "cluster_uuid" : "b6WLtdlNSzyVJMl6ZqiGYQ",
+  "master_node" : "8lCeAK5DQ1Wl4vgTTw8uRA"
+}
+
+
+GET _cluster/state/nodes
+
+{
+  "cluster_name" : "elasticsearch",
+  "cluster_uuid" : "b6WLtdlNSzyVJMl6ZqiGYQ",
+  "nodes" : {
+    "zVl54Y-9RTyY6NLDaBiLyA" : {
+      "name" : "elasticsearch-master-1",
+      "ephemeral_id" : "VPCVrXvxRVmwpybe80bERg",
+      "transport_address" : "172.17.0.11:9300",
+      "attributes" : {
+        "ml.machine_memory" : "512000000",
+        "ml.max_open_jobs" : "20",
+        "xpack.installed" : "true",
+        "transform.node" : "true"
+      }
+    },
+    "FnbdoPhIS8qFi1GoO-vKTg" : {
+      "name" : "elasticsearch-master-2",
+      "ephemeral_id" : "JKVaSDF6RJmSe9kEkWFA9A",
+      "transport_address" : "172.17.0.12:9300",
+      "attributes" : {
+        "ml.machine_memory" : "512000000",
+        "ml.max_open_jobs" : "20",
+        "xpack.installed" : "true",
+        "transform.node" : "true"
+      }
+    },
+    "8lCeAK5DQ1Wl4vgTTw8uRA" : {
+      "name" : "elasticsearch-master-0",
+      "ephemeral_id" : "80fVwGrVRYSkeahu3L_uww",
+      "transport_address" : "172.17.0.13:9300",
+      "attributes" : {
+        "ml.machine_memory" : "512000000",
+        "ml.max_open_jobs" : "20",
+        "xpack.installed" : "true",
+        "transform.node" : "true"
+      }
+    }
+  }
+}
+
+
+GET _cluster/state/routing_table
+
+{
+  "cluster_name" : "elasticsearch",
+  "cluster_uuid" : "b6WLtdlNSzyVJMl6ZqiGYQ",
+  "routing_table" : {
+    "indices" : {
+      ".apm-agent-configuration" : {
+        "shards" : {
+          "0" : [
+            {
+              "state" : "STARTED",
+              "primary" : true,
+              "node" : "zVl54Y-9RTyY6NLDaBiLyA",
+              "relocating_node" : null,
+              "shard" : 0,
+              "index" : ".apm-agent-configuration",
+              "allocation_id" : {
+                "id" : "LPj2EYetS9qRrqvPLwNPvg"
+              }
+            },
+            {
+              "state" : "STARTED",
+              "primary" : false,
+              "node" : "8lCeAK5DQ1Wl4vgTTw8uRA",
+              "relocating_node" : null,
+              "shard" : 0,
+              "index" : ".apm-agent-configuration",
+              "allocation_id" : {
+                "id" : "tfrlc1fOQ6q3C9Xn2a_XuQ"
+              }
+            }
+          ]
+        }
+      },
+      "kibana_sample_data_flights" : {
+        "shards" : {
+          "0" : [
+            {
+              "state" : "STARTED",
+              "primary" : true,
+              "node" : "FnbdoPhIS8qFi1GoO-vKTg",
+              "relocating_node" : null,
+              "shard" : 0,
+              "index" : "kibana_sample_data_flights",
+              "allocation_id" : {
+                "id" : "vrMAGtylSRG0-qu5GWG8-A"
+              }
+
+....
+
+GET _cluster/state/metadata
+
+
+{
+  "cluster_name" : "elasticsearch",
+  "cluster_uuid" : "b6WLtdlNSzyVJMl6ZqiGYQ",
+  "metadata" : {
+    "cluster_uuid" : "b6WLtdlNSzyVJMl6ZqiGYQ",
+    "cluster_uuid_committed" : true,
+    "cluster_coordination" : {
+      "term" : 4,
+      "last_committed_config" : [
+        "zVl54Y-9RTyY6NLDaBiLyA",
+        "8lCeAK5DQ1Wl4vgTTw8uRA",
+        "FnbdoPhIS8qFi1GoO-vKTg"
+      ],
+      "last_accepted_config" : [
+        "zVl54Y-9RTyY6NLDaBiLyA",
+        "8lCeAK5DQ1Wl4vgTTw8uRA",
+        "FnbdoPhIS8qFi1GoO-vKTg"
+      ],
+      "voting_config_exclusions" : [ ]
+    },
+    "templates" : {
+      ".management-beats" : {
+        "order" : 0,
+        "version" : 70000,
+        "index_patterns" : [
+          ".management-beats"
+        ],
+        "settings" : {
+          "index" : {
+            "number_of_shards" : "1",
+            "auto_expand_replicas" : "0-1",
+            "codec" : "best_compression"
+          }
+        },
+        "mappings" : {
+          "_doc" : {
+            "dynamic" : "strict",
+            "properties" : {
+              "beat" : {
+                "properties" : {
+                  "host_ip" : {
+                    "type" : "ip"
+                  },
+                  "metadata" : {
+                    "dynamic" : "true",
+                    "type" : "object"
+                  },
+                  "active" :
+...
+.....
+
+
+
+GET _cluster/state/blocks
+
+{
+  "cluster_name" : "elasticsearch",
+  "cluster_uuid" : "b6WLtdlNSzyVJMl6ZqiGYQ",
+  "blocks" : { }
+}
+
+- stats de cluster :
+
+GET _cluster/stats
+
+
+{
+  "_nodes" : {
+    "total" : 3,
+    "successful" : 3,
+    "failed" : 0
+  },
+  "cluster_name" : "elasticsearch",
+  "cluster_uuid" : "b6WLtdlNSzyVJMl6ZqiGYQ",
+  "timestamp" : 1611517217510,
+  "status" : "green",
+  "indices" : {
+    "count" : 11,
+    "shards" : {
+      "total" : 22,
+      "primaries" : 11,
+      "replication" : 1.0,
+      "index" : {
+        "shards" : {
+          "min" : 2,
+          "max" : 2,
+          "avg" : 2.0
+        },
+        "primaries" : {
+          "min" : 1,
+          "max" : 1,
+          "avg" : 1.0
+        },
+        "replication" : {
+          "min" : 1.0,
+          "max" : 1.0,
+          "avg" : 1.0
+        }
+..
+
+
+
 
