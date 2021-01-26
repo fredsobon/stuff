@@ -156,9 +156,52 @@ chaque ligne est un document
 chaque colonne est un champ
 la maniere dont les docs et champs sont stockés et indexés est un mapping 
 un cluster est en ensemble de serveurs qui contient l'intégralité des données.
-un index peut être constitué de fragments qui contiennent des données.
+un index peut être constitué de fragments (shard)  qui contiennent des données.
 L'index est stocké sous format json.
 Les repliques sont les copies des fragments distribués.
+
+document oriented :  insert /delete/retrieve/analyse/search 
+mais c'est essentiellement un moteur de recherche qui va utiliser les termes de la recherche pour retrouver le document.
+comme analogie on peut prendre l'index d'un livre.
+Basé sur le moteur de recherche lucene , il utilise un index inversé "inverted index" (cf doc elasticsearch :
+https://www.elastic.co/guide/en/elasticsearch/reference/current/documents-indices.html )
+"An inverted index lists every unique word that appears in any document and identifies all of the documents each word occurs in."
+Pour créer un index inversé : tous les mots /champs  du documents vont être isolés et associés à un term ou token ensuite une liste de tous les documents dans lesquels ces mots apparaissent est créée :
+
+doc1 : le lapin nain joue
+doc2: jouer avec le lapin 
+
+terms    doc1  doc2
+le        X     X
+lapin     X     X
+nain      X
+jouer           X
+avec            X
+
+si on cherche le texte lapin nain dans quel document on a le plus de chance de le trouver ?
+-> dans le document 1 : elasticsearch utilise un algorithme de score pour ses recherches : le doc 1 a deux entrées sur le mot lapin, le doc 1 a une seule entrée sur le mot nain ...
+
+Elasticsearch est orienté document . Un document est l'unité de base qui sera indexée et présenté sous le format json.
+https://www.elastic.co/guide/en/elasticsearch/reference/6.1/_basic_concepts.html
+
+
+
+Dans un mode sgbd on stocke les données dans des tables, ligne et colonne.
+Dans elastic :
+-> les données sont stockées dans un index
+-> l'equivalent des lignes est un document dans elastic 
+-> l'equivalent d'une colonne est un champ dans elastic
+on peut donc avoir une equivalence  de type : 
+SGBD       ELASTIC
+table      index
+raw        document
+column     field 
+Attention cette comparaison est imagée et on a pas vraiment une correspondance stricte entre sgbd classic et elastic.
+
+/!\ Attention depuis la version 6 : les types disparaissent progressivement  d'elastic pour etre retirés en version 7 
+
+Quand on insere des données dans elastic on dis qu'on index.
+
 
 - kibana :
 permet de représenter les données sous forme de tableaux de bord et faire des recherches.
@@ -908,6 +951,421 @@ GET _cluster/stats
           "avg" : 1.0
         }
 ..
+
+
+- reroute :
+
+on peut vouloir deplacer les shards d'un node vers un autre :
+
+POST /_cluster/reroute
+{
+  "commands": [
+    {
+      "move": {
+        "index": "test", "shard": 0,
+        "from_node": "node1", "to_node": "node2"
+      }
+    },
+    {
+      "allocate_replica": {
+        "index": "test", "shard": 1,
+        "node": "node3"
+      }
+    }
+  ]
+}
+
+- infos sur les nodes :
+
+GET _nodes/_all
+
+
+
+- api os :
+
+GET _nodes/os 
+GET _nodes/process
+GET _nodes/http
+GET _nodes/plugins
+...
+..
+
+
+= indexation :
+
+un index est un endroit dans lequel on stocke les données
+il pointe vers un ou plusieurs shard
+shard : unite de travail qui stock une quantite de données dans l'index
+shard division de données de l'index
+Les shards sont repartis sur l'ensemble des noeuds du cluster
+
+a la creation de l'index un nombre defini de shard est défini
+
+on peut creer un index facilement :
+
+PUT index_tuto
+{
+  "settings":
+    {
+      "number_of_shards": 3,
+      "number_of_replicas": 1
+    }
+
+}
+
+> nous donne :
+
+{
+  "acknowledged" : true,
+  "shards_acknowledged" : true,
+  "index" : "index_tuto"
+}
+
+on peut maintenant requetter notre index :
+
+GET index_tuto
+
+{
+  "index_tuto" : {
+    "aliases" : { },
+    "mappings" : { },
+    "settings" : {
+      "index" : {
+        "routing" : {
+          "allocation" : {
+            "include" : {
+              "_tier_preference" : "data_content"
+            }
+          }
+        },
+        "number_of_shards" : "3",
+        "provided_name" : "index_tuto",
+        "creation_date" : "1611653514254",
+        "number_of_replicas" : "1",
+        "uuid" : "XnpwE0lbSk2JSof9215M3w",
+        "version" : {
+          "created" : "7100299"
+        }
+      }
+    }
+  }
+}
+
+
+
+
+- on peut creer notre mapping en même temps que l'index :
+
+curl -X PUT "localhost:9200/test?pretty" -H 'Content-Type: application/json' -d'
+{
+    "settings" : {
+        "number_of_shards" : 1
+    },
+    "mappings" : {
+        "_doc" : {
+            "properties" : {
+                "field1" : { "type" : "text" }
+            }
+        }
+    }
+}
+'
+/!\ attention example pri sur site es ..ne fonctionne pas ...
+
+
+- suppression d'index :
+
+DELETE test1
+
+{
+  "acknowledged" : true
+}
+
+- api de document :
+
+-> api à document unique
+
+la creation d'un records dans notre index se fait assez facilement : 
+
+PUT testo/_doc/1
+{
+  "user": "bob",
+  "age": 12
+
+}
+
+{
+  "_index" : "testo",
+  "_type" : "_doc",
+  "_id" : "1",
+  "_version" : 1,
+  "result" : "created",
+  "_shards" : {
+    "total" : 2,
+    "successful" : 2,
+    "failed" : 0
+  },
+  "_seq_no" : 0,
+  "_primary_term" : 1
+}
+
+si le param autocreate index est défini a true dans notre conf elastic, on peut donc créer un index et un premier document directement dans es ( sans passer par la creation d'un index puis ensuite dans un second temps la creation d'un doc pour cet index. )
+
+on peut modifier cette conf via l'api :
+
+
+PUT _cluster/settings
+{
+
+  "persistent":
+  {
+    "action.auto_create_index": "true"  < mettre à false si on veut désactiver cette option.
+  }
+
+}
+
+- affichage de doc :
+
+
+GET testo1/_doc/1
+
+nous donne : 
+{
+  "_index" : "testo1",
+  "_type" : "_doc",
+  "_id" : "1",
+  "_version" : 1,
+  "_seq_no" : 0,
+  "_primary_term" : 1,
+  "found" : true,
+  "_source" : {
+    "user" : "bob",
+    "age" : 12
+  }
+}
+
+- suppression de doc :
+
+DELETE testo1/_doc/1
+
+- Mise à jour du doc :
+
+on va pouvoir modifier un element de notre doc 
+
+ici le user bob present précedemment dans notre doc  va être remplacé par babar
+
+POST testo1/_doc/1/_update
+{
+  "doc":
+   {
+  "user": "babar"
+   }
+}
+
+qui nous donne donc :
+
+{
+  "_index" : "testo1",
+  "_type" : "_doc",
+  "_id" : "1",
+  "_version" : 2,
+  "_seq_no" : 4,
+  "_primary_term" : 1,
+  "found" : true,
+  "_source" : {
+    "user" : "babar",
+    "age" : 12
+  }
+}
+
+La methode a utilser est plutot maintenant :
+
+POST testo1/_update/1/
+{
+  "doc":
+   {
+  "user": "bouli"
+   }
+}
+
+qui nous donne :
+
+GET testo1/_doc/1
+
+{
+  "_index" : "testo1",
+  "_type" : "_doc",
+  "_id" : "1",
+  "_version" : 3,
+  "_seq_no" : 5,
+  "_primary_term" : 1,
+  "found" : true,
+  "_source" : {
+    "user" : "bouli",
+    "age" : 12
+  }
+}
+
+- Multi documents :
+
+
+permet d'intervenir sur plusieurs docs en même temps 
+
+GET index/_doc/_mget < recup tous les docs de l'index 
+
+GET /testo/_doc/_mget
+/!\ ne marche pas ex sur site es
+
+
+
+= Gestion de mapping :
+
+indexation > recoit le message le traite et le stocke dans un index
+recherche > recherche d'info dans l'index
+les deux phase sont liées : si l'index n'est pas bon : la recherche ne le sera pas.
+es a un mapping explicite defini.
+si on en met pas : un par defaut est associé à l'index.
+
+Il est possible de définir et modifier un mapping.
+
+
+- utilisation de la creation du mapping explicte 
+
+si on compare l'index a une  bdd 
+le mapping est similaire a la definition de la table
+
+es est capable de comprendre la structure et est capable de créer le mapping
+
+on cree un index :
+
+PUT test_mapping
+
+on va cree un doc dans notre index :
+
+PUT test_mapping/_doc/1
+{
+  "prenom": "lapin",
+  "nom": "nain"
+}
+
+
+pour voir le mapping implicte ( crée automatiquement par es sur notre index : )
+
+GET test_mapping/_mapping
+
+ce qui nous donne :
+
+{
+  "test_mapping" : {
+    "mappings" : {
+      "properties" : {
+        "nom" : {
+          "type" : "text",
+          "fields" : {
+            "keyword" : {
+              "type" : "keyword",
+              "ignore_above" : 256
+            }
+          }
+        },
+        "prenom" : {
+          "type" : "text",
+          "fields" : {
+            "keyword" : {
+              "type" : "keyword",
+              "ignore_above" : 256
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+on voit que le type des champ est détecté automatiquement par es 
+ici on a deux type text
+
+on peut donc ici facilement et rapidement insérer des données dans es ..
+
+- mapping de type de base :
+
+pour avoir des bonnes perf d'indexation on va définir des mappings 
+
+> reduction taille index sur disque
+> indexation uniquement des champs interressants > gain de perfs
+> defini correctement l'analysee du champ
+
+es permet l'utilisant de champ de base
+
+
+ PUT /my-index-000001
+{
+  "mappings": {
+    "properties": {
+      "age":    { "type": "integer" },
+      "email":  { "type": "keyword"  },
+      "name":   { "type": "text"  }
+    }
+  }
+}
+
+GET my-index-000001/_mapping
+
+{
+  "my-index-000001" : {
+    "mappings" : {
+      "properties" : {
+        "age" : {
+          "type" : "integer"
+        },
+        "email" : {
+          "type" : "keyword"
+        },
+        "name" : {
+          "type" : "text"
+        }
+      }
+    }
+  }
+}
+
+on peut avoit des setting
+
+> store : garder sur disque ou pas ( booléen)
+> index : savoir si on index ou pas le champ ( booleen )
+..
+
+- mapping de tableaux :
+
+en sql il faut plusieurs tables et faire des jointures.
+es en json prend nativement en charge les tableaux.
+
+on peut donc avoir un mapping 
+
+{
+  "properties": 
+    {
+      "name": 
+        {
+          "type": "keyword"
+        }
+      "tag:"
+        {
+          "type": "keyword",
+          "store": "true"
+        }
+
+    }
+
+}
+
+et deux docs différents :
+
+{"name": "doc1", "tag": "yes" } 
+{"name": "doc2", "tag": ["cool", "array", "story"] } 
+
+
+}
 
 
 
