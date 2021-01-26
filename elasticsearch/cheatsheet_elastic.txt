@@ -2,6 +2,8 @@
 
 == commandes utiles / usuelles ( à passer directement dans la console dev tool de kibana ou en curl depuis un membre du cluster : 
 
+Toutes les données qui commencent par "_" sont gérées par elastic. ce sont des "meta field" ajoutés et managés par elastic.
+
 - test de fonectionnement de base : 
 GET _search
 {
@@ -28,6 +30,45 @@ GET /_cluster/health?
 GET /_cat/health?pretty
 GET /_cluster/health?level=indices    <<< ici on regarde spécifiquement les index 
 
+
+GET _cluster/state
+GET _cluster/state/version
+
+{
+  "cluster_name" : "elasticsearch",
+  "cluster_uuid" : "b6WLtdlNSzyVJMl6ZqiGYQ",
+  "version" : 150,
+  "state_uuid" : "ksJb1lOCRnKZ0sWlEGOvSw"
+}
+
+
+GET _cluster/state/master_node
+
+{
+  "cluster_name" : "elasticsearch",
+  "cluster_uuid" : "b6WLtdlNSzyVJMl6ZqiGYQ",
+  "master_node" : "8lCeAK5DQ1Wl4vgTTw8uRA"
+}
+
+GET _cluster/state/nodes
+
+{
+  "cluster_name" : "elasticsearch",
+  "cluster_uuid" : "b6WLtdlNSzyVJMl6ZqiGYQ",
+  "nodes" : {
+    "zVl54Y-9RTyY6NLDaBiLyA" : {
+      "name" : "elasticsearch-master-1",
+      "ephemeral_id" : "VPCVrXvxRVmwpybe80bERg",
+      "transport_address" : "172.17.0.11:9300",
+      "attributes" : {
+        "ml.machine_memory" : "512000000",
+        "ml.max_open_jobs" : "20",
+        "xpack.installed" : "true",
+        "transform.node" : "true"
+      }
+    },
+
+....
 
 
 - voir les index 
@@ -57,6 +98,31 @@ PUT /_cluster/settings
 "cluster.routing.allocation.enable": null
   }
 }
+
+- rerouting :
+
+on peut vouloir rerouter les shards d'un index d'une machine 1 vers une machine 2 :
+
+
+POST /_cluster/reroute
+{
+  "commands": [
+    {
+      "move": {
+        "index": "test", "shard": 0,
+        "from_node": "node1", "to_node": "node2"
+      }
+    },
+    {
+      "allocate_replica": {
+        "index": "test", "shard": 1,
+        "node": "node3"
+      }
+    }
+  ]
+}
+
+
 
 
 == troubleshooting : == 
