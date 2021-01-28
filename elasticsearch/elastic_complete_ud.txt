@@ -1368,5 +1368,344 @@ et deux docs différents :
 }
 
 
+== Analyse de text et mapping : ==
+
+aspect important pour préparer les données afin d'avoir une analyse ensuite précise de données.
+
+le mapping dynamic detecte automatique le type mais peut se tromper 
+il peut donc être important de créer son mapping
+
+- analyse de text :
+
+correspond à la convertion de text en token qui sont ensuite ajoutés à l'index inversé et utilisés pour la recherche.
+chaque analyse de text est fait par un analyzer.
+
+ex : 
+Hello world! This is my first program and these are my first lines.
+
+devient après le passage de l'analyzer  :
+
+[hello, world, first, program, these, line]
+
+les mots les plus courant sont supprimés, les maj transformées en min et les pluriels passés en singulier.
+
+on peu spécifier l'analyzer dans le mapping.
+
+PUT my-test-analizer
+{
+
+  "settings":{
+      "analysis":{
+         "analyzer":{
+            "my_analyzer":{
+               "type":"custom",
+               "tokenizer":"standard",
+               "filter":[
+                  "lowercase"
+               ]
+            }
+         }
+      }
+  }
+}
+ 
+nous donne : 
+{
+  "acknowledged" : true,
+  "shards_acknowledged" : true,
+  "index" : "my-test-analizer"
+}
+
+si rien n'est défini c'est l"analyzer standant qui sera defini par default.
+
+L'analyzer est utilisé pendant l'indexation et la recherche.
+
+= structure d'analyzer
+
+un analyzer est composé de trois grands éléments :
+
+> caracter filter
+> tokenizer
+> token filter 
+
+- caracter filter :
+
+convertit le texte en un flux de caracter et peut proceder a des ajouts, suppressions ou modifs de caracteres ( ex remplacer un & du text en "and" ) ..
+
+- tokenizer :
+va decouper le flux de données en token.
+il peut par exemple utiliser l'espace pour separateur 
+Hello World! 
+devient apres le passage au tokenizer 
+[hello,world]
+
+- token filter : 
+convertisseur de flux de token (ajout, suppression, convertion de token)
+ex dans Hello World! > qui devient [hello, world] > c'est le filter de token qui a modifié en min.
 
 
+- Utilisation d'un analyzer :
+
+on peut utiliser le point d'entrée _analyze de l'api pour comprendre pour comprendre.
+
+POST _analyze
+{
+  "analyzer": "whitespace",
+  "text": "Hello World! How are you ?"
+}
+
+nous donne :
+
+{
+  "tokens" : [
+    {
+      "token" : "Hello",
+      "start_offset" : 0,
+      "end_offset" : 5,
+      "type" : "word",
+      "position" : 0
+    },
+    {
+      "token" : "World!",
+      "start_offset" : 6,
+      "end_offset" : 12,
+      "type" : "word",
+      "position" : 1
+    },
+    {
+      "token" : "How",
+      "start_offset" : 13,
+      "end_offset" : 16,
+      "type" : "word",
+      "position" : 2
+    },
+    {
+      "token" : "are",
+      "start_offset" : 17,
+      "end_offset" : 20,
+      "type" : "word",
+      "position" : 3
+    },
+    {
+      "token" : "you",
+      "start_offset" : 21,
+      "end_offset" : 24,
+      "type" : "word",
+      "position" : 4
+    },
+    {
+      "token" : "?",
+      "start_offset" : 25,
+      "end_offset" : 26,
+      "type" : "word",
+      "position" : 5
+    }
+  ]
+}
+
+example avec un filter :
+
+
+POST _analyze
+{
+  "tokenizer": "standard",
+  "filter": ["lowercase"],
+  "text": "Hello World! How are you ?"
+}
+
+nous donne :
+
+{
+  "tokens" : [
+    {
+      "token" : "hello",
+      "start_offset" : 0,
+      "end_offset" : 5,
+      "type" : "<ALPHANUM>",
+      "position" : 0
+    },
+    {
+      "token" : "world",
+      "start_offset" : 6,
+      "end_offset" : 11,
+      "type" : "<ALPHANUM>",
+      "position" : 1
+    },
+    {
+      "token" : "how",
+      "start_offset" : 13,
+      "end_offset" : 16,
+      "type" : "<ALPHANUM>",
+      "position" : 2
+    },
+    {
+      "token" : "are",
+      "start_offset" : 17,
+      "end_offset" : 20,
+      "type" : "<ALPHANUM>",
+      "position" : 3
+    },
+    {
+      "token" : "you",
+      "start_offset" : 21,
+      "end_offset" : 24,
+      "type" : "<ALPHANUM>",
+      "position" : 4
+    }
+  ]
+}
+
+
+- analyzer customisé :
+
+on peut construire un analyzer personnalisé pour rechercher dans notre index :
+
+PUT custom_analyser
+{
+   "settings":{
+      "analysis":{
+         "analyzer":{
+            "my_analyzer":{ 
+               "type":"custom",
+               "tokenizer":"standard",
+               "filter":[
+                  "lowercase"
+               ]
+            },
+            "my_stop_analyzer":{ 
+               "type":"custom",
+               "tokenizer":"standard",
+               "filter":[
+                  "lowercase",
+                  "english_stop"
+               ]
+            }
+         },
+         "filter":{
+            "english_stop":{
+               "type":"stop",
+               "stopwords":"_english_"
+            }
+         }
+      }
+   },
+   "mappings":{
+       "properties":{
+          "title": {
+             "type":"text",
+             "analyzer":"my_analyzer", 
+             "search_analyzer":"my_stop_analyzer", 
+             "search_quote_analyzer":"my_analyzer" 
+         }
+      }
+   }
+}
+
+{
+  "acknowledged" : true,
+  "shards_acknowledged" : true,
+  "index" : "custom_analyser"
+}
+
+on pourra ensuite rechercher dans un index en utilisant et spécifiant l'analyzer custom qu'on a créer 
+
+GET custom_analyser
+  {
+    "analyzer": "my_analyzer",
+    "text": "LAPIN NAIN"
+
+  }
+
+{
+  "custom_analyser" : {
+    "aliases" : { },
+    "mappings" : {
+      "properties" : {
+        "title" : {
+          "type" : "text",
+          "analyzer" : "my_analyzer",
+          "search_analyzer" : "my_stop_analyzer",
+          "search_quote_analyzer" : "my_analyzer"
+        }
+      }
+    },
+    "settings" : {
+      "index" : {
+        "routing" : {
+          "allocation" : {
+            "include" : {
+              "_tier_preference" : "data_content"
+            }
+          }
+        },
+        "number_of_shards" : "1",
+        "provided_name" : "custom_analyser",
+        "creation_date" : "1611826352794",
+        "analysis" : {
+          "filter" : {
+            "english_stop" : {
+              "type" : "stop",
+              "stopwords" : "_english_"
+            }
+          },
+          "analyzer" : {
+            "my_analyzer" : {
+              "filter" : [
+                "lowercase"
+              ],
+              "type" : "custom",
+              "tokenizer" : "standard"
+            },
+            "my_stop_analyzer" : {
+              "filter" : [
+                "lowercase",
+                "english_stop"
+              ],
+              "type" : "custom",
+              "tokenizer" : "standard"
+            }
+          }
+        },
+        "number_of_replicas" : "1",
+        "uuid" : "KtMQDe87TJ2ZOv7Q5Fxn2A",
+        "version" : {
+          "created" : "7100299"
+        }
+      }
+    }
+  }
+}
+  
+= analyzer standard : 
+
+basé sur unicode et utilisé par défaut si rien n'est spécifié.
+Il accepte certains params :
+
+max_token_lenght > taille maxi de caractere dans le token ( si le mot dépasse la taille max : il est coupé. )
+stopword : definit une liste de mot d'arret predefini ( mots vides de sens "à , vers ..) on peut conserver ou nettoyé  . On peut definir le param english utilise les mots anglais pour le tri
+
+
+PUT custom_analyser2
+{
+   "settings":{
+      "analysis":{
+         "analyzer":{
+            "my_analyzer":{
+               "type":"standard",
+               "max_token_lenght": 10,
+               "stopwords": "english"
+            }
+         }
+      }
+   }
+}
+
+POST custom_analyser2/_analyze
+{
+  "analyzer": "my_analyzer",
+  "text": "grandmotdeplusdedix caracteres"
+
+}
+
+
+v36
