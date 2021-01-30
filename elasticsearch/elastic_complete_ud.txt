@@ -1,8 +1,5 @@
 === elasticsearch complete udfr===
 
-
-
-
 == setup elastic : helm - minikube : == 
 
 helm repo add elastic https://helm.elastic.co
@@ -140,8 +137,6 @@ on fait un port forward pour accéder à l'interface kibana :
 kubectl port-forward kibana-kibana-84579f77bc-vn8nh 5601
 
 
-
-
 === fin set up helm elastic sur minikube ===
 
 = presention : =
@@ -161,7 +156,7 @@ L'index est stocké sous format json.
 Les repliques sont les copies des fragments distribués.
 
 document oriented :  insert /delete/retrieve/analyse/search 
-mais c'est essentiellement un moteur de recherche qui va utiliser les termes de la recherche pour retrouver le document.
+c'est essentiellement un moteur de recherche qui va utiliser les termes de la recherche pour retrouver le document.
 comme analogie on peut prendre l'index d'un livre.
 Basé sur le moteur de recherche lucene , il utilise un index inversé "inverted index" (cf doc elasticsearch :
 https://www.elastic.co/guide/en/elasticsearch/reference/current/documents-indices.html )
@@ -184,8 +179,6 @@ si on cherche le texte lapin nain dans quel document on a le plus de chance de l
 Elasticsearch est orienté document . Un document est l'unité de base qui sera indexée et présenté sous le format json.
 https://www.elastic.co/guide/en/elasticsearch/reference/6.1/_basic_concepts.html
 
-
-
 Dans un mode sgbd on stocke les données dans des tables, ligne et colonne.
 Dans elastic :
 -> les données sont stockées dans un index
@@ -201,7 +194,6 @@ Attention cette comparaison est imagée et on a pas vraiment une correspondance 
 /!\ Attention depuis la version 6 : les types disparaissent progressivement  d'elastic pour etre retirés en version 7 
 
 Quand on insere des données dans elastic on dis qu'on index.
-
 
 - kibana :
 permet de représenter les données sous forme de tableaux de bord et faire des recherches.
@@ -332,13 +324,11 @@ curl -X GET "http://localhost:9200/_analyze?pretty" -H "Content-Type: applicatio
 
 ici on voit que tous les termes sont enregistrés ( même le "!" ) et considérés comme des mots.
 
-
 Il va être possible de créer nos analyzers personaliser 
 on peut aussi personaliser les analyzers
 on peut changer un analyzer par defaut
 
 - mapping :
-
 
  une fois qu'on enregistre un document et un type pour un champ on ne peut pas le modifier par la suite : 
  ex ici on crée un clé "valid" en entier : 
@@ -711,8 +701,6 @@ GET _cluster/health
 
 GET _cluster/state
 
-
-
 {
   "cluster_name" : "elasticsearch",
   "cluster_uuid" : "b6WLtdlNSzyVJMl6ZqiGYQ",
@@ -903,8 +891,6 @@ GET _cluster/state/metadata
 ...
 .....
 
-
-
 GET _cluster/state/blocks
 
 {
@@ -979,8 +965,6 @@ POST /_cluster/reroute
 
 GET _nodes/_all
 
-
-
 - api os :
 
 GET _nodes/os 
@@ -991,14 +975,13 @@ GET _nodes/plugins
 ..
 
 
-= indexation :
+== indexation :
 
 un index est un endroit dans lequel on stocke les données
 il pointe vers un ou plusieurs shard
 shard : unite de travail qui stock une quantite de données dans l'index
 shard division de données de l'index
 Les shards sont repartis sur l'ensemble des noeuds du cluster
-
 a la creation de l'index un nombre defini de shard est défini
 
 on peut creer un index facilement :
@@ -1050,8 +1033,6 @@ GET index_tuto
     }
   }
 }
-
-
 
 
 - on peut creer notre mapping en même temps que l'index :
@@ -1125,7 +1106,6 @@ PUT _cluster/settings
 }
 
 - affichage de doc :
-
 
 GET testo1/_doc/1
 
@@ -1208,15 +1188,12 @@ GET testo1/_doc/1
 
 - Multi documents :
 
-
 permet d'intervenir sur plusieurs docs en même temps 
 
 GET index/_doc/_mget < recup tous les docs de l'index 
 
 GET /testo/_doc/_mget
 /!\ ne marche pas ex sur site es
-
-
 
 = Gestion de mapping :
 
@@ -1227,7 +1204,6 @@ es a un mapping explicite defini.
 si on en met pas : un par defaut est associé à l'index.
 
 Il est possible de définir et modifier un mapping.
-
 
 - utilisation de la creation du mapping explicte 
 
@@ -1247,7 +1223,6 @@ PUT test_mapping/_doc/1
   "prenom": "lapin",
   "nom": "nain"
 }
-
 
 pour voir le mapping implicte ( crée automatiquement par es sur notre index : )
 
@@ -1329,7 +1304,7 @@ GET my-index-000001/_mapping
   }
 }
 
-on peut avoit des setting
+on peut avoir des setting
 
 > store : garder sur disque ou pas ( booléen)
 > index : savoir si on index ou pas le champ ( booleen )
@@ -1367,8 +1342,7 @@ et deux docs différents :
 
 }
 
-
-== Analyse de text et mapping : ==
+== Analyse de text et mapping : 
 
 aspect important pour préparer les données afin d'avoir une analyse ensuite précise de données.
 
@@ -1416,8 +1390,7 @@ nous donne :
   "index" : "my-test-analizer"
 }
 
-si rien n'est défini c'est l"analyzer standant qui sera defini par default.
-
+si rien n'est défini c'est l"analyzer standard qui sera defini par default.
 L'analyzer est utilisé pendant l'indexation et la recherche.
 
 = structure d'analyzer
@@ -1429,24 +1402,20 @@ un analyzer est composé de trois grands éléments :
 > token filter 
 
 - caracter filter :
-
 convertit le texte en un flux de caracter et peut proceder a des ajouts, suppressions ou modifs de caracteres ( ex remplacer un & du text en "and" ) ..
-
 - tokenizer :
 va decouper le flux de données en token.
 il peut par exemple utiliser l'espace pour separateur 
 Hello World! 
 devient apres le passage au tokenizer 
 [hello,world]
-
 - token filter : 
 convertisseur de flux de token (ajout, suppression, convertion de token)
 ex dans Hello World! > qui devient [hello, world] > c'est le filter de token qui a modifié en min.
 
-
 - Utilisation d'un analyzer :
 
-on peut utiliser le point d'entrée _analyze de l'api pour comprendre pour comprendre.
+on peut utiliser le point d'entrée _analyze de l'api pour comprendre.
 
 POST _analyze
 {
@@ -1504,8 +1473,6 @@ nous donne :
 }
 
 example avec un filter :
-
-
 POST _analyze
 {
   "tokenizer": "standard",
@@ -1555,9 +1522,7 @@ nous donne :
   ]
 }
 
-
 - analyzer customisé :
-
 on peut construire un analyzer personnalisé pour rechercher dans notre index :
 
 PUT custom_analyser
@@ -1707,5 +1672,792 @@ POST custom_analyser2/_analyze
 
 }
 
+- analyseur simple :
 
-v36
+divise le texte en interval a chaque fois qu'il rencontre des caracteres nons alphabetiques.
+il ne peut pas etre configuré pour du numerique et contient des tokenizer de type lowercase.
+
+si on cree un analyzer simple et que dans notre text on a par example des chiffres : ceux ci ne seront donc pas pri en compte et isolé dans un token :
+
+PUT analyzer_simple
+{
+   "settings":{
+      "analysis":{
+         "analyzer":{
+            "my_simple":{
+               "tokenizer": "lowercase",
+               "filter": ["lowercase", "asciifolding"]
+            
+              
+            }
+         }
+      }
+   }
+} 
+en envoyant du text contenant des chiffres : 
+POST analyzer_simple/_analyze
+{
+  "analyzer": "my_simple",
+  "text": "les 2 lapins"
+  
+}
+
+on voit que le text analysé ne contient que 2 tokens :
+
+{
+  "tokens" : [
+    {
+      "token" : "les",
+      "start_offset" : 0,
+      "end_offset" : 3,
+      "type" : "word",
+      "position" : 0
+    },
+    {
+      "token" : "lapins",
+      "start_offset" : 6,
+      "end_offset" : 12,
+      "type" : "word",
+      "position" : 1
+    }
+  ]
+}
+
+- analyser whitespace :
+
+decompose le texte des qu'il rencontre un espace blanc
+on peut eventuellement le customiser 
+
+- analyser stop : 
+
+va supprimer les mots "vides" en anglais.
+
+n peut customiser et definirt nous même les mots "vides" :
+
+ex :
+
+
+PUT analyzer_stopword
+{
+   "settings":{
+      "analysis":{
+         "analyzer":{
+            "my_stop":{
+               "type": "stop",
+               "stopwords": ["rabbit", "and", "english"]
+
+
+            }
+         }
+      }
+   }
+}
+
+
+
+
+PUT analyzer_stopword
+{
+   "settings":{
+      "analysis":{
+         "analyzer":{
+            "my_stop":{
+               "type": "stop",
+               "stopwords": ["rabbit", "and", "_english_"]
+            
+              
+            }
+         }
+      }
+   }
+} 
+
+POST analyzer_stopword/_analyze
+{
+   "analyzer": "my_stop",
+   "text": "1 rabbit and or 1 rat"
+  
+}
+
+nous donne :
+{
+  "tokens" : [
+    {
+      "token" : "or",
+      "start_offset" : 13,
+      "end_offset" : 15,
+      "type" : "word",
+      "position" : 2
+    },
+    {
+      "token" : "rat",
+      "start_offset" : 18,
+      "end_offset" : 21,
+      "type" : "word",
+      "position" : 3
+    }
+  ]
+}
+
+
+- analyzer keyword :
+
+ renvoit la chaine entiere sous forme de token 
+
+- analyzer de pattern :
+
+divise le text en terme en fonction de regex .
+la regex doit correspondre au séparateur de token.
+
+l'utilisation de base : 
+POST _analyze
+{
+  "analyzer": "pattern",
+  "text": "This is my text 1"
+
+}
+
+nous donne 
+
+{
+  "tokens" : [
+    {
+      "token" : "this",
+      "start_offset" : 0,
+      "end_offset" : 4,
+      "type" : "word",
+      "position" : 0
+    },
+    {
+      "token" : "is",
+      "start_offset" : 5,
+      "end_offset" : 7,
+      "type" : "word",
+      "position" : 1
+    },
+    {
+      "token" : "my",
+      "start_offset" : 8,
+      "end_offset" : 10,
+      "type" : "word",
+      "position" : 2
+    },
+    {
+      "token" : "text",
+      "start_offset" : 11,
+      "end_offset" : 15,
+      "type" : "word",
+      "position" : 3
+    },
+    {
+      "token" : "1",
+      "start_offset" : 16,
+      "end_offset" : 17,
+      "type" : "word",
+      "position" : 4
+    }
+  ]
+}
+
+on peut definir un pattern personalisé :
+example ici on considere que tous les caracteres non alphanum et le "_" sont des separateurs pour isoler les mots d'une adresse mail par ex  
+
+PUT analyzer_pattern
+{
+   "settings":{
+      "analysis":{
+         "analyzer":{
+            "email_pattern":{
+               "type": "pattern",
+               "pattern": "\\W|_",
+               "Lowercase": true
+
+            }
+         }
+      }
+   }
+}
+
+POST analyzer_pattern/_analyze
+{
+  "analyzer": "email_pattern",
+  "text": "John_Do@bob-net.com"
+
+nous donne :
+
+{
+  "tokens" : [
+    {
+      "token" : "john",
+      "start_offset" : 0,
+      "end_offset" : 4,
+      "type" : "word",
+      "position" : 0
+    },
+    {
+      "token" : "do",
+      "start_offset" : 5,
+      "end_offset" : 7,
+      "type" : "word",
+      "position" : 1
+    },
+    {
+      "token" : "bob",
+      "start_offset" : 8,
+      "end_offset" : 11,
+      "type" : "word",
+      "position" : 2
+    },
+    {
+      "token" : "net",
+      "start_offset" : 12,
+      "end_offset" : 15,
+      "type" : "word",
+      "position" : 3
+    },
+    {
+      "token" : "com",
+      "start_offset" : 16,
+      "end_offset" : 19,
+      "type" : "word",
+      "position" : 4
+    }
+  ]
+}
+
+
+il y a encore d'autres analysers.
+
+
+= normalizer :
+
+type d'analyzer : au lieu de produire plusieurs token : ils n'en produisent qu'un.
+filtre :
+asciifolding, lowercase, uppercase ...
+
+= tokenizer : 
+
+comme on l'a vu , ils prennent le flux de text rentrant et par default definissent en token chaque mot séparé par un ou des espaces.
+
+- standard :
+utilise la segmentation de base pour diviser le texte :
+
+POST  _analyze
+{
+  "tokenizer": "standard",
+  "text": "Who's in the kitchen ?"
+}
+
+{
+  "tokens" : [
+    {
+      "token" : "Who's",
+      "start_offset" : 0,
+      "end_offset" : 5,
+      "type" : "<ALPHANUM>",
+      "position" : 0
+    },
+    {
+      "token" : "in",
+      "start_offset" : 6,
+      "end_offset" : 8,
+      "type" : "<ALPHANUM>",
+      "position" : 1
+    },
+    {
+      "token" : "the",
+      "start_offset" : 9,
+      "end_offset" : 12,
+      "type" : "<ALPHANUM>",
+      "position" : 2
+    },
+    {
+      "token" : "kitchen",
+      "start_offset" : 13,
+      "end_offset" : 20,
+      "type" : "<ALPHANUM>",
+      "position" : 3
+    }
+  ]
+}
+
+on peut mettre des paramètres 
+max token lenght ... 
+
+- tokenizer : de lettres 
+
+chaque fois que du texte n'est pas une lettre c'est exclu :
+
+POST  _analyze
+{
+  "tokenizer": "letter",
+  "text": "Who's in the kitchen ?"
+}
+
+
+{
+  "tokens" : [
+    {
+      "token" : "Who",
+      "start_offset" : 0,
+      "end_offset" : 3,
+      "type" : "word",
+      "position" : 0
+    },
+    {
+      "token" : "s",
+      "start_offset" : 4,
+      "end_offset" : 5,
+      "type" : "word",
+      "position" : 1
+    },
+    {
+      "token" : "in",
+      "start_offset" : 6,
+      "end_offset" : 8,
+      "type" : "word",
+      "position" : 2
+    },
+    {
+      "token" : "the",
+      "start_offset" : 9,
+      "end_offset" : 12,
+      "type" : "word",
+      "position" : 3
+    },
+    {
+      "token" : "kitchen",
+      "start_offset" : 13,
+      "end_offset" : 20,
+      "type" : "word",
+      "position" : 4
+    }
+  ]
+}
+
+on voit que le "'" a disparu.
+
+- tokenizer de lowercase :
+
+transforme les caracteres maj en min 
+
+POST  _analyze
+{
+  "tokenizer": "lowercase",
+  "text": "Who's in the kitchen ?"
+}
+
+
+{
+  "tokens" : [
+    {
+      "token" : "who",
+      "start_offset" : 0,
+      "end_offset" : 3,
+      "type" : "word",
+      "position" : 0
+    },
+    {
+      "token" : "s",
+      "start_offset" : 4,
+      "end_offset" : 5,
+      "type" : "word",
+      "position" : 1
+    },
+    {
+      "token" : "in",
+      "start_offset" : 6,
+      "end_offset" : 8,
+      "type" : "word",
+      "position" : 2
+    },
+    {
+      "token" : "the",
+      "start_offset" : 9,
+      "end_offset" : 12,
+      "type" : "word",
+      "position" : 3
+    },
+    {
+      "token" : "kitchen",
+      "start_offset" : 13,
+      "end_offset" : 20,
+      "type" : "word",
+      "position" : 4
+    }
+  ]
+}
+
+- tokenizer : whitespace 
+
+a chaque fois qu'on a un espace > token / mot individuel 
+
+- tokenizer keyword :
+
+genere le texte en un seul token.
+
+POST  _analyze
+{
+  "tokenizer": "keyword",
+  "text": "Who's in the kitchen ?"
+}
+
+{
+  "tokens" : [
+    {
+      "token" : "Who's in the kitchen ?",
+      "start_offset" : 0,
+      "end_offset" : 22,
+      "type" : "word",
+      "position" : 0
+    }
+  ]
+}
+on peut definir le nombre de caracteres lu dans le buffer size 
+
+- tokenizer de pattern :
+
+utilisation de regex 
+
+le pattern de base sans précision est : \W+ : separateur habituel d'espace blanc.
+
+POST  _analyze
+{
+  "tokenizer": "pattern",
+  "text": "Who's in the kitchen ?"
+}
+
+{
+  "tokens" : [
+    {
+      "token" : "Who",
+      "start_offset" : 0,
+      "end_offset" : 3,
+      "type" : "word",
+      "position" : 0
+    },
+    {
+      "token" : "s",
+      "start_offset" : 4,
+      "end_offset" : 5,
+      "type" : "word",
+      "position" : 1
+    },
+    {
+      "token" : "in",
+      "start_offset" : 6,
+      "end_offset" : 8,
+      "type" : "word",
+      "position" : 2
+    },
+    {
+      "token" : "the",
+      "start_offset" : 9,
+      "end_offset" : 12,
+      "type" : "word",
+      "position" : 3
+    },
+    {
+      "token" : "kitchen",
+      "start_offset" : 13,
+      "end_offset" : 20,
+      "type" : "word",
+      "position" : 4
+    }
+  ]
+}
+
+on peut parametrer exemple ici séparer chaque mot en considérant "," comme séparateur.
+
+PUT token_pattern
+
+{
+ "settings": {
+    "analysis": {
+       "analyzer": {
+          "my_analyzer_pattern": {
+           "tokenizer": "my_token_pattern"
+           }
+         },
+        "tokenizer": {
+          "my_token_pattern": {
+              "type": "pattern",
+              "pattern": ","
+          }
+         }
+      }
+    }
+}
+
+POST token_pattern/_analyze
+
+{
+  "analyzer": "my_analyzer_pattern",
+  "text": "Who, is , it ?"
+
+
+}
+
+/!\ Exemple ne fonctionne pas   
+
+
+- filtres de tokenizer :
+
+peut ajouter, modifier, supprimer les données recues 
+lowercase, uppercase, stop, reverse (inversion des tokens), elision (ex: l'avion devient avion) ,unique , truncate  ....
+
+- filtres de caracteres :
+
+filtre les données en entrées avant d'envoyer au tokenizer
+
+>html_strip : supprimer les caracteres des éléments html
+
+on peut ajouter un filtre de tokenizer html_strip
+
+PUT cust_html
+{
+  "settings": {
+    "analysis": {
+      "analyzer": {
+        "my_analyzer": {
+          "tokenizer": "keyword",
+          "char_filter": [
+            "html_strip"
+          ]
+        }
+      }
+    }
+  }
+}
+
+
+
+GET cust_html/_analyze
+{
+  "tokenizer": "keyword",
+  "char_filter": [
+    "html_strip"
+  ],
+  "text": "<p>Oh yeah <b>happy</b>!</p>"
+}
+
+
+{
+  "tokens" : [
+    {
+      "token" : """
+Oh yeah happy!
+""",
+      "start_offset" : 0,
+      "end_offset" : 28,
+      "type" : "word",
+      "position" : 0
+    }
+  ]
+}
+
+- filtre de caractere de mapping :
+
+
+
+- filtre de pattern :
+
+
+
+== Recherche dans elasticsearch : 
+
+il peut être important de comprendre le contexte et ajuster correctement la recherche de données.
+on peut modifier des paramétrages pour accelerer la recherche 
+
+des éléments interviennent dans la recherche :
+
+> temps de reponse entre noeud master et noeuds contenant les données
+> temps de reponse sur les requettes de recherche précédentes effectuées sur un noeud data
+> taille de fille d'attente des requettes envoyées aux noeuds master
+
+on peut definir 
+cluster_routing adaptative > true 
+
+https://www.elastic.co/guide/en/elasticsearch/reference/current/search-shard-routing.html
+
+
+Adaptive replica selection
+By default, Elasticsearch uses adaptive replica selection to route search requests. This method selects an eligible node using shard allocation awareness and the following criteria:
+
+Response time of prior requests between the coordinating node and the eligible node
+How long the eligible node took to run previous searches
+Queue size of the eligible node’s search threadpool
+Adaptive replica selection is designed to decrease search latency. 
+However, you can disable adaptive replica selection by setting cluster.routing.use_adaptive_replica_selection to false using the cluster settings API. If disabled, Elasticsearch routes search requests using a round-robin method, which may result in slower searches.
+
+cluster.routing.use_adaptive_replica_selection  >  true de base
+on peut parametre le temps de recherche max :
+search.default.search.timeout 
+
+beacoup de params sont a prendre en compte et sont potentiellement a ajuster en fonction de notre infra matérielle et de nos data 
+search.low_level_cancellation
+max_concurrent_shard_request
+action.search_shard_count.limit
+
+Api de recherche :
+
+> _search
+contruction de requette 
+
+_search?
+q > query
+clé:valeur recherchée 
+
+GET  kibana_sample_data_ecommerce/_search?q=user:jason
+
+{
+  "took" : 8,
+  "timed_out" : false,
+  "_shards" : {
+    "total" : 1,
+    "successful" : 1,
+    "skipped" : 0,
+    "failed" : 0
+  },
+  "hits" : {
+    "total" : {
+      "value" : 65,
+      "relation" : "eq"
+    },
+    "max_score" : 4.268148,
+    "hits" : [
+      {
+        "_index" : "kibana_sample_data_ecommerce",
+        "_type" : "_doc",
+        "_id" : "iC3XUncB_UDcOEMa5Rdi",
+        "_score" : 4.268148,
+        "_source" : {
+          "category" : [
+            "Men's Accessories",
+            "Men's Clothing"
+          ],
+          "currency" : "EUR",
+          "customer_first_name" : "Jason",
+          "customer_full_name" : "Jason Cummings",
+          "customer_gender" : "MALE",
+          "customer_id" : 16,
+          "customer_last_name" : "Cummings",
+          "customer_phone" : "",
+          "day_of_week" : "Wednesday",
+          "day_of_week_i" : 2,
+          "email" : "jason@cummings-family.zzz",
+          "manufacturer" : [
+            "Low Tide Media",
+            "Elitelligence"
+          ],
+...
+.....
+
+on peut egalement rechercher des infos avec des tags 
+
+
+
+GET  kibana_sample_data_ecommerce/_search?q=tag:lapin
+
+on peut chercher dans tous les index :
+exemple : 
+GET _all/_search?q=order_id:*
+
+on peut passer des params à notre recherche 
+
+q > query comme on l'a vu
+df > champ par default
+analyser > analyser utilisé pour la recherche
+explain > contient l'explication du détail du score retrouvé.
+stored_field > 
+timeout > temps max de la requette
+
+https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-query-string-query.html
+
+
+on peut definir le nbr d'elément retourné par la requette :
+
+https://www.elastic.co/guide/en/elasticsearch/reference/current/paginate-search-results.html
+
+par defaut le nbr d'entrées retournées est de 10 mais on peut définir à partir de quel élément on veut le retour et le nbr d'élément 
+
+
+GET /_search
+{
+  "from": 5,
+  "size": 20,
+  "query": {
+    "match": {
+      "user.id": "kimchy"
+    }
+  }
+}
+
+on peut trier par documents en utilisant des fonctions ( sort ...) 
+
+https://www.elastic.co/guide/en/elasticsearch/reference/current/sort-search-results.html
+
+ex :
+
+on cree deux index contenant un doc contenant avec une valeur de prix pour chocloat 
+
+on peut ensuite établir notre recherche avec des criteres : ex tri num decroissant  : 
+
+ce qui nous donne :
+
+ PUT /my-index-000001/_doc/1?refresh
+{
+   "product": "chocolate",
+   "price": 7
+}
+
+PUT /my-index-000002/_doc/1?refresh
+{
+   "product": "chocolate",
+   "price": 4
+}
+
+
+POST /_search
+{
+   "query" : {
+      "term" : { "product" : "chocolate" }
+   },
+   "sort" : [
+      {"price" : {"order" : "desc", "mode" : "avg"}}
+   ]
+}   
+  }
+}
+
+le resultat est bien celui attendu par ordre de tri : 
+      {
+        "_index" : "my-index-000001",
+        "_type" : "_doc",
+        "_id" : "1",
+        "_score" : null,
+        "_source" : {
+          "product" : "chocolate",
+          "price" : 7
+        },
+        "sort" : [
+          7
+        ]
+      },
+      {
+        "_index" : "my-index-000002",
+        "_type" : "_doc",
+        "_id" : "1",
+        "_score" : null,
+        "_source" : {
+          "product" : "chocolate",
+          "price" : 4
+        },
+        "sort" : [
+          4
+        ]
+      }
+    ]
+  }
+}
+
