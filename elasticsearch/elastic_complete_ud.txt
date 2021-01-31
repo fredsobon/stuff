@@ -2461,3 +2461,453 @@ le resultat est bien celui attendu par ordre de tri :
   }
 }
 
+
+
+
+- doc_values
+Most fields are indexed by default, which makes them searchable. The inverted index allows queries to look up the search term in unique sorted list of terms, and from that immediately have access to the list of documents that contain the term.
+
+Sorting, aggregations, and access to field values in scripts requires a different data access pattern. Instead of looking up the term and finding documents, we need to be able to look up the document and find the terms that it has in a field.
+
+Doc values are the on-disk data structure, built at document index time, which makes this data access pattern possible. They store the same values as the _source but in a column-oriented fashion that is way more efficient for sorting and aggregations. Doc values are supported on almost all field types, with the notable exception of analyzed string fields.
+
+All fields which support doc values have them enabled by default. If you are sure that you don’t need to sort or aggregate on a field, or access the field value from a script, you can disable doc values in order to save disk space:
+
+PUT my_index
+{
+  "mappings": {
+    "_doc": {
+      "properties": {
+        "status_code": {                      <<< on ne precise pas le doc_value : enable par default
+          "type":       "keyword"
+        },
+        "session_id": { 
+          "type":       "keyword",
+          "doc_values": false                <<<< ici on désactive volontairement
+        }
+      }
+    }
+  }
+}
+
+> The status_code field has doc_values enabled by default.
+>The session_id has doc_values disabled, but can still be queried.
+
+
+
+
+- recherche par champ field :
+
+Fields
+The stored_fields parameter is about fields that are explicitly marked as stored in the mapping, which is OFF by default and generally NOT recommended. Use source filtering instead to select subsets of the original source document to be returned.
+
+
+
+
+Doc value Fieldsedit
+Allows to return the doc value representation of a field for each hit, for example:
+
+GET /_search
+{
+    "query" : {
+        "match_all": {}
+    },
+    "docvalue_fields" : [
+        {
+            "field": "my_ip_field",   >>> the name of the field
+            "format": "use_field_mapping" >>> the special use_field_mapping format tells Elasticsearch to use the format from the mapping
+        },
+        {
+            "field": "my_date_field",      >>> date fields may use a custom format
+            "format": "epoch_millis"
+        }
+    ]
+}
+
+Doc value fields can work on fields that are not stored.
+
+* can be used as a wild card, for example:
+
+GET /_search
+{
+    "query" : {
+        "match_all": {}
+    },
+    "docvalue_fields" : [
+        {
+            "field": "*field",
+            "format": "use_field_mapping"
+        }
+    ]
+}
+
+
+= type de recherche :
+
+l'operation de recherche est faite sur tous les shards. Les resultats sont recup et triés par le master.
+
+
+https://www.elastic.co/guide/en/elasticsearch/reference/current/search.html
+
+différentes méthodes existent 
+
+ex : template, shards ...
+
+GET food/_search_shards
+
+{
+  "nodes" : {
+    "FnbdoPhIS8qFi1GoO-vKTg" : {
+      "name" : "elasticsearch-master-2",
+      "ephemeral_id" : "QTlcV7zXQPWJFUnDtz76zw",
+      "transport_address" : "172.17.0.10:9300",
+      "attributes" : {
+        "ml.machine_memory" : "512000000",
+        "ml.max_open_jobs" : "20",
+        "xpack.installed" : "true",
+        "transform.node" : "true"
+      }
+    },
+    "zVl54Y-9RTyY6NLDaBiLyA" : {
+      "name" : "elasticsearch-master-1",
+      "ephemeral_id" : "aKlmE9aDS2iJTA0I0xMeTQ",
+      "transport_address" : "172.17.0.19:9300",
+      "attributes" : {
+        "ml.machine_memory" : "512000000",
+        "xpack.installed" : "true",
+        "transform.node" : "true",
+        "ml.max_open_jobs" : "20"
+      }
+    }
+  },
+  "indices" : {
+    "food" : { }
+  },
+  "shards" : [
+    [
+      {
+        "state" : "STARTED",
+        "primary" : true,
+        "node" : "FnbdoPhIS8qFi1GoO-vKTg",
+        "relocating_node" : null,
+        "shard" : 0,
+        "index" : "food",
+        "allocation_id" : {
+          "id" : "LOEuIpzQQ_C5BkeA8oWYbg"
+        }
+      },
+      {
+        "state" : "STARTED",
+        "primary" : false,
+        "node" : "zVl54Y-9RTyY6NLDaBiLyA",
+        "relocating_node" : null,
+        "shard" : 0,
+        "index" : "food",
+        "allocation_id" : {
+          "id" : "4Lcaw597QV-L0I-iJFIikg"
+        }
+      }
+    ]
+  ]
+}
+
+COUNT :
+ GET /my-index-000001/_count?q=product
+
+
+{
+  "count" : 0,
+  "_shards" : {
+    "total" : 1,
+    "successful" : 1,
+    "skipped" : 0,
+    "failed" : 0
+  }
+}
+
+- validate : 
+
+on peut utiliser la fonction de validation d'un requette pour voir si la requette sera couteuse : 
+
+GET my-index-000001/_validate/query?q=product
+
+{
+  "_shards" : {
+    "total" : 1,
+    "successful" : 1,
+    "failed" : 0
+  },
+  "valid" : true
+}
+
+
+== Aggregation :
+
+https://www.elastic.co/guide/en/elasticsearch/reference/current/search-aggregations.html
+
+on peut regrouper les data pour les présenter sous formes de graphs.Plusieurs type d'aggrégations :
+
+> metrics
+> bucket 
+> pipeline
+...
+
+
+
+GET /my-index-000001/_search
+{
+  "aggs": {
+    "my-agg-name": {
+      "terms": {
+        "field": "my-field"
+      }
+    }
+  }
+}
+
+
+
+Preparation du dataset pour travailler nos données : on injecte les datatests présentes dans kibana ex index kibana_sample_data_ecommerce
+
+- on tri par type de produits avec un résultat de 10 records 
+
+POST kibana_sample_data_ecommerce/_search?size=0
+{
+  "aggs": {
+    "tag": {
+      "terms": {
+        "field": "products",
+        "size": 10
+      }
+    }
+  }
+
+}
+
+nous donne : 
+
+{
+  "took" : 40,
+  "timed_out" : false,
+  "_shards" : {
+    "total" : 1,
+    "successful" : 1,
+    "skipped" : 0,
+    "failed" : 0
+  },
+  "hits" : {
+    "total" : {
+      "value" : 4675,
+      "relation" : "eq"
+    },
+    "max_score" : null,
+    "hits" : [ ]
+  },
+  "aggregations" : {
+    "tag" : {
+      "doc_count_error_upper_bound" : 0,
+      "sum_other_doc_count" : 0,
+      "buckets" : [ ]
+    }
+  }
+}
+
+- aggregation de metriques 
+
+statistiques ; moyenne, cardinalité, max, min, centille
+
+calcul des requettes sur l'age :
+min / max /moyenne /somme 
+
+ici on va sortir les données statistiques sur le prix des produits :
+
+POST kibana_sample_data_ecommerce/_search?size=0
+{
+  "aggs": {
+    "age": {                                       <<<<< nom que l'on donne 
+      "extended_stats": {                          <<<<< metrique d'aggregation
+        "field": "products.base_unit_price"        <<<<< champ sur lequel on travaille.
+      }
+    }
+  }
+}
+
+
+nous donne :
+
+{
+  "took" : 27,
+  "timed_out" : false,
+  "_shards" : {
+    "total" : 1,
+    "successful" : 1,
+    "skipped" : 0,
+    "failed" : 0
+  },
+  "hits" : {
+    "total" : {
+      "value" : 4675,
+      "relation" : "eq"
+    },
+    "max_score" : null,
+    "hits" : [ ]
+  },
+  "aggregations" : {
+    "age" : {
+      "count" : 10087,
+      "min" : 5.98828125,
+      "max" : 540.0,
+      "avg" : 34.77499349410132,
+      "sum" : 350775.359375,
+      "sum_of_squares" : 1.8856063677703857E7,
+      "variance" : 660.0429104339428,
+      "variance_population" : 660.0429104339428,
+      "variance_sampling" : 660.1083519281361,
+      "std_deviation" : 25.69130028694427,
+      "std_deviation_population" : 25.69130028694427,
+      "std_deviation_sampling" : 25.692573867328594,
+      "std_deviation_bounds" : {
+        "upper" : 86.15759406798986,
+        "lower" : -16.607607079787222,
+        "upper_population" : 86.15759406798986,
+        "lower_population" : -16.607607079787222,
+        "upper_sampling" : 86.1601412287585,
+        "lower_sampling" : -16.61015424055587
+      }
+    }
+  }
+}
+
+
+on peut calculer uniquement la moyenne :
+
+
+POST kibana_sample_data_ecommerce/_search?size=0
+{
+  "aggs": {
+    "avg-age": {
+      "avg": {
+        "field": "products.base_unit_price"
+      }
+    }
+  }
+}
+nous donne donc :
+
+{
+  "took" : 7,
+  "timed_out" : false,
+  "_shards" : {
+    "total" : 1,
+    "successful" : 1,
+    "skipped" : 0,
+    "failed" : 0
+  },
+  "hits" : {
+    "total" : {
+      "value" : 4675,
+      "relation" : "eq"
+    },
+    "max_score" : null,
+    "hits" : [ ]
+  },
+  "aggregations" : {
+    "avg-age" : {
+      "value" : 34.77499349410132
+    }
+  }
+}
+
+- bucket aggregation :
+
+chaque bucket a un type de doc qui s'y trouve
+on peut avoir des sous aggregation de bucket ( bucket parent / enfant )
+
+agreggation de terme, range , global, histogramme ...
+
+- terme : 
+
+POST kibana_sample_data_ecommerce/_search?size=0
+{
+  "aggs": {
+    "tag": {          <<<<< on met le nom qu'on veut 
+      "terms": {      <<<<  ici on applique l'aggregation sur les termes 
+        "field": "customer_last_name.keyword" <<<<< le champ de notre table qu'on va parser 
+      }
+    }
+  }
+}
+
+nous donne :
+
+{
+  "took" : 16,
+  "timed_out" : false,
+  "_shards" : {
+    "total" : 1,
+    "successful" : 1,
+    "skipped" : 0,
+    "failed" : 0
+  },
+  "hits" : {
+    "total" : {
+      "value" : 4675,
+      "relation" : "eq"
+    },
+    "max_score" : null,
+    "hits" : [ ]
+  },
+  "aggregations" : {
+    "tag" : {
+      "doc_count_error_upper_bound" : 0,
+      "sum_other_doc_count" : 4140,
+      "buckets" : [
+        {
+          "key" : "Perkins",
+          "doc_count" : 59
+        },
+        {
+          "key" : "Underwood",
+          "doc_count" : 59
+        },
+        {
+          "key" : "Tran",
+          "doc_count" : 56
+        },
+        {
+          "key" : "Rivera",
+          "doc_count" : 54
+        },
+        {
+          "key" : "Graham",
+          "doc_count" : 53
+        },
+        {
+          "key" : "Shaw",
+          "doc_count" : 53
+        },
+        {
+          "key" : "Byrd",
+          "doc_count" : 51
+        },
+        {
+          "key" : "Foster",
+          "doc_count" : 51
+        },
+        {
+          "key" : "Gregory",
+          "doc_count" : 51
+        },
+        {
+          "key" : "Bryant",
+          "doc_count" : 48
+        }
+      ]
+    }
+  }
+}
+
+
+par defaut 10 records sont rencoyés par es ( on peut biensur définir ce nombre avec "size" )
+
+
