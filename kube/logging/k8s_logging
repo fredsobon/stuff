@@ -1,13 +1,17 @@
 	Problematique:
 
 application loggin
-stdout (résultat de toin applicatif) / stderr (les erreur de ton applicatif)
+stdout (résultat de ton applicatif) / stderr (les erreur de ton applicatif)
 if you need more you create file that you can access and read
 
 https://www.howtogeek.com/435903/what-are-stdin-stdout-and-stderr-on-linux/
 
+appli > log stdout / std err 
 
-	Niveau d'abstraction 1: les containers
+facile dans une appli non containerisée.
+
+
+Niveau d'abstraction 1: les containers
 
 Container with only one output flow with stdout et stderr mixed
 
@@ -16,6 +20,10 @@ https://docs.docker.com/config/containers/logging/
 How logs are stored on your device from container, it depends on the logging driver
 
 https://www.datadoghq.com/blog/docker-logging/
+
+pb 
+les 2 sorties out et err sont mixées ..on perd un flux d'entrée de jeu.
+on ne peut pas facilement acceder aux logs du container ( acceder au container, monter un volume ..mais pas pratique.. )
 
 
 	Niveau d'abstraction 2: kube
@@ -27,6 +35,40 @@ comment journaliser les evenements ?
  - le container stream directement a la stack de log
 
 https://kubernetes.io/docs/concepts/cluster-administration/logging/
+
+dans kube 
+le driver de containerd est cri-o 
+on peut avoir des logs stockés dans des fichiers : ils nous faut lire les données.
+on peut ajouter un container sidecar pour les recup le flux 
+
+on peut mettre un agent de log dans notre app :
+pod : app + agent log -> envoi vers la stack es
+
+on peut exposer le service de notre pod container agent log pour que es recup les infos.
+
+On va agir differement 
+
+on va sortir tout nos log et c'est notre agent de logging qui va faire le tri pour ensuite avoir les flux séparés qui envoient à es
+
+plusieurs outils existent :
+chez es : 
+logstash / filebeat 
+
+filebeat est installé sur le node worker et recup tous les fichiers puis envoit au logstash qui transforme et envoi à es 
+
+
+deuxieme ecole :
+
+fluend / fluentbit
+
+
+on peut appliquer des filtres des le debut ( on peut jeter des logs d'entrées de jeu , on peut filtrer ) 
+
+on defini la fonction tail pour cri qui va parser les fichiers du serveur
+sort sous format json
+
+on peut definir ensuite la maniere dont sera parser le fichier  
+on utilise le parser docker  qui est un parser json améliorer ( herite du parser json )
 
 => solution 1 que l'on a choisi du coup quel agent pour lire les logs et pouvoir les splits ?
 
