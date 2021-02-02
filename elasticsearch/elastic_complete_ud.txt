@@ -2910,4 +2910,275 @@ nous donne :
 
 par defaut 10 records sont rencoyés par es ( on peut biensur définir ce nombre avec "size" )
 
+- aggregation de range :
+
+on va pouvoir aggreger nos resultats par intervals 
+ex : on tri les prix par interval de prix :
+
+POST kibana_sample_data_ecommerce/_search?size=0
+{
+  "aggs": {
+    "prices": {
+      "range": {
+        "field": "products.price",
+        "ranges": [
+          {"to": 10},
+          {"from": 10, "to": 100},
+          {"from": 101, "to": 5000}
+        ]
+      }
+    }
+  }
+}
+
+
+ ce qui nous donne :
+{
+  "took" : 38,
+  "timed_out" : false,
+  "_shards" : {
+    "total" : 1,
+    "successful" : 1,
+    "skipped" : 0,
+    "failed" : 0
+  },
+  "hits" : {
+    "total" : {
+      "value" : 4675,
+      "relation" : "eq"
+    },
+    "max_score" : null,
+    "hits" : [ ]
+  },
+  "aggregations" : {
+    "prices" : {
+      "buckets" : [
+        {
+          "key" : "*-10.0",
+          "to" : 10.0,
+          "doc_count" : 357
+        },
+        {
+          "key" : "10.0-100.0",
+          "from" : 10.0,
+          "to" : 100.0,
+          "doc_count" : 4655
+        },
+        {
+          "key" : "101.0-5000.0",
+          "from" : 101.0,
+          "to" : 5000.0,
+          "doc_count" : 185
+        }
+      ]
+    }
+  }
+}
+
+on peut trier par interval de date :
+
+POST kibana_sample_data_ecommerce/_search?size=0
+{
+  "aggs": {
+    "prices": {
+      "date_range": {
+        "field": "order_date",
+        "format": "MM-yyy"
+        , "ranges": [
+            { "to": "now-10M/M" },
+            { "from": "now-10M/M" }
+         ]
+      }
+    }
+  }
+}POST kibana_sample_data_ecommerce/_search?size=0
+{
+  "aggs": {
+    "prices": {
+      "date_range": {
+        "field": "order_date",
+        "format": "MM-yyy"
+        , "ranges": [
+            { "to": "now-10M/M" },
+            { "from": "now-10M/M" }
+         ]
+      }
+    }
+  }
+}
+
+{
+  "took" : 16,
+  "timed_out" : false,
+  "_shards" : {
+    "total" : 1,
+    "successful" : 1,
+    "skipped" : 0,
+    "failed" : 0
+  },
+  "hits" : {
+    "total" : {
+      "value" : 4675,
+      "relation" : "eq"
+    },
+    "max_score" : null,
+    "hits" : [ ]
+  },
+  "aggregations" : {
+    "prices" : {
+      "buckets" : [
+        {
+          "key" : "*-04-2020",
+          "to" : 1.5856992E12,
+          "to_as_string" : "04-2020",
+          "doc_count" : 0
+        },
+        {
+          "key" : "04-2020-*",
+          "from" : 1.5856992E12,
+          "from_as_string" : "04-2020",
+          "doc_count" : 4675
+        }
+      ]
+    }
+  }
+}
+
+- agregation d'histogramme :
+
+
+visualisation de données.
+
+kibana > add visualisation > add vertical bar
+
+il faut cependant aggreger les données.
+
+on va trier le prix de nos produits par interval de 10$
+
+
+POST kibana_sample_data_ecommerce/_search?size=0
+{
+  "aggs": {
+    "prices": {
+      "histogram": {
+        "field": "products.price",
+        "interval": 10
+      }
+    }
+  }
+}
+
+nous donne 
+
+{
+  "took" : 32,
+  "timed_out" : false,
+  "_shards" : {
+    "total" : 1,
+    "successful" : 1,
+    "skipped" : 0,
+    "failed" : 0
+  },
+  "hits" : {
+    "total" : {
+      "value" : 4675,
+      "relation" : "eq"
+    },
+    "max_score" : null,
+    "hits" : [ ]
+  },
+  "aggregations" : {
+    "prices" : {
+      "buckets" : [
+        {
+          "key" : 0.0,         <<<< abcisse 
+          "doc_count" : 357    <<<<  ordonnée
+        },
+        {
+          "key" : 10.0,
+          "doc_count" : 2233
+        },
+        {
+          "key" : 20.0,
+          "doc_count" : 2356
+        },
+        {
+          "key" : 30.0,
+          "doc_count" : 969
+        },
+   ...
+
+on peut donc maintenant mettre en place notre histogramme.
+
+ajout d'index pattern 
+
+kibana > index pattern  > on cherche un index pattern qui match un index crée auparavant > on defini par example le tri de filtre par date .
+on voit ensuite la structure de notre index
+
+on va ensuite sur kibana vizualise > vertical bar > on choisi notre index
+
+metric vont permettre de faire des count
+bucket : histogramme, range 
+
+- aggregation histogramme de date :
+
+pas mal de travail pour ces types : conversin fuseau horaires ....
+
+POST kibana_sample_data_logs/_search?size=0
+{
+  "aggs": {
+    "dates": {
+      "date_histogram": {
+        "field": "@timestamp",
+        "interval": "day"
+      }
+    }
+  }
+}
+
+nous donne 
+
+{
+  "took" : 32,
+  "timed_out" : false,
+  "_shards" : {
+    "total" : 1,
+    "successful" : 1,
+    "skipped" : 0,
+    "failed" : 0
+  },
+  "hits" : {
+    "total" : {
+      "value" : 10000,
+      "relation" : "gte"
+    },
+    "max_score" : null,
+    "hits" : [ ]
+  },
+  "aggregations" : {
+    "dates" : {
+      "buckets" : [
+        {
+          "key_as_string" : "2021-01-17T00:00:00.000Z",
+          "key" : 1610841600000,
+          "doc_count" : 249
+        },
+        {
+          "key_as_string" : "2021-01-18T00:00:00.000Z",
+          "key" : 1610928000000,
+          "doc_count" : 231
+        },
+        {
+          "key_as_string" : "2021-01-19T00:00:00.000Z",
+          "key" : 1611014400000,
+          "doc_count" : 230
+        },
+..
+....
+les intervalles de temps sont fixes mais plusieurs valeurs sont définies (hour, month, year, timezone ....)
+
+kibana > visualization > create > histogramme > choisi notre index > bucket > x > aggregation : date_histogram > field : timestamp par exemple.
+
+
+
 
