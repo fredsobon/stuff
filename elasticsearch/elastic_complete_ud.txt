@@ -3179,6 +3179,320 @@ les intervalles de temps sont fixes mais plusieurs valeurs sont définies (hour,
 
 kibana > visualization > create > histogramme > choisi notre index > bucket > x > aggregation : date_histogram > field : timestamp par exemple.
 
+- aggregation de filtres :
+
+ex compte le nombre de hits ..
+filtre est un des moyens les plus simples pour filtrer les buckets
+
+exemple on compte le nombre de record du terme 'succes' :
+POST kibana_sample_data_logs/_search?size=0
+{
+  "aggs": {
+    "flights": {
+      "filter": {
+        "term": {
+          "tags": "success"
+        }
+      }
+    }
+  }
+
+nous donne :
+
+{
+  "took" : 53,
+  "timed_out" : false,
+  "_shards" : {
+    "total" : 1,
+    "successful" : 1,
+    "skipped" : 0,
+    "failed" : 0
+  },
+  "hits" : {
+    "total" : {
+      "value" : 10000,
+      "relation" : "gte"
+    },
+    "max_score" : null,
+    "hits" : [ ]
+  },
+  "aggregations" : {
+    "flights" : {
+      "doc_count" : 11936                <<<<< correspond au compte de notre terme
+    }
+  }
+}
+
+- aggregation de geolocalisation :
 
 
+on a la possibilité d'aggreger via les geolocalisation.
 
+ex on peut calculer la distance entre des éléments par range grace à leur positions.
+
+POST kibana_sample_data_flights/_search?size=0
+{
+  "aggs": {
+    "position": {
+      "geo_distance": {
+        "field": "location",
+        "origin": {
+          "lat": 49.9,
+          "lon": -97.2
+        },
+        "ranges": [
+          {
+            "from": 1,
+            "to": 100
+          },
+          {
+            "from": 100,
+            "to": 300
+            
+          }
+        ]
+      }      
+    }
+    
+  }
+}
+
+
+nous donne :
+
+
+{
+  "took" : 14,
+  "timed_out" : false,
+  "_shards" : {
+    "total" : 1,
+    "successful" : 1,
+    "skipped" : 0,
+    "failed" : 0
+  },
+  "hits" : {
+    "total" : {
+      "value" : 10000,
+      "relation" : "gte"
+    },
+    "max_score" : null,
+    "hits" : [ ]
+  },
+  "aggregations" : {
+    "position" : {
+      "buckets" : [
+        {
+          "key" : "1.0-100.0",
+          "from" : 1.0,
+          "to" : 100.0,
+          "doc_count" : 0
+        },
+        {
+          "key" : "100.0-300.0",
+          "from" : 100.0,
+          "to" : 300.0,
+          "doc_count" : 0
+        }
+      ]
+    }
+  }
+}
+
+on peut apres créer une vizualisation avec une carte :
+kibana > visualization > new visualization > maps 
+
+add layer > document > selection de notre index
+on rajoute add layer et on voit sur la carte la position des geolocalisation recupérées de l'index ( il faut ajuster notre fenêtre de recherche pour elargir les infos présentes sur la carte si besoin.)
+
+
+- aggregation de pipeline :
+
+renvoi les sorties d'autre aggregations.
+ex on calcu des resultats à partir d'aggregations ( ex pour des stats )
+
+ex : creation d'index :
+
+
+PUT idx-pipeline 
+{
+  "mappings": {
+    "properties": {
+      "type": {
+        "type": "text",
+         "fielddata": true
+      },
+      "date": {
+        "type": "date"
+      }
+    }
+  }
+}
+
+
+nous donne 
+{
+  "acknowledged" : true,
+  "shards_acknowledged" : true,
+  "index" : "idx-pipeline"
+}
+
+
+dans notre index on veut ajouter des données : la methode _bulk permet d'envoyer massivement des données dans un index.
+
+PUT /_bulk
+{ "index": {"_index": "idx-pipeline"}}
+{ "date": "2021-02-06", "price": 50, "type": "hat" }
+{ "index": {"_index": "idx-pipeline"}}
+{ "date": "2021-02-06", "price": 10, "type": "tshirt"}
+{ "index": {"_index": "idx-pipeline"}}
+{ "date": "2021-02-06", "price": 80, "type": "pant" }
+
+
+nous donne :
+
+{
+  "took" : 186,
+  "errors" : false,
+  "items" : [
+    {
+      "index" : {
+        "_index" : "idx-pipeline",
+        "_type" : "_doc",
+        "_id" : "lJTQdncB4pqCpJjXOG6K",
+        "_version" : 1,
+        "result" : "created",
+        "_shards" : {
+          "total" : 2,
+          "successful" : 2,
+          "failed" : 0
+        },
+        "_seq_no" : 0,
+        "_primary_term" : 1,
+        "status" : 201
+      }
+    },
+    {
+      "index" : {
+        "_index" : "idx-pipeline",
+        "_type" : "_doc",
+        "_id" : "lZTQdncB4pqCpJjXOG6O",
+        "_version" : 1,
+        "result" : "created",
+        "_shards" : {
+          "total" : 2,
+          "successful" : 2,
+          "failed" : 0
+        },
+        "_seq_no" : 1,
+        "_primary_term" : 1,
+        "status" : 201
+      }
+    },
+    {
+      "index" : {
+        "_index" : "idx-pipeline",
+        "_type" : "_doc",
+        "_id" : "lpTQdncB4pqCpJjXOG6O",
+        "_version" : 1,
+        "result" : "created",
+        "_shards" : {
+          "total" : 2,
+          "successful" : 2,
+          "failed" : 0
+        },
+        "_seq_no" : 2,
+        "_primary_term" : 1,
+        "status" : 201
+      }
+    }
+  ]
+}
+
+on va pouvoir par exemple utiliser l'aggregation de pipeline pour calculer le nombre de vente par mois :
+
+POST /idx-pipeline/_search?size=0
+{
+  "aggs": {
+    "sales_by_month": {
+        "date_histogram": {
+          "field": "date",
+          "interval": "month"
+        },
+        "aggs": {
+          "sales": {
+            "sum": {
+              "field": "price"
+              
+            }
+          }
+        }  
+    },
+    "stats_by_month": {
+      "extended_stats_bucket": {
+        "buckets_path": "sales_by_month>sales"
+       }
+    }
+    
+  }
+}
+
+nous donne :
+
+{
+  "took" : 22,
+  "timed_out" : false,
+  "_shards" : {
+    "total" : 1,
+    "successful" : 1,
+    "skipped" : 0,
+    "failed" : 0
+  },
+  "hits" : {
+    "total" : {
+      "value" : 3,
+      "relation" : "eq"
+    },
+    "max_score" : null,
+    "hits" : [ ]
+  },
+  "aggregations" : {
+    "sales_by_month" : {
+      "buckets" : [
+        {
+          "key_as_string" : "2021-02-01T00:00:00.000Z",
+          "key" : 1612137600000,
+          "doc_count" : 3,
+          "sales" : {
+            "value" : 140.0
+          }
+        }
+      ]
+    },
+    "stats_by_month" : {
+      "count" : 1,
+      "min" : 140.0,
+      "max" : 140.0,
+      "avg" : 140.0,
+      "sum" : 140.0,
+      "sum_of_squares" : 19600.0,
+      "variance" : 0.0,
+      "variance_population" : 0.0,
+      "variance_sampling" : "NaN",
+      "std_deviation" : 0.0,
+      "std_deviation_population" : 0.0,
+      "std_deviation_sampling" : "NaN",
+      "std_deviation_bounds" : {
+        "upper" : 140.0,
+        "lower" : 140.0,
+        "upper_population" : 140.0,
+        "lower_population" : 140.0,
+        "upper_sampling" : "NaN",
+        "lower_sampling" : "NaN"
+      }
+    }
+  }
+}
+
+
+- aggregation de matrice :
+produise un resulat matricielle : calcul count, min ,max ,variance etc ..
