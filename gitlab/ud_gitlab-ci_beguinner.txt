@@ -205,7 +205,7 @@ on installe 2 plugins :
 gatsby-plugin-offline, gatsby-plugin-mdx
 
 
-on se deplace dans notre folder :
+npx gatsby buildon se deplace dans notre folder :
 
 cd static-website                                                                            
  boogie@boogieland  ~/Documents/lab/gitlab/projet/my-static-website-no-pipeline/static-website   master  ls 
@@ -240,6 +240,8 @@ on crée un fichier .gitignore qui va contenir les fichiers que l'on ne veut pas
 
 on peut prefixer les commandes avec npx :
 https://github.com/gatsbyjs/gatsby/issues/15276
+https://www.freecodecamp.org/news/npm-vs-npx-whats-the-difference/
+
 
 npx gatsby build
 ...
@@ -250,6 +252,51 @@ The following pages will be precached:
 /offline-plugin-app-shell-fallback/index.html
 success onPostBuild - 0.078s
 info Done building in 11.535389074 sec
+
+
+la compilation a crée des fichiers dans le rep public : c'est ici qu'on va avoir nos fichiers que l'on pourra pousser en production.
+ceci constitue donc notre artifact que l'on va déployer.
+on va donc avec gitlab-ci automatiser cette phase de compilation
+
+- docker :
+
+docker va nous permettre de construire une image 
+en packagant une application et ses dependances.
+
+- creatin de pipeline :
+
+on va créer dans notre repo un fichier .gitlab-ci.yaml qui va contenir les etapes de notre build :
+cat .gitlab-ci.yml                                                                   [☸ |sandbox:e2e]
+# first pipeline with first build instructions
+build website:
+  script:
+    - npm install
+    - npm install -g gatsby
+    - gatsby build
+
+le premier run tombe ko > 
+
+"npm command not found"
+
+en regardant on voit que le container utilisé est : Using Docker executor with image ruby:2.5 ..
+
+il n'y a pas npm d'installé..
+
+on va donc changer notre build en intégrant une image nodejs (on peut examiner sur dockerhub) 
+
+# first pipeline with first build instructions
+build website:
+  image: node
+  script:
+    - npm install
+    - npm install -g gatsby
+    - gatsby build
+
+
+on va maintenant que notre build est ok recupérer notre artifact pour examiner le contenu du site qui sera publié.
+
+
+
 
 
 
