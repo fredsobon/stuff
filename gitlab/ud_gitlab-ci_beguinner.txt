@@ -306,11 +306,224 @@ build website:
 
 on va maintenant que notre build est ok recupérer notre artifact pour examiner le contenu du site qui sera publié.
 
+on va donc rajouter la section artifact suivie du path dans lequel on va trouver notre artifact : on va préfixer par./ pour assurer la présence à partir de notre répertoire courant.
+
+build website:
+  image: node
+  script:
+    - npm install -g npm@7.5.3
+    - npm install
+    - npm install -g gatsby-cli
+    - gatsby build
+  artifacts:
+    paths:
+      - ./public
+
+
+on va avoir la sortie de notre build comme telle :
+...
+info Done building in 19.65983832 sec
+Uploading artifacts for successful job
+Uploading artifacts...
+./public: found 30 matching files and directories  
+Uploading artifacts as "archive" to coordinator... ok  id=1020136188 responseStatus=201 Created token=zied3oyS
+Cleaning up file based variables
+00:01
+Job succeeded
+
+on a la possibilité de recupérer l'artifact directement ou en cliquant sur browse : on voit le rep public qui contient notre artifact : le contenu de notre site pour la production.
+
+- ajout d'un pipeline de test :
+
+comment s'assurer que notre build est ok.
+La convention veut que tout les stages qui finissent par 0 sont ok sinon un fail a eu lieu
+on se base donc sur les codes retours 
+0 > ok
+1-255 > fail
+
+ici on va vouloir tester que dans notre index.html on a un pattern précis "Gatsby"
+
+ boogie@boogieland  ~/Documents/lab/gitlab/projet/my-static-website-no-pipeline/static-website   master  grep -q "Gatsby" public/index.html                                          
+ boogie@boogieland  ~/Documents/lab/gitlab/projet/my-static-website-no-pipeline/static-website   master  echo $?                                                                    
+0
+ boogie@boogieland  ~/Documents/lab/gitlab/projet/my-static-website-no-pipeline/static-website   master  grep -q "lapin" public/index.html                                         
+ ✘ boogie@boogieland  ~/Documents/lab/gitlab/projet/my-static-website-no-pipeline/static-website   master  echo $?                                                                
+1
+
+on va donc rajouter un stage pour notre test.
+
+on va pouvoir nommer notre stage comme on veut : on va devoir définir une section qui comprend les stages de notre build :
+on ajoute deux tests : un qui fini en ok et l'autre qui failed volontairement.
+
+stages:
+  - build
+  - test
+
+build website:
+  stage: build
+  image: node
+  script:
+    - npm install -g npm@7.5.3
+    - npm install
+    - npm install -g gatsby-cli
+    - gatsby build
+  artifacts:
+    paths:
+      - ./public
+
+test artifact:
+  stage: test
+  script:
+     - grep "Gatsby" ./public/index.html
+     - grep "lapin"  ./public/index.html
+
+
+on voit deux stages dans notre pipeline
+
+
+le resultat du test nous donne donc :
+Running with gitlab-runner 13.8.0 (775dd39d)
+  on docker-auto-scale ed2dce3a
+Preparing the "docker+machine" executor
+Using Docker executor with image ruby:2.5 ...
+Pulling docker image ruby:2.5 ...
+Using docker image sha256:67b2b6cb06d9e429852b3db87ca3427648b229685c52cc9474f4c7b2a832ec5e for ruby:2.5 with digest ruby@sha256:d99439def9ef2349c327ae76665be0d18376f7d9cc4d3a8ddfeb8f970271fdae ...
+Preparing environment
+00:03
+Running on runner-ed2dce3a-project-24244335-concurrent-0 via runner-ed2dce3a-srm-1612947335-34fdf2d8...
+Getting source from Git repository
+00:01
+$ eval "$CI_PRE_CLONE_SCRIPT"
+Fetching changes with git depth set to 50...
+Initialized empty Git repository in /builds/frederic.sobon/static-website/.git/
+Created fresh repository.
+Checking out b2c9f669 as master...
+Skipping Git submodules setup
+Downloading artifacts
+00:01
+Downloading artifacts for build website (1020178687)...
+Downloading artifacts from coordinator... ok        id=1020178687 responseStatus=200 OK token=ndEvFxVg
+Executing "step_script" stage of the job script
+00:01
+$ grep "Gatsby" ./public/index.html
+...
+...
+
+$ grep "lapin"  ./public/index.html
+Cleaning up file based variables
+00:01
+ERROR: Job failed: exit code 1
 
 
 
+- build de job en parallele :
+
+on va modifier notre build 
+
+pour le test on va utiliser une image alpine > plus light 
+
+on ajoute un test qui va tester notre site  gatsby en lancant le serveur et en faisant un curl sur une ressourcei.
+on ajoute un & apres gatsby serve pour lancer notre commande en background et nous permettre ensuite de lancer les commandes suivantes sinon on ne peut continuer le process ..qui reste sur le check
+
+stages:
+  - build
+  - test
+
+build website:
+  stage: build
+  image: node
+  script:
+    - npm install -g npm@7.5.3
+    - npm install
+    - npm install -g gatsby-cli
+    - gatsby build
+  artifacts:
+    paths:
+      - ./public
+
+test artifact:
+  image: alpine
+  stage: test
+  script:
+     - grep -q "Gatsby" ./public/index.html
+test website:
+  stage: test
+  image: node
+  script:
+    - npm install -g npm@7.5.3
+    - npm install
+    - npm install -g gatsby-cli
+    - gatsby serve &
+    - sleep 3
+    - curl http://localhost:9000 | grep -q "Gatsby"
 
 
+
+dans gitlab on voit qu'on a trois etapes dont deux en parralles : les deux tests s'executent en paralle car on a spécifier le même stage dans nos deux confs :
+
+ build website       test artifact
+                     test website
+
+ici dans notre cas il est possible de lancer en parrale les tests cela depend evidemment de nos contextes ( le build est un prérequi pour nos tests ..on ne peut pas tester le contenu si le build n'est pas fait.)
+dans notre cas on ne gagne pas en performance car le test website install gatsby ..on a toujours le temps d'install des dependance ..mais dans certains ca on peut hériter d'un job précéder ce qui nous fait ganger un temps précieux.
+
+sortie de deuxieme test :
+...
+....
+$ gatsby serve &
+$ sleep 3
+warning Error: ENOENT: no such file or directory, open '/builds/frederic.sobon/static-website/.cache/match-paths.json'
+warning Could not read match-paths.json from the .cache directory
+warning Client-side routing will not work correctly. Maybe you need to re-run gatsby build?
+⠀
+You can now view static-website in the browser.
+⠀
+  http://localhost:9000/
+$ curl http://localhost:9000 | grep -q "Gatsby"
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100  5751  100  5751    0     0   101k      0 --:--:-- --:--:-- --:--:--  102k
+Cleaning up file based variables
+00:01
+Job succeeded
+
+
+on peut avoir des erreurs de sortie de curl qui va avoir une sortie "Failed write body" : dans ce cas curl ferme la connexion avant d'avoir ecrit toute la page web . on peut rajouter une double commande tac pour fixer le pépin. 
+
+stages:
+  - build
+  - test
+
+build website:
+  stage: build
+  image: node
+  script:
+    - npm install -g npm@7.5.3
+    - npm install
+    - npm install -g gatsby-cli
+    - gatsby build
+  artifacts:
+    paths:
+      - ./public
+
+test artifact:
+  image: alpine
+  stage: test
+  script:
+     - grep -q "Gatsby" ./public/index.html
+test website:
+  stage: test
+  image: node
+  script: 
+    - npm install -g npm@7.5.3
+    - npm install
+    - npm install -g gatsby-cli     
+    - gatsby serve &
+    - sleep 3
+    - curl http://localhost:9000 |tac |tac | grep -q "Gatsby" 
+
+
+- Deployment du site web :
 
 
 
