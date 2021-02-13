@@ -355,6 +355,10 @@ on va donc rajouter un stage pour notre test.
 on va pouvoir nommer notre stage comme on veut : on va devoir définir une section qui comprend les stages de notre build :
 on ajoute deux tests : un qui fini en ok et l'autre qui failed volontairement.
 
+
+
+Attention : gitlab execute toujours les stages dans l'ordre de leur définition dans le fichier .gitlab.ci 
+
 stages:
   - build
   - test
@@ -525,6 +529,179 @@ test website:
 
 - Deployment du site web :
 
+surge cloud platform pour serverless platform > deployment sans se soucier de la plateforme
+simple moyen de déployer un site web static 
+
+on install surge : 
+sudo npm install --global surge                                                     
+sudo: unable to resolve host boogieland: Name or service not known
+[sudo] password for boogie:
+npm WARN deprecated request@2.88.2: request has been deprecated, see https://github.com/request/request/issues/3142
+npm WARN deprecated har-validator@5.1.5: this library is no longer supported
+/usr/local/bin/surge -> /usr/local/lib/node_modules/surge/lib/cli.js
++ surge@0.21.7
+added 112 packages from 96 contributors in 4.333s
 
 
+on va se placer dans le repo public contenant notre site 
+on lance surge > on remplit adresse mail + mdp + on check que la racine de notre arbo est bien celle du site . surge synchro ensuite le code quelque part dans le cloud et nous donne le nom de domaine 
+
+ boogie@boogieland  ~/Documents/lab/gitlab/projet/my-static-website-no-pipeline/static-website   master  cd public                                                                            [☸ |N/A:default]
+ boogie@boogieland  ~/Documents/lab/gitlab/projet/my-static-website-no-pipeline/static-website/public   master  surge                                                                         [☸ |N/A:default]
+
+   Running as jazz77777@gmail.com (Student)
+
+        project: /home/boogie/Documents/lab/gitlab/projet/my-static-website-no-pipeline/static-website/public/
+         domain: petite-ducks.surge.sh
+         upload: [====================] 100% eta: 0.0s (23 files, 1080748 bytes)
+            CDN: [====================] 100%
+     encryption: *.surge.sh, surge.sh (70 days)
+             IP: 138.197.235.123
+
+   Success! - Published to petite-ducks.surge.sh
+
+
+quelques secondes suffisent à avoir notre site static up dans le cloud.
+
+= gestion des mdp /secrets dans notre code vai variables d'environment :
+
+biensur on ne commit rien contenant des password.
+on va pouvoir renseigner des secret dans gitlab sans qu'ils ne soient visible dans le code.
+
+pour notre exemple on va vouloir déployer dans le cloud avec surge sans saisir le mdp .
+On va générer un token via surge et le renseigner dans gitlab 
+
+surge token                                                                   [☸ |N/A:default]
+
+   sqdqdqsdqsdqd181b5f04dsdsdsdqdqsdqsdqdqsdqdqdqdqdqedfcsdc
+
+ gitlab > notre projet > barre laterale gauche > ci/cd > environment variables :
+
+ les variables seront accessible par notre runner
+
+ on va créer deux variables :
+
+ une pour le compte mail et une pour le token 
+
+ SURGE_LOGIN
+ SURGE_TOKEN 
+
+/!\ le nom des variables est important : il faut qu'elles soient reconnues et identifiées par l'appli : dans notre cas surge attend ces variables 
+
+on va donc maintenant deployer le site en utilisant gitlab-ci 
+
+on ajoute le stage deploy 
+
+on voit qu'on a plusieurs stage qui utilise l'image node : on peut la définir par defaut ce qui factorise le code 
+dans notre stage on installe surge en precisant le path du contenu de notre site et un nom de domaine surge non pri ex : boogie.surge.sh
+
+on ne specifie pas les token car gitlab met a dispo dans le runner
+
+cat .gitlab-ci.yml                                                                 [☸ |N/A:default]
+image: node
+
+stages:
+  - build
+  - test
+  - deploy
+
+build website:
+  stage: build
+  script:
+    - npm install -g npm@7.5.3
+    - npm install
+    - npm install -g gatsby-cli
+    - gatsby build
+  artifacts:
+    paths:
+      - ./public
+
+test artifact:
+  image: alpine
+  stage: test
+  script:
+     - grep -q "Gatsby" ./public/index.html
+test website:
+  stage: test
+  script:
+    - npm install -g npm@7.5.3
+    - npm install
+    - npm install -g gatsby-cli
+    - gatsby serve &
+    - sleep 3
+    - curl "http://localhost:9000" |grep -q "Gatsby"
+
+deploy to surge:
+  stage: deploy
+  script:
+    - npm install --global surge
+    - surge --project ./public --domain boogie.surge.sh
+
+on a donc trois stages dans notre deployment
+
+$ surge --project ./public --domain boogie.surge.sh
+34   Running as xxxxx (Student)
+35        project: ./public
+36         domain: boogie.surge.sh
+37     encryption: *.surge.sh, surge.sh (70 days)
+38             IP: 138.197.235.123
+39   Success! - Published to boogie.surge.sh
+41
+Cleaning up file based variables
+00:01
+43Job succeeded
+
+
+notre site est en ligne 
+
+
+on ajoute un test de post deploy qui fait un simple curl de notre domain pour nous assurer que le domain existe et qu'il renvoi du contenu
+on utilise une image alpine plus light et on install curl avant de l'utiliser dans le stage.
+cat .gitlab-ci.yml  
+image: node
+
+stages:
+  - build
+  - test
+  - deploy
+  - deploy test
+
+build website:
+  stage: build
+  script:
+    - npm install -g npm@7.5.3
+    - npm install
+    - npm install -g gatsby-cli
+    - gatsby build
+  artifacts:
+    paths:
+      - ./public
+
+test artifact:
+  image: alpine
+  stage: test
+  script:
+     - grep -q "Gatsby" ./public/index.html
+test website:
+  stage: test
+  script:
+    - npm install -g npm@7.5.3
+    - npm install
+    - npm install -g gatsby-cli
+    - gatsby serve &
+    - sleep 3
+    - curl "http://localhost:9000" |grep -q "Gatsby"
+
+deploy to surge:
+  stage: deploy
+  script:
+    - npm install --global surge
+    - surge --project ./public --domain boogie.surge.sh
+
+post deploy test:
+  stage: deploy test
+  image: alpine
+  script:
+    - apk --no-cache add curl 
+    - curl -q http://boogie.surge.sh
 
