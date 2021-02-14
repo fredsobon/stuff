@@ -705,3 +705,290 @@ post deploy test:
     - apk --no-cache add curl 
     - curl -q http://boogie.surge.sh
 
+== gitlab ci : fundamentals. ==
+
+
+= predefined variables : =
+
+sur notre site on a pas forcement l'information de la version déployée ni du commit qui a servi a déployer.
+gitlab embarque beaucoup de variables prédéfinies 
+
+https://docs.gitlab.com/ee/ci/variables/predefined_variables.html
+
+on va pouvoir utiliser la var CI_COMMIT_SHORT_SHA pour identifier le commit déployé
+
+dans un premier temps on va juste vouloir lire la valeur de cette variable  : on rajoute un echo CI_COMMIT_SHORT_SHA dans le job de build :
+
+..
+build website:
+  stage: build
+  script:
+    - echo $CI_COMMIT_SHORT_SHA
+    - npm install -g npm@7.5.3
+    - npm install
+    - npm install -g gatsby-cli
+    - gatsby build
+  artifacts:
+    paths:
+      - ./public
+..
+
+dans notre index.js source on va ajouter un marqueur pour la version ceci va rajouter une section version dans la page index.html générée au build
+
+ex : cat src/pages/index.js
+...
+.....
+      />
+     <div>Version: %%VERSION%%</div>      
+    </main>
+  )
+}
+
+
+dans le run du build on peut voir :
+$ echo $CI_COMMIT_SHORT_SHA
+754fecec
+
+
+on va utiliser sed pour remplacer la version a chaque itération 
+
+apres notre deployment on voit sur notre home :
+en faisant un F5 
+Version: 3b5fec95
+Version: %%VERSION%% 
+
+le js est executé coté client et la version du tag n'est pas visible tout le temps 
+on ajoute test avec curl qui n'executant pas de js nous permet de voir dynamiquement la version recupérée dans notre test ci 
+
+sur la page de notre site boogie.surge.sh
+on voit la section :
+
+Version: %%VERSION%%
+
+cat .gitlab-ci.yml                                                                   [☸ |N/A:default]
+image: node
+
+stages:
+  - build
+  - test
+  - deploy
+  - deploy test
+
+build website:
+  stage: build
+  script:
+    - echo $CI_COMMIT_SHORT_SHA
+    - npm install -g npm@7.5.3
+    - npm install
+    - npm install -g gatsby-cli
+    - gatsby build
+    - sed -i "s/%%VERSION%%/$CI_COMMIT_SHORT_SHA/"  ./public/index.html
+  artifacts:
+    paths:
+      - ./public
+
+test artifact:
+  image: alpine
+  stage: test
+  script:
+     - grep -q "Gatsby" ./public/index.html
+test website:
+  stage: test
+  script:
+    - npm install -g npm@7.5.3
+    - npm install
+    - npm install -g gatsby-cli
+    - gatsby serve &
+    - sleep 3
+    - curl "http://localhost:9000" |grep -q "Gatsby"
+
+deploy to surge:
+  stage: deploy
+  script:
+    - npm install --global surge
+    - surge --project ./public --domain boogie.surge.sh
+
+post deploy test:
+  stage: deploy test
+  image: alpine
+  script:
+    - apk --no-cache add curl
+    - curl -q http://boogie.surge.sh
+    - curl http://boogie.surge.sh |grep -q "$CI_COMMIT_SHORT_SHA"
+
+
+
+= pipeline triggers and retried failed jobs :
+
+si on a un job qui failed ( ce qui peut arriver ) 
+
+> on peut relancer avec un retried 
+
+pareil pour le pipeline complet 
+> on peut relancer avec un retried 
+
+on peut lancer un pipeline complet avec des selections manuelles
+
+ci/cd > run pipeline
+
+choisir une branche 
+
+
+on peut créer un cron / schedule qui va nous permettre de lancer la pipeline automatiquement quand on veut 
+
+ci/cd 
+> schedule
+
+on defini l'horaire qu'on veut et on enregistre
+on peut forcer le ci manuellement si on veut 
+
+= optimisation des build avec le cache : =
+
+Certaines etapes peuvent prendre du temps : notamment les phases de build (il faut download les dependances et autres ...) a chaque fois puisque qu'on part d'un env clean a chaque itération 
+contrairement a jenkins qui ne supprime pas les elements d'environment.
+
+on va pouvoir definir des resources qui sont nécéssaires ( dependances ..) qui ne font pas partie du projet git
+
+on peut dire a gitlab de ne pas delete les fichiers a chaque fois : de les conserver afin de les reutiliser pour rendre nos executions plus rapides.
+
+dans notre exemple le repertoire node_modules est exactement ce qu'on veut conserver.
+
+
+on va donc rajouter une section dans notre build pour garder les infos de build 
+
+build website:
+  stage: build
+  cache:                         <<<< section cache 
+    key: ${CI_COMMIT_REF_SLUG}   <<<   clé qui va permettre d'identifier quand utiliser le cache : une bonen pratique est d'associer le cache à une branche : la variable interne de gitlab CI_COMMIT_REF_SLUG permet  de la faire
+    paths:                       <<<<  on va definir le path de se qu'on veut mettre en cache.
+      - node_modules/
+  script:
+    - echo $CI_COMMIT_SHORT_SHA
+    - npm install -g npm@7.5.3
+    - npm install
+    - npm install -g gatsby-cli
+    - gatsby build
+    - sed -i "s/%%VERSION%%/$CI_COMMIT_SHORT_SHA/"  ./public/index.html
+  artifacts:
+    paths:
+      - ./public
+
+on peut definir le cache spécifiquement pour un job ou alors on peut le définir globalement pour notre pipeline : ce qui peut etre interressant pour permettre a d'autre job d'utiliser ce cache : dans notre cas c'est utile puisqu'on a un second job qui fait une install node 
+
+on sort donc la section et on la place en global
+
+image: node
+
+stages:
+  - build
+  - test
+  - deploy   
+  - deploy test  
+
+cache:
+  key: ${CI_COMMIT_REF_SLUG}
+  paths:
+    - node_modules/
+
+build website:
+  stage: build
+  script:
+    - echo $CI_COMMIT_SHORT_SHA
+    - npm install -g npm@7.5.3
+    - npm install
+    - npm install -g gatsby-cli
+    - gatsby build
+    - sed -i "s/%%VERSION%%/$CI_COMMIT_SHORT_SHA/"  ./public/index.html
+  artifacts:
+    paths:
+      - ./public
+
+test artifact:
+  image: alpine
+  stage: test
+  script:
+     - grep -q "Gatsby" ./public/index.html
+test website:
+  stage: test
+  script: 
+    - npm install -g npm@7.5.3
+    - npm install
+    - npm install -g gatsby-cli     
+    - gatsby serve &
+    - sleep 3
+    - curl "http://localhost:9000" |grep -q "Gatsby" 
+
+deploy to surge:
+  stage: deploy
+  script:
+    - npm install --global surge
+    - surge --project ./public --domain boogie.surge.sh
+
+post deploy test:
+  stage: deploy test
+  image: alpine
+  script:
+    - apk --no-cache add curl 
+    - curl -q http://boogie.surge.sh
+    - curl http://boogie.surge.sh |grep -q "$CI_COMMIT_SHORT_SHA"
+
+
+
+au premier run on voit des le debut une erreur : gitlab n'a pas de cache :
+
+Restoring cache
+00:01
+18Checking cache for master...
+19FATAL: file does not exist
+
+une fois builde la premiere fois le cache est crée et sauvegardé par gitlab :
+..
+Creating cache master...
+node_modules/: found 51198 matching files and directories
+Uploading cache.zip to https://storage.googleapis.com/gitlab-com-runners-cache/project/24244335/master
+Created cache
+....
+
+
+dans le second job de test qui build on voit qu'un check de cache est fait au début sur la branche master 
+le cache est trouvé et utilisé 
+Restoring cache
+00:10
+Checking cache for master...
+Downloading cache.zip from https://storage.googleapis.com/gitlab-com-runners-cache/project/24244335/master 
+Successfully extracted cache
+
+à la fin le cache est de nouveau uploadé :
+Creating cache master...
+node_modules/: found 51198 matching files and directories
+Uploading cache.zip to https://storage.googleapis.com/gitlab-com-runners-cache/project/24244335/master
+Created cache
+
+
+on gagne donc pas mal de temps.
+
+il peut arriver que le cache pour une raiso, ou une autre fasse mal le job. On peut clear le cache 
+ci/cd > pipeline > clear runner caches.
+
+= cache vs artifact : =
+
+
+- artifact :
+on va pouvoir ajouter des données dans l'artifact job apres job
+
+un premier job crée un artifact, qui sera recupérer par un autre job qui alimentera aussi cet artifact qui sera recup et alimenter par un autre job etc etc ..
+
+l'artifact est souvent le resultat de notre build
+dans gitlabci l'artifact sert a sauvegarder la géneration de notre build
+les artifacts peuvent être utiliser pour passer des data entre les jobs
+
+- cache :
+
+uniquement utiliser pour stocker temporairement les dependances de build pas stocker notre build
+
+
+https://docs.gitlab.com/ee/ci/caching/#cache-vs-artifacts
+
+
+= environment : =
+
