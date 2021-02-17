@@ -992,3 +992,210 @@ https://docs.gitlab.com/ee/ci/caching/#cache-vs-artifacts
 
 = environment : =
 
+jusqu'a present on a créer notre build, packagé et deployé directement en production.
+  code > build > codequality >test > package >  production
+
+On va biensur vouloir ajouter des stages afin de nous assurer de la viabilité de notre code.
+L'idee est d'avoir un pipeline de ce type : 
+  code > build > codequality >test > package > review test > staging > production
+
+on va dans notre cas ajouter un stage :
+
+  code > build > codequality >test > package > staging > production
+
+on change nos stages :
+...
+stages:
+  - build
+  - test
+  - deploy staging   <<< on ajoute le deployment en staging
+  - deploy production <<<< le deployment en production est specifiquement défini
+  - production tests  <<<  les tests post deploy se font en prod ( pas de plateforme de staging)
+..
+
+on renomme les jobs aussi et on ajoute notre job de déployment en staging.
+on fait pointer notre job de déployment de staging sur une entrée dns pointant sur un env de staging / preproduction dédié.
+
+ces etapes sont cruciales pour tester en amont de production les fonctionnalitées completes des sites ( ex: appels à des external api , ....) 
+
+
+
+image: node
+
+stages:
+  - build
+  - test
+  - deploy staging
+  - deploy production
+  - production tests
+
+cache:
+  key: ${CI_COMMIT_REF_SLUG}
+  paths:
+    - node_modules/
+
+build website:
+  stage: build
+  script:
+    - echo $CI_COMMIT_SHORT_SHA
+    - npm install -g npm@7.5.3
+    - npm install
+    - npm install -g gatsby-cli
+    - gatsby build
+    - sed -i "s/%%VERSION%%/$CI_COMMIT_SHORT_SHA/"  ./public/index.html
+  artifacts:
+    paths:
+      - ./public
+
+test artifact:
+  image: alpine
+  stage: test
+  script:
+     - grep -q "Gatsby" ./public/index.html
+test website:
+  stage: test
+  script:
+    - npm install -g npm@7.5.3
+    - npm install
+    - npm install -g gatsby-cli
+    - gatsby serve &
+    - sleep 3
+    - curl "http://localhost:9000" |grep -q "Gatsby"
+
+deploy staging:
+  stage: deploy staging
+  script:
+    - npm install --global surge
+    - surge --project ./public --domain boogie-staging.surge.sh   <<<<< ici on pointe sur un domaine de staging  qu'on aura defini au prealable.
+deploy production:
+  stage: deploy production
+  script:
+    - npm install --global surge
+    - surge --project ./public --domain boogie.surge.sh
+
+production tests:
+  stage: production tests
+  image: alpine
+  script:
+    - apk --no-cache add curl
+    - curl -q http://boogie.surge.sh
+    - curl http://boogie.surge.sh |grep -q "$CI_COMMIT_SHORT_SHA"
+
+Gitlab peut nous permettre d'utiliser la notion d'environment :
+> permet de controller les phases de build et deployment
+> tracker les deployments
+> connaitre précisemement ce qu'il y a de deployé par environment
+
+
+on va ajouter le keyword environment dans notre pipeline, lui donner un nom et associer l'url dédiée pour chacun des envs :
+...
+deploy staging:
+  stage: deploy staging
+  environment:
+    name: staging
+    url: boogie-staging.surge.sh
+  script:
+    - npm install --global surge
+    - surge --project ./public --domain boogie-staging.surge.sh
+deploy production:
+  stage: deploy production
+  environment:
+    name: production
+    url: boogie.surge.sh
+  script:
+    - npm install --global surge
+    - surge --project ./public --domain boogie.surge.sh
+...
+
+quand on pousse dans gitlab on voit maintenant apparaitre dans la section operation > environment nos deux stages
+
+on remarque les commits associés à nos déployments.
+
+= variables : ==
+
+ajout de variable personalisée
+
+une des pratiques fondamentales est de ne jamais répliquer des informations mais d'utiliser des variables pour cela.
+on va donc définir une variable pour les url d'env
+
+on peut le faire via la gui
+settings > ci/cd > variables comme on a fait pour le user surge et le token d'api surge
+
+on peut aussi le faire directement dans le code.
+
+comme la variables est utilisée à plusieurs reprises on va la définir en global et remplacer chaque occurence de domain via la variable appropriée :
+
+image: node
+stages:
+  - build
+  - test
+  - deploy staging  
+  - deploy production
+  - production tests  
+
+cache:
+  key: ${CI_COMMIT_REF_SLUG}
+  paths:
+    - node_modules/
+
+variables:
+  STAGING_DOMAIN: boogie-testing.surge.sh
+  PRODUCTION_DOMAIN: boogie.surge.sh
+
+      
+build website:
+  stage: build
+  script:
+    - echo $CI_COMMIT_SHORT_SHA
+    - npm install -g npm@7.5.3
+    - npm install
+    - npm install -g gatsby-cli
+    - gatsby build
+    - sed -i "s/%%VERSION%%/$CI_COMMIT_SHORT_SHA/"  ./public/index.html
+  artifacts:
+    paths:
+      - ./public
+
+test artifact:
+  image: alpine
+  stage: test
+  script:
+     - grep -q "Gatsby" ./public/index.html
+test website:
+  stage: test
+  script: 
+    - npm install -g npm@7.5.3
+    - npm install
+    - npm install -g gatsby-cli     
+    - gatsby serve &
+    - sleep 3
+    - curl "http://localhost:9000" |grep -q "Gatsby" 
+
+deploy staging:
+  stage: deploy staging
+  environment:
+    name: staging
+    url: ${STAGING_DOMAIN}
+  script:
+    - npm install --global surge
+    - surge --project ./public --domain ${STAGING_DOMAIN}
+deploy production:
+  stage: deploy production
+  environment:
+    name: production
+    url: ${PRODUCTION_DOMAIN}
+  script:
+    - npm install --global surge
+    - surge --project ./public --domain ${PRODUCTION_DOMAIN}
+
+production tests:
+  stage: production tests
+  image: alpine
+  script:
+    - apk --no-cache add curl 
+    - curl -q http://${PRODUCTION_DOMAIN}
+    - curl http://${PRODUCTION_DOMAIN} |grep -q "$CI_COMMIT_SHORT_SHA"
+
+= Deployment manuel =
+
+
