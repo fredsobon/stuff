@@ -1198,4 +1198,249 @@ production tests:
 
 = Deployment manuel =
 
+comment déclencher l'execution de job manuellement uniquement.
+
+on sait que jusqu'au déployment en staging on peut tout faire automatiquement.
+
+on va vouloir s'assurer d'un deployment manuel pour la production : 
+
+code > build > codequality >test > package > staging ><validation user << production
+
+on va ajouter une directive dans notre job de deployment qui va déclencher le build uniquement manuellement 
+..
+deploy production:
+  stage: deploy production
+  environment:
+    name: production
+    url: http://${PRODUCTION_DOMAIN}
+  when: manual                        <<<< ajout de la condition manual
+  script:
+    - npm install --global surge
+    - surge --project ./public --domain ${PRODUCTION_DOMAIN}
+..
+
+https://docs.gitlab.com/ee/ci/yaml/#whenmanual
+
+quand on examine notre pipeline on voit que le job de deployment to production est grisé : pour déployer nous n'avons qu'a cliquer sur le bouton 
+
+on voir egalement que le test de production est ko (le num de commit de notre test de prod n'est forcement pas bon car le test c'est fait avant le déployment manuel de notre de job de production.
+on peut relancer le test manuellement pas de pb.
+
+On voudrait s'assurer qu'apres le job manuel les jobs suivants ne soient pas exécutés ( ce qui n'est pas le fonctionnement naturel de gitlab.). 
+On va donc appliquer une modif à notre job.
+La lecture n'est pas intuitive mais fait le job :
+
+..
+deploy production:
+  stage: deploy production
+  environment:
+    name: production
+    url: http://${PRODUCTION_DOMAIN}
+  allow_failure: false    <<<< ici on defini que 
+  when: manual
+  script:
+    - npm install --global surge
+    - surge --project ./public --domain ${PRODUCTION_DOMAIN}
+..
+
+https://docs.gitlab.com/ee/ci/yaml/#allow_failure
+
+"Use allow_failure when you want to let a job fail without impacting the rest of the CI suite. The default value is false, EXCEPT for manual jobs that use the when: manual syntax.
+In jobs that use rules:, all jobs default to allow_failure: false, including when: manual jobs.
+When allow_failure is set to true and the job fails, the job shows an orange warning in the UI. 
+However, the logical flow of the pipeline considers the job a success/passed, and is not blocked.
+Assuming all other jobs are successful, the job’s stage and its pipeline show the same orange warning. However, the associated commit is marked as “passed”, without warnings."
+
+on voit maintenant que notre test est en status bloqué et que le deploymenten prod attend une intervention manuelle.
+
+
+= Merge requests : securisation du déployment  =
+
+amelioration du workflow de notre ci avec les merge requests et branches.
+
+On va eviter de travailler sur la branche master dont un probleme pourrait bloquer tout le developpement.
+Chaque dev va donc coder sur une brancher et faire une merge request pour pousser sur master.
+
+dans notre cas on va pouvoir garder des steps pour notre branche mais certainement pas les parties de deployment ( staging,production et test production )
+on va donc simplement pour ces jobs rajouter une directive qui permettra l'execution uniquement sur master.
+
+on va pouvoir déclarer que personne ne peut pousser sur "master"
+on va pouvoir faire des settings pour nos merge requests : 
+dans notre repos > settings > repository > protected branches > on peut selectionner "no one" dans la section push : sur la branche master personne ne peut pousser en mode auto.
+
+on peut egalement modifier la conf de nos merge requests :
+general > merge request > merge method > selectionner fast forward pour garder un historique clean du repo git.
+
+
+dans general > merge request > Merge checks "These checks must pass before merge requests can be merged"
+on peut cliquer sur 'pipeline must succeeded' et 'all discussions must be resolved'
+
+- merge request - tuto :
+
+> on cree une nouvelle branche 
+dans cette branche on ajoute un titre a notre src/index.js 
+> on cree une merge request > on valide : trois jobs se lancent : 
+build test artifact 
+      test website 
+
+les autres jobs se lancent uniquement sur la branche master
+
+des que les jobs sont ok > le merge sur master se fait et cette fois on a tout nos jobs qui s"executent.
+
+on peut rajouter pour reproduire ce comportement "mege_requests" dans la def de nos jobs "séurisés" :
+
+..
+deploy production:
+  stage: deploy production
+  environment:
+    name: production
+    url: http://${PRODUCTION_DOMAIN}
+  only:
+    - master
+    - merge_requests
+  allow_failure: false
+  when: manual
+  script:
+    - npm install --global surge
+    - surge --project ./public --domain ${PRODUCTION_DOMAIN}
+..
+
+= environments dynamiques : =
+
+les environments de staging et production sont pour la branche master
+
+on va vouloir a chaque branche crées pouvoir disposer d'un environment de review.
+on va pouvoir utiliser les environment dynamiques à chaque mr crée et faire des tests spécifiques en plus si besoin.
+les changements vont pouvoir être examiner par des personnes moins spécialisées dans le code ( product owner etc...)
+
+on va créer un nouveau stage :
+
+stages:
+  - build
+  - test
+  - deploy review
+  - deploy staging
+  - deploy production
+  - production tests
+..
+
+
+on cree le job associé : 
+cette fois on a la création d'un environment dynamic qui se fait avec le nom de notre branche et fait a chaque merge request :
+on adapte notree url de test en conséquence :
+deploy review:
+  stage: deploy review
+  environment:
+    name: review/$CI_COMMIT_REV_NAME
+    url:  http://boogie-$CI_COMMIT_REV_NAME.surge.sh
+  only:
+    - merge_requests
+  script:
+    - npm install --global surge
+    - surge --project ./public --domain http://boogie-$CI_COMMIT_REV_NAME.surge.sh
+
+
+on a donc par exemple un env :
+review/featureMr
+
+
+notre fichier complet devient donc :
+
+image: node
+
+stages:
+  - build
+  - test
+  - deploy review
+  - deploy staging
+  - deploy production
+  - production tests
+
+cache:
+  key: ${CI_COMMIT_REF_SLUG}
+  paths:
+    - node_modules/
+
+variables:
+  STAGING_DOMAIN: boogie-testing.surge.sh
+  PRODUCTION_DOMAIN: boogie.surge.sh
+
+build website:
+  stage: build
+  script:
+    - echo $CI_COMMIT_SHORT_SHA
+    - npm install -g npm@7.5.3
+    - npm install
+    - npm install -g gatsby-cli
+    - gatsby build
+    - sed -i "s/%%VERSION%%/$CI_COMMIT_SHORT_SHA/"  ./public/index.html
+  artifacts:
+    paths:
+      - ./public
+
+test artifact:
+  image: alpine
+  stage: test
+  script:
+     - grep -q "Gatsby" ./public/index.html
+
+test website:
+  stage: test
+  script:
+    - npm install -g npm@7.5.3
+    - npm install
+    - npm install -g gatsby-cli
+    - gatsby serve &
+    - sleep 3
+    - curl "http://localhost:9000" |grep -q "Gatsby"
+
+deploy review:
+  stage: deploy review
+  environment:
+    name: review/$CI_COMMIT_REF_NAME
+    url:  http://boogie-$CI_ENVIRONMENT_SLUG.surge.sh
+  only:
+    - merge_requests
+  script:
+    - npm install --global surge
+    - surge --project ./public --domain boogie-$CI_ENVIRONMENT_SLUG.surge.sh
+
+deploy staging:
+  stage: deploy staging
+  environment:
+    name: staging
+    url:  http://${STAGING_DOMAIN}
+  only:
+    - master
+  script:
+    - npm install --global surge
+    - surge --project ./public --domain ${STAGING_DOMAIN}
+
+deploy production:
+  stage: deploy production
+  environment:
+    name: production
+    url: http://${PRODUCTION_DOMAIN}
+  only:
+    - master
+  allow_failure: false
+  when: manual
+  script:
+    - npm install --global surge
+    - surge --project ./public --domain ${PRODUCTION_DOMAIN}
+
+production tests:
+  stage: production tests
+  image: alpine
+  only:
+    - master
+  script:
+    - apk --no-cache add curl
+    - curl -q http://${PRODUCTION_DOMAIN}
+    - curl http://${PRODUCTION_DOMAIN} |grep -q "$CI_COMMIT_SHORT_SHA"
+
+
+= Suppression des environments apres la merge requests : =
+
+une fois que notre environment dynamique a été crée et la mr passée il n'y a plus de raison de conserver l'environement 
 
