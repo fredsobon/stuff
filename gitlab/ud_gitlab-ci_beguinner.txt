@@ -1442,5 +1442,368 @@ production tests:
 
 = Suppression des environments apres la merge requests : =
 
-une fois que notre environment dynamique a été crée et la mr passée il n'y a plus de raison de conserver l'environement 
+une fois que notre environment dynamique a été crée et la mr passée il n'y a plus de raison de conserver l'environement de review qui de part sa nature qui depend du nom de la branche est éphémère.
+surge permet de delete un projet :
+https://surge.sh/help/tearing-down-a-project
 
+on va donc ajouter un second job dans le stage review de notre code.
+on veut delete le projet quand la branche a été mergée et potentiellement deleted
+on defini une variable propre a ce job qui indique que la branche ne doit pas être clonée
+on va indiquer une action stop dans ce job
+on va etablir un lien entre le job deploy review et stop review : on va ajouter dans l'environment du job deploy review la directive on_stop: stop review (qui correspond au nom de nootre job stop review)
+
+https://docs.gitlab.com/ee/ci/environments/
+
+"Stopping an environment
+Executes an on_stop action, if defined.
+This is often used when multiple developers are working on a project at the same time, each of them pushing to their own branches, causing many dynamic environments to be created.
+dynamic environments stop automatically when their associated branch is deleted.
+Environments can be stopped automatically using special configuration.
+If you can’t use Pipelines for merge requests, setting the GIT_STRATEGY to none is necessary in the stop_review job so that the runner doesn’t try to check out the code after the branch is deleted.
+When you have an environment that has a stop action defined (typically when the environment describes a Review App), GitLab automatically triggers a stop action when the associated branch is deleted. The stop_review job must be in the same stage as the deploy_review job in order for the environment to automatically stop."
+
+deploy review 
+  stage: deploy review
+  environment:
+    name: review/$CI_COMMIT_REF_NAME
+    url:  http://boogie-$CI_ENVIRONMENT_SLUG.surge.sh
+    on_stop: stop review                    <<<<<< on declare 
+  only:
+    - merge_requests
+  script:
+    - npm install --global surge
+    - surge --project ./public --domain boogie-$CI_ENVIRONMENT_SLUG.surge.sh
+
+stop review:
+  stage: deploy review
+  variables:
+    GIT_STRATEGY: none         <<<<< on specifie que ce job ne doit pas cloner la branche qui potentiellement n'existe plus.
+  only:
+    - merge_requests           <<<<  le job ne s'execute que pour les merge requests 
+  script:
+    - npm install --global surge <<<<  on installe surge pour le job 
+    - surge teardown boogie-$CI_ENVIRONMENT_SLUG.surge.sh <<< on delete l'env surge dont la valeur de la variable correspond au nom de la branche deployée 
+  when: manual                <<<< ne se fait qu'une fois l'action de merge sur master est faite manuellement sur gitlab
+  environment:
+    name: review/$CI_COMMIT_REF_NAME
+    action: stop              <<<< l'environement est stoppé.
+
+
+== before and after script :==
+
+on peut configurer en global ou au niveau du job 
+
+https://docs.gitlab.com/ee/ci/yaml/#before_script-and-after_script
+
+
+- before script : 
+on peut voir cette section comme une phase pour préparer le job, set up de dépendances etc ...
+
+"Use before_script to define an array of commands that should run before each job, but after artifacts are restored.
+Scripts specified in before_script are concatenated with any scripts specified in the main script, and executed together in a single shell.
+It’s possible to overwrite a globally defined before_script if you define it in a job:
+
+default:
+  before_script:
+    - echo "Execute this script in all jobs that don't already have a before_script section."
+
+job1:
+  script:
+    - echo "This script executes after the global before_script."
+
+job:
+  before_script:
+    - echo "Execute this script instead of the global before_script."
+  script:
+    - echo "This script executes after the job's `before_script`"
+￼
+You can use YAML anchors with before_script.
+
+- after_script : 
+
+Use after_script to define an array of commands that run after each job, including failed jobs.
+If a job times out or is cancelled, the after_script commands are not executed. Support for executing after_script commands for timed-out or cancelled jobs is planned.
+Scripts specified in after_script are executed in a new shell, separate from any before_script or script scripts. As a result, they:
+Have a current working directory set back to the default.
+Have no access to changes done by scripts defined in before_script or script, including:
+Command aliases and variables exported in script scripts.
+Changes outside of the working tree (depending on the runner executor), like software installed by a before_script or script script.
+Have a separate timeout, which is hard coded to 5 minutes. See the related issue for details.
+Don’t affect the job’s exit code. If the script section succeeds and the after_script times out or fails, the job exits with code 0 (Job Succeeded).
+
+default:
+  after_script:
+    - echo "Execute this script in all jobs that don't already have an after_script section."
+
+job1:
+  script:
+    - echo "This script executes first. When it completes, the global after_script executes."
+
+job:
+  script:
+    - echo "This script executes first. When it completes, the job's `after_script` executes."
+  after_script:
+    - echo "Execute this script instead of the global after_script."
+
+You can use YAML anchors with after_script."
+
+= YAML : =
+
+language pour gitlab-ci
+key value pair
+on peut stocker des stings, integers, list, multiples items
+l'indentation est fondamentale
+le yaml accepte les commentaires commenant par "#" ( pas le json )
+on peut convertir du yaml en json
+
+name: "John"
+age: 29
+isMale: true
+stuff:
+  - laptop
+  - car
+pour les list on peut ecrire de cette manière aussi :  
+stuff: [ "laptop", "car" ]
+
+person:
+  name: "John"
+  age: 29
+  isMale: true
+  stuff:
+    - laptop
+    - car
+  friends: 
+    - name: Jane
+      age: 25
+    - name: Mike
+      age: 30
+
+= disable job : =
+
+on peut facilement désactiver un job dans notre pipeline : il suffit d'ajouter un "." devant le nom du job.
+Il ne sera pas éxécuté.
+
+ex: 
+.deploy review:
+  stage: deploy review
+  only:
+    - merge_requests
+  environment:
+    name: review/$CI_COMMIT_REF_NAME
+    url:  http://boogie-$CI_ENVIRONMENT_SLUG.surge.sh
+    on_stop: stop review
+  script:
+    - npm install --global surge
+    - surge --project ./public --domain boogie-$CI_ENVIRONMENT_SLUG.surge.sh
+
+= ancres / anchors : =
+
+on va pouvoir relier un objet a un autre 
+
+person:
+  name: "John"
+  age: 29
+  isMale: true
+  stuff:
+    - laptop
+    - car
+  friends:
+    - name: Jane
+      age: 25
+    - name: Mike
+      age: 30
+  self: "John"
+
+exemple on va definir l'objet self qui devra prendre la valeur de l'objet name : quelque soit cette valeur.
+
+on defini une ancre dans le nom et on appelle cette ancre dans l'objet self
+
+person:
+  name: &name "John"
+  age: 29
+  isMale: true
+  stuff:
+    - laptop
+    - car
+  friends:
+    - name: Jane
+      age: 25
+    - name: Mike
+      age: 30
+  self: *name
+
+
+on peut merger plusieurs properties dans un objet :
+en déclarant une ancre avec "& nom d'ancre" et en l'integrant dans l'object avec "<<: * nom d'ancre" 
+
+base_person: &base 
+  city: nyc
+  country: usa
+
+person:
+  <<: *base
+  name: &name "John"
+  age: 29
+  isMale: true
+  stuff:
+    - laptop
+    - car
+  friends:
+    - name: Jane
+      age: 25
+    - name: Mike
+      age: 30
+  self: *name
+
+on va pouvoir s'en servir pour eviter de dupliquer du code dans nos pipelines gitlab.
+on va donc pouvoir s'en servir pour créer des templates de code dans notre pipeline gitlab et factoriser du code.
+
+en examinant notre pipeline on voit que les jobs de déployment sont à peut pres les mêmes on va pouvoir simplifier.
+review / staging /production
+
+on va essayer de trouver les infos similaires pour les isoler et factoriser.
+
+on va isoler les blocs communs et ajuster si besoin : ici on rajoute dans chacun des jobs une variable domain pour factoriser notre code :
+
+.deploy_template: &deploy
+  only:
+    - master
+  script:
+    - npm install --global surge
+    - surge --project ./public --domain $DOMAIN
+  environment:
+    url: http://$DOMAIN
+
+deploy staging:
+  <<: *deploy
+  stage: deploy staging
+  variables:
+    DOMAIN: $STAGING_DOMAIN
+  environment:
+    name: staging
+  
+deploy production:
+  <<: *deploy
+  stage: deploy production
+  variables:
+    DOMAIN: $PRODUCTION_DOMAIN
+  environment:
+    name: production
+
+on a donc comme ci finale :
+
+image: node:10
+
+stages:
+  - build
+  - test
+  - deploy review
+  - deploy staging
+  - deploy production
+  - production tests
+
+cache:
+  key: ${CI_COMMIT_REF_SLUG}
+  paths:
+    - node_modules/
+
+variables:
+  STAGING_DOMAIN: instazone-staging.surge.sh
+  PRODUCTION_DOMAIN: instazone.surge.sh
+
+build website:
+  stage: build
+  only:
+    - master
+    - merge_requests
+  script:
+    - echo $CI_COMMIT_SHORT_SHA
+    - npm install
+    - npm install -g gatsby-cli
+    - gatsby build
+    - sed -i "s/%%VERSION%%/$CI_COMMIT_SHORT_SHA/" ./public/index.html
+  artifacts:
+    paths:
+      - ./public
+
+test artifact:
+  image: alpine
+  stage: test
+  only:
+    - master
+    - merge_requests
+  script:
+    - grep -q "Gatsby" ./public/index.html
+
+test website:
+  stage: test
+  only:
+    - master
+    - merge_requests
+  script:
+    - npm install
+    - npm install -g gatsby-cli
+    - gatsby serve &
+    - sleep 3
+    - curl "http://localhost:9000" | tac | tac | grep -q "Gatsby"
+
+deploy review:
+  stage: deploy review
+  only:
+    - merge_requests
+  environment:
+      name: review/$CI_COMMIT_REF_NAME
+      url: https://instazone-$CI_ENVIRONMENT_SLUG.surge.sh
+      on_stop: stop review
+  script:
+    - npm install --global surge
+    - surge --project ./public --domain instazone-$CI_ENVIRONMENT_SLUG.surge.sh
+
+stop review:
+  stage: deploy review
+  only:
+    - merge_requests
+  variables:
+    GIT_STRATEGY: none
+  script:
+    - npm install --global surge
+    - surge teardown instazone-$CI_ENVIRONMENT_SLUG.surge.sh
+  when: manual
+  environment:
+    name: review/$CI_COMMIT_REF_NAME
+    action: stop
+
+deploy_template: &deploy
+  only:
+    - master
+  script:
+    - npm install --global surge
+    - surge --project ./public --domain $DOMAIN
+  environment:
+    url: http://$DOMAIN
+
+deploy staging:
+  <<: *deploy
+  stage: deploy staging
+  variables:
+    DOMAIN: $STAGING_DOMAIN
+  environment:
+    name: staging
+  
+deploy production:
+  <<: *deploy
+  stage: deploy production
+  variables:
+    DOMAIN: $PRODUCTION_DOMAIN
+  environment:
+    name: production
+
+production tests:
+  image: alpine
+  stage: production tests
+  only:
+    - master  
+  script:
+    - apk add --no-cache curl
+    - curl -s "https://$PRODUCTION_DOMAIN" | grep -q "Hi people"
+    - curl -s "https://$PRODUCTION_DOMAIN" | grep -q "$CI_COMMIT_SHORT_SHA"
