@@ -463,10 +463,34 @@ test website:
 
 
 
-dans gitlab on voit qu'on a trois etapes dont deux en parralles : les deux tests s'executent en paralle car on a spécifier le même stage dans nos deux confs :
+dans gitlab on voit qu'on a trois etapes dont deux en parrallele : les deux tests s'executent en parallele car on a spécifier le même stage dans nos deux confs :
 
  build website       test artifact
                      test website
+
+
+dans un job on peut executer egalement plusieurs test en parallele pour s'assurer de l'integrité du test avec le keyword parralel
+parallel: x
+
+ex :
+
+test artifact:
+  image: alpine
+  stage: test
+  parallel: 5               <<<<< on va lancer le job 5 fois pour nous assurer du test 
+  script:
+     - grep -q "Gatsby" ./public/index.html
+test website:
+  stage: test
+  image: node
+  script:
+    - npm install -g npm@7.5.3
+    - npm install
+    - npm install -g gatsby-cli
+    - gatsby serve &
+    - sleep 3
+    - curl http://localhost:9000 | grep -q "Gatsby"
+
 
 ici dans notre cas il est possible de lancer en parrale les tests cela depend evidemment de nos contextes ( le build est un prérequi pour nos tests ..on ne peut pas tester le contenu si le build n'est pas fait.)
 dans notre cas on ne gagne pas en performance car le test website install gatsby ..on a toujours le temps d'install des dependance ..mais dans certains ca on peut hériter d'un job précéder ce qui nous fait ganger un temps précieux.
@@ -981,6 +1005,40 @@ un premier job crée un artifact, qui sera recupérer par un autre job qui alime
 l'artifact est souvent le resultat de notre build
 dans gitlabci l'artifact sert a sauvegarder la géneration de notre build
 les artifacts peuvent être utiliser pour passer des data entre les jobs
+
+
+De base si on ne precise rien l'artifact est passé au job de test ( si on ne déclarer pas de stage car le workflow natif de gitlab est : build > test > deploy )
+
+
+Il peut nous arriver de vouloir que certains artifacts ne soient pas récupérer automatiquement pour tous les jobs 
+dans ce cas on va indiquer dans le job destination la dependance au job dont on veut récupérer l'artifact précis 
+
+ex : on va specifiquement indiquer dans un test qu'on veut recup l'artifact de notre build ( dans notre cas c'a ne sert à rien mais c'est pour l'exemple ) 
+
+build website:
+  stage: build
+  only:
+    - master
+    - merge_requests
+  script:
+    - echo $CI_COMMIT_SHORT_SHA
+    - npm install -g npm@7.5.3
+    - npm install
+    - npm install -g gatsby-cli
+    - gatsby build
+    - sed -i "s/%%VERSION%%/$CI_COMMIT_SHORT_SHA/"  ./public/index.html
+  artifacts:
+    paths:
+      - ./public
+
+test artifact:
+  image: alpine
+  stage: test
+  dependencies                      <<<<< on set le keyword dependencies 
+    - build website
+..
+
+
 
 - cache :
 
