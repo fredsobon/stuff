@@ -587,7 +587,7 @@ on lance surge > on remplit adresse mail + mdp + on check que la racine de notre
 
 quelques secondes suffisent à avoir notre site static up dans le cloud.
 
-= gestion des mdp /secrets dans notre code vai variables d'environment :
+= gestion des mdp /secrets dans notre code via variables d'environment :
 
 biensur on ne commit rien contenant des password.
 on va pouvoir renseigner des secret dans gitlab sans qu'ils ne soient visible dans le code.
@@ -1183,6 +1183,16 @@ on peut aussi le faire directement dans le code.
 
 comme la variables est utilisée à plusieurs reprises on va la définir en global et remplacer chaque occurence de domain via la variable appropriée :
 
+
+Dans gitlab on peut créer des variables qui seront liées à notre repo git mais aussi des variables de group qui seront héritées par tous les projets inclus dans le group principale 
+
+   main group >ci> variables   : ces variables seront accessibles dans les jobs des repos enfants du projet.
+                 repo1
+                 repo2
+                 repox
+
+on peut lancer un job manuellement et overrider la variables definies pour ce job en remplissant les champs dédies ( ci/cd > pipeline) 
+
 image: node
 stages:
   - build
@@ -1496,6 +1506,164 @@ production tests:
     - apk --no-cache add curl
     - curl -q http://${PRODUCTION_DOMAIN}
     - curl http://${PRODUCTION_DOMAIN} |grep -q "$CI_COMMIT_SHORT_SHA"
+
+
+
+= environment et deployment dans kube : =
+
+les environments decrivent l'endroit ou le code va être déployé
+gitlab permet de fournir un url pour le monitoring 
+un environment peut être linké à un cluster kube
+
+ex :
+on déclare un env production et on le restreint uniquement à la branche master
+
+..
+deploy:
+  stage: deploy
+  variables:
+    APP_NAME: production-todo
+    APP_LABEL: production
+    DEPLOY_HOST: todo.k8s.anvard.org
+  environment:
+    name: production
+    url: http://todo.k8s.anvard.org:32445/
+  image: roffe/kubectl:v1.13.0
+  script:
+    - kubectl delete --ignore-not-found=true secret gitlab-auth
+    - kubectl create secret docker-registry gitlab-auth --docker-server=$CI_REGISTRY --docker-username=$KUBE_PULL_USER --docker-password=$KUBE_PULL_PASS
+    - cat k8s.yaml | envsubst | kubectl apply -f -
+  only:
+    - master
+
+- kubernetes applications resources :
+
+> deployment 
+> service 
+> pvc
+> ingress
+
+
+on voit dans le job de deployment qu'un fichier de ressources kube (k8s.yaml) va etre affiché et qu'ensuite via la commande envsubst on va remplacer les variables du fichiers par leurs valeurs définies dans gitlabci puis appliquer les fichiers dans notre cluster kube avec un kubectl apply -f 
+
+on peut ici voir le fichier k8s.yaml et voir les variables qui seront remplacées par les valeurs définies dans gitlab 
+
+cat k8s.yaml       
+kind: Service
+apiVersion: v1
+metadata:
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "5000"
+  name: ${APP_NAME}
+spec:
+  selector:
+    app: ${APP_LABEL}
+  type: NodePort
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 5000
+---
+kind: Deployment
+apiVersion: apps/v1beta1
+metadata:
+  name: ${APP_NAME}
+  labels:
+    app: ${APP_LABEL}
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: ${APP_LABEL}
+  template:
+    metadata:
+      labels:
+        app: ${APP_LABEL}
+    spec:
+      imagePullSecrets:
+      - name: gitlab-auth
+      containers:
+      - name: ${APP_NAME}
+        image: "${DOCKER_IMAGE_TAG}"
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: DATABASE_URL
+          value: "postgres://${DBUSER}:${DBPASS}@${APP_NAME}-db/todo"
+        ports:
+        - containerPort: 5000
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: ${APP_NAME}-db
+spec:
+  selector:
+    app: ${APP_LABEL}-db
+  ports:
+  - protocol: TCP
+    port: 5432
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: ${APP_NAME}-db
+  labels:
+    app: ${APP_LABEL}-db
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ${APP_LABEL}-db
+  template:
+    metadata:
+      labels:
+        app: ${APP_LABEL}-db
+    spec:
+      containers:
+      - name: ${APP_NAME}-db
+        image: postgres:10.4
+        env:
+        - name: POSTGRES_USER
+          value: "${DBUSER}"
+        - name: POSTGRES_PASSWORD
+          value: "${DBPASS}"
+        - name: PGDATA
+          value: "/data/pgdata"
+        volumeMounts:
+        - mountPath: /data
+          name: todo-data
+      volumes:
+        - name: todo-data
+          persistentVolumeClaim:
+           claimName: ${APP_NAME}-data
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: ${APP_NAME}-data
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: ${APP_NAME}-ingress
+spec:
+  rules:
+    - host: ${DEPLOY_HOST}
+      http:
+        paths:
+          - backend:
+              serviceName: ${APP_NAME}
+              servicePort: 80
+
+
 
 
 = Suppression des environments apres la merge requests : =
