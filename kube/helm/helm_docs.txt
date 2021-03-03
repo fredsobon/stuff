@@ -1,0 +1,67 @@
+=== notes helm docs : ==
+
+
+on peut générer automatiquement la documentation des valeurs d'un chart via un plugin helm qui va parser le fichier de values et créer le README.md qui va bien 
+
+https://github.com/norwoodj/helm-docs
+
+https://pre-commit.com/#install
+
+pip install pre-commit
+sudo apt install shellcheck
+
+dans notre repo helm git : 
+pre-commit install
+pre-commit installed at .git/hooks/pre-commit
+
+il nous faut créer un fichier comme tel .pre-commit-config.yaml :
+
+---
+repos:
+  - repo: https://github.com/kadrach/pre-commit-gitlabci-lint
+    rev: master
+    hooks:
+      - id: gitlabci-lint
+        args: ["https://gitlab.lapin.net"]
+  - repo: https://github.com/gruntwork-io/pre-commit
+    rev: master # Get the latest from: https://github.com/gruntwork-io/pre-commit/releases
+    hooks:
+      - id: shellcheck
+      - id: helmlint
+  - repo: https://github.com/norwoodj/helm-docs
+    rev: v1.2.0
+    hooks:
+      - id: helm-docs
+        args:
+          - --sort-values-order=file
+          # Make the tool search for charts only under the `example-charts` directory
+          #- --chart-search-root=example-charts
+          # The `./` makes it relative to the chart-search-root set above
+          #- --template-files=./_templates.gotmpl
+          # Repeating the flag adds this to the list, now [./_templates.gotmpl, README.md.gotmpl]
+          # A base filename makes it relative to each chart directory found
+          #- --template-files=README.md.gotmpl
+
+
+dans notre fichier de values du chart, pour générer la doc automatiquement on va donc s'assurer de mettre des # suivis de 2 - : le parser go va identifier ces champs et formater la doc en conséquence : 
+
+  # -- host memory access volume part :
+  volumes:
+    - name: dshm
+      emptyDir:
+        medium: Memory
+  volumeMounts:
+    - mountPath: /dev/shm
+      name: dshm
+
+
+on va commiter nos confs ( il est possible de devoir le faire 2 fois pour ne plus avoir d'erreur) et 
+la doc sera générée comme telle : 
+
+
+ │ host memory access volume part
+                                        │        │
+  │ :
+    selenium.volumeMounts[0].mountPath  │ string │ "/dev/shm"
+  │
+    selenium.volumeMounts[0].name       │ string │ "dshm"
