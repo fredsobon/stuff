@@ -1,4 +1,5 @@
-=== notes ud_gitlab ci beguinner : ===
+=== notes mix ud "gitlab ci beguinner" & packt "hand-on autodevops": ===
+
 
 == notes install minikube : ===
 
@@ -2118,5 +2119,293 @@ production tests:
     - curl -s "https://$PRODUCTION_DOMAIN" | grep -q "$CI_COMMIT_SHORT_SHA"
 
 
-
 === application quality and monitoring : ===    
+
+
+difference entre unit test / smoke test et  functional / integration tests :
+
+on a un scope plus elargi et on veut tester dans la perspective "user"
+exemple dans le cas d'une appli de todo notes en nodejs on va vouloir tester la base de données.
+on va vouloir lancer une instance de test de notre base de données. Ceci est possible avec le notion de service dans gitlab-ci :
+
+un service est un extra container que gitlab-ci va runner pour nous comme une partie de notre build
+cela va permettre de rendre cet extra container dispo pour notre container principal pour les tests.
+on va utiliser un alias pour identifier le service de notre extra container sinon gitlab va en créer un automatiquement.
+
+
+
+ex :
+
+test-10:
+  stage: test
+  image: node:10
+  cache:
+    key: ${CI_COMMIT_REF_SLUG}
+    paths:
+    - node_modules/
+  artifacts:
+    when: always
+    expire_in: 1 week
+    paths:
+      - package-lock.json
+      - npm-audit.json
+  services:                         <<<< on defini ici un service qui va lancer une image postgres interrogable depuis notre container principal en node:10 . 
+    - name: postgres:10                  Les variables d'environment définies sont accessibles pour tous les containers. 
+      alias: db                     <<<< on defini un alias qu sera utilisé pour appeller le service de notre container : sinon gitlab en crée un automatiquement.
+  variables:
+    POSTGRES_DB: todo
+    POSTGRES_USER: "${DBUSER}"
+    POSTGRES_PASS: "${DBPASS}"
+    DATABASE_URL: "postgres://${DBUSER}:${DBPASS}@db/todo"
+  script:
+    - ./ci-test.sh
+
+
+dans le cas d'un extra container : gitlab ci va créer un docker link pour permettre aux 2 containers de communiquer et va renseigner dans le /etc/hosts le record de notre alias défini.
+
+
+= analysing code quality : =
+
+- creation d'un job "code quality"
+il y a  plein d'outils pour nous assurer que notre code est correct.
+
+ex : ici on va utiliser une image docker de base 
+on creer un service qui sera donc un extra container sera une image docker contenant un runtime docker que l'on peut interroger : docker in docker (dind) 
+on utilise une image de test fournie par gitlab : "registry.gitlab.com/gitlab-org/security-products/codequality"
+le job va executer depuis l'image docker:stable le script de registry.gitlab.com/gitlab-org/security-products/codequality qui lancera des scan depuis le dind 
+et stockera les resultats de test dans le rapport gl-code-quality-report.json qui seront donc defini en temps 'qu'artifacts mais aussi reports'
+
+
+code-quality:
+  stage: test
+  image: docker:stable
+  allow_failure: true
+  services:
+    - docker:stable-dind
+  variables:
+    DOCKER_HOST: tcp://docker:2375/
+    DOCKER_DRIVER: overlay2
+  script:
+    - >
+      docker run --env SOURCE_CODE="$PWD"
+      --volume "$PWD":/code
+      --volume /var/run/docker.sock:/var/run/docker.sock
+      "registry.gitlab.com/gitlab-org/security-products/codequality" /code
+  artifacts:  <<<<< on defini le resultat du scann a stocker en artifact 
+    reports:  <<< cet artifact est defini comme un rapport ce qui va indiquer a gitlab qu'il doit aussi analyser ( on ne met pas juste à dispo un artifact dans gitlab comme habituellement.) 
+      codequality: gl-code-quality-report.json
+  only:
+    - branches    <<< on ne fait tourner que sur les branches : pas sur master (c'est assez long)
+  except:
+    variables:
+      - $CODE_QUALITY_DISABLED  <<<< on met la possibilité de debrailler le test.
+
+Une fois le test executer on peut voir une merge request et une section dans laquelle le resultat de l'analyse du fichier de rapport de test de code est fait par gitlab : si le code est tjs ok par rapport au test précédent : alors il n'y a pas de souci on peut merger.
+
+
+= dynamic application security testing : dast  =
+
+ici on va tester notre app 
+on créer un job qui va utiliser une appli de test appliquée à notre site de prod qui va générer un rapport de secu 
+on declare un stage dast 
+
+stages:
+  - test
+  - build
+  - deploy
+  - dast
+
+..
+
+dast:
+  stage: dast
+  image: registry.gitlab.com/gitlab-org/security-products/zaproxy   <<< img contentant le test de secu 
+  variables:
+    website: "http://todo.k8s.anvard.org:32445/"
+  allow_failure: true
+  script:
+    - mkdir /zap/wrk/
+    - /zap/zap-baseline.py -J gl-dast-report.json -t $website || true
+    - cp /zap/wrk/gl-dast-report.json .
+  artifacts:
+    reports:
+      dast: gl-dast-report.json  <<< rapport de secu 
+  only:
+    - master   <<< que sur master 
+
+
+
+on va créer un job identique mais pour les branches de test :
+on utilise le nom de la branche dans l'url du site et on fait tourner partout sauf sur master 
+
+dast-review:
+  stage: dast
+  image: registry.gitlab.com/gitlab-org/security-products/zaproxy
+  variables:
+    website: http://${CI_COMMIT_REF_SLUG}-todo.k8s.anvard.org:32445/
+  allow_failure: true
+  script:
+    - mkdir /zap/wrk/
+    - /zap/zap-baseline.py -J gl-dast-report.json -t $website || true
+    - cp /zap/wrk/gl-dast-report.json .
+  artifacts:
+    reports:
+      dast: gl-dast-report.json
+  except:
+    - master
+
+
+= application metric collection : =
+
+on va vouloir instrumenter notre application
+on va utiliser le client prometheus pour node js 
+
+npm install prom-client
+
+dans notre package.json on va avoir l'entrée de promtheus-client :
+
+cat package.json                                              [☸ |N/A:default]
+{
+  "name": "todo",
+  "private": "true",
+  "version": "1.0.0",
+  "description": "a todo web application to illustrate a devops pipeline",
+  "main": "server.js",
+  "scripts": {
+    "prestart": "db-migrate up",
+    "grunt": "grunt",
+    "test": "mocha --exit"
+  },
+  "author": "Multiple, see README",
+  "license": "MIT",
+  "dependencies": {
+    "body-parser": "^1.18.3",
+    "db-migrate": "^0.11.1",
+    "db-migrate-pg": "^0.4.0",
+    "debug": "^3.1.0",
+    "express": "^4.16.3",
+    "pg": "^7.4.3",
+    "prom-client": "^11.2.1"
+
+
+dans notre server.js on ajoute le module prometheus client :
+
+var prom = require('prom-client'),
+ ...
+
+ et on ajoute le nouveau endpoint lié à prometheus 
+
+ // ----- Prometheus metrics
+
+prom.collectDefaultMetrics();
+app.get('/metrics', (req, res) => {
+        res.set('Content-Type', prom.register.contentType);
+        res.end(prom.register.metrics());
+});
+
+quand on redemmare l'appli et qu'on fait des hits sur le point d'entrée on voit des métrics.
+
+on va maintenance configurer le scraping dans kube 
+faire un dashboard prometheus 
+examiner  nos metrics dans gitlab
+
+
+maintenant que notre app nodejs expose les metriques au format prometheus, on va definir dans notre conf kube de recup ces metriques en ajoutant des annotations a notre service :
+
+kind: Service
+apiVersion: v1
+metadata:
+  annotations:
+    prometheus.io/scrape: "true"  <<< on ajoute l'annotions scrape
+    prometheus.io/port: "5000"    <<<< on veut poller sur le port 5000 . On ne rajoute pas de endpoint /metrics car c'est le endpoint par defaut.
+  name: ${APP_NAME}
+spec:
+  selector:
+    app: ${APP_LABEL}
+  type: NodePort
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 5000
+---
+
+
+
+on a dans le namespace deployé par gitlab gitlab-managed-app le deployment de prometheus 
+
+on peut consulter dans gitlab 
+operation > metric : on a nos graph et on peut même déclencher une alerte en fonction de seuil. 
+on voit dans les graphs une indication du deployment.
+
+= custom ci infrastructure : =
+
+= launching dedicated runners : 
+
+
+de base dans gitlab , les jobs seront executés par des shared-runners mais on peut voulir changer ceci
+ex : applications specifiques, si on veut des runners dispo , si on installe un gitlab server privé
+
+settings > ci /cd > runners 
+
+on voit qu'on a les shared 
+on voit qu'on peut aussi enregistrer un runner  :
+
+Set up a specific runner manually
+Install GitLab Runner and ensure it's running.
+Register the runner with this URL:
+https://gitlab.com/ ￼
+
+And this registration token:
+6cNFx3yBjiGeFoxwxwxwxw
+
+
+on peut installer un serveur avec le paquet gitlab runner dessus 
+
+gitlab-runner register
+
+on a par defaut l'url de gitlab.com
+on saisi ensuite le token qu'on a recupérer 
+on saisi ensuite un tag pour notre runnner : exemple aws 
+on defini ensuite le type parmi ceux existant (docker, kubenetes, parrallel, shell ..) : exemple : shell
+et c'est ok notre runner est enregistré 
+
+quand on retourne dans gitlab on voit dans la liste des runners notre runner d'inscrit
+
+on peut maintenant dans un job utiliser ce runner en utilisant son tag :
+
+cat basic-build/.gitlab-ci.yml                                            [☸ |N/A:default]
+build:
+  tags: 
+    - aws
+  script:
+    - /bin/true
+
+
+= automating runners deployment : =
+
+on va vouloir deployer automatiquement des runners
+on peut utiliser par exemple ansible et un playbook par exemple 
+
+on peut une fois que les runners dédiés sont ok désactiver l'utilisation des shared runner
+
+= custom kube runners : =
+
+on peut creer des runners dédiés à kube 
+
+operations > kubernetes > gitlab-runners : on clic sur install 
+quand on va dans settings > ci/cd > runners : on voit un runner dispo flaggé kubernetes
+
+quand on examine le ns gitlab-managed-apps on a un pod runner prsent maintetant
+
+si on lance un job : on voit qu'un pod différent est crée a chaque fois 
+
+c'est l'utilisation de la fonction de service qu'on a vu plus tôt qui est faite pour la création d'extra image pour cet utilisation.
+
+= set up of private gitlab server et ajout de runners =
+
+on peut utiliser ansible pour le setup du server et l'ajout du runner
+
+
+
+
+
