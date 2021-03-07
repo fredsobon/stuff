@@ -1511,6 +1511,89 @@ production tests:
 
 = environment et deployment dans kube : =
 
+
+on va pouvoir deployer du code directement dans un cluster kube defini depuis l'interface de gitlab
+
+https://docs.gitlab.com/ee/user/project/clusters/add_remove_clusters.html#add-existing-cluster
+
+> operations > kubernetes > new cluster ou connecting to a existing cluster dans ce cas on fourni 
+
+- le nom du cluster
+
+- le scope de l'environnemnt  : par defaut c'est défini à * (tous les environments ) dans ce cas cela defini un cluster par defaut dans lequel le job qui utilisera des commandes kubectl enverra de base dans ce cluster kube ...On peut restreindre sinon par env /cluster
+
+- l'url pour acceder à l'api kube : on peut recupérer l'info avec 
+kubectl cluster-info | grep -E 'Kubernetes master|Kubernetes control plane' | awk '/http/ {print $NF}'
+
+- le certificat( .pem)  permettant de se connecter au kube
+kubectl get secret <secret name> -o jsonpath="{['data']['ca\.crt']}" | base64 --decode
+
+- le token permettant de se connecter au cluster kube ( il faut au prealable créer un service account disposant des droits de cluster-admin
+
+les trois sections suivantes ont des checkbox qui sont par defaut cochées :
+- RBAC-enabled cluster
+Enable this setting if using role-based access control (RBAC). This option will allow you to install applications on RBAC clusters. More information
+
+- GitLab-managed cluster
+Allow GitLab to manage namespaces and service accounts for this cluster. More information
+
+- Namespace per environment
+Deploy each environment to its own namespace. Otherwise, environments within a project share a project-wide namespace. Note that anyone who can trigger a deployment of a namespace can read its secrets. If modified, existing environments will use their current namespaces until the cluster cache is cleared. More information
+Project namespace prefix (optional, unique)￼
+Set a prefix for your namespaces. If not set, defaults to your project path. If modified, existing environments will use their current namespaces until the cluster cache is cleared. More information
+
+puis finalement on clic sur :Add Kubernetes cluster
+
+de base gitlab dans kube va créer des namespaces:
+gitlab-managed-apps : dans ce ns on va avoir les applis comme le monitoring, ingress
+kube-deploy-104411 : dans ce ns le code de notre deployement via gitlab 
+
+shematiquement on va builder et pousser notre container dans une registry à laquelle kube devra pouvoir se logger et pull une image :
+docker login registry.gitlab.com
+docker build -t registry.gitlab.com/lapin/static-website .
+docker push registry.gitlab.com/lapin/static-website
+
+Apres avoir defini notre cluster kube on va devoir definir un token pour permettre à kube de pull notre image docker contenant notre code :
+
+on va dans les settings de notre repo 
+repositorie > deploy token  > on cree un token : gitlab en génere un en read only dans notre registry
+
+on va maintenant definir deux variables d'environment :
+KUBE_USER  xxx
+KUBE_PASS  xxx
+
+ces variables seront appellées dans notre gitlab-ci.yaml :
+
+on créera un secret contenant les valeurs de nos variables , on deletera notre secret à chaque iteration du job avant de le recréer 
+    - kubectl delete --ignore-not-found=true secret gitlab-auth
+    - kubectl create secret docker-registry gitlab-auth --docker-server=$CI_REGISTRY --docker-username=$KUBE_PULL_USER --docker-password=$KUBE_PULL_PASS
+
+le secret gitlab-auth sera  appellé dans notre deploiement 
+ex: 
+
+kind: Deployment
+apiVersion: apps/v1beta1
+metadata:
+  name: ${APP_NAME}
+  labels:
+    app: ${APP_LABEL}
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: ${APP_LABEL}
+  template:
+    metadata:
+      labels:
+        app: ${APP_LABEL}
+    spec:
+      imagePullSecrets:
+      - name: gitlab-auth   <<<<< notre secret gitlab defini dans notre ci 
+      containers:
+      - name: ${APP_NAME}
+        image: "${DOCKER_IMAGE_TAG}"
+
+
 les environments decrivent l'endroit ou le code va être déployé
 gitlab permet de fournir un url pour le monitoring 
 un environment peut être linké à un cluster kube
@@ -2033,3 +2116,7 @@ production tests:
     - apk add --no-cache curl
     - curl -s "https://$PRODUCTION_DOMAIN" | grep -q "Hi people"
     - curl -s "https://$PRODUCTION_DOMAIN" | grep -q "$CI_COMMIT_SHORT_SHA"
+
+
+
+=== application quality and monitoring : ===    
