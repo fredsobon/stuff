@@ -139,7 +139,7 @@ attention à la casse ( nom != Nom )
 convention python :
 tout en minuscule . mots séparés par un "_" 
 
-## converstion de type d'objet 
+## convertion de type d'objet 
 
 -> python est dynamique : pas besoin de preciser le type de notre variable
 ```
@@ -438,4 +438,258 @@ exo : sortir les mots suivants triés par ordre alphabetique :
 >>> chaine_en_ordre = ", ".join(liste)
 >>> print(chaine_en_ordre)
 Anne, Julien, Lucien, Marie, Pierre
+
+### les operateurs :
+
+# differents operateurs 
+
++ - * / : habituels.
+
+>>> print(5 + 3)
+8
+>>> print( 12 - 7)
+5
+>>> print( 2 * 7)
+14
+>>> print(14 / 7)
+2.0   <<<< attention la / nous retourne un nombre décimal.
+
+on peut aussi utiliser ces operateurs mathematiques avec des chaines de caractères :
+ex concaténation
+
+>>> print("Hello" + "world" + "!")
+Helloworld!
+>>> print("bob" * 2)
+bobbob
+
+Il y a d'autres opérateur  
+% // et ** 
+
+- modulo % : reste de la division :
+
+>>> print( 10 % 3)
+1
+>>> print( 10 % 5)
+0
+
+- division entiere  // : permet de récupérer en nombre entier dans une division :
+
+>>> print( 10 / 3)
+3.3333333333333335
+>>> print( 10 // 3)
+3
+
+- puissance ** : permet le passage au carré :
+
+>>> print(2 ** 4)
+16
+
+pour des besoins de calculs plus complexes on va pouvoir utiliser le module math de python qui va intégrer beaucoup de notions mathématiques (cosinus, radian ....)
+
+on importe le module :
+
+import math
+
+puis on utilise les fonctions mathématiques voulues en préfixant du module math :
+ex :
+
+>>> import math
+>>> racine = math.sqrt(4)
+>>> print(racine)
+2.0
+>>> racine = math.sqrt(2)
+>>> print(racine)
+1.4142135623730951
+
+>>> print(math.pi)
+3.141592653589793
+
+# operateurs d'assignation :
+
+on connait :
+i = 1
+on peut faire :
+
+i = i +1
+
+on peut faire plus simple :
+>>> i = 1
+>>> i += 1
+>>> print(i)
+2
+>>> i += 1
+>>> print(i)
+3
+
+c'est valable pour tous les opérateurs mathématiques :
+
+>>> i = 3
+>>> i -= 1
+>>> print(i)
+2
+>>> i *= 2
+>>> print(i)
+4
+>>> i /= 2
+>>> print(i)
+2.0
+
+# operateurs de comparaison :
+
+> : sup à
+< : inf à
+>= : sup ou egal à
+<= : inf ou egal à
+== : egal 
+!= : diff
+
+différence entre is et == 
+
+is permet de vérifier les adresses des objects en mémoire
+== permet de verifier l'egalité de 2 objects.
+
+>>> a = [1,2,3]
+>>> b = [1,2,3]
+>>> a == b
+True
+en examinant les objects en mémoire on a : 
+>>> id(a)
+139692687725568
+>>> id(b)
+139692686968128
+et donc :
+>>> a is b 
+False
+
+
+attention pour les nombres entier -5 et 256 : pour optimiser les process python place ces ranges dans les même cases mémoires :
+
+>>> a = 7
+>>> b = 7
+>>> a is b
+True
+>>> id(a)
+9476608
+>>> id(b)
+9476608
+>>> a = 256
+>>> b = 256
+>>> a is b
+True
+>>> id(a)
+9484576
+>>> id(a)
+9484576
+>>> a = 257
+>>> b = 257
+>>> a is b
+False
+>>> id(a)
+139692686516112
+>>> id(b)
+139692686515312
+
+### formatage des chaines de caractères :
+
+la concatenation permet de mettre bout à bout plusieures chaines de caractères.
+>>> "bonjour" + "tout" + "le" + "monde"
+'bonjourtoutlemonde'
+
+- methode : f-strings:
+
+depuis la version 3.6 
+
+>>> prenom = "bob"
+>>> f"Hello, {prenom}"
+'Hello, bob'
+on peut faire des opérations sur les variables définies 
+>>> a = 70
+>>> b = 5
+>>> f"hey , {a} multiplié par {b} nous donne {a * b}"
+'hey , 70 multiplié par 5 nous donne 350'
+pas besoin d'utiliser les fonctions de convertion pour l'affichage string num 
+
+ex: 
+protocole = "https://"
+nom_du_site = "docstring"
+extension = "fr"
+page = "glossaire"
+
+# Modifiez le code à partir d'ici
+URL = f"{protocole}www.{nom_du_site}.{extension}/{page}/"
+
+- methode format :
+
+avant python 3.6 donc pas de f-strings : on peut utiliser la méthode format :
+
+on va identifier une variable dans du texte via une paire d'accolade. Attention il faut autant de paire d'accolade que de variables définie.
+>>> age = 77
+>>> "Hey im {} years old!".format(age)
+'Hey im 77 years old!'
+
+>>> a = "bob"
+>>> b=12
+>>> "hey my name is {} and i'm {}".format(a,b)
+"hey my name is bob and i'm 12"
+
+
+on peut ajouter des noms (identifiants)  à ce qui est entre accolades :
+ce qui nous permet d'identifier et placer les variables dans l'ordre voulu 
+>>> age = 12
+>>> "Hey im {a} years old!".format(a=age)
+'Hey im 12 years old!'
+
+>>> age = 12
+>>> heure = 11
+>>> "Hey im {a} years old in have to go back at {b} hours !".format(a=age, b=heure)
+'Hey im 12 years old in have to go back at 11 hours !'
+
+on peut ajouter des index de manière a utiliser plusieurs fois une chaine de caractères :
+
+>>> b=12
+>>> "hey im {0} and i need to go back at {0} oclock!".format(b)
+'hey im 12 and i need to go back at 12 oclock!'
+
+>>> b=12
+>>> c="bab"
+>>> "hey im {0} and i need to go back at {0} oclock! at {1} house".format(b,c)
+'hey im 12 and i need to go back at 12 oclock! at bab house'
+
+on peut spécifier l'ordre que l'on veut :
+>>> p = "Peter"
+>>> t = "man"
+>>> print(" i m a {1}, and my name is {0}".format(p,t))
+ i m a man, and my name is Peter
+
+
+Dans quel cas utiliser la méthode format ?
+avec la méthode f-strings on est obligé d'avoir toutes les variables définies avant de pouvoir traiter le texte sinon on a une erreur 
+ex: 
+>>> a = "bob"
+>>> print(f"hello my name is {a} and i live in {z}")
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+NameError: name 'z' is not defined
+
+format est donc potentiellement une méthode a savoir utiliser.
+
+https://www.docstring.fr/blog/le-formatage-des-chaines-de-caracteres-avec-python/?utm_source=udemy&utm_campaign=formatage-chaines
+
+exercice :
+>>> n1 = int(input("Gimme a number : "))
+Gimme a number : 10
+>>> n2 = int(input("gimme another number : "))
+gimme another number : 15
+>>> print(f" the addition of {n1} and {n2} is {n1 + n2}")
+ the addition of 10 and 15 is 25
+
+on peut tout mettre dans un fichier .py et executer :
+a = input("Entrez un premier nombre : ")
+b = input("Entrez un deuxième nombre : ")
+print(f"Le résultat de l'addition de {a} avec {b} est égal à {int(a) + int(b)}")
+
+ ./main.py                                                                                                                                                             [☸ |N/A:default]
+Entrez un premier nombre : 7
+Entrez un deuxième nombre : 7
+Le résultat de l'addition de 7 avec 7 est égal à 14
 
