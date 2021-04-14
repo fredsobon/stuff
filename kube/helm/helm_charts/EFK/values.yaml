@@ -1,0 +1,109 @@
+---
+elasticsearch:
+  sysctlInitContainer:
+    enabled: true
+  # Permit co-located instances for solitary minikube virtual machines.
+  antiAffinity: "hard"
+  # Shrink default JVM heap.
+  esJavaOpts: "-Xmx512m -Xms512m"
+  # Allocate smaller chunks of memory per pod.
+  resources:
+    requests:
+      cpu: "1"
+      memory: "2048M"
+    limits:
+      cpu: "1"
+      memory: "2048M"
+  persistence:
+    enabled: true
+  annotations: {}
+  volumeClaimTemplate:
+    accessModes: [ "ReadWriteOnce" ]
+    #storageClassName: "local-path"
+    resources:
+      requests:
+        storage: 5Gi
+        
+kibana:
+  ingress:
+    enabled: true
+    annotations:
+      kubernetes.ingressClass: traefik
+      cert-manager.io/cluster-issuer: lapin-ca-issuer
+    hosts:
+      - host: "kibana.lapin.net"
+        paths:
+          - path: /
+    ## Set this in order to enable TLS on the ingress record
+    tls:
+      - secretName: kibana-cert
+        hosts:
+        - "kibana.lapin.net"
+
+fluent-bit:
+  enabled: true
+  extraVolumeMounts:
+    - name: runlog
+      mountPath: /run/log
+  extraVolumes:
+    - name: runlog
+      hostPath:
+        path: /run/log
+  fluent-bit:
+  enabled: true
+  config:
+    customParsers: |
+      [PARSER]
+          Name        docker-custom
+          Format      json
+          Time_Key    time
+          Time_Format %Y-%m-%dT%H:%M:%S %z
+    service: |
+      [SERVICE]
+          Flush        1
+          Daemon       Off
+          Log_Level    info
+          Parsers_File parsers.conf
+          Parsers_File custom_parsers.conf
+          HTTP_Server On
+          HTTP_Listen 0.0.0.0
+          HTTP_Port 2020
+    inputs: |
+      [INPUT]
+          Name             tail
+          Path             /var/log/containers/*.log
+          Parser           cri
+          Tag              kube.*
+          Refresh_Interval 5
+          Mem_Buf_Limit    5MB
+          Skip_Long_Lines  On
+      [INPUT]
+          Name systemd
+          Tag host.*
+          Systemd_Filter _SYSTEMD_UNIT=kubelet.service
+          Systemd_Filter _SYSTEMD_UNIT=etcd.service
+          Systemd_Filter _SYSTEMD_UNIT=containerd.service
+          Systemd_Filter _SYSTEMD_UNIT=network.service
+          Read_From_Tail On
+      [FILTER]
+          Name         parser
+          Match        *
+          Key_Name     message
+          Parser       docker-custom
+          Reserve_Data true
+    outputs: |
+      [OUTPUT]
+          Name es
+          Match kube.*
+          Host elasticsearch-master
+          Logstash_Format On
+          Retry_Limit False
+          
+      [OUTPUT]
+          Name            es
+          Match           host.*
+          Host            elasticsearch-master
+          Logstash_Format On
+          Logstash_Prefix node
+          Retry_Limit     False
+
