@@ -693,3 +693,117 @@ Entrez un premier nombre : 7
 Entrez un deuxième nombre : 7
 Le résultat de l'addition de 7 avec 7 est égal à 14
 
+== structures conditionnelles ==
+
+permet de tester une condition pour faire une action ou non.
+ex: 
+l'age saisi par le user est-il supérieur à 18
+    age >= 18
+le user est il dans la bdd
+    nom_user in list_users
+le mdp du user fait i l au moins 8 caracteres.
+   len(mdp) > 8
+on repond par oui ou non : un booleen.
+
+Le test de condition se fera avec :
+if cond alors action
+
+>>> age=20
+>>> if age >= 18:
+...     print("hey allok access granted !")
+...
+hey allok access granted !
+
+on remarque qu'on a un ":" a la fin de la ligne du test et que la ligne d'action est indenté de 4 caractères vers la droite par rapport à la ligne de test : c'est un bloc d'instruction.
+
+= bloc d'instructions :
+regroupe une ou plusieurs ligne de code executée dans un contexte particulier
+
+on a une notion d'appartenance au bloc précédent.
+avec python c'est la mise en page qui précise l'appartenace 
+>>> age=20
+>>> if age >= 18:
+...     print("hey ok you can vote !")
+...     if age >= 20:
+...         print("hey have you ever vote ?")
+...
+hey ok you can vote !
+hey have you ever vote ?
+
+
+= elif = 
+
+on peut utiliser plusieurs structures conditionnelles 
+exemple on peut tester et faire une action différente en raison d'un valeur saisie :
+
+>>> age=20
+>>> if age >= 18:
+...     print("all right you can vote!")
+... elif age <=18:
+...     print("got to wait to vote!")
+...
+all right you can vote!
+
+= else =
+
+permet d'executer un bloc de code si les conditions précédentes ne sont pas executées.
+>>> user="bob"
+>>> if user == "admin":
+...     print("access granted!")
+... elif user == "root":
+...     print("you're the boss")
+... else:
+...     print("no way!")
+...
+no way!
+
+= operator ternaire : =
+va permettre de mettre des structures conditionnelles sur une seule ligne 
+
+>>> age = 20
+>>> maj = True if age >= 18 else False
+/!\ cette structure ne fonctionne que pour un test en if else (pas de elif else) 
+
+A utiliser pour des test simples. 
+
+= operateur logiques : =
+
+and or not
+on va pouvoir vérifier plusieurs conditions 
+- and 
+>>> user = "admin"
+>>> if user == "admin" and password == "admin":
+...     print("acces granted")
+toutes les conditions doivent être vérifiées :
+>>> 5 > 2 and 5 < 10
+True
+
+>>> 5 > 2 and 5 < 10 and 5 > 15
+False
+
+toutes les conditions doivent être True
+
+- or 
+on peut avoir une ou plusieurs conditions à True . Un seul True suffit a ce que le resultat est vrai.
+
+>>> 5 > 2 and 5 < 10 or 5 > 15
+True
+
+/!\ attention python examine les sections de code 'and' en priorité puis les sections 'or'
+
+On peut forcer l'examun des en ajoutant des parenthèses à nos blocs de test :
+dans le cas suivant le bloc (5 < 10 or 5 > 15) sera evalué en premier ( comme en mathématiques classiques.)
+>>> 5 > 2 and (5 < 10 or 5 > 15)
+True
+
+- not :
+
+not True > False
+not False > True
+ici si l'utilisateur n'est pas admin on ne le laisse pas accéder :
+>>> user="bob"
+>>> if not user == "admin":
+...     print("acces denied!")
+...
+acces denied!
+
