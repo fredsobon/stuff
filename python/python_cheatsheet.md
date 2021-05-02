@@ -807,3 +807,312 @@ ici si l'utilisateur n'est pas admin on ne le laisse pas accéder :
 ...
 acces denied!
 
+== gestion des erreurs pythons : ==
+
+= erreur de syntaxes :
+
+oubli de maj, de virgule ...
+
+ex :
+ici on fait une boucle en mettant une maj a "for" :
+
+>>> For i in range(10):
+  File "<stdin>", line 1
+    For i in range(10):
+        ^
+SyntaxError: invalid syntax
+        
+ici on voit que l'erreur mentionne la sortie sur stdin (on a lancer la commande depuis un interpreteur python. Si on executait la commande depuis un un script on aurait le chemin complet du script en erreur 
+
+On voit qu'on a un accent circonflexe sous le i ce qui nous montre l'endroit jusqu'auquel l'interpréteur python est allé avant de crasher.
+
+erreurs courantes : 
+
+-> erreur de casse : on doit assurer à donner la bonne orthographe
+-> oubli des ":" dans les blocs d'instructions 
+-> utilisation de mot réservés en python 
+-> oubli des guillemets.
+
+= mots réservés en python : =
+
+False
+None
+True
+and
+as
+assert
+break
+class
+continue
+def
+del
+elif
+else
+except
+finally
+for
+from
+global
+if
+import
+in
+is
+lambda
+non local
+not
+or
+pass
+raise
+return
+try
+while
+with
+yield
+
+= erreurs d'éxécutions :
+
+elles se produisent pendant le runtime du programme 
+RuntimeError : 
+il se peut que le programme fonctionne correctement mais qu'une situation non prise en compte fasse crasher le programme.
+
+Les erreurs de runtime peuvent être trs nombreuses et python nous aide en nous affichant le type d'erreur rencontrée 
+
+ex : NameError 
+NameError : on essaye par exemple d'afficher une variable qui n'existe pas .
+>>> print(bonjour)
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+NameError: name 'bonjour' is not defined
+
+ex : TypeError on additionne des valeurs de type différent par exemple :
+
+>>> "4" + 7
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+TypeError: can only concatenate str (not "int") to str
+
+il ya beaucoup d'autre type d'erreurs de runtime
+
+= erreur semantique : =
+
+erreur de logique : notre script ne retourne pas ce que l'on veut.
+On peut s'aider d'un debugger avancer .
+on peut  sinon ajouter une fonction print pour afficher nos variables et autres afin de nous aider à débugger.
+
+== modules et fonctions : ==
+
+module : fichier python qui contient des fonctions que l'on peut utiliser.
+on va devoir importer ces modules pour les utiliser.
+
+Il y a des modules inclus dans la librairie standart de python et d'autre qu'on devra downloader.
+dans tous les cas il faut importer le module 
+
+le keyword import est utilisé.
+
+import mon_module
+
+une fois le module importer on peut utiliser ses fonctions 
+on va donner le nom du module puis indiquer la fonction du module qu'on veut utiliser en mettant un point apres le nom du module :
+module.fonction
+
+- module random :
+
+-> randint :
+permet de générer un entier aléatoirement au sein d'un interval qu'on défini ( la borne de droite est inclusive. )
+
+>>> import random
+>>> print(random.randint(1, 4))
+4
+>>> print(random.randint(1, 4))
+2
+
+- fonction uniform :
+nous permet d'avoir une valeur décimale :
+>>> print(random.uniform(1, 4))
+3.4529285493273734
+>>> print(random.uniform(1, 4))
+1.9170081114766058
+
+- fonction randrange :
+par defaut définit un range en entre 0 et notre range. Attention la valeur de notre range cette fois est exclusive : notre nombre de range ne pourra pas être utilisé par la générateur aleatoire.
+4
+>>> print(random.randrange(5))
+1
+
+on peut donner à randrange un interval et un pas : une valeur qui nous servira à choisir entre les valeurs de notre intervalle par une valeur définie :
+>>> print(random.randrange(5,20,5))
+10
+>>> print(random.randrange(5,20,5))
+15
+>>> print(random.randrange(5,20,5))
+5
+
+ici on veut un nombre aleatoire entre 5 et 20 multiple de 5 
+
+
+- module os :
+
+on peut l'utiliser par exemple pour créer ou supprimer des dossiers.
+
+ex : on veut creer un sous dossier dans un repertoire connu :
+
+on peut utiliser la fonction path du module os  combinée à la fonction join ( gère les "/" des paths d'arbo. : sous linux/ windows ou mac.)
+
+
+ex :
+tree python_test 
+python_test
+├── fold1
+└── fold2
+
+>>> import os
+>>> path = "/tmp/python_test/fold1"
+>>> dossier = os.path.join(path, "rep1")
+>>> print(dossier)
+/tmp/python_test/fold1/rep1
+
+on va maintenant créer le dossier :
+on va utiliser la fonction makedirs qui permet de créer des arbo de dossier et sous dossiers
+
+>>> os.makedirs(dossier)
+tree python_test                   
+python_test
+├── fold1
+│   └── rep1
+└── fold2
+
+on voit que notre sous dossier rep1 du dossier fold1 a été crée
+on peut crée des sous arbo :
+
+>>> subpath = "/tmp/python_test/fold2"
+>>> subfold = os.path.join(subpath, "sub1", "sub2")
+>>> print(subfold)
+/tmp/python_test/fold2/sub1/sub2
+>>> os.makedirs(subfold)
+
+/tmp  tree python_test    
+python_test
+├── fold1
+│   └── rep1
+└── fold2
+    └── sub1
+        └── sub2
+
+Cette fonction ne crée les dossiers que s'ils n'existent pas sinon on a une erreur.
+
+on peut rajouter un test avec un if avant la creation avec la fonction 'exists'
+if ps.path.exists(dossier) 
+
+ou utiliser le param de fonction exist_ok à qui on passe comme valeur True ou False
+>>> dossier = os.path.join(path, "rep1")
+>>> os.makedirs(dossier, exist_ok=True)
+>>> os.makedirs(dossier, exist_ok=False)
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+  File "/usr/lib/python3.8/os.py", line 223, in makedirs
+    mkdir(name, mode)
+FileExistsError: [Errno 17] File exists: '/tmp/python_test/fold1/rep1'
+
+- suppression de repertoires :
+removedirs
+
+>>> subpath = "/tmp/python_test/fold2"
+>>> subfold = os.path.join(subpath, "sub1", "sub2")
+>>> os.removedirs(subfold)
+tree python_test          
+python_test
+└── fold1
+    └── rep1
+        └── test
+
+
+on voit que le repertoire fold2 et ses deux sous rep (sub1 et sub2) ont été delete 
+
+>>> help(os.removedirs)
+Help on function removedirs in module os:
+
+removedirs(name)
+    removedirs(name)
+
+    Super-rmdir; remove a leaf directory and all empty intermediate
+    ones.  Works like rmdir except that, if the leaf directory is
+    successfully removed, directories corresponding to rightmost path
+    segments will be pruned away until either the whole path is
+    consumed or an error occurs.  Errors during this latter phase are
+    ignored -- they generally mean that a directory was not empty.
+
+
+= fonction d'aide de module :
+
+
+help et dir 
+
+- dir permet de faire de l'introspection 
+
+>>> import random
+>>> print(dir(random))
+['BPF', 'LOG4', 'NV_MAGICCONST', 'RECIP_BPF', 'Random', 'SG_MAGICCONST', 'SystemRandom', 'TWOPI', '_Sequence', '_Set', '__all__', '__builtins__', '__cached__', '__doc__', '__file__', '__loader__', '__name__', '__package__', '__spec__', '_accumulate', '_acos', '_bisect', '_ceil', '_cos', '_e', '_exp', '_inst', '_log', '_os', '_pi', '_random', '_repeat', '_sha512', '_sin', '_sqrt', '_test', '_test_generator', '_urandom', '_warn', 'betavariate', 'choice', 'choices', 'expovariate', 'gammavariate', 'gauss', 'getrandbits', 'getstate', 'lognormvariate', 'normalvariate', 'paretovariate', 'randint', 'random', 'randrange', 'sample', 'seed', 'setstate', 'shuffle', 'triangular', 'uniform', 'vonmisesvariate', 'weibullvariate']
+
+
+les fonctions qui commencent et finissent par des "__" sont des fonctions privées : dédiées à python
+pour les users ont utilise les fonctions sans "__".
+
+- help :
+on va afficher directement l'aide sur un module ou une fonction de ce module :
+
+>>> help(random.randint)
+Help on method randint in module random:
+
+randint(a, b) method of random.Random instance
+    Return random integer in range [a, b], including both end points.
+
+la fonction help va chercher les docstrings (texte qu'on a ecrit pour le module) 
+
+
+on peut utiliser la fonction pprint du module pprint pour afficher les fonctions d'un module par ordre alphabétique :
+>> from pprint import pprint
+>>> pprint(dir(random))
+['BPF',
+ 'LOG4',
+ 'NV_MAGICCONST',
+ 'RECIP_BPF',
+ 'Random',
+ 'SG_MAGICCONST',
+ 'SystemRandom',
+ 'TWOPI',
+ '_Sequence',
+ '_Set',
+ '__all__',
+
+
+= object callable: =
+
+on a des objects qu'on peut appeller en python et d'autres non 
+
+une fonction est callable 
+ex: os.mkdirs()
+mais pas un module
+os() <<< non 
+
+une fonction callable existe pour nous permettre de tester.
+
+>>> import os
+>>> callable(os)
+False
+>>> callable(os.makedirs)
+True
+>>> 
+
+
+== listes : ==
+
+
+
+>>> import pprint
+>>> callable(pprint)
+False
+>>> from pprint import pprint
+>>> callable(pprint)
+True
+
+
