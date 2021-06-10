@@ -17,3 +17,436 @@ systemctl status rh-php* --all
 ce qui nous donne en ansible si on veut voir le status de tous les services rh-php qui tourne sur tous les hosts du groupr lapingr
 ansible all -m lapingrp -m shell -a "systemctl status rh-php*" -b
 
+
+=== systemctl / systemd : ===
+
+
+systemd unit types
+There are different types of unit files that represent system resources and services. Each unit file type comes with their own extensions, below are the commonly used systemd unit types.
+
+Unit files are plain-text files that can be created or modified by a privilege user.
+
+Run the following command to see all unit types:
+
+$ systemctl -t help
+Unit Type	File Extension	Description
+Service unit	.service	A service on the system, including instructions for starting, restarting, and stopping the service.
+Target unit	.target	It replaces sysV init run levels that control system boot.
+Device unit	.device	A device file recognized by the kernel.
+Mount unit	.mount	A file system mount point.
+Socket unit	.socket	A network socket associated with a service.
+Swap unit	.swap	A swap device or a swap file.
+Timer unit	.timer	A systemd timer.
+What’s systemctl?
+The systemctl command is the primary tool to manage or control systemd units. It combines the functionality of SysVinit’s service and chkconfig commands into a single command.
+
+It comes with a long list of options for different functionality, the most commonly used options are starting, stopping, restarting, masking, or reloading a daemon.
+
+
+
+Listing all Units
+To list all loaded units regardless of their state, run the following command on your terminal. It lists all units, including service, target, mount, socket, etc,.
+
+$ systemctl list-units --all
+Listing Services
+To list all currently loaded service units, run:
+
+$ systemctl list-units --type service
+or
+$ systemctl list-units --type=service
+
+Details about the header of above output:
+
+UNIT = The name of the service unit
+LOAD = Reflects whether the unit file has been loaded.
+ACTIVE = The high-level unit file activation state.
+SUB = The low-level unit file activation state.
+DESCRIPTION = Short description of the unit file.
+By default, the ‘systemctl list-units’ command displays only active units. If you want to list all loaded units regardless of their state, run:
+
+$ systemctl list-units --type service --all
+
+  UNIT                                                LOAD      ACTIVE   SUB     DESCRIPTION
+  accounts-daemon.service                             loaded    active   running Accounts Service
+● acpid.service                                       not-found inactive dead    acpid.service
+  after-local.service                                 loaded    inactive dead    /etc/init.d/after.local Compatibility
+  alsa-restore.service                                loaded    active   exited  Save/Restore Sound Card State
+  alsa-state.service                                  loaded    inactive dead    Manage Sound Card State (restore and store)
+● amavis.service                                      not-found inactive dead    amavis.service
+  apparmor.service                                    loaded    active   exited  Load AppArmor profiles
+  appstream-sync-cache.service                        loaded    inactive dead    Synchronize AppStream metadata from repositories into AS-cache
+  auditd.service                                      loaded    active   running Security Auditing Service
+  avahi-daemon.service                                loaded    active   running Avahi mDNS/DNS-SD Stack
+  backup-rpmdb.service                                loaded    inactive dead    Backup RPM database
+  backup-sysconfig.service                            loaded    inactive dead    Backup /etc/sysconfig directory
+  bluetooth.service                                   loaded    active   running Bluetooth service
+  btrfs-balance.service                               loaded    inactive dead    Balance block groups on a btrfs filesystem
+  btrfs-scrub.service                                 loaded    inactive dead    Scrub btrfs filesystem, verify block checksums
+  btrfs-trim.service                                  loaded    inactive dead    Discard unused blocks on a mounted filesystem
+  btrfsmaintenance-refresh.service                    loaded    inactive dead    Update cron periods from /etc/sysconfig/btrfsmaintenance
+  ca-certificates.service                             loaded    inactive dead    Update system wide CA certificates
+  check-battery.service                               loaded    inactive dead    Check if mainboard battery is Ok
+  colord.service                                      loaded    active   running Manage, Install and Generate Color Profiles
+  cron.service                                        loaded    active   running Command Scheduler
+  cups.service                                        loaded    active   running CUPS Scheduler
+To list only the running services, run:
+
+
+
+$ systemctl list-units --type=service --state=running
+To list all service units installed in the file system, not only the loaded, run:
+
+$ sudo systemctl list-unit-files --type=service
+To list only enabled service units, run:
+
+$ systemctl list-unit-files --type=service --state=enabled
+To display the unit file contents that systemd has loaded into memory, run:
+
+$ systemctl cat sshd.service
+
+# /etc/systemd/system/sshd.service
+[Unit]
+Description=OpenSSH Daemon
+After=network.target
+
+[Service]
+Type=notify
+EnvironmentFile=-/etc/sysconfig/ssh
+ExecStartPre=/usr/sbin/sshd-gen-keys-start
+ExecStartPre=/usr/sbin/sshd -t $SSHD_OPTS
+ExecStart=/usr/sbin/sshd -D $SSHD_OPTS
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=process
+Restart=on-failure
+RestartPreventExitStatus=255
+TasksMax=infinity
+
+[Install]
+WantedBy=multi-user.target
+To view a list of properties that are set for the specified unit, run:
+
+$ systemctl show sshd.service
+
+Type=notify
+Restart=on-failure
+NotifyAccess=main
+RestartUSec=100ms
+TimeoutStartUSec=1min 30s
+TimeoutStopUSec=1min 30s
+RuntimeMaxUSec=infinity
+WatchdogUSec=0
+WatchdogTimestamp=Thu 2021-06-03 06:28:04 IST
+WatchdogTimestampMonotonic=9458330
+FailureAction=none
+PermissionsStartOnly=no
+RootDirectoryStartOnly=no
+RemainAfterExit=no
+GuessMainPID=yes
+MainPID=1365
+...
+To display a single property, use the ‘-p’ flag with the property name.
+
+$ systemctl show sshd.service -p ControlGroup
+
+ControlGroup=/system.slice/sshd.service
+To recursively show only dependencies of target units, run: For instance, to show dependencies of ssh service.
+
+$ systemctl list-dependencies sshd.service
+
+sshd.service
+● ├─system.slice
+● └─sysinit.target
+●   ├─detect-part-label-duplicates.service
+●   ├─dev-hugepages.mount
+●   ├─dev-mqueue.mount
+●   ├─dracut-shutdown.service
+●   ├─haveged.service
+●   ├─kmod-static-nodes.service
+●   ├─lvm2-lvmpolld.socket
+●   ├─lvm2-monitor.service
+●   ├─plymouth-read-write.service
+●   ├─plymouth-start.service
+Listing Sockets
+To list socket units currently in memory, run:
+
+$ systemctl list-units --type=socket
+or
+$ systemctl list-sockets
+
+UNIT                            LOAD   ACTIVE SUB       DESCRIPTION
+---------------------------------------------------------------------------------------------------------
+avahi-daemon.socket             loaded active running   Avahi mDNS/DNS-SD Stack Activation Socket
+cups.socket                     loaded active running   CUPS Scheduler
+dbus.socket                     loaded active running   D-Bus System Message Bus Socket
+dm-event.socket                 loaded active listening Device-mapper event daemon FIFOs
+iscsid.socket                   loaded active listening Open-iSCSI iscsid Socket
+lvm2-lvmpolld.socket            loaded active listening LVM2 poll daemon socket
+pcscd.socket                    loaded active listening PC/SC Smart Card Daemon Activation Socket
+syslog.socket                   loaded active running   Syslog Socket
+systemd-initctl.socket          loaded active listening /dev/initctl Compatibility Named Pipe
+systemd-journald-dev-log.socket loaded active running   Journal Socket (/dev/log)
+systemd-journald.socket         loaded active running   Journal Socket
+systemd-rfkill.socket           loaded active listening Load/Save RF Kill Switch Status /dev/rfkill Watch
+systemd-udevd-control.socket    loaded active running   udev Control Socket
+systemd-udevd-kernel.socket     loaded active running   udev Kernel Socket
+
+LOAD   = Reflects whether the unit definition was properly loaded.
+ACTIVE = The high-level unit activation state, i.e. generalization of SUB.
+SUB    = The low-level unit activation state, values depend on unit type.
+
+14 loaded units listed. Pass --all to see loaded but inactive units, too.
+To show all installed unit files use 'systemctl list-unit-files'.
+Listing Mounts
+To list mount units currently loaded, run:
+
+$ systemctl list-units --type=mount
+
+UNIT                           LOAD   ACTIVE SUB     DESCRIPTION
+----------------------------------------------------------------------------
+-.mount                        loaded active mounted Root Mount
+\x2esnapshots.mount            loaded active mounted /.snapshots
+boot-grub2-i386\x2dpc.mount    loaded active mounted /boot/grub2/i386-pc
+boot-grub2-x86_64\x2defi.mount loaded active mounted /boot/grub2/x86_64-efi
+dev-hugepages.mount            loaded active mounted Huge Pages File System
+dev-mqueue.mount               loaded active mounted POSIX Message Queue File System
+home.mount                     loaded active mounted /home
+opt.mount                      loaded active mounted /opt
+proc-sys-fs-binfmt_misc.mount  loaded active mounted Arbitrary Executable File Formats File System
+root.mount                     loaded active mounted /root
+run-media-linuxgeek-DATA.mount loaded active mounted /run/media/linuxgeek/DATA
+run-user-1000-gvfs.mount       loaded active mounted /run/user/1000/gvfs
+run-user-1000.mount            loaded active mounted /run/user/1000
+srv.mount                      loaded active mounted /srv
+sys-fs-fuse-connections.mount  loaded active mounted FUSE Control File System
+sys-kernel-debug-tracing.mount loaded active mounted /sys/kernel/debug/tracing
+sys-kernel-debug.mount         loaded active mounted Kernel Debug File System
+tmp.mount                      loaded active mounted /tmp
+usr-local.mount                loaded active mounted /usr/local
+var.mount                      loaded active mounted /var
+
+LOAD   = Reflects whether the unit definition was properly loaded.
+ACTIVE = The high-level unit activation state, i.e. generalization of SUB.
+SUB    = The low-level unit activation state, values depend on unit type.
+
+20 loaded units listed. Pass --all to see loaded but inactive units, too.
+To show all installed unit files use 'systemctl list-unit-files'.
+Listing Timers
+To list timer units currently loaded, run:
+
+
+$ systemctl list-timers
+
+NEXT                         LEFT                LAST                         PASSED       UNIT                         ACTIVATES
+Fri 2021-06-04 17:00:00 IST  8min left           Fri 2021-06-04 16:00:03 IST  51min ago    snapper-timeline.timer       snapper-timeline.service
+Fri 2021-06-04 21:38:01 IST  4h 46min left       Thu 2021-06-03 12:10:13 IST  1 day 4h ago snapper-cleanup.timer        snapper-cleanup.service
+Fri 2021-06-04 21:42:54 IST  4h 51min left       Thu 2021-06-03 12:15:06 IST  1 day 4h ago systemd-tmpfiles-clean.timer systemd-tmpfiles-clean.service
+Sat 2021-06-05 00:00:00 IST  7h left             Fri 2021-06-04 00:00:23 IST  16h ago      logrotate.timer              logrotate.service
+Sat 2021-06-05 00:00:00 IST  7h left             Fri 2021-06-04 00:00:23 IST  16h ago      mandb.timer                  mandb.service
+Sat 2021-06-05 00:43:15 IST  7h left             Fri 2021-06-04 01:52:04 IST  14h ago      check-battery.timer          check-battery.service
+Sat 2021-06-05 00:48:48 IST  7h left             Fri 2021-06-04 00:05:23 IST  16h ago      backup-rpmdb.timer           backup-rpmdb.service
+Sat 2021-06-05 01:41:30 IST  8h left             Fri 2021-06-04 00:57:23 IST  15h ago      backup-sysconfig.timer       backup-sysconfig.service
+Mon 2021-06-07 00:00:00 IST  2 days left         Tue 2021-06-01 03:16:20 IST  3 days ago   btrfs-balance.timer          btrfs-balance.service
+Mon 2021-06-07 00:00:00 IST  2 days left         Mon 2021-05-31 12:08:22 IST  4 days ago   fstrim.timer                 fstrim.service
+Thu 2021-07-01 00:00:00 IST  3 weeks 5 days left Tue 2021-06-01 03:16:20 IST  3 days ago   btrfs-scrub.timer            btrfs-scrub.service
+
+11 timers listed.
+Pass --all to see loaded but inactive timers, too.
+Service Management
+Service is also one of the unit type in the systemd system, which have unit files with a suffix of ‘.service’. Six types of common actions can be performed against a service, which will be divided into two major types.
+
+Boot-time actions: These are enable and disable, which are used to control a service at boot time.
+Run-time actions: These are start, stop, restart, and reload, which are used to control a service on-demand.
+Start a service
+To start a systemd service, run: The ‘UNIT_NAME’ could be any application name like sshd, httpd, mariadb, etc,.
+
+$ sudo systemctl start UNIT_NAME.service
+or
+$ sudo systemctl start UNIT_NAME
+Stop a service
+To stop a currently running service, execute: For instance, to stop Apache httpd service.
+
+$ sudo systemctl stop httpd.service
+Restart and reload a service
+To restart a running service, run:
+
+$ sudo systemctl restart UNIT_NAME.service
+You may need to reload a service while making changes to the configuration file, which will bring up new parameters that you added. To do so, run:
+
+$ sudo systemctl reload UNIT_NAME.service
+Enabling and disabling a service at boot
+To start services automatically at boot, run: This will create a symlink from either ‘/usr/lib/systemd/system/UNIT_NAME.service’ or ‘/etc/systemd/system/UNIT_NAME.service’ to the ‘/etc/systemd/system/SOME_TARGET.target.wants/UNIT_NAME.service’.
+
+$ sudo systemctl enable UNIT_NAME.service
+You can double check that the service is enabled by executing the following command.
+
+$ systemctl is-enabled UNIT_NAME.service
+To disable the service at boot, run: This will remove the symlink that has created earlier for the service unit.
+
+$ sudo systemctl disable UNIT_NAME.service
+Checking the status of service
+To check the status of a service, run: This will give you more detailed information about the service unit.
+
+$ systemctl status UNIT_NAME.service
+
+# systemctl status httpd
+● httpd.service - The Apache HTTP Server
+   Loaded: loaded (/usr/lib/systemd/system/httpd.service; enabled; vendor preset: disabled)
+  Drop-In: /usr/lib/systemd/system/httpd.service.d
+           └─limit_nofile.conf, respawn.conf
+   Active: active (running) since Fri 2021-05-28 03:23:54 IST; 1 weeks 3 days ago
+     Docs: man:httpd(8)
+           man:apachectl(8)
+  Process: 19226 ExecReload=/usr/sbin/httpd $OPTIONS -k graceful (code=exited, status=0/SUCCESS)
+ Main PID: 25933 (httpd)
+   Status: "Total requests: 0; Current requests/sec: 0; Current traffic:   0 B/sec"
+    Tasks: 187
+   Memory: 479.6M
+   CGroup: /system.slice/httpd.service
+           ├─12161 /usr/sbin/httpd -DFOREGROUND
+           ├─19283 /usr/sbin/httpd -DFOREGROUND
+           ├─19284 /usr/sbin/httpd -DFOREGROUND
+           ├─19286 Passenger watchdog
+           ├─19289 Passenger core
+           ├─19310 /usr/sbin/httpd -DFOREGROUND
+           ├─19333 /usr/sbin/httpd -DFOREGROUND
+           ├─19339 /usr/sbin/httpd -DFOREGROUND
+           ├─19459 /usr/sbin/httpd -DFOREGROUND
+           ├─20564 /opt/plesk/php/5.6/bin/php-cgi -c /var/www/vhosts/system/thilaexports.com/etc/php.ini
+           ├─21821 /usr/sbin/httpd -DFOREGROUND
+           └─25933 /usr/sbin/httpd -DFOREGROUND
+Jun 06 12:19:11 ns1.nowdigitaleasy.com systemd[1]: Reloading The Apache HTTP Server.
+Jun 06 12:19:12 ns1.nowdigitaleasy.com systemd[1]: Reloaded The Apache HTTP Server.
+Jun 06 13:18:06 ns1.nowdigitaleasy.com systemd[1]: Reloading The Apache HTTP Server.
+Jun 06 13:18:07 ns1.nowdigitaleasy.com systemd[1]: Reloaded The Apache HTTP Server.
+Jun 06 13:18:26 ns1.nowdigitaleasy.com systemd[1]: Reloading The Apache HTTP Server.
+Jun 06 13:18:27 ns1.nowdigitaleasy.com systemd[1]: Reloaded The Apache HTTP Server.
+Jun 06 13:19:09 ns1.nowdigitaleasy.com systemd[1]: Reloading The Apache HTTP Server.
+Jun 06 13:19:10 ns1.nowdigitaleasy.com systemd[1]: Reloaded The Apache HTTP Server.
+Jun 07 04:10:25 ns1.nowdigitaleasy.com systemd[1]: Reloading The Apache HTTP Server.
+Jun 07 04:10:26 ns1.nowdigitaleasy.com systemd[1]: Reloaded The Apache HTTP Server.
+To check if a service unit is currently active (running) by executing the below command.
+
+$ systemctl is-active UNIT_NAME.service
+Masking and Unmasking Units
+To prevent any service unit from being started manually or by another service then you need to mask it. If you have masked any service unit, it will completely disable the service and will not start service until it is unmaksed.
+
+$ sudo systemctl mask UNIT_NAME.service
+If you try to start the masked service, you will see the following message:
+
+$ sudo systemctl start UNIT_NAME.service
+Failed to start UNIT_NAME.service: Unit UNIT_NAME.service is masked.
+To unmask a unit, run:
+
+$ sudo systemctl unmask UNIT_NAME.service
+Creating and modifying systemd unit files
+In this section, we will show you how to create and mofiy systemd unit files. There are three main directories where unit files are stored on the system.
+
+/usr/lib/systemd/system/ – systemd unit files dropped when the package has installed.
+/run/systemd/system/ – systemd unit files created at run time.
+/etc/systemd/system/ – systemd unit files created by ‘systemctl enable’ command as well as unit files added for extending a service.
+Modifying existing systemd unit file
+In this example, we will show how to modify an existing unit file. The ‘/etc/systemd/system/’ directory is reserved for unit files created or customized by the system administrator.
+
+For example, to edit ‘httpd.service’ unit file, run:
+
+$ sudo systemctl edit httpd.service
+This creates an override snippet file under ‘/etc/systemd/system/httpd.service.d/override.conf’ and opens it in your text editor. Add new parameters to the httpd.service unit file and the new parameters will be added to the existing service file when the file saved.
+
+Restart the httpd service to loads the new service configuration (Unit file must be restated if you modify the running unit file).
+
+$ sudo systemctl restart httpd
+If you want to edit the full unit file, run:
+
+$ sudo systemctl edit --full httpd.service
+This will load the current unit file into the editor. When the file is saved, systemctl will create a file at ‘/etc/systemd/system/httpd.service’.
+
+Make a note: Any unit file in /etc/systemd/system will override the corresponding file in /lib/systemd/system.
+
+To revert the changes or return to the default configuration of the unit, delete the following custom configuration files:
+
+To remove a snippet, run:
+
+$ sudo rm -r /etc/systemd/system/httpd.service.d
+To remove a full modified unit file, run:
+
+$ sudo rm /etc/systemd/system/httpd.service
+To apply changes to unit files without rebooting the system, execute: The ‘daemon-reload’ option reloads all unit files and recreates the entire dependency tree.
+
+$ sudo systemctl daemon-reload
+systemd Targets
+Targets are specialized unit files that determine the state of a Linux system. systemd uses targets to group together other units through a chain of dependencies, which serves a purpose such as runlevels.
+
+Refer the following article for cheatsheet of SysVinit vs systemd
+Each target is named instead of a number and unit files can be linked to one target and multiple targets can be active simultaneously.
+
+Listing Targets
+To view a list of the available targets on your system, run:
+
+$ systemctl list-units --type=target
+or
+$ systemctl list-unit-files --type=target
+
+UNIT                   LOAD   ACTIVE SUB    DESCRIPTION
+---------------------------------------------------------------------------
+basic.target           loaded active active Basic System
+bluetooth.target       loaded active active Bluetooth
+cryptsetup.target      loaded active active Local Encrypted Volumes
+getty.target           loaded active active Login Prompts
+graphical.target       loaded active active Graphical Interface
+local-fs-pre.target    loaded active active Local File Systems (Pre)
+local-fs.target        loaded active active Local File Systems
+multi-user.target      loaded active active Multi-User System
+network-online.target  loaded active active Network is Online
+network-pre.target     loaded active active Network (Pre)
+network.target         loaded active active Network
+nss-lookup.target      loaded active active Host and Network Name Lookups
+nss-user-lookup.target loaded active active User and Group Name Lookups
+paths.target           loaded active active Paths
+remote-fs-pre.target   loaded active active Remote File Systems (Pre)
+remote-fs.target       loaded active active Remote File Systems
+slices.target          loaded active active Slices
+sockets.target         loaded active active Sockets
+sound.target           loaded active active Sound Card
+swap.target            loaded active active Swap
+sysinit.target         loaded active active System Initialization
+time-sync.target       loaded active active System Time Synchronized
+timers.target          loaded active active Timers
+
+LOAD   = Reflects whether the unit definition was properly loaded.
+ACTIVE = The high-level unit activation state, i.e. generalization of SUB.
+SUB    = The low-level unit activation state, values depend on unit type.
+
+23 loaded units listed. Pass --all to see loaded but inactive units, too.
+To show all installed unit files use 'systemctl list-unit-files'.
+Displaying the default target
+By default, the systemd process uses the default target when booting the system. To view the default target on your system, run:
+
+$ systemctl get-default
+multi-user.target
+To set a different target as a default target, run: For instance, to set a ‘graphical.target’, run:
+
+$ sudo systemctl set-default graphical.target
+Changing the current active target
+To change the current active target immediately, run: For example, if you want to switch from the current graphical target (GUI) to the multi-user target (CLI – command line interface), run:
+
+$ sudo systemctl isolate multi-user.target
+Booting the system with Single User mode
+If your computer does not boot due to an issue, you can boot the system into rescue (single-user) mode for further troubleshooting.
+
+$ sudo systemctl rescue
+Booting the system with Emergency mode
+Similarly you can boot the system with emergency mode to repair your system. This provides a very minimal environment for the user, which can be used when the system cannot enter rescue mode.
+
+$ sudo systemctl emergency
+Power management
+systemctl also allows users to halt, shutdown and reboot a system.
+
+To halt a system, run:
+
+$ sudo systemctl halt
+To shutdown a system, run:
+
+$ sudo systemctl poweroff
+To reboot a system, run:
+
+$ sudo systemctl reboot
