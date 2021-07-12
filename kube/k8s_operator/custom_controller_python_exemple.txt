@@ -7,3 +7,83 @@ Il y aura la customisation du customcontroller et la creation de crds.
 
 un pod héberge un ou plusieurs containers 
 un service consitué d'une ip  permet d'accéder au service reseau rendu par le pod.
+
+cat service.yaml 
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  labels:
+    role: frontend
+spec:
+  selector:
+    role: frontend   <<<<< selection du label correspondant a notre pod backend 
+  type: NodePort
+  ports:
+    - port: 80
+
+
+on va lancer un pod nginx dont la valeur du label correspond au champ selector du service :
+
+cat nginx-pod.yaml 
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx
+  labels:
+    role: frontend <<<<< label qu'on retrouve dans le service 
+spec:
+  containers:
+    - name: nginx
+      image: nginx:1.7.9
+      ports:
+        - containerPort: 80
+
+kctl apply -f nginx-pod.yaml
+
+on examine les specs du svc :
+
+
+kctl describe svc frontend |grep -E '(IP|Endpoints|NodePort)' 
+Type:                     NodePort
+IP Family Policy:         SingleStack
+IP Families:              IPv4
+IP:                       10.96.86.130
+IPs:                      10.96.86.130
+NodePort:                 <unset>  32235/TCP
+Endpoints:                10.244.0.5:80
+
+on va lancer un pod et se connecter en shell dedans afin de pouvoir atteindre l'ip de service : 
+
+kubectl run -it nginxi --image=nginx /bin/sh
+If you don't see a command prompt, try pressing enter.
+curl 10.244.0.5:80
+<!DOCTYPE html>
+<html>
+<head>
+<title>Welcome to nginx!</title>
+<style>
+    body {
+        width: 35em;
+        margin: 0 auto;
+        font-family: Tahoma, Verdana, Arial, sans-serif;
+    }
+</style>
+</head>
+<body>
+<h1>Welcome to nginx!</h1>
+<p>If you see this page, the nginx web server is successfully installed and
+working. Further configuration is required.</p>
+
+<p>For online documentation and support please refer to
+<a href="http://nginx.org/">nginx.org</a>.<br/>
+Commercial support is available at
+<a href="http://nginx.com/">nginx.com</a>.</p>
+
+<p><em>Thank you for using nginx.</em></p>
+</body>
+</html>
+
+
+
